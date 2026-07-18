@@ -4792,6 +4792,87 @@ window.reloadDirectory = async function(type) {
     });
 }
 
+// ── FUENTE ÚNICA DE NEGOCIOS PARA LOS DIRECTORIOS ────────────────────────────
+// Las identidades de negocio (tienda/complejo/organización) viven en business_requests,
+// NO en users: una cuenta tiene UNA fila en users y puede tener VARIOS negocios.
+// Los directorios leían users.role y por eso (a) no aparecía ningún complejo ni
+// organización registrada, y (b) salía un negocio FANTASMA — la fila users de la
+// cuenta, con el nombre y la foto del rol JUGADOR.
+window._dirBizList = async function(roles, q, f) {
+    const sb = window._sb;
+    if (!sb) return [];
+    f = f || {};
+    const norm = v => (v || '').toString().toLowerCase().trim();
+    const out = [];
+    const conNegocio = new Set();   // emails que tienen identidades en business_requests
+
+    // Todos los emails con algún negocio (para descartar las filas fantasma de users)
+    try {
+        const { data: todos } = await sb.from('business_requests').select('email').limit(500);
+        (todos || []).forEach(b => conNegocio.add(norm(b.email)));
+    } catch(e){}
+
+    // 1) business_requests = la fuente real
+    try {
+        const { data: brs } = await sb.from('business_requests')
+            .select('id,email,name,role,payload,status').in('role', roles).limit(200);
+        (brs || []).forEach(b => {
+            const st = String(b.status || '').toUpperCase();
+            // Solo los aprobados/activos (pendientes y rechazados no van al directorio)
+            if (st && st.indexOf('APROB') === -1 && st.indexOf('ACTIV') === -1) return;
+            let pl = b.payload || {};
+            try { if (typeof pl === 'string') pl = JSON.parse(pl); } catch(e){ pl = {}; }
+            const item = { email: b.email, name: b.name, photo: pl.photo || pl.logo || '',
+                           city: pl.city || '', nat: pl.country || '', bio: pl.bio || '',
+                           role: b.role, _bizId: String(b.id) };
+            if (q && norm(item.name).indexOf(norm(q)) === -1) return;
+            if (f.country && norm(item.nat).indexOf(norm(f.country)) === -1) return;
+            if (f.city && norm(item.city).indexOf(norm(f.city)) === -1) return;
+            out.push(item);
+        });
+    } catch(e){ console.warn('_dirBizList business_requests:', e); }
+
+    // 2) users legacy con ese rol — solo si ese email NO tiene negocios en
+    //    business_requests (si los tiene, su fila de users es la cuenta base, no un negocio)
+    try {
+        const { data: us } = await sb.from('users').select('*').in('role', roles).limit(200);
+        (us || []).forEach(u => {
+            const em = norm(u.email);
+            if (!em || conNegocio.has(em)) return;   // descarta el fantasma
+            if (q && norm(u.name).indexOf(norm(q)) === -1) return;
+            if (f.country && ![u.country,u.nat,u.nationality].some(c => norm(c).indexOf(norm(f.country)) !== -1)) return;
+            if (f.city && ![u.city,u.department,u.ciudad].some(c => norm(c).indexOf(norm(f.city)) !== -1)) return;
+            out.push({ email: u.email, name: u.name, photo: u.photo || '', city: u.city || u.department || '',
+                       nat: u.nat || u.country || '', bio: u.bio || '', role: u.role, _bizId: null });
+        });
+    } catch(e){ console.warn('_dirBizList users:', e); }
+
+    return out;
+};
+
+// Fila de un negocio en el directorio (misma pinta para los tres rubros).
+window._dirBizRow = function(o, iconoDefault) {
+    const name = o.name || 'Negocio';
+    const init = (name[0] || 'N').toUpperCase();
+    const loc = [o.city, o.nat].filter(Boolean).join(', ') || 'Uruguay';
+    const emailSafe = (o.email || '').replace(/'/g, "\\'");
+    const hasPhoto = o.photo && !String(o.photo).includes('ui-avatars');
+    // bizId: abre la identidad CORRECTA del negocio (no la cuenta base del email)
+    const openCall = o._bizId
+        ? `window.viewUserProfile('${emailSafe}', true, { bizId: '${o._bizId}' })`
+        : `window.viewUserProfile('${emailSafe}')`;
+    const ROL_LABEL = { tienda:'Tienda', complejo:'Complejo', club:'Complejo', organizacion:'Organización', liga:'Liga', escuela:'Escuela' };
+    return `<div onclick="${openCall}" style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid #151515;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#111'" onmouseout="this.style.background='transparent'">
+        <div style="width:46px;height:46px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:var(--accent);${hasPhoto?`background:#111 center/cover url('${window.escH(o.photo)}');`:'background:rgba(186,255,0,0.15);'}">${hasPhoto?'':init}</div>
+        <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${window.escH(name)}</div>
+            <div style="font-size:11px;color:var(--accent);font-weight:700;">${ROL_LABEL[o.role] || 'Negocio'}</div>
+            <div style="font-size:10px;color:#555;">${window.escH(loc)}</div>
+        </div>
+        <i class='bx bx-chevron-right' style="color:#333;font-size:18px;"></i>
+    </div>`;
+};
+
 // Genera solo el HTML de resultados (sin header ni search bar)
 async function _generateDirResults(type, query, filters) {
     const sb = window._sb;
@@ -4868,43 +4949,34 @@ async function _generateDirResults(type, query, filters) {
                 </div>`;
             }).join('')}</div>`;
         } else if (type === 'organizaciones') {
-            let dbq = sb.from('users').select('*').eq('role','organizacion').limit(200);
-            if (q) dbq = dbq.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
-            let { data } = await dbq;
-            const normO = v => (v||'').toString().toLowerCase().trim();
-            if (f.country) { const fc = normO(f.country); data = (data||[]).filter(o => [o.country,o.nat,o.nationality,o.pais].some(c => normO(c).includes(fc))); }
-            if (f.city) { const fc = normO(f.city); data = (data||[]).filter(o => [o.city,o.department,o.ciudad,o.departamento,o.region].some(c => normO(c).includes(fc))); }
-            if (!data || !data.length) return emptyDirectoryHTML('bx-buildings', 'SIN ORGANIZACIONES', 'No se encontraron organizaciones con esos filtros.');
-            return `<div style="display:flex;flex-direction:column;gap:0;">${data.map(o => {
-                const emailEsc = (o.email||'').replace(/'/g,"\\'");
-                const name = o.name || 'Organización';
-                const init = (name[0]||'O').toUpperCase();
-                const loc = [o.city, o.nat].filter(Boolean).join(', ') || 'Uruguay';
-                const hasPhoto = o.photo && !o.photo.includes('ui-avatars');
-                return `<div onclick="window.viewUserProfile('${emailEsc}')" style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid #151515;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#111'" onmouseout="this.style.background='transparent'">
-                    <div style="width:46px;height:46px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:var(--accent);background:${hasPhoto?`#000 center/cover url('${o.photo}')`:'rgba(186,255,0,0.12)'};">${hasPhoto?'':init}</div>
-                    <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;">${name}</div><div style="font-size:11px;color:#555;">${loc}</div></div>
-                    <i class='bx bx-chevron-right' style="color:#333;font-size:18px;"></i>
-                </div>`;
-            }).join('')}</div>`;
+            // Fuente única: business_requests (donde viven de verdad) + users legacy.
+            const orgs = await window._dirBizList(['organizacion','liga','escuela'], q, f);
+            if (!orgs.length) return emptyDirectoryHTML('bx-buildings', 'SIN ORGANIZACIONES', 'No se encontraron organizaciones con esos filtros.');
+            return `<div style="display:flex;flex-direction:column;gap:0;">${orgs.map(o => window._dirBizRow(o)).join('')}</div>`;
         } else if (type === 'complejos') {
-            let dbq = sb.from('complexes').select('*').limit(200);
-            if (q) dbq = dbq.or(`name.ilike.%${q}%,city.ilike.%${q}%,department.ilike.%${q}%`);
-            let { data } = await dbq;
+            // Los complejos pueden venir de DOS lados: la tabla complexes (canchas cargadas)
+            // y business_requests (identidad de negocio creada desde el switcher). Antes solo
+            // se leía complexes y los complejos registrados no aparecían.
+            let data = [];
+            try {
+                let dbq = sb.from('complexes').select('*').limit(200);
+                if (q) dbq = dbq.or(`name.ilike.%${q}%,city.ilike.%${q}%,department.ilike.%${q}%`);
+                const r = await dbq; data = r.data || [];
+            } catch(e){}
             const normX = v => (v||'').toString().toLowerCase().trim();
-            // complexes puede no tener columna country: si el usuario filtra por un país
-            // y el registro no lo declara, NO debe aparecer (evita traer UY al pedir AR).
-            if (f.country) { const fc = normX(f.country); data = (data||[]).filter(c => { const cc = normX(c.country||c.nat||c.pais||'uruguay'); return cc.includes(fc) || fc.includes(cc); }); }
-            if (f.city) { const fc = normX(f.city); data = (data||[]).filter(c => [c.city,c.department,c.ciudad,c.departamento,c.region].some(v => normX(v).includes(fc))); }
-            if (!data || !data.length) return emptyDirectoryHTML('bx-buildings', 'SIN RESULTADOS', 'No se encontraron complejos con esos filtros.');
-            return `<div style="display:flex;flex-direction:column;gap:0;">${data.map(c => {
+            if (f.country) { const fc = normX(f.country); data = data.filter(c => { const cc = normX(c.country||c.nat||c.pais||'uruguay'); return cc.includes(fc) || fc.includes(cc); }); }
+            if (f.city) { const fc = normX(f.city); data = data.filter(c => [c.city,c.department,c.ciudad,c.departamento,c.region].some(v => normX(v).includes(fc))); }
+            const bizComplejos = await window._dirBizList(['complejo','club'], q, f);
+            if (!data.length && !bizComplejos.length) return emptyDirectoryHTML('bx-buildings', 'SIN RESULTADOS', 'No se encontraron complejos con esos filtros.');
+            const filasComplexes = data.map(c => {
                 const city = c.city || c.department || '';
                 return `<div onclick="window.viewComplexProfile('${c.id}')" style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid #151515;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#111'" onmouseout="this.style.background='transparent'">
                     <div style="width:46px;height:46px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:rgba(186,255,0,0.1);"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--accent)" stroke-width="1.7"><rect x="2.5" y="4.5" width="19" height="15" rx="1.5"/><line x1="12" y1="4.5" x2="12" y2="19.5"/><circle cx="12" cy="12" r="2.6"/><rect x="2.5" y="8.5" width="3" height="7"/><rect x="18.5" y="8.5" width="3" height="7"/></svg></div>
-                    <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;">${c.name||'Complejo'}</div><div style="font-size:11px;color:#555;">${city}${c.piso ? ' · '+c.piso : ''}</div></div>
+                    <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;">${window.escH(c.name||'Complejo')}</div><div style="font-size:11px;color:#555;">${window.escH(city)}${c.piso ? ' · '+window.escH(c.piso) : ''}</div></div>
                     <i class='bx bx-chevron-right' style="color:#333;font-size:18px;"></i>
                 </div>`;
-            }).join('')}</div>`;
+            }).join('');
+            return `<div style="display:flex;flex-direction:column;gap:0;">${filasComplexes}${bizComplejos.map(o => window._dirBizRow(o)).join('')}</div>`;
         }
     } catch(e) { return emptyDirectoryHTML('bx-error', 'ERROR', e.message); }
     return '';
@@ -13772,9 +13844,12 @@ window.updateClubTacticBoard = function() {
     let roster = JSON.parse(localStorage.getItem('canchero_club_roster') || '[]');
     roster = Array.isArray(roster) ? roster.slice() : [];
 
-    // Si roster vacío, usar al usuario actual como placeholder
-    if (!roster.length && userData && userData.email) {
-        roster = [{ name: userData.name || 'Yo', pos: userData.position || 'JUG', email: userData.email, isMe: true }];
+    // Sin plantel, la cancha queda VACÍA. Antes se metía al usuario actual como
+    // placeholder: con la identidad de EQUIPO activa, userData.name es el nombre del
+    // club, así que el equipo aparecía en la cancha como si fuera un jugador.
+    // Un club sin jugadores queda sin jugadores hasta que se sumen.
+    if (!roster.length) {
+        // nada que hacer: roster vacío
     } else if (userData && userData.email) {
         const meInRoster = roster.find(p => p.email && p.email === userData.email);
         if (meInRoster) { meInRoster.isMe = true; if (!meInRoster.photo && userData.photo) meInRoster.photo = userData.photo; if (!meInRoster.pos && userData.pos) meInRoster.pos = userData.pos; }
@@ -19455,6 +19530,17 @@ window.loadSectionTab = async function(section, searchQuery) {
         let { data, error } = await q;
         if (error) throw error;
         data = data || [];
+
+        // NEGOCIO FANTASMA: una cuenta tiene UNA fila en users. Si esa fila quedó con un
+        // rol de negocio (p.ej. users.role='tienda') aparecía en el directorio como una
+        // tienda inexistente, con el NOMBRE y la FOTO del rol jugador, y al abrirla
+        // mostraba otro negocio. Si el email tiene identidades en business_requests, esas
+        // son las reales y la fila de users no representa ningún negocio.
+        try {
+            const { data: _conBiz } = await sb.from('business_requests').select('email').limit(500);
+            const _emailsBiz = new Set((_conBiz || []).map(b => (b.email || '').toLowerCase()));
+            if (_emailsBiz.size) data = data.filter(u => !_emailsBiz.has((u.email || '').toLowerCase()));
+        } catch(e){ console.warn('filtro fantasma:', e); }
 
         // Multi-identidad: los negocios creados desde el switcher viven en business_requests
         // (users.role del email puede seguir siendo 'jugador') → sin este bloque, esas

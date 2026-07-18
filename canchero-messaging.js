@@ -105,6 +105,51 @@ window.CancheroMessaging = (function() {
     window._msgTagMatch = _tagMatch;
     window._msgTagOf = _msgTag;
 
+    // DIAGNÓSTICO: muestra qué bandeja calcula la app y con qué etiqueta quedó cada
+    // mensaje. Sirve para ver por qué un chat aparece (o no) en una identidad.
+    // Se abre escribiendo  _diagChats()  en la consola, o desde ?diagchats=1
+    window._diagChats = async function() {
+        const me = getUser() || {};
+        const box = _chatTag();
+        let filas = [];
+        try {
+            const [{ data: s }, { data: r }] = await Promise.all([
+                getSb().from('messages').select('*').eq('sender_email', me.email).order('created_at',{ascending:false}).limit(60),
+                getSb().from('messages').select('*').eq('recipient_email', me.email).order('created_at',{ascending:false}).limit(60)
+            ]);
+            filas = [...(s||[]), ...(r||[])];
+        } catch(e){}
+        const info = filas.map(m => {
+            const mio = m.sender_email === me.email;
+            const tag = _msgTag(m, mio);
+            return { con: mio ? m.recipient_email : m.sender_email, yoSoy: mio ? 'emisor' : 'receptor',
+                     sello: mio ? (m.sender_profile||'(vacío)') : (m.recipient_profile||'(vacío)'),
+                     etiqueta: tag, entra: _tagMatch(tag, box) };
+        });
+        const negocios = (window._myBusinesses||[]).map(b => b.role + ':' + b.id + ' (' + b.name + ')');
+        const resumen = {
+            bandejaActual: box,
+            activeProfile: localStorage.getItem('canchero_active_profile'),
+            primaryRole: (window._primaryRole && window._primaryRole()) || '?',
+            baseStoredRole: (window._baseStoredRole && window._baseStoredRole()) || '?',
+            negocios: negocios,
+            negocioPrimario: _primaryBizTag(),
+            totalMensajes: filas.length,
+            entranEnEstaBandeja: info.filter(x => x.entra).length
+        };
+        const ex = document.getElementById('diag-chats'); if (ex) ex.remove();
+        const d = document.createElement('div');
+        d.id = 'diag-chats';
+        d.style.cssText = 'position:fixed;inset:0;z-index:200000;background:rgba(0,0,0,0.95);overflow-y:auto;padding:20px;font-family:monospace;font-size:12px;color:#0f0;';
+        d.innerHTML = '<button onclick="this.parentNode.remove()" style="position:sticky;top:0;background:#baff00;color:#000;border:none;border-radius:8px;padding:8px 16px;font-weight:900;cursor:pointer;margin-bottom:12px;">CERRAR</button>'
+            + '<pre style="white-space:pre-wrap;word-break:break-all;">' + JSON.stringify(resumen, null, 2)
+            + '\n\n--- MENSAJES ---\n' + JSON.stringify(info, null, 2) + '</pre>';
+        document.body.appendChild(d);
+        console.log('[DIAG CHATS]', resumen, info);
+        return resumen;
+    };
+    try { if (/[?&]diagchats=1/.test(location.search)) setTimeout(() => window._diagChats(), 2500); } catch(e){}
+
     // Al CAMBIAR de identidad hay que tirar el cache y repintar: si no, la bandeja
     // y el badge seguían mostrando los del rol anterior ("me abre los chats como si
     // fuese de otro"). Lo llama _switchToProfile / _switchToTeam en script.js.
