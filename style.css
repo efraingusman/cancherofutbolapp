@@ -540,6 +540,21 @@ select.fs-input option {
     margin-bottom: -2px;
 }
 
+/* Linea de roles del boton NEGOCIO: los tres en UNA sola linea, en tono opaco.
+   Clase propia (no fs-btn-subtitle) porque esa la pisan dos media queries con
+   font-size:11px !important y rompian el renglon unico. */
+.btn-fs-action .fs-btn-roles {
+    font-size: clamp(8px, 2.4vw, 10px);
+    line-height: 1.2;
+    color: #fff;
+    opacity: .55;
+    font-weight: 500;
+    letter-spacing: .3px;
+    text-transform: none;
+    white-space: nowrap;
+    margin-top: 3px;
+}
+
 .btn-fs-action .fs-btn-title {
     font-family: var(--font-display);
     font-size: 26px;
@@ -5831,6 +5846,22 @@ input, select, textarea { max-width: 100%; }
   }
   #reels-modal #reels-scroll { display: flex; flex-direction: column; align-items: center; }
   #reels-modal [data-reel-card] video { border-radius: 14px; }
+
+  /* Reels DEL FEED en PC: viven en #feed-reels-scroll (fuera de #reels-modal), asi que
+     la regla de arriba no los agarraba → se veian ENORMES en monitor horizontal, porque
+     la tarjeta tomaba todo el ancho y ademas media 100vh dentro de un scroller mas bajo.
+     Se los limita a la misma columna vertical y se ata el alto al del scroller. */
+  #feed-reels-scroll { display: flex; flex-direction: column; align-items: center; }
+  #feed-reels-scroll [data-reel-card] {
+    height: 100% !important;
+    min-height: 0 !important;
+    width: min(440px, calc((100vh - 230px) * 0.5625)) !important;
+    max-width: 96vw;
+    flex: 0 0 100%;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+  #feed-reels-scroll [data-reel-card] video { border-radius: 14px; }
 }
 
 /* Lightbox */

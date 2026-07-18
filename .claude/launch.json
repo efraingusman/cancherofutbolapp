@@ -1,1 +1,11 @@
-{ "version":"0.0.1","configurations":[{"name":"canchero-local","runtimeExecutable":"python","runtimeArgs":["-m","http.server","4321"],"port":4321},{"name":"canchero-local2","runtimeExecutable":"python","runtimeArgs":["-m","http.server","4322"],"port":4322}] }
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "canchero",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "4173"],
+      "port": 4173
+    }
+  ]
+}

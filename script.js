@@ -374,15 +374,58 @@ window.handleGoogleAuth = async function() {
     } catch(e) {
         const msg = e.message || '';
         if (msg.toLowerCase().includes('provider is not enabled') || msg.toLowerCase().includes('unsupported provider')) {
-            showToast('Google login no está activado en Supabase. Mientras tanto, usá email/contraseña.', 'warning');
+            showToast('Google login no está activado en Supabase. Activalo en Authentication → Providers.', 'warning');
         } else {
-            showToast('Error con Google: ' + (msg || 'Intentá con email/contraseña.'), 'error');
+            showToast('Error con Google: ' + (msg || 'Intentá de nuevo.'), 'error');
         }
     }
 };
 
+// ── Rol elegido en el HOME al tocar "ENTRAR" ──────────────────────────────
+// La app abria SIEMPRE como Organizacion aunque el usuario se hubiera registrado
+// como jugador. Ahora manda la eleccion del home; si no hay eleccion, manda el rol
+// primario (el primero que se creo), y recien despues el fallback de negocio.
+window._setLoginIntent = function(role){
+    try { if (role) sessionStorage.setItem('canchero_login_intent', role); } catch(e){}
+};
+window._getLoginIntent = function(){
+    try { return sessionStorage.getItem('canchero_login_intent') || ''; } catch(e){ return ''; }
+};
+window._clearLoginIntent = function(){
+    try { sessionStorage.removeItem('canchero_login_intent'); } catch(e){}
+};
+// Rol PRIMARIO = el primero con el que la cuenta existio. Se sella una sola vez.
+window._primaryRole = function(){
+    try {
+        var p = localStorage.getItem('canchero_primary_role');
+        if (p) return p;
+        var base = window._baseStoredRole ? window._baseStoredRole() : '';
+        if (base) { localStorage.setItem('canchero_primary_role', base); return base; }
+    } catch(e){}
+    return '';
+};
+
 // Navegación post-login centralizada: negocios activos → CRM, resto → jugador/admin
 window._navAfterLogin = function(role, email) {
+    // Si el usuario eligio un rol en el home, esa eleccion gana sobre users.role.
+    try {
+        var _intent = window._getLoginIntent();
+        if (_intent) {
+            if (_intent === 'jugador' || _intent === 'fanatico') {
+                localStorage.setItem('canchero_active_profile', _intent);
+                localStorage.removeItem('canchero_active_team');
+                if (window.userData) { window.userData._activeProfile = _intent; window.userData._postAsClub = false; window.userData._activeClubId = null; }
+                role = _intent;
+            } else if (window._BIZ_ROLES && window._BIZ_ROLES.indexOf(_intent) !== -1) {
+                // Negocio: si ya existe uno de ese rol, activarlo; sino queda 'negocio'.
+                var _mine = (window._myBusinesses || []).filter(function(b){ return b.role === _intent; })[0];
+                localStorage.setItem('canchero_active_profile', _mine ? ('biz:' + _mine.id) : 'negocio');
+                role = _intent;
+            }
+            window._clearLoginIntent();
+        }
+    } catch(e){}
+    try { window._primaryRole(); } catch(e){}
     const _paidRoles = ['club','profesional','organizacion','tienda','sponsor'];
     const u = window.userData || {};
     const _esNegocio = _paidRoles.includes(role) && email !== 'neurovidstudioia@gmail.com';
@@ -658,6 +701,13 @@ window._activeProfileType = function(){
     const u = window.userData || {};
     const stored = localStorage.getItem('canchero_active_profile');
     if (stored) return stored;
+    // Sin identidad guardada manda el rol PRIMARIO (con el que se registro la cuenta).
+    // Antes se saltaba directo a 'negocio' y por eso una cuenta registrada como jugador
+    // abria siempre como Organizacion.
+    try {
+        var prim = window._primaryRole && window._primaryRole();
+        if (prim && window._BIZ_ROLES && window._BIZ_ROLES.indexOf(prim) === -1) return window._baseTypeOf(prim);
+    } catch(e){}
     // Cuenta legacy cuyo rol BASE es un negocio: su identidad por defecto es 'negocio'.
     // (Cuentas jugador con negocios agregados arrancan como 'jugador'.)
     if (window._BIZ_ROLES && window._BIZ_ROLES.indexOf(window._baseStoredRole()) !== -1) return 'negocio';
@@ -1442,9 +1492,34 @@ window._doDeleteIdentity = async function(kind, bizId){
     var sheet = document.getElementById('profile-switcher-sheet'); if (sheet) { sheet.remove(); if (window._openProfileSwitcher) window._openProfileSwitcher(); }
 };
 // Píldora centrada en el header (estilo Instagram)
+// ¿Hay que ocultar el switcher de identidad? Sin sesion, o en home/login/registro.
+// (Antes solo se hacia `return` y la pildora quedaba visible en el home deslogueado.)
+window._shouldHideSwitcher = function(){
+    if (!window.userData || !window.userData.email) return true;
+    var PUBLIC = ['home', 'login', 'register', ''];
+    try {
+        // Vista visible real (.view-section con display:block). Es la fuente confiable:
+        // el hash puede quedar viejo tras un deep-link.
+        var secs = document.querySelectorAll('.view-section');
+        for (var i = 0; i < secs.length; i++) {
+            if (secs[i].style.display === 'block') {
+                var id = (secs[i].id || '').replace(/^view-/, '');
+                return PUBLIC.indexOf(id) !== -1;
+            }
+        }
+        var h = (window.location.hash || '').replace(/^#/, '');
+        if (PUBLIC.indexOf(h) !== -1) return true;
+    } catch(e){}
+    return false;
+};
 window._renderProfileSwitcher = function(){
     const nav = document.getElementById('main-nav');
-    if (!nav || !window.userData || !window.userData.email) return;
+    if (!nav) return;
+    if (window._shouldHideSwitcher()) {
+        var _p = document.getElementById('profile-switcher-pill');
+        if (_p) _p.style.display = 'none';
+        return;
+    }
     let pill = document.getElementById('profile-switcher-pill');
     const active = window._activeProfileType();
     let label, icon;
@@ -2256,7 +2331,9 @@ window.heroEntrar = async function(tipo) {
 };
 
 // Modal de login directo (email/pass + Google) — más compacto que el de roles
-function _showLoginModal() {
+function _showLoginModal(intentRole) {
+    // Rol elegido en el home: se respeta despues del login (ver _navAfterLogin).
+    try { if (intentRole && window._setLoginIntent) window._setLoginIntent(intentRole); } catch(e){}
     const existing = document.getElementById('quick-login-modal');
     if (existing) existing.remove();
     const modal = document.createElement('div');
@@ -2277,19 +2354,12 @@ function _showLoginModal() {
                 <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.83l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
                 Continuar con Google
             </button>
-            <!-- Divider -->
-            <div style="display:flex;align-items:center;gap:10px;color:#333;font-size:11px;"><div style="flex:1;height:1px;background:#222;"></div>o con correo<div style="flex:1;height:1px;background:#222;"></div></div>
-            <!-- Email -->
-            <input id="qlm-email" type="email" placeholder="Correo electrónico" style="background:#1a1a1a;border:1px solid #2a2a2a;color:#fff;padding:12px 14px;border-radius:12px;font-size:14px;outline:none;width:100%;box-sizing:border-box;" onfocus="this.style.borderColor='#baff00'" onblur="this.style.borderColor='#2a2a2a'">
-            <input id="qlm-pass" type="password" placeholder="Contraseña" style="background:#1a1a1a;border:1px solid #2a2a2a;color:#fff;padding:12px 14px;border-radius:12px;font-size:14px;outline:none;width:100%;box-sizing:border-box;" onfocus="this.style.borderColor='#baff00'" onblur="this.style.borderColor='#2a2a2a'" onkeydown="if(event.key==='Enter')_doQuickLogin()">
-            <button onclick="_doQuickLogin()" style="background:var(--accent);color:#000;border:none;border-radius:12px;padding:13px;font-weight:900;font-size:14px;cursor:pointer;letter-spacing:.5px;width:100%;transition:.15s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">ENTRAR</button>
             <div id="qlm-error" style="display:none;text-align:center;color:#ff6b6b;font-size:12px;padding:4px 0;"></div>
-            <div style="text-align:center;font-size:12px;color:#555;margin-top:4px;">¿No tenés cuenta? <a onclick="document.getElementById('quick-login-modal').remove();navigate('register')" style="color:var(--accent);cursor:pointer;font-weight:700;">Registrarte gratis</a></div>
+            <div style="text-align:center;font-size:12px;color:#555;margin-top:4px;">Si es tu primera vez, la cuenta se crea sola. Gratis.</div>
         </div>
     </div>`;
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
     document.body.appendChild(modal);
-    setTimeout(() => { const el = document.getElementById('qlm-email'); if (el) el.focus(); }, 100);
 }
 window._showLoginModal = _showLoginModal;
 
@@ -2308,61 +2378,7 @@ window._resendConfirmation = async function(email, silent) {
         if (!silent && typeof showToast === 'function') showToast('Te reenviamos el email de confirmación a ' + email + '. Revisá tu casilla y spam.', 'info', 4000);
     } catch(e) { if (!silent && typeof showToast === 'function') showToast('No se pudo reenviar: ' + (e.message||''), 'error'); }
 };
-window._doQuickLogin = async function() {
-    const email = (document.getElementById('qlm-email')?.value || '').trim().toLowerCase();
-    const pass = document.getElementById('qlm-pass')?.value || '';
-    const errEl = document.getElementById('qlm-error');
-    if (!email || !pass) { if (errEl) { errEl.textContent = 'Completá email y contraseña.'; errEl.style.display = 'block'; } return; }
-    const btn = document.querySelector('#quick-login-modal button[onclick="_doQuickLogin()"]');
-    if (btn) { btn.textContent = 'Verificando...'; btn.disabled = true; }
-    const sb = _sb || window._sb;
-    if (!sb) { if (errEl) { errEl.textContent = 'Sin conexión.'; errEl.style.display = 'block'; } return; }
-    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
-    if (error) {
-        // Distinguir "email sin confirmar" de "contraseña mal" — antes TODO decía
-        // "contraseña incorrectos" y el usuario (con la contraseña correcta) quedaba
-        // trabado sin saber que faltaba confirmar el email.
-        if (window._isEmailNotConfirmed && window._isEmailNotConfirmed(error)) {
-            if (errEl) { errEl.innerHTML = 'Falta confirmar tu email. Te reenviamos el link a <b>' + email + '</b> (revisá spam). <a href="#" onclick="window._resendConfirmation(\'' + email.replace(/'/g,'') + '\');return false;" style="color:var(--accent);font-weight:800;">Reenviar</a>'; errEl.style.display = 'block'; }
-            try { window._resendConfirmation && window._resendConfirmation(email, true); } catch(e){}
-        } else {
-            if (errEl) { errEl.textContent = 'Email o contraseña incorrectos.'; errEl.style.display = 'block'; }
-        }
-        if (btn) { btn.textContent = 'ENTRAR'; btn.disabled = false; }
-        return;
-    }
-    // Buscar usuario en tabla — usar _sbAdmin para bypassar RLS
-    const sbq = sb;
-    let { data: u } = await sbq.from('users').select('*').eq('email', email).maybeSingle();
-    if (!u) {
-        // No hay perfil → crear uno mínimo desde los datos de la sesión auth
-        const authMeta = data?.user?.user_metadata || {};
-        const newProfile = {
-            email: email.toLowerCase(),
-            name: authMeta.name || authMeta.full_name || email.split('@')[0],
-            role: authMeta.role || 'jugador'
-        };
-        const { data: created } = await sbq.from('users').upsert(newProfile, { onConflict: 'email' }).select().maybeSingle();
-        u = created || newProfile;
-    }
-    if (u) {
-        // Normalizar snake_case → camelCase que usa la UI (sino la portada/foto
-        // aparecían vacías tras reloguear aunque seguían en la DB)
-        if (u.cover_photo && !u.coverPhoto) u.coverPhoto = u.cover_photo;
-        if (u.cover_style && !u.coverStyle) u.coverStyle = u.cover_style;
-        if (u.photo_style && !u.photoStyle) u.photoStyle = u.photo_style;
-        window.userData = u;
-        try { localStorage.setItem('canchero_user', JSON.stringify(u)); } catch(e) {}
-        document.getElementById('quick-login-modal')?.remove();
-        if (typeof applyUserData === 'function') applyUserData();
-        window._navAfterLogin(u.role || 'jugador', u.email);
-        // Evaluar logros al login
-        setTimeout(function() { if (typeof window._triggerAchievementsEval === 'function') window._triggerAchievementsEval(); }, 2000);
-    } else {
-        if (errEl) { errEl.textContent = 'Error al cargar perfil. Intentá de nuevo.'; errEl.style.display = 'block'; }
-        if (btn) { btn.textContent = 'ENTRAR'; btn.disabled = false; }
-    }
-};
+// _doQuickLogin (login por email+contrasena) eliminado: el ingreso es SOLO con Google.
 
 // Hero "NEGOCIO" button — shows only business roles
 window.openNegocioModal = function() {
@@ -2388,7 +2404,7 @@ window.openNegocioModal = function() {
             </div>
             <div style="padding:16px 24px 24px;display:flex;flex-direction:column;gap:10px;">
                 ${BIZ_ROLES.map(r => `
-                <button onclick="document.getElementById('negocio-modal').remove();_showLoginModal()" style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.03);border:1px solid #1e201e;border-radius:14px;padding:14px 18px;cursor:pointer;color:#fff;text-align:left;width:100%;transition:.15s;" onmouseover="this.style.background='rgba(186,255,0,0.07)';this.style.borderColor='rgba(186,255,0,0.25)';" onmouseout="this.style.background='rgba(255,255,255,0.03)';this.style.borderColor='#1e201e';">
+                <button onclick="document.getElementById('negocio-modal').remove();_showLoginModal('${r.id}')" style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.03);border:1px solid #1e201e;border-radius:14px;padding:14px 18px;cursor:pointer;color:#fff;text-align:left;width:100%;transition:.15s;" onmouseover="this.style.background='rgba(186,255,0,0.07)';this.style.borderColor='rgba(186,255,0,0.25)';" onmouseout="this.style.background='rgba(255,255,255,0.03)';this.style.borderColor='#1e201e';">
                     <div style="width:42px;height:42px;background:rgba(186,255,0,0.1);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                         <i class='bx ${r.icon}' style="font-size:20px;color:#baff00;"></i>
                     </div>
@@ -4485,7 +4501,7 @@ function doFinalRegister() {
                     document.querySelectorAll('[id$="-modal"]').forEach(m => {
                         if (m.id !== 'quick-login-modal') m.remove();
                     });
-                    if (typeof _showQuickLoginModal === 'function') _showQuickLoginModal();
+                    if (typeof window._showLoginModal === 'function') window._showLoginModal();
                     else if (typeof window.openLoginModal === 'function') window.openLoginModal();
                 }, 800);
                 return;
