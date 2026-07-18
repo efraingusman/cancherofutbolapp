@@ -336,11 +336,15 @@ window._momPublishStory = async function(){
     }
   }catch(e){ if(btn){btn.disabled=false;btn.innerHTML='Compartir';} toast('Error al subir','error'); return; }
   try{
-    const r=await sb().from('momentos').insert({
-      user_email:me().email, user_name:me().name||me().email, url, media_type:E.mediaType,
+    // Autor = identidad ACTIVA (no el jugador base). Ver _momAuthorFields en canchero-momentos.js.
+    const _author = window._momAuthorFields ? window._momAuthorFields()
+                                            : { user_email:me().email, user_name:me().name||me().email };
+    const _ins = window._momInsert || (f => sb().from('momentos').insert(f));
+    const r=await _ins(Object.assign(_author, {
+      url, media_type:E.mediaType,
       title:caption, category:E.category||'Mi Día', is_story:true, filter:E.mediaType==='video'?E.filter:null,
       likes_count:0, created_at:new Date().toISOString(), expires_at:new Date(Date.now()+12*3600000).toISOString()
-    });
+    }));
     if(r&&r.error)throw r.error;
   }catch(e){ if(btn){btn.disabled=false;btn.innerHTML='Compartir';} toast('No se pudo publicar','error'); return; }
   window._closeMomEditor();

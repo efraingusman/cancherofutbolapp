@@ -19,6 +19,44 @@ new MutationObserver(muts => { muts.forEach(m => m.removedNodes.forEach(n => { i
 const me = () => window.userData;
 function toast(m,t){ if(window.showToast) showToast(m,t); }
 
+/* ── AUTOR DEL MOMENTO: LA IDENTIDAD ACTIVA ──────────────────────
+   Antes se sellaba me().name / me().photo, o sea el JUGADOR base: un momento
+   publicado como organización salía con el nombre y la foto del jugador.
+   window.userData no sirve como fuente — con el overlay de identidad queda como
+   shell 'jugador' hasta que resuelve _loadMyBusinesses (async). La fuente única
+   es _pubAvatar() / _pubRole() / _pubBizId().                                   */
+window._momAuthorFields = function(){
+    const u = window.userData || {};
+    let av = null;
+    try { av = window._pubAvatar && window._pubAvatar(); } catch(e){}
+    const f = {
+        user_email: u.email,
+        user_name: (av && av.name) || u.name || u.email
+    };
+    // Estas dos pueden no existir todavía en el esquema (migración pendiente).
+    // _momInsert las saca sola si el server las rechaza.
+    if (av && av.photo) f.user_photo = av.photo;
+    if (av && av.photo_style) f.user_photo_style = av.photo_style;
+    return f;
+};
+
+/* Insert tolerante al esquema: si una columna no existe todavía, la saca y
+   reintenta en vez de perder el momento entero con un 400 silencioso.          */
+window._momInsert = async function(fields){
+    let payload = Object.assign({}, fields);
+    for (let i = 0; i < 6; i++) {
+        const r = await sb().from('momentos').insert(payload);
+        if (!r || !r.error) return r;
+        const m = /column "?([a-z_]+)"?/i.exec(r.error.message || '');
+        if (m && Object.prototype.hasOwnProperty.call(payload, m[1])) {
+            delete payload[m[1]];
+            continue;
+        }
+        return r;
+    }
+    return { error: { message: 'demasiados reintentos' } };
+};
+
 /* ── CATEGORÍAS ─────────────────────────────────────────────── */
 /* Categorías pensadas en los usos reales del futbolero:
    Momento (algo random de tu día) · Viendo el partido · Jugando · Goles ·
@@ -639,9 +677,7 @@ window._momPublish = async function(){
     toast('Error al subir el archivo','error'); return;
   }
   try {
-    const r = await sb().from('momentos').insert({
-      user_email: me().email,
-      user_name: me().name || me().email,
+    const r = await window._momInsert(Object.assign(window._momAuthorFields(), {
       url,
       media_type: f.type.startsWith('video') ? 'video' : 'photo',
       title: document.getElementById('mom-title')?.value.trim() || null,
@@ -652,7 +688,7 @@ window._momPublish = async function(){
       likes_count: 0,
       created_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 12*3600000).toISOString()
-    });
+    }));
     if (r && r.error) throw r.error;
     document.getElementById('crear-momento-modal')?.remove();
     toast('Momento publicado','success');
