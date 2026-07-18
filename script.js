@@ -6939,7 +6939,10 @@ window._renderBusinessProfile = async function(opts) {
 
     // CTAs
     var waLink = '';
-    var msgBtn = '<button onclick="(function(){window.CancheroMessagingSetTarget&&CancheroMessagingSetTarget(\'' + emailSafe + '\',\'negocio\');if(window.CancheroMessaging){window.CancheroMessaging.init();if(typeof switchDashboardTab===\'function\')switchDashboardTab(\'' + dashboard + '\',\'mensajes\',null);setTimeout(()=>window.CancheroMessaging.openThread(\'dm\',null,\'' + emailSafe + '\',\'' + nameSafe + '\'),300);}else{if(typeof switchDashboardTab===\'function\')switchDashboardTab(\'' + dashboard + '\',\'mensajes\',null);}})();" class="biz-cta-btn biz-cta-msg"><i class=\'bx bx-message-rounded\'></i> Mensaje</button>';
+    // El mensaje va a la identidad CONCRETA del negocio (biz:<id>), no a un 'negocio'
+    // genérico: con dos negocios en la misma cuenta, el generico caia siempre en el
+    // primario y la organizacion nunca recibia sus propios chats.
+    var msgBtn = '<button onclick="(function(){window.CancheroMessagingSetTarget&&CancheroMessagingSetTarget(\'' + emailSafe + '\',\'' + (opts.bizTag || 'negocio') + '\');if(window.CancheroMessaging){window.CancheroMessaging.init();if(typeof switchDashboardTab===\'function\')switchDashboardTab(\'' + dashboard + '\',\'mensajes\',null);setTimeout(()=>window.CancheroMessaging.openThread(\'dm\',null,\'' + emailSafe + '\',\'' + nameSafe + '\'),300);}else{if(typeof switchDashboardTab===\'function\')switchDashboardTab(\'' + dashboard + '\',\'mensajes\',null);}})();" class="biz-cta-btn biz-cta-msg"><i class=\'bx bx-message-rounded\'></i> Mensaje</button>';
     // P0.4: el follow a un negocio se etiqueta con su identidad (biz:<id>)
     var _bizTagJs = opts.bizTag ? ('\',\'' + opts.bizTag) : '';
     var followBtnHtml = isMe ? '' : ('<button id="' + followBtnId + '" onclick="window._toggleFollowBtn(\'' + followBtnId + '\',\'' + emailSafe + _bizTagJs + '\')" data-following="' + isFollowing + '" ' + (!isFollowing ? 'class="biz-cta-btn biz-cta-secondary"' : 'style="display:flex;align-items:center;gap:5px;background:transparent;color:#fff;border:1px solid #444;border-radius:22px;padding:9px 16px;font-size:12px;font-weight:900;cursor:pointer;"') + '>' + (isFollowing ? '<i class=\'bx bx-check\'></i> Siguiendo' : '<i class=\'bx bx-user-plus\'></i> + Seguir') + '</button>');
@@ -9695,6 +9698,30 @@ window._isFanOverlayActive = function(){
         return t === 'fanatico' && baseType !== 'fanatico';
     } catch(e){ return false; }
 };
+// CHATS DEL EQUIPO: la barra inferior del rol EQUIPO es Gestión·Buscar·Inicio·Partido·
+// Perfil (sin CHATS), así que el acceso va por este botón del perfil del club. Se
+// asegura de tener la identidad de equipo activa para abrir la bandeja team:<id>.
+window._openTeamChats = function(clubId) {
+    try {
+        const ap = localStorage.getItem('canchero_active_profile') || '';
+        if (clubId && ap !== 'team' && String(ap).indexOf('team:') !== 0) {
+            if (window._switchToTeam) { window._switchToTeam(clubId); }
+        }
+    } catch(e){}
+    setTimeout(function(){
+        try {
+            document.getElementById('vup-modal-overlay')?.remove();
+            if (typeof switchDashboardTab === 'function') {
+                switchDashboardTab((window.userData && window.userData.role) || 'jugador', 'mensajes', null);
+            }
+            if (window.CancheroMessaging) {
+                window.CancheroMessaging.init();
+                if (window._msgOnIdentityChange) window._msgOnIdentityChange();
+            }
+        } catch(e){}
+    }, 250);
+};
+
 window.openEditProfile = function() {
     const modal = document.getElementById('edit-profile-modal');
     modal.style.display = 'flex';
@@ -11009,7 +11036,8 @@ window.viewClubProfile = async function(id) {
             </div>
             <div style="padding-top:14px;display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;">
                 ${isOwner
-                    ? `<button onclick="window.openClubUrgentModal&&window.openClubUrgentModal()" title="Faltan jugadores" style="background:rgba(255,59,59,0.12);color:#ff5555;border:1px solid rgba(255,59,59,0.35);border-radius:50%;width:34px;height:34px;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class='bx bx-user-plus'></i></button>
+                    ? `<button onclick="window._openTeamChats('${id}')" title="Chats del equipo" style="background:rgba(186,255,0,0.12);color:var(--accent);border:1px solid rgba(186,255,0,0.35);border-radius:50%;width:34px;height:34px;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class='bx bx-message-dots'></i></button>
+                       <button onclick="window.openClubUrgentModal&&window.openClubUrgentModal()" title="Faltan jugadores" style="background:rgba(255,59,59,0.12);color:#ff5555;border:1px solid rgba(255,59,59,0.35);border-radius:50%;width:34px;height:34px;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class='bx bx-user-plus'></i></button>
                        <button onclick="window.CancheroSocial&&CancheroSocial.openSaved&&CancheroSocial.openSaved()" title="Guardados" style="background:rgba(255,255,255,0.05);color:var(--accent);border:1px solid #333;border-radius:50%;width:34px;height:34px;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class='bx bx-bookmark'></i></button>
                        <button onclick="window.openClubProfileEditor&&window.openClubProfileEditor('${id}')" title="Editar perfil" style="background:rgba(255,255,255,0.05);color:#ccc;border:1px solid #333;border-radius:50%;width:34px;height:34px;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class='bx bx-edit-alt'></i></button>`
                     : ((myMemberStatus === 'pendiente'
