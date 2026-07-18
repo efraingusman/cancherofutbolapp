@@ -7308,13 +7308,16 @@ window._openProductModal = async function(p) {
                 var sizeSafe = String(vr.size||'').replace(/'/g,"\\'");
                 var idSafe = String(vr.id||'').replace(/'/g,"\\'");
                 var stockSafe = (st===null?'null':st);
-                return '<button onclick="window._selectProdVariant('+idx+',\''+idSafe+'\',\''+sizeSafe+'\','+stockSafe+',this)" class="prod-size-btn" data-idx="'+idx+'" style="background:'+(hasStock?'transparent':'rgba(255,85,85,0.06)')+';color:'+(hasStock?'#fff':'#666')+';border:1px solid '+(hasStock?'#333':'#3a1f1f')+';border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;cursor:'+(hasStock?'pointer':'pointer')+';min-width:60px;text-align:center;">'+window.escH(label)+stockLabel+'</button>';
+                return '<button onclick="window._addProdVariant('+idx+',\''+idSafe+'\',\''+sizeSafe+'\','+stockSafe+',\''+String(label).replace(/'/g,"\\'")+'\')" class="prod-size-btn" data-idx="'+idx+'" style="background:'+(hasStock?'transparent':'rgba(255,85,85,0.06)')+';color:'+(hasStock?'#fff':'#666')+';border:1px solid '+(hasStock?'#333':'#3a1f1f')+';border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;min-width:60px;text-align:center;">'+window.escH(label)+stockLabel+'</button>';
               }).join('')
-            + '</div></div>';
+            + '</div>'
+            + '<div style="font-size:10.5px;color:#666;margin-top:8px;">Tocá los talles que quieras: podés llevar varios en la misma compra.</div>'
+            + '<div id="prod-cart"></div></div>';
     }
 
-    // Cantidad
-    var qtyHtml = '<div style="margin:14px 0;display:flex;align-items:center;gap:14px;">'
+    // Cantidad: SOLO cuando el producto no tiene variantes. Con talles, la cantidad va
+    // por línea dentro del carrito (se pueden llevar varios talles en la misma compra).
+    var qtyHtml = variants.length ? '' : '<div style="margin:14px 0;display:flex;align-items:center;gap:14px;">'
         + '<div style="font-size:11px;color:#888;font-weight:800;letter-spacing:1px;">CANTIDAD</div>'
         + '<div style="display:flex;align-items:center;background:#111;border:1px solid #2a2a2a;border-radius:12px;overflow:hidden;">'
         +   '<button onclick="window._prodQtyChange(-1)" style="background:transparent;border:none;color:#fff;width:38px;height:38px;font-size:20px;cursor:pointer;">−</button>'
@@ -7371,38 +7374,83 @@ window._openProductModal = async function(p) {
 };
 
 // Seleccionar una variante (talle/color); habilita o no el botón comprar / avisame
-window._selectProdVariant = function(idx, variantId, size, stock, btnEl) {
-    document.querySelectorAll('.prod-size-btn').forEach(function(b){
-        var inStock = b.querySelector('span') ? !/Agotado/.test(b.querySelector('span').textContent) : true;
-        b.style.background = inStock ? 'transparent' : 'rgba(255,85,85,0.06)';
-        b.style.color = inStock ? '#fff' : '#666';
-    });
-    if (btnEl) { btnEl.style.background = (stock===null || stock>0) ? 'var(--accent)' : '#ff5555'; btnEl.style.color = '#000'; }
+// ── CARRITO MULTI-TALLE ──────────────────────────────────────────────
+// Antes solo se podia elegir UNA variante y comprar de a un talle por vez.
+// Ahora cada talle es una linea con su cantidad y se compran todas juntas.
+window._addProdVariant = function(idx, variantId, size, stock, label) {
     var ctx = window._prodCtx; if (!ctx) return;
-    ctx.selectedIdx = idx;
-    ctx.selectedVariantId = (variantId && variantId !== 'null') ? variantId : null;
-    ctx.selectedSize = size;
-    ctx.selectedStock = stock;
-    var line = document.getElementById('prod-stock-line');
+    ctx.cart = ctx.cart || {};
+    var st = (stock === null || stock === 'null') ? null : (parseInt(stock) || 0);
+    if (st !== null && st <= 0) { window.showToast && showToast('El talle ' + size + ' esta agotado.', 'warning'); return; }
+    var cur = ctx.cart[idx];
+    if (!cur) {
+        ctx.cart[idx] = { variantId: (variantId && variantId !== 'null') ? variantId : null,
+                          size: size, label: label || size, stock: st, qty: 1 };
+    } else {
+        if (st !== null && cur.qty >= st) { window.showToast && showToast('No hay mas stock del talle ' + size + '.', 'warning'); return; }
+        cur.qty++;
+    }
+    window._renderProdCart();
+};
+window._prodCartQty = function(idx, delta) {
+    var ctx = window._prodCtx; if (!ctx || !ctx.cart || !ctx.cart[idx]) return;
+    var line = ctx.cart[idx];
+    var next = line.qty + delta;
+    if (line.stock !== null && next > line.stock) { window.showToast && showToast('No hay mas stock del talle ' + line.size + '.', 'warning'); return; }
+    if (next <= 0) delete ctx.cart[idx]; else line.qty = next;
+    window._renderProdCart();
+};
+window._prodCartLines = function() {
+    var ctx = window._prodCtx; if (!ctx || !ctx.cart) return [];
+    return Object.keys(ctx.cart).map(function(k){ var l = ctx.cart[k]; l._idx = k; return l; });
+};
+window._renderProdCart = function() {
+    var ctx = window._prodCtx; if (!ctx) return;
+    var box = document.getElementById('prod-cart');
+    var lines = window._prodCartLines();
+    var price = parseFloat(ctx.price) || 0;
+    var unidades = lines.reduce(function(a,l){ return a + l.qty; }, 0);
+    var total = price * unidades;
+
+    // Resaltar los talles elegidos
+    document.querySelectorAll('.prod-size-btn').forEach(function(b){
+        var i = b.getAttribute('data-idx');
+        var sel = ctx.cart && ctx.cart[i];
+        var agotado = /Agotado/.test(b.textContent || '');
+        b.style.background = sel ? 'var(--accent)' : (agotado ? 'rgba(255,85,85,0.06)' : 'transparent');
+        b.style.color = sel ? '#000' : (agotado ? '#666' : '#fff');
+        b.style.borderColor = sel ? 'var(--accent)' : (agotado ? '#3a1f1f' : '#333');
+    });
+
+    if (box) {
+        box.innerHTML = !lines.length ? '' :
+            '<div style="margin-top:12px;background:#111;border:1px solid #2a2a2a;border-radius:12px;padding:12px;">'
+          + '<div style="font-size:10px;color:#888;font-weight:800;letter-spacing:1px;margin-bottom:8px;">TU PEDIDO</div>'
+          + lines.map(function(l){
+                return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;">'
+                  + '<div style="flex:1;font-size:13px;font-weight:700;">' + window.escH(l.label||l.size) + '</div>'
+                  + '<div style="display:flex;align-items:center;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:10px;overflow:hidden;">'
+                  +   '<button onclick="window._prodCartQty(\'' + l._idx + '\',-1)" style="background:transparent;border:none;color:#fff;width:32px;height:32px;font-size:18px;cursor:pointer;">-</button>'
+                  +   '<span style="min-width:28px;text-align:center;font-size:14px;font-weight:900;">' + l.qty + '</span>'
+                  +   '<button onclick="window._prodCartQty(\'' + l._idx + '\',1)" style="background:transparent;border:none;color:#fff;width:32px;height:32px;font-size:18px;cursor:pointer;">+</button>'
+                  + '</div></div>';
+            }).join('')
+          + (price ? ('<div style="display:flex;justify-content:space-between;border-top:1px solid #222;margin-top:8px;padding-top:8px;font-size:13px;"><span style="color:#888;">' + unidades + ' unidad' + (unidades>1?'es':'') + '</span><span style="font-weight:900;color:var(--accent);">$' + total + '</span></div>') : '')
+          + '</div>';
+    }
+
     var btn = document.getElementById('prod-buy-btn');
-    if (stock === null || stock > 0) {
-        if (line) line.innerHTML = (stock===null?'Sin info de stock — el negocio confirmará por mensaje.':'Quedan <b style="color:#00e676;">'+stock+'</b> unidades del talle <b>'+window.escH(size)+'</b>.');
-        if (btn) {
-            btn.innerHTML = '<i class="bx bx-cart"></i> COMPRAR';
+    if (btn) {
+        if (!lines.length) {
+            btn.innerHTML = '<i class="bx bx-cart"></i> ELEGI UN TALLE';
+            btn.disabled = true;
+            btn.style.cssText = 'width:100%;background:#1a1a1a;color:#666;border:1px solid #2a2a2a;border-radius:14px;padding:16px;font-weight:900;font-size:15px;cursor:not-allowed;display:flex;align-items:center;justify-content:center;gap:8px;';
+            btn.onclick = null;
+        } else {
+            btn.innerHTML = '<i class="bx bx-cart"></i> COMPRAR' + (total ? (' — $' + total) : '');
             btn.disabled = false;
             btn.style.cssText = 'width:100%;background:var(--accent);color:#000;border:none;border-radius:14px;padding:16px;font-weight:900;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;';
             btn.onclick = function(){ window._buyProductV2(); };
-        }
-        // Cap qty al stock disponible
-        var qi = document.getElementById('prod-qty');
-        if (qi && stock!==null) { qi.max = stock; if (parseInt(qi.value)>stock) qi.value = stock; }
-    } else {
-        if (line) line.innerHTML = '<span style="color:#ff5555;font-weight:700;">El talle '+window.escH(size)+' está agotado.</span>';
-        if (btn) {
-            btn.innerHTML = '<i class="bx bx-bell"></i> AVISAME CUANDO VUELVA EL TALLE '+window.escH(size);
-            btn.disabled = false;
-            btn.style.cssText = 'width:100%;background:#ffaa00;color:#000;border:none;border-radius:14px;padding:16px;font-weight:900;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;';
-            btn.onclick = function(){ window._openRestockRequest(); };
         }
     }
 };
@@ -7427,25 +7475,40 @@ window._buyProductV2 = async function() {
     var sb = window._sb; var me = window.userData; var ctx = window._prodCtx;
     if (!sb || !me || !me.email) { window.showToast && showToast('Iniciá sesión para comprar.','warning'); return; }
     if (!ctx) return;
-    var qi = document.getElementById('prod-qty');
-    var qty = Math.max(1, parseInt(qi && qi.value)||1);
     var price = parseFloat(ctx.price)||0;
+    // Líneas del carrito (varios talles). Sin variantes se arma una sola línea con
+    // el input de cantidad de siempre, para no cambiar ese caso.
+    var lines = (window._prodCartLines && window._prodCartLines()) || [];
+    if (!lines.length) {
+        var qi = document.getElementById('prod-qty');
+        lines = [{ variantId: ctx.selectedVariantId || null, size: ctx.selectedSize || null,
+                   label: ctx.selectedSize || null, stock: (ctx.selectedStock==null?null:ctx.selectedStock),
+                   qty: Math.max(1, parseInt(qi && qi.value)||1) }];
+    }
+    var qty = lines.reduce(function(a,l){ return a + l.qty; }, 0);
     var total = price * qty;
-    var sizeTxt = ctx.selectedSize ? (' (talle ' + ctx.selectedSize + ')') : '';
+    var detalle = lines.map(function(l){ return (l.label||l.size ? (l.label||l.size) : 'unidad') + ' x' + l.qty; }).join(', ');
+    var sizeTxt = lines.length === 1 && lines[0].size ? (' (talle ' + lines[0].size + ')') : '';
     var qtyTxt = qty>1 ? (' · cantidad ' + qty) : '';
-    var content = 'Hola! Quiero comprar "' + ctx.productName + '"' + sizeTxt + qtyTxt + (total ? ' — total $' + total : '') + '. ¿Cómo coordinamos el pago y la entrega?';
+    var content = 'Hola! Quiero comprar "' + ctx.productName + '"'
+        + (lines.length > 1 || (lines[0] && lines[0].size) ? (' — ' + detalle) : '')
+        + (total ? ' — total $' + total : '') + '. ¿Cómo coordinamos el pago y la entrega?';
 
-    // 1) Insertar venta (channel=canchero) en la nueva tabla con canales/variantes
-    try {
-        await sb.from('business_sales').insert({
-            business_email: ctx.bizEmail, product_id: ctx.productId, product_name: ctx.productName,
-            variant_id: ctx.selectedVariantId, size: ctx.selectedSize,
-            qty: qty, unit_price: price, total: total,
-            channel: 'canchero',
-            client_email: me.email, client_name: me.name||me.email,
-            status: 'pendiente'
-        });
-    } catch(e) { console.warn('sale insert', e); }
+    // 1) Una VENTA por talle: así el CRM ve qué se llevó de cada variante y el stock
+    //    se descuenta donde corresponde (antes solo se podía vender un talle por vez).
+    for (var _li = 0; _li < lines.length; _li++) {
+        var _l = lines[_li];
+        try {
+            await sb.from('business_sales').insert({
+                business_email: ctx.bizEmail, product_id: ctx.productId, product_name: ctx.productName,
+                variant_id: _l.variantId, size: _l.size,
+                qty: _l.qty, unit_price: price, total: price * _l.qty,
+                channel: 'canchero',
+                client_email: me.email, client_name: me.name||me.email,
+                status: 'pendiente'
+            });
+        } catch(e) { console.warn('sale insert', e); }
+    }
     // 1b) Insertar también en business_orders para que el CRM lo vea en Órdenes/Pipeline.
     // OJO: columnas REALES = product_name/client_email/client_name/cantidad/precio_total/estado
     // (con "producto/cliente_nombre" el insert fallaba en silencio y la orden nunca aparecía).
@@ -7454,13 +7517,17 @@ window._buyProductV2 = async function() {
             business_email: ctx.bizEmail, product_id: ctx.productId, product_name: ctx.productName,
             client_email: me.email, client_name: me.name||me.email,
             cantidad: qty, precio_total: total,
-            estado: 'pendiente', notas: ctx.selectedSize ? ('Talle: ' + ctx.selectedSize) : null
+            estado: 'pendiente', notas: detalle ? ('Talles: ' + detalle) : null
         });
         if (_ordIns && _ordIns.error) console.warn('order insert', _ordIns.error.message);
     } catch(e) { console.warn('order insert', e); }
-    // 2) Descontar stock atómico si hay variantId; si no, descontar el stock GLOBAL del producto
-    if (ctx.selectedVariantId && ctx.selectedStock!=null) {
-        try { await sb.from('product_variants').update({ stock: Math.max(0, ctx.selectedStock - qty), updated_at: new Date().toISOString() }).eq('id', ctx.selectedVariantId); } catch(e){}
+    // 2) Descontar stock por variante (cada talle el suyo); si no hay variantes, el GLOBAL.
+    var _conVariante = lines.filter(function(l){ return l.variantId && l.stock != null; });
+    if (_conVariante.length) {
+        for (var _si = 0; _si < _conVariante.length; _si++) {
+            var _s = _conVariante[_si];
+            try { await sb.from('product_variants').update({ stock: Math.max(0, _s.stock - _s.qty), updated_at: new Date().toISOString() }).eq('id', _s.variantId); } catch(e){}
+        }
     } else if (ctx.productId) {
         try {
             var _pp = await sb.from('business_products').select('stock').eq('id', ctx.productId).single();
