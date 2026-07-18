@@ -35,23 +35,70 @@ window.CancheroMessaging = (function() {
     // Cada identidad tiene su bandeja: jugador / fanatico / negocio.
     // Los mensajes se sellan con sender_profile y recipient_profile.
     const _BIZ_ROLES_MSG = ['club','complejo','tienda','organizacion','profesional','sponsor','cancha','periodismo'];
+    // La bandeja es de la identidad ACTIVA y de ninguna otra. Antes TODOS los negocios
+    // colapsaban a 'negocio': con Tienda + Organización compartían la misma bandeja y
+    // los chats "se abrían como si fueras otro". Ahora cada negocio es 'biz:<id>'.
     function _chatTag() {
         try {
             const t = (window._activeProfileType && window._activeProfileType()) || 'jugador';
             if (t === 'fanatico') return 'fanatico';
-            if (String(t).indexOf('biz:') === 0 || t === 'negocio') return 'negocio';
+            if (String(t).indexOf('biz:') === 0) return t;              // negocio concreto
+            if (t === 'negocio') {                                       // legacy: resolver a su id
+                try {
+                    const id = window._activeBizId && window._activeBizId();
+                    if (id && id !== '__primary__') return 'biz:' + id;
+                } catch(e){}
+                return 'negocio';
+            }
             return 'jugador'; // el EQUIPO chatea con la bandeja de jugador (tiene su chat propio en CHATS)
         } catch(e){ return 'jugador'; }
     }
-    // Etiqueta de un mensaje respecto de MÍ. Legacy sin etiqueta → bandeja base de la cuenta.
+    // Etiqueta de un mensaje respecto de MÍ. Se devuelve CRUDA (sin colapsar los biz:<id>),
+    // porque colapsar era justamente lo que mezclaba las bandejas.
     function _msgTag(m, mineAsSender) {
         let raw = mineAsSender ? m.sender_profile : m.recipient_profile;
-        if (raw) return (String(raw).indexOf('biz:') === 0) ? 'negocio' : raw;
+        if (raw) return String(raw);
+        // Legacy sin sello: va a la bandeja del rol PRIMARIO (con el que se registró la
+        // cuenta). Antes usaba _baseStoredRole(): si users.role era de negocio, TODO el
+        // historial caía en 'negocio' y en la bandeja de jugador no aparecía nada propio.
         try {
-            const base = (window._baseStoredRole && window._baseStoredRole()) || 'jugador';
-            return _BIZ_ROLES_MSG.indexOf(base) !== -1 ? 'negocio' : 'jugador';
+            const prim = (window._primaryRole && window._primaryRole())
+                      || (window._baseStoredRole && window._baseStoredRole()) || 'jugador';
+            if (prim === 'fanatico') return 'fanatico';
+            return _BIZ_ROLES_MSG.indexOf(prim) !== -1 ? 'negocio' : 'jugador';
         } catch(e){ return 'jugador'; }
     }
+    // ¿El mensaje pertenece a la bandeja abierta? Tolerante con el historial:
+    // un mensaje viejo sellado 'negocio' (sin id) se sigue viendo desde cualquier
+    // negocio, para no esconder conversaciones que hoy sí se ven.
+    function _tagMatch(msgTag, boxTag) {
+        if (msgTag === boxTag) return true;
+        const msgBiz = String(msgTag).indexOf('biz:') === 0 || msgTag === 'negocio';
+        const boxBiz = String(boxTag).indexOf('biz:') === 0 || boxTag === 'negocio';
+        if (!msgBiz || !boxBiz) return false;
+        // Solo el legacy sin id es comodín; dos negocios con id distinto NO se mezclan.
+        return msgTag === 'negocio' || boxTag === 'negocio';
+    }
+    // Expuestos para que el badge global (script.js) cuente solo lo de la identidad activa.
+    window._chatTagNow = _chatTag;
+    window._msgTagMatch = _tagMatch;
+    window._msgTagOf = _msgTag;
+
+    // Al CAMBIAR de identidad hay que tirar el cache y repintar: si no, la bandeja
+    // y el badge seguían mostrando los del rol anterior ("me abre los chats como si
+    // fuese de otro"). Lo llama _switchToProfile / _switchToTeam en script.js.
+    window._msgOnIdentityChange = function() {
+        try {
+            window._msgConvosCache = {};
+            const box = document.getElementById('mobile-msg-badge');
+            if (box) box.style.display = 'none';
+            if (window.CancheroMessaging && window.CancheroMessaging.renderConversationList) {
+                window.CancheroMessaging.renderConversationList();
+            }
+            if (window._refreshMsgBadge) window._refreshMsgBadge();
+        } catch(e){}
+    };
+
     // ¿A qué identidad del destinatario le escribo? Explícita (seteada al abrir el chat
     // desde un perfil de negocio) o derivada del rol base del destinatario. Con cache.
     const _rpCache = {};
@@ -303,7 +350,7 @@ window.CancheroMessaging = (function() {
             if (e2) console.warn('[MSG] recv query error:', e2);
             let msgs = [...(sentMsgs || []), ...(recvMsgs || [])];
             // P0.5: cada identidad su bandeja — filtrar por la etiqueta de identidad
-            msgs = msgs.filter(m => _msgTag(m, m.sender_email === _myEmail) === _chatTag());
+            msgs = msgs.filter(m => _tagMatch(_msgTag(m, m.sender_email === _myEmail), _chatTag()));
 
             // Agrupar por conversación
             const convos = {};
@@ -655,7 +702,7 @@ window.CancheroMessaging = (function() {
                     .or(`and(sender_email.eq.${_myEmail},recipient_email.eq.${partnerEmail}),and(sender_email.eq.${partnerEmail},recipient_email.eq.${_myEmail})`)
                     .order('created_at', { ascending: true }).limit(80);
                 // P0.5: el hilo también respeta la identidad activa
-                msgs = (data || []).filter(m => _msgTag(m, m.sender_email === _myEmail) === _chatTag());
+                msgs = (data || []).filter(m => _tagMatch(_msgTag(m, m.sender_email === _myEmail), _chatTag()));
             }
 
             if (!msgs.length) {
@@ -834,7 +881,7 @@ window.CancheroMessaging = (function() {
                         : (m.sender_email === partnerEmail || m.sender_email === _myEmail);
                     if (!isThisThread) return;
                     // P0.5: si el mensaje va dirigido a OTRA identidad mía, no mostrarlo acá
-                    if (type === 'dm' && _msgTag(m, m.sender_email === _myEmail) !== _chatTag()) return;
+                    if (type === 'dm' && !_tagMatch(_msgTag(m, m.sender_email === _myEmail), _chatTag())) return;
 
                     // Solo actuar si el thread sigue abierto y visible
                     if (!_activeThread) return;

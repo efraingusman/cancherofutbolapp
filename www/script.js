@@ -952,6 +952,8 @@ window._switchToTeam = function(clubId){
     try { if (typeof switchDashboardTab === 'function') switchDashboardTab('jugador', 'feed', null); } catch(e){}
     if (typeof showToast === 'function') showToast('Ahora publicás como ' + (t.name||'tu equipo'), 'success', 2500);
     window._renderProfileSwitcher();
+    // La bandeja de chats es POR IDENTIDAD: tirar cache y repintar al cambiar.
+    try { if (window._msgOnIdentityChange) window._msgOnIdentityChange(); } catch(e){}
 };
 window._switchToProfile = function(type){
     if (!window.userData) return;
@@ -975,6 +977,8 @@ window._switchToProfile = function(type){
         showToast('Ahora estás como ' + _lbl, 'success', 2500);
     }
     window._renderProfileSwitcher();
+    // La bandeja de chats es POR IDENTIDAD: tirar cache y repintar al cambiar.
+    try { if (window._msgOnIdentityChange) window._msgOnIdentityChange(); } catch(e){}
 };
 // Crear un perfil nuevo del tipo indicado
 // FANÁTICO: registro REAL con identidad propia (foto/alias/bio independientes
@@ -3199,11 +3203,31 @@ window.logout = function() {
         window._feedRealtimeChannel = null;
         window._feedRealtimeInitialized = false;
     }
+    // OJO: `userData` (let, linea ~1995) y `window.userData` son DOS variables distintas
+    // que se sincronizan a mano. Limpiar solo la local dejaba window.userData con datos:
+    // el switcher de identidad seguia creyendo que habia sesion y quedaba visible en el home.
     userData = null;
+    window.userData = null;
+    // La identidad activa tambien se va: si no, al volver a entrar (o con otra cuenta)
+    // arrancaba con el negocio/equipo de la sesion anterior.
+    try {
+        localStorage.removeItem('canchero_active_profile');
+        localStorage.removeItem('canchero_active_team');
+        localStorage.removeItem('canchero_primary_role');
+    } catch(e){}
+    window._myBusinesses = [];
+    window._isBizUser = false;
+    window._bizRole = null;
     if (window._sb) window._sb.auth.signOut().catch(()=>{});
     applyUserData();
     window.resetTheme();
     window.navigate('home');
+    // Sacar la pildora de identidad ya (navigate no pasa por showView, que es donde
+    // estaba el hook). Se borra el nodo, no alcanza con ocultarlo.
+    try {
+        document.getElementById('profile-switcher-pill')?.remove();
+        if (window._renderProfileSwitcher) window._renderProfileSwitcher();
+    } catch(e){}
 }
 
 window.toggleSwitchRoleMenu = function() {
@@ -15948,8 +15972,9 @@ window.openAdminLogin = function() {
             <div style="font-size:11px;color:#666;margin-top:2px;">Acceso exclusivo Canchero</div>
         </div>
         <input id="admin-login-email" type="email" placeholder="Correo" value="neurovidstudioia@gmail.com" style="width:100%;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:13px;color:#fff;font-size:14px;margin-bottom:10px;box-sizing:border-box;">
-        <input id="admin-login-pass" type="password" placeholder="Contraseña" style="width:100%;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:13px;color:#fff;font-size:14px;margin-bottom:8px;box-sizing:border-box;" onkeydown="if(event.key==='Enter')window._doAdminLogin()">
+        <input id="admin-login-pass" type="password" placeholder="Contraseña (si no entraste con Google)" style="width:100%;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:13px;color:#fff;font-size:14px;margin-bottom:8px;box-sizing:border-box;" onkeydown="if(event.key==='Enter')window._doAdminLogin()">
         <div id="admin-login-err" style="display:none;color:#ff4444;font-size:12px;margin-bottom:8px;"></div>
+        <div style="font-size:11px;color:#666;line-height:1.5;margin-bottom:8px;">Si ya iniciaste sesión con Google con esta cuenta, dejá la contraseña vacía y tocá INGRESAR.</div>
         <button onclick="window._doAdminLogin()" style="width:100%;background:var(--accent);color:#000;border:none;border-radius:12px;padding:13px;font-weight:900;font-size:15px;cursor:pointer;margin-top:6px;">INGRESAR</button>
         <button onclick="document.getElementById('admin-login-overlay').remove();location.hash='';" style="width:100%;background:transparent;border:none;color:#555;padding:12px;cursor:pointer;font-size:12px;margin-top:4px;">Cancelar</button>
     </div>`;
@@ -15967,7 +15992,23 @@ window._doAdminLogin = async function() {
     const _sbA = window._sb;
     if (!_sbA) { if (err) { err.textContent = 'Sin conexión.'; err.style.display='block'; } return; }
     let _ok = false;
-    try { const { error: e } = await _sbA.auth.signInWithPassword({ email, password: pass }); _ok = !e; } catch(_e){ _ok = false; }
+    // 1) Si YA hay sesión válida de Supabase con ese mismo email (típicamente por Google),
+    //    alcanza: allowlist + sesión verificada por el token es el mismo nivel de seguridad.
+    //    Antes se exigía signInWithPassword y, entrando con Google, nunca hubo contraseña
+    //    que poner → siempre "Credenciales incorrectas" y no se podía entrar al panel.
+    try {
+        const { data: _u } = await _sbA.auth.getUser();
+        const _mail = (_u && _u.user && _u.user.email || '').toLowerCase();
+        if (_mail && _mail === email) _ok = true;
+    } catch(_e){}
+    // 2) Si no hay sesión (o es de otra cuenta) y escribió contraseña, se prueba el login clásico.
+    if (!_ok && pass) {
+        try { const { error: e } = await _sbA.auth.signInWithPassword({ email, password: pass }); _ok = !e; } catch(_e){ _ok = false; }
+    }
+    if (!_ok && !pass) {
+        if (err) { err.innerHTML = 'Iniciá sesión con Google en la app (con esta misma cuenta) y volvé a entrar acá. Si tenés contraseña, ponela.'; err.style.display='block'; }
+        return;
+    }
     if (_ok) {
         window.userData = { name: 'SUPER ADMIN', email: email, role: 'admin' };
         try { localStorage.setItem('canchero_user', JSON.stringify(window.userData)); } catch(e){}
@@ -18676,8 +18717,17 @@ window._initMsgBadgeRealtime = function() {
 
     async function refreshBadge() {
         try {
-            const { count } = await sb.from('messages').select('id', { count: 'exact', head: true })
-                .eq('recipient_email', email).eq('read', false);
+            // Contar SOLO los no leídos de la identidad activa. Antes contaba todos los del
+            // email: estando como jugador te aparecían los no leídos de la tienda y viceversa.
+            const { data } = await sb.from('messages').select('recipient_profile')
+                .eq('recipient_email', email).eq('read', false).limit(500);
+            let count = 0;
+            if (window._msgTagMatch && window._chatTagNow && window._msgTagOf) {
+                const box = window._chatTagNow();
+                count = (data || []).filter(m => window._msgTagMatch(window._msgTagOf(m, false), box)).length;
+            } else {
+                count = (data || []).length;   // sin el módulo de chats, comportamiento previo
+            }
             const badge = document.getElementById('mobile-msg-badge');
             if (badge) {
                 if (count > 0) { badge.textContent = count > 9 ? '9+' : String(count); badge.style.display = 'flex'; }
@@ -18685,6 +18735,7 @@ window._initMsgBadgeRealtime = function() {
             }
         } catch(e) {}
     }
+    window._refreshMsgBadge = refreshBadge;   // lo usa _msgOnIdentityChange al cambiar de rol
     refreshBadge(); // estado inicial
 
     window._msgBadgeChannel = sb.channel('msgbadge-' + email)
