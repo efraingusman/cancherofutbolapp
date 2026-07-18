@@ -1,4 +1,4 @@
-const CACHE_NAME = 'canchero-v327';
+const CACHE_NAME = 'canchero-v328';
 const RUNTIME_CACHE = 'canchero-runtime'; // persistente entre deploys (media/JS/CSS cacheados)
 const assets = [
   './',
