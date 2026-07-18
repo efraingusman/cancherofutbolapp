@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canchero · Resultados Encuesta</title>
+<link rel="icon" type="image/png" href="logo.png">
+<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Inter:wght@400;500;600&display=swap');
+:root{--accent:#baff00;--bg:#070907;--bg2:#0f110f;--bg3:#161816;--border:#1e201e;--text:#fff;--muted:#777;--red:#ff4444;--font:'Outfit',sans-serif;--body:'Inter',sans-serif;}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:var(--body);font-size:14px;}
+
+.gate{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+.lbox{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:40px 32px;max-width:380px;width:100%;text-align:center;}
+.lbox img{height:40px;margin-bottom:16px;}
+.lbox h2{font-family:var(--font);font-weight:800;font-size:22px;margin-bottom:6px;}
+.lbox p{color:var(--muted);font-size:13px;margin-bottom:24px;}
+.lbox input{width:100%;padding:14px 16px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:15px;outline:none;margin-bottom:14px;font-family:var(--body);}
+.lbox input:focus{border-color:var(--accent);}
+.lbox button{width:100%;padding:14px;border:none;border-radius:10px;background:var(--accent);color:var(--bg);font-family:var(--font);font-weight:800;font-size:16px;cursor:pointer;}
+.lbox .err{color:var(--red);font-size:12px;margin-top:8px;display:none;}
+
+.dash{display:none;padding:20px;max-width:1200px;margin:0 auto;}
+.dash-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px;}
+.dash-hdr h1{font-family:var(--font);font-weight:800;font-size:24px;}
+.dash-hdr h1 span{color:var(--accent);}
+.dash-hdr .meta{color:var(--muted);font-size:13px;}
+.btn-x{padding:10px 20px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--accent);font-family:var(--font);font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;}
+.btn-x:hover{background:var(--bg3);}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:28px;}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px 16px;text-align:center;}
+.kpi .v{font-family:var(--font);font-weight:900;font-size:32px;color:var(--accent);}
+.kpi .l{font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:1px;}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;margin-bottom:28px;}
+.ccard{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;}
+.ccard h3{font-family:var(--font);font-weight:700;font-size:15px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.ccard h3 i{color:var(--accent);font-size:18px;}
+.cwrap{position:relative;height:260px;}
+
+.osec{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:18px;}
+.osec h3{font-family:var(--font);font-weight:700;font-size:15px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.osec h3 i{color:var(--accent);}
+.rlist{display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto;}
+.ritem{background:var(--bg3);border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.5;border-left:3px solid var(--accent);}
+.ritem .rm{color:var(--muted);font-size:11px;margin-top:4px;}
+.rempty{color:var(--muted);font-style:italic;}
+
+.tsec{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:18px;overflow-x:auto;}
+.tsec h3{font-family:var(--font);font-weight:700;font-size:15px;margin-bottom:14px;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th{text-align:left;padding:10px 8px;border-bottom:1px solid var(--border);color:var(--accent);font-family:var(--font);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;}
+td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.04);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+tr:hover td{background:rgba(186,255,0,0.03);}
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="lbox">
+    <img src="logo-oficial.png" onerror="this.src='logo.png'">
+    <h2>Admin Encuesta</h2>
+    <p>Solo para el equipo Canchero</p>
+    <input type="email" id="em" placeholder="Email admin" autocomplete="email" style="margin-bottom:8px;">
+    <input type="password" id="pw" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()">
+    <button onclick="login()">ENTRAR</button>
+    <div class="err" id="lerr" style="display:none;">Credenciales inválidas o sin permiso.</div>
+  </div>
+</div>
+
+<div class="dash" id="dash">
+  <div class="dash-hdr">
+    <div>
+      <h1><span>Encuesta</span> — Resultados</h1>
+      <div class="meta" id="meta">Cargando...</div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn-x" onclick="exportCSV()"><i class='bx bx-download'></i> CSV</button>
+      <button class="btn-x" onclick="load()"><i class='bx bx-refresh'></i> Actualizar</button>
+    </div>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="grid" id="grid"></div>
+  <div id="open"></div>
+  <div class="tsec">
+    <h3><i class='bx bx-table'></i> Todas las respuestas</h3>
+    <div id="tw"></div>
+  </div>
+</div>
+
+<script>
+const sb=window.supabase.createClient('https://dofbxgqzcvfjpnvcvdjb.supabase.co','sb_publishable_gPwLXkMHk3HvFz9nm9hgKA_1D0IJBKA');
+let rows=[];
+let charts={};
+
+// Login con Supabase Auth + chequeo de rol admin (no más password hardcodeada)
+async function login(){
+  const email=(document.getElementById('em')?.value||'').trim().toLowerCase();
+  const pass=document.getElementById('pw')?.value||'';
+  const err=document.getElementById('lerr');
+  if(err){err.style.display='none'; err.textContent='Credenciales inválidas o sin permiso.';}
+  if(!email||!pass){ if(err){err.style.display='block'; err.textContent='Email y contraseña son obligatorios.';} return; }
+  try{
+    const {data,error}=await sb.auth.signInWithPassword({email,password:pass});
+    if(error||!data?.user){ if(err) err.style.display='block'; return; }
+    const {data:p}=await sb.from('users').select('email,role,is_admin').eq('email',email).maybeSingle();
+    if(!(p && (p.role==='admin'||p.is_admin===true))){ try{await sb.auth.signOut();}catch(e){} if(err) err.style.display='block'; return; }
+    document.getElementById('gate').style.display='none';
+    document.getElementById('dash').style.display='block';
+    load();
+  }catch(e){ if(err) err.style.display='block'; }
+}
+
+async function load(){
+  const{data}=await sb.from('encuesta_mvp').select('*').order('created_at',{ascending:false});
+  rows=data||[];
+  render();
+}
+
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function avg(k){const v=rows.map(r=>r[k]).filter(x=>x!=null&&!isNaN(x));return v.length?(v.reduce((a,b)=>a+Number(b),0)/v.length):0;}
+
+function render(){
+  const n=rows.length;
+  const d=n?new Date(rows[0].created_at).toLocaleDateString('es-UY'):'—';
+  document.getElementById('meta').textContent=n+' respuestas · Ultima: '+d;
+
+  const pctPay=n?Math.round(rows.filter(r=>r.pagaria&&r.pagaria!=='no').length/n*100):0;
+  document.getElementById('kpis').innerHTML=`
+    <div class="kpi"><div class="v">${n}</div><div class="l">Respuestas</div></div>
+    <div class="kpi"><div class="v">${avg('nps').toFixed(1)}</div><div class="l">NPS Promedio</div></div>
+    <div class="kpi"><div class="v">${avg('impresion').toFixed(1)}</div><div class="l">Impresion</div></div>
+    <div class="kpi"><div class="v">${pctPay}%</div><div class="l">Pagarian</div></div>
+  `;
+
+  Object.values(charts).forEach(c=>c.destroy());
+  charts={};
+  const g=document.getElementById('grid');
+  g.innerHTML='';
+
+  const defs=[
+    {q:'frecuencia',t:'Frecuencia de juego',i:'bx-football',type:'doughnut',map:{
+      '2_o_mas_semana':'2+ por semana','1_semana':'1 por semana','quincenal':'Quincenal','mensual_o_menos':'Mensual o menos','deje':'Dejó'}},
+    {q:'como_arma',t:'Como arma partido',i:'bx-group',type:'doughnut',map:{
+      'grupo_whatsapp':'Grupo WhatsApp','msj_uno_a_uno':'Mensajes 1 a 1','otro_arma':'Otro arma','complejo_organiza':'Complejo organiza','cuesta_armar':'Le cuesta'}},
+    {q:'dolores',t:'Dolores principales',i:'bx-error-circle',type:'bar',multi:true,map:{
+      'faltan_jugadores':'Falta gente','cancha_llena':'Cancha llena','whatsapp_caos':'WhatsApp caos','cobrar_cuota':'Cobrar cuota','no_registro_goles':'Sin registro goles','no_rivales':'Sin rivales','no_se_canchas':'No conoce canchas','ninguno':'Ninguno'}},
+    {q:'registra_goles',t:'Registra goles/stats?',i:'bx-stats',type:'doughnut',map:{
+      'si_mental':'De memoria','si_anoto':'Anota en algo','me_gustaria':'Le gustaria','no_interesa':'No le interesa'}},
+    {q:'busca_cancha',t:'Como busca cancha',i:'bx-search-alt',type:'doughnut',map:{
+      'siempre_misma':'Siempre la misma','google_instagram':'Google/IG','boca_a_boca':'Boca a boca','no_busco':'No busca'}},
+    {q:'que_usaria',t:'Que usaria en una app',i:'bx-star',type:'bar',multi:true,map:{
+      'armar_partido':'Armar partido','encontrar_cancha':'Buscar cancha','stats_goles':'Stats/goles','perfil_jugador':'Perfil jugador','buscar_jugadores':'Buscar jugadores','torneos':'Torneos','desafiar_equipos':'Desafiar equipos','ranking':'Ranking'}},
+    {q:'conoce_canchero',t:'Conocia Canchero?',i:'bx-question-mark',type:'doughnut',map:{
+      'si_uso':'Ya la probó','si_vi':'La vio','no':'Primera vez'}},
+    {q:'impresion',t:'Impresion (1-10)',i:'bx-show',type:'bar',scale:true},
+    {q:'nps',t:'NPS — Recomendaria? (1-10)',i:'bx-like',type:'bar',scale:true},
+    {q:'pagaria',t:'Pagaria?',i:'bx-dollar',type:'doughnut',map:{
+      'si':'Si','depende':'Depende','no':'No'}},
+  ];
+
+  const COLORS=['#baff00','#4fc3f7','#ffb400','#ff4444','#4caf50','#e040fb','#ff7043','#26c6da'];
+
+  defs.forEach(def=>{
+    const card=document.createElement('div');card.className='ccard';
+    card.innerHTML=`<h3><i class='bx ${def.i}'></i>${def.t}</h3><div class="cwrap"><canvas></canvas></div>`;
+    g.appendChild(card);
+    const ctx=card.querySelector('canvas').getContext('2d');
+    let labels,values;
+
+    if(def.scale){
+      labels=Array.from({length:10},(_,i)=>String(i+1));
+      values=labels.map(l=>rows.filter(r=>Number(r[def.q])===Number(l)).length);
+    } else if(def.multi){
+      labels=Object.values(def.map);
+      const keys=Object.keys(def.map);
+      values=keys.map(k=>rows.filter(r=>{
+        let v=r[def.q];if(!v)return false;
+        if(typeof v==='string'){try{v=JSON.parse(v)}catch(e){return v===k;}}
+        return Array.isArray(v)&&v.includes(k);
+      }).length);
+    } else {
+      labels=Object.values(def.map);
+      const keys=Object.keys(def.map);
+      values=keys.map(k=>rows.filter(r=>r[def.q]===k).length);
+    }
+
+    if(def.type==='doughnut'){
+      charts[def.q]=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data:values,backgroundColor:COLORS.slice(0,labels.length),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#ccc',font:{size:11},padding:10}}}}});
+    } else {
+      charts[def.q]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:values,backgroundColor:def.scale?labels.map((_,i)=>`hsl(${75+i*3},100%,${50+i*2}%)`):'#baff00',borderRadius:6,maxBarThickness:36}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{color:'#666',stepSize:1},grid:{color:'rgba(255,255,255,0.04)'}},x:{ticks:{color:'#999',font:{size:10},maxRotation:45},grid:{display:false}}}}});
+    }
+  });
+
+  // Open responses
+  const openQs=[
+    {k:'frustracion',t:'Mayor frustracion',i:'bx-message-error'},
+    {k:'comentario',t:'Comentarios finales',i:'bx-chat'},
+    {k:'contacto',t:'Contactos dejados',i:'bx-at'},
+  ];
+  const oc=document.getElementById('open');oc.innerHTML='';
+  openQs.forEach(q=>{
+    const resps=rows.filter(r=>r[q.k]&&String(r[q.k]).trim()).map(r=>({txt:r[q.k],date:r.created_at,freq:r.frecuencia||'—'}));
+    const sec=document.createElement('div');sec.className='osec';
+    sec.innerHTML=`<h3><i class='bx ${q.i}'></i>${q.t} (${resps.length})</h3>`;
+    const list=document.createElement('div');list.className='rlist';
+    if(!resps.length) list.innerHTML='<div class="rempty">Sin respuestas aun</div>';
+    else resps.forEach(r=>{
+      const d=new Date(r.date).toLocaleDateString('es-UY');
+      list.innerHTML+=`<div class="ritem">${esc(r.txt)}<div class="rm">${r.freq} · ${d}</div></div>`;
+    });
+    sec.appendChild(list);oc.appendChild(sec);
+  });
+
+  // Table
+  const cols=['created_at','frecuencia','como_arma','dolores','frustracion','registra_goles','busca_cancha','que_usaria','conoce_canchero','impresion','nps','pagaria','comentario','contacto'];
+  const hd={created_at:'Fecha',frecuencia:'Frecuencia',como_arma:'Como arma',dolores:'Dolores',frustracion:'Frustracion',registra_goles:'Stats?',busca_cancha:'Busca cancha',que_usaria:'Que usaria',conoce_canchero:'Conocia?',impresion:'Impresion',nps:'NPS',pagaria:'Pagaria?',comentario:'Comentario',contacto:'Contacto'};
+  let html='<table><thead><tr>';
+  cols.forEach(c=>html+=`<th>${hd[c]}</th>`);
+  html+='</tr></thead><tbody>';
+  rows.forEach(r=>{
+    html+='<tr>';
+    cols.forEach(c=>{
+      let v=r[c]||'—';
+      if(c==='created_at'&&v!=='—')v=new Date(v).toLocaleDateString('es-UY');
+      if(typeof v==='object')v=JSON.stringify(v);
+      html+=`<td title="${esc(String(v))}">${esc(String(v))}</td>`;
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('tw').innerHTML=html;
+}
+
+function exportCSV(){
+  if(!rows.length)return;
+  const cols=Object.keys(rows[0]);
+  let csv=cols.join(',')+'\n';
+  rows.forEach(r=>{
+    csv+=cols.map(c=>{
+      let v=r[c]||'';if(typeof v==='object')v=JSON.stringify(v);
+      return '"'+String(v).replace(/"/g,'""')+'"';
+    }).join(',')+'\n';
+  });
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='encuesta_canchero_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+</script>
+</body>
+</html>

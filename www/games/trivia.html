@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Trivia Fútbol — Canchero</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#0a0a0a;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Arial Black',sans-serif;padding:20px;color:#fff;}
+  #game{width:100%;max-width:420px;}
+  .q-num{color:#555;font-size:11px;letter-spacing:2px;margin-bottom:10px;}
+  .question{font-size:18px;font-weight:900;line-height:1.4;margin-bottom:24px;color:#fff;}
+  .opt{display:block;width:100%;background:#111;border:2px solid #1e1e1e;color:#fff;padding:14px 16px;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;text-align:left;transition:all 0.15s;}
+  .opt:hover{border-color:#baff00;color:#baff00;}
+  .opt.correct{background:rgba(186,255,0,0.15);border-color:#baff00;color:#baff00;}
+  .opt.wrong{background:rgba(255,60,60,0.15);border-color:#ff4444;color:#ff4444;}
+  .score-bar{display:flex;justify-content:space-between;margin-bottom:20px;color:#555;font-size:12px;}
+  .score-val{color:#baff00;font-weight:900;}
+  #timer-bar{height:4px;background:#1a1a1a;border-radius:2px;margin-bottom:16px;overflow:hidden;}
+  #timer-fill{height:100%;background:#baff00;transition:width 0.1s linear;border-radius:2px;}
+  #overlay{position:fixed;inset:0;background:rgba(0,0,0,0.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;}
+  .btn{background:#baff00;color:#000;border:none;padding:14px 40px;border-radius:28px;font-size:15px;font-weight:900;cursor:pointer;margin-top:8px;}
+</style>
+</head>
+<body>
+<div id="overlay">
+  <div style="font-size:40px">⚽</div>
+  <h1 style="color:#baff00;font-size:24px;letter-spacing:2px;text-align:center;">TRIVIA FÚTBOL</h1>
+  <p style="color:#888;font-size:13px;text-align:center;max-width:260px;line-height:1.6">10 preguntas de fútbol. ¡15 segundos por pregunta!</p>
+  <button class="btn" onclick="startGame()">JUGAR</button>
+</div>
+<div id="game" style="display:none;">
+  <div class="score-bar"><span>PREGUNTA <span class="score-val" id="qnum">1</span>/10</span><span>PUNTOS: <span class="score-val" id="pts">0</span></span></div>
+  <div id="timer-bar"><div id="timer-fill" style="width:100%"></div></div>
+  <div class="question" id="question"></div>
+  <div id="options"></div>
+</div>
+<script>
+const QUESTIONS=[
+  {q:"¿Cuántos jugadores tiene un equipo de fútbol 11?",opts:["11","10","12","9"],a:0},
+  {q:"¿Cuánto dura un partido de fútbol oficial?",opts:["90 minutos","80 minutos","100 minutos","60 minutos"],a:0},
+  {q:"¿Quién ganó el Mundial 2022 en Qatar?",opts:["Argentina","Francia","Brasil","Alemania"],a:0},
+  {q:"¿En qué país se inventó el fútbol?",opts:["Inglaterra","Brasil","España","Italia"],a:0},
+  {q:"¿Cuántos mundiales ganó Brasil?",opts:["5","4","3","6"],a:0},
+  {q:"¿Cuál es el estadio más grande del mundo?",opts:["Rungrado (Corea del Norte)","Camp Nou","Maracaná","Wembley"],a:0},
+  {q:"¿Quién tiene más Balones de Oro históricos?",opts:["Lionel Messi","Cristiano Ronaldo","Ronaldinho","Zidane"],a:0},
+  {q:"¿Cómo se llama el estadio del Club Nacional de Uruguay?",opts:["Gran Parque Central","Estadio Centenario","Estadio Campeón del Siglo","La Bombonera"],a:0},
+  {q:"¿Qué significa la sigla UEFA?",opts:["Unión de Asociaciones Europeas de Fútbol","Unión Atlética Europea de Fútbol","Unión de Atletas Europeos de Fútbol","Universal Athletic European Football"],a:0},
+  {q:"¿En qué año se fundó la FIFA?",opts:["1904","1930","1888","1920"],a:0},
+  {q:"¿Cuántos jugadores participan en un penal?",opts:["2","3","1","4"],a:0},
+  {q:"¿Qué país organizó el primer Mundial de Fútbol (1930)?",opts:["Uruguay","Argentina","Brasil","Italia"],a:0},
+  {q:"¿Cuántos mundiales ganó Argentina?",opts:["3","2","4","1"],a:0},
+  {q:"¿Cuál es la distancia del punto de penal a la portería?",opts:["11 metros","10 metros","12 metros","9 metros"],a:0},
+  {q:"¿Cuántos toques tiene el VAR para revisar jugadas?",opts:["Ilimitados","3","5","1"],a:0},
+];
+
+let questions,current,score,timer,timerVal,answered;
+
+function shuffle(arr){return arr.sort(()=>Math.random()-0.5);}
+
+function startGame(){
+  document.getElementById('overlay').style.display='none';
+  document.getElementById('game').style.display='block';
+  questions=shuffle([...QUESTIONS]).slice(0,10);
+  questions=questions.map(q=>{
+    const opts=q.opts.map((o,i)=>({text:o,correct:i===q.a}));
+    const shuffled=shuffle(opts);
+    return{q:q.q,opts:shuffled.map(o=>o.text),a:shuffled.findIndex(o=>o.correct)};
+  });
+  current=0;score=0;
+  showQuestion();
+}
+
+function showQuestion(){
+  if(current>=questions.length){endGame();return;}
+  answered=false;
+  const q=questions[current];
+  document.getElementById('qnum').textContent=current+1;
+  document.getElementById('pts').textContent=score;
+  document.getElementById('question').textContent=q.q;
+  const optsEl=document.getElementById('options');
+  optsEl.innerHTML=q.opts.map((o,i)=>`<button class="opt" onclick="answer(${i})">${o}</button>`).join('');
+  timerVal=15;
+  document.getElementById('timer-fill').style.width='100%';
+  clearInterval(timer);
+  timer=setInterval(()=>{
+    timerVal-=0.1;
+    document.getElementById('timer-fill').style.width=(timerVal/15*100)+'%';
+    if(timerVal<=0){clearInterval(timer);if(!answered)answer(-1);}
+  },100);
+}
+
+function answer(idx){
+  if(answered) return;
+  answered=true;clearInterval(timer);
+  const q=questions[current];
+  const btns=document.querySelectorAll('.opt');
+  btns.forEach((b,i)=>{b.style.pointerEvents='none';if(i===q.a)b.classList.add('correct');else if(i===idx)b.classList.add('wrong');});
+  if(idx===q.a) score+=Math.ceil(timerVal*10);
+  document.getElementById('pts').textContent=score;
+  setTimeout(()=>{current++;showQuestion();},1100);
+}
+
+function endGame(){
+  clearInterval(timer);
+  document.getElementById('game').style.display='none';
+  const ov=document.getElementById('overlay');
+  ov.style.display='flex';
+  ov.innerHTML=`<div style="font-size:40px">🏆</div>
+    <h1 style="color:#baff00;font-size:22px;text-align:center;">${score>=1200?'¡EXPERTO TOTAL!':score>=800?'¡BUEN NIVEL!':'¡SEGUÍ APRENDIENDO!'}</h1>
+    <div style="font-size:48px;font-weight:900;color:#baff00">${score}</div>
+    <div style="color:#888;font-size:13px">puntos</div>
+    <button class="btn" onclick="startGame()">JUGAR DE NUEVO</button>`;
+}
+</script>
+</body>
+</html>

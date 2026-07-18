@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canchero · Panel Profesional</title>
+<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Inter:wght@400;500;600&display=swap');
+  :root{--accent:#baff00;--bg:#070907;--bg2:#0f110f;--border:#1e201e;--text:#fff;--muted:#666;--red:#ff4444;--orange:#ffb400;--blue:#4fc3f7;--green:#22c55e;--font:'Outfit',sans-serif;}
+  *{margin:0;padding:0;box-sizing:border-box;}html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;}
+  .app{display:flex;height:100vh;overflow:hidden;}
+  .sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
+  .sidebar-brand{padding:20px 16px;border-bottom:1px solid var(--border);}
+  .brand-name{font-family:var(--font);font-size:14px;font-weight:900;color:var(--accent);}
+  .brand-role{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+  .sidebar-section{padding:14px 10px 4px;}
+  .sidebar-title{font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;padding-left:8px;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;transition:.15s;font-size:13px;color:#aaa;font-weight:600;margin-bottom:2px;}
+  .nav-item:hover{background:rgba(255,255,255,0.05);color:#fff;}
+  .nav-item.active{background:rgba(186,255,0,0.08);color:var(--accent);}
+  .nav-item i{font-size:18px;width:22px;flex-shrink:0;}
+  .content{flex:1;overflow-y:auto;}
+  .topbar{height:52px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;position:sticky;top:0;z-index:10;}
+  .topbar-title{font-family:var(--font);font-size:16px;font-weight:900;flex:1;}
+  .page{padding:20px;display:none;}.page.active{display:block;}
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
+  .kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;position:relative;overflow:hidden;}
+  .kpi::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--accent);}
+  .kpi.blue::before{background:var(--blue);}.kpi.orange::before{background:var(--orange);}
+  .kpi-label{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+  .kpi-value{font-family:var(--font);font-size:26px;font-weight:900;line-height:1;}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;}
+  .card-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .card-title{font-family:var(--font);font-size:14px;font-weight:800;}
+  table{width:100%;border-collapse:collapse;}
+  th{padding:9px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
+  td{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:13px;vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .form-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:5px;}
+  .form-input{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none;box-sizing:border-box;transition:.15s;}
+  .form-input:focus{border-color:var(--accent);}select.form-input option{background:var(--bg2);}
+  .form-group{margin-bottom:12px;}
+  .btn-sm{padding:10px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:var(--font);min-height:44px;touch-action:manipulation;}
+  .btn-accent{background:var(--accent);color:#000;}.btn-glass{background:rgba(255,255,255,0.05);border:1px solid var(--border);color:#fff;}
+  .btn-danger{background:rgba(255,68,68,0.12);color:var(--red);border:1px solid rgba(255,68,68,0.25);}
+  .btn-success{background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.25);}
+  .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;}
+  .badge-pending{background:rgba(255,180,0,0.15);color:var(--orange);}
+  .badge-confirmed{background:rgba(186,255,0,0.12);color:var(--accent);}
+  .badge-cancelled{background:rgba(255,68,68,0.12);color:var(--red);}
+  .modal{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);padding:16px;}
+  .modal.open{display:flex;}
+  .modal-inner{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:100%;max-width:480px;padding:24px;max-height:90vh;overflow-y:auto;}
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--bg2);border:1px solid var(--accent);color:var(--accent);padding:10px 16px;border-radius:10px;font-size:13px;font-weight:700;z-index:99999;animation:ti .3s ease;}
+  @keyframes ti{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+  /* Calendar simple */
+  .agenda-day{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;}
+  .agenda-hour{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+  .agenda-hour:last-child{border-bottom:none;}
+  .agenda-time{font-family:var(--font);font-size:11px;font-weight:700;color:var(--muted);width:50px;flex-shrink:0;}
+  .agenda-slot{flex:1;font-size:12px;}
+  .agenda-booked{background:rgba(186,255,0,0.1);border:1px solid rgba(186,255,0,0.3);border-radius:6px;padding:4px 8px;color:var(--accent);font-weight:700;}
+  .crm-mobile-topbar{display:none;position:fixed;top:0;left:0;right:0;z-index:300;height:54px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;padding:0 14px;gap:10px;}
+  .crm-mobile-topbar .brand{font-family:var(--font);font-weight:900;color:var(--accent);font-size:15px;flex:1;}
+  .crm-mobile-overlay{display:none;position:fixed;inset:0;z-index:199;background:rgba(0,0,0,0.7);}
+  .crm-mobile-overlay.open{display:block;}
+  @media(max-width:768px){.sidebar{position:fixed;top:0;left:-240px;height:100vh;z-index:200;transition:left .3s ease;width:230px!important;}.sidebar.open{left:0;}.page{padding:12px;padding-top:66px;}.crm-mobile-topbar{display:flex;}.app{flex-direction:column;}}
+</style>
+</head>
+<body>
+<div class="crm-mobile-topbar" id="crm-mob-bar"><button onclick="toggleCrmSidebar()" style="background:none;border:none;color:#aaa;font-size:24px;cursor:pointer;padding:4px;"><i class='bx bx-menu'></i></button><span class="brand">💼 Panel Profesional</span></div>
+<div class="crm-mobile-overlay" id="crm-overlay" onclick="toggleCrmSidebar()"></div>
+<div class="app">
+  <nav class="sidebar" id="crm-sidebar">
+    <div class="sidebar-brand"><div class="brand-name" id="biz-name">Mi Perfil</div><div class="brand-role" id="biz-subtype">💼 Panel Profesional</div></div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Principal</div>
+      <div class="nav-item active" onclick="showPage('dashboard',this)"><i class='bx bx-grid-alt'></i> Dashboard</div>
+      <div class="nav-item" onclick="showPage('servicios',this)"><i class='bx bx-briefcase'></i> Mis Servicios</div>
+      <div class="nav-item" onclick="showPage('agenda',this)"><i class='bx bx-calendar'></i> Agenda</div>
+      <div class="nav-item" onclick="showPage('clientes',this)"><i class='bx bx-group'></i> Clientes</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Negocio</div>
+      <div class="nav-item" onclick="showPage('pagos',this)"><i class='bx bx-credit-card'></i> Cobros</div>
+      <div class="nav-item" onclick="showPage('chatbot',this)"><i class='bx bx-bot'></i> Chatbot FAQ</div>
+      <div class="nav-item" onclick="showPage('perfil',this)"><i class='bx bx-edit'></i> Mi Perfil Público</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Más</div>
+      <div class="nav-item" onclick="doLogout()"><i class='bx bx-log-out'></i> Cerrar sesión</div>
+    </div>
+  </nav>
+  <div class="content">
+    <div class="topbar">
+      <div class="topbar-title" id="page-title">Dashboard</div>
+      <button class="btn-sm btn-accent" onclick="showPage('agenda',null);setTimeout(openTurnoModal,100)"><i class='bx bx-plus'></i> Nuevo turno</button>
+    </div>
+
+    <div id="page-dashboard" class="page active">
+      <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-label">Turnos esta semana</div><div class="kpi-value" id="kpi-week">—</div></div>
+        <div class="kpi blue"><div class="kpi-label">Pendientes confirmar</div><div class="kpi-value" id="kpi-pend">—</div></div>
+        <div class="kpi orange"><div class="kpi-label">Ingresos del mes</div><div class="kpi-value" id="kpi-rev">$0</div></div>
+        <div class="kpi"><div class="kpi-label">Clientes activos</div><div class="kpi-value" id="kpi-clients">—</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">📅 Agenda del día</span></div>
+        <div id="dash-agenda" style="padding:8px 16px;"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Próximos turnos</span></div>
+        <table><thead><tr><th>Cliente</th><th>Servicio</th><th>Fecha</th><th>Hora</th><th>Precio</th><th>Estado</th></tr></thead><tbody id="dash-turnos"></tbody></table>
+      </div>
+    </div>
+
+    <div id="page-servicios" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Mis Servicios</h2>
+        <button class="btn-sm btn-accent" onclick="document.getElementById('modal-serv').classList.add('open')"><i class='bx bx-plus'></i> Nuevo servicio</button>
+      </div>
+      <div id="servicios-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;"></div>
+    </div>
+
+    <div id="page-agenda" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+        <h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Agenda</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="agenda-date" type="date" class="form-input" style="width:auto;" onchange="loadAgenda()">
+          <button class="btn-sm btn-accent" onclick="openTurnoModal()"><i class='bx bx-plus'></i> Turno</button>
+        </div>
+      </div>
+      <div class="card"><table><thead><tr><th>Hora</th><th>Cliente</th><th>Servicio</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="agenda-list"></tbody></table></div>
+    </div>
+
+    <div id="page-clientes" class="page">
+      <h2 style="font-family:var(--font);font-size:20px;font-weight:900;margin-bottom:16px;">Clientes</h2>
+      <div class="card"><table><thead><tr><th>Nombre</th><th>Email</th><th>Turnos</th><th>Total pagado</th><th>Último turno</th></tr></thead><tbody id="clients-list"></tbody></table></div>
+    </div>
+
+    <div id="page-pagos" class="page">
+      <h2 style="font-family:var(--font);font-size:20px;font-weight:900;margin-bottom:16px;">Cobros</h2>
+      <div class="card" style="padding:16px;">
+        <div class="card-title" style="margin-bottom:12px;">Mis links de pago</div>
+        <div class="form-group"><label class="form-label">MercadoPago</label><input id="mp-input" type="text" class="form-input" placeholder="https://mpago.la/..."></div>
+        <div class="form-group"><label class="form-label">Stripe</label><input id="stripe-input" type="text" class="form-input" placeholder="https://buy.stripe.com/..."></div>
+        <button class="btn-sm btn-accent" onclick="saveLinks()">Guardar</button>
+      </div>
+    </div>
+
+    <div id="page-chatbot" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Chatbot FAQ</h2>
+        <button class="btn-sm btn-accent" onclick="document.getElementById('modal-faq').classList.add('open')"><i class='bx bx-plus'></i> Nueva</button>
+      </div>
+      <div id="faq-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
+    <div id="page-perfil" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <div><h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Mi Perfil Público</h2><p style="color:var(--muted);font-size:12px;">Así te ven los jugadores en Canchero</p></div>
+        <div style="display:flex;gap:8px;"><button class="btn-sm btn-accent" onclick="savePerfil()"><i class='bx bx-save'></i> Guardar</button><button class="btn-sm btn-glass" onclick="window.location.href='index.html'"><i class='bx bx-globe'></i> Ver perfil</button></div>
+      </div>
+      <input type="hidden" id="prof-frame-pro" value="">
+      <!-- Info -->
+      <div class="card" style="padding:20px;margin-bottom:16px;">
+        <div style="font-family:var(--font);font-size:13px;font-weight:900;margin-bottom:14px;color:var(--accent);">Mi Información</div>
+        <div style="display:grid;gap:12px;">
+          <div><label class="form-label">BIO / DESCRIPCIÓN</label><textarea id="prof-bio" rows="4" class="form-input" style="resize:vertical;" placeholder="Contá tu experiencia, especialidades, logros..."></textarea></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div><label class="form-label">TELÉFONO</label><input id="prof-phone" type="tel" class="form-input" placeholder="091234567"></div>
+            <div><label class="form-label">WHATSAPP</label><input id="prof-wa-pro" type="tel" class="form-input" placeholder="59891234567"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div><label class="form-label">INSTAGRAM</label><input id="prof-ig-pro" type="text" class="form-input" placeholder="@tu_usuario"></div>
+            <div><label class="form-label">SITIO WEB</label><input id="prof-website-pro" type="url" class="form-input" placeholder="https://..."></div>
+          </div>
+          <div><label class="form-label">CERTIFICACIONES (separadas por coma)</label><input id="prof-certs" type="text" class="form-input" placeholder="UEFA B, FIFA Referee, Lic. Nutrición..."></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div id="modal-serv" class="modal"><div class="modal-inner">
+  <div style="display:flex;justify-content:space-between;margin-bottom:16px;"><span style="font-family:var(--font);font-size:17px;font-weight:900;">Nuevo Servicio</span><button onclick="document.getElementById('modal-serv').classList.remove('open')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&times;</button></div>
+  <div class="form-group"><label class="form-label">Nombre del servicio</label><input id="s-name" type="text" class="form-input" placeholder="Sesión de entrenamiento, Plan nutricional..."></div>
+  <div class="form-group"><label class="form-label">Descripción</label><textarea id="s-desc" class="form-input" rows="3"></textarea></div>
+  <div style="display:flex;gap:8px;">
+    <div class="form-group" style="flex:1;"><label class="form-label">Precio ($)</label><input id="s-price" type="number" class="form-input" min="0"></div>
+    <div class="form-group" style="flex:1;"><label class="form-label">Duración (min)</label><input id="s-dur" type="number" class="form-input" min="15" value="60"></div>
+  </div>
+  <button class="btn-sm btn-accent" style="width:100%;padding:11px;" onclick="saveService()">Guardar servicio</button>
+</div></div>
+
+<div id="modal-turno" class="modal"><div class="modal-inner">
+  <div style="display:flex;justify-content:space-between;margin-bottom:16px;"><span style="font-family:var(--font);font-size:17px;font-weight:900;">Nuevo Turno</span><button onclick="document.getElementById('modal-turno').classList.remove('open')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&times;</button></div>
+  <div class="form-group"><label class="form-label">Cliente (nombre)</label><input id="t-client" type="text" class="form-input"></div>
+  <div class="form-group"><label class="form-label">Email del cliente</label><input id="t-email" type="email" class="form-input"></div>
+  <div class="form-group"><label class="form-label">Servicio</label><select id="t-serv" class="form-input"><option value="">Sin especificar</option></select></div>
+  <div style="display:flex;gap:8px;">
+    <div class="form-group" style="flex:2;"><label class="form-label">Fecha</label><input id="t-fecha" type="date" class="form-input"></div>
+    <div class="form-group" style="flex:1;"><label class="form-label">Hora</label><input id="t-hora" type="time" class="form-input"></div>
+  </div>
+  <div class="form-group"><label class="form-label">Precio ($)</label><input id="t-precio" type="number" class="form-input" min="0"></div>
+  <div class="form-group"><label class="form-label">Notas</label><textarea id="t-notas" class="form-input" rows="2"></textarea></div>
+  <button class="btn-sm btn-accent" style="width:100%;padding:11px;" onclick="saveTurno()">Crear turno</button>
+</div></div>
+
+<div id="modal-faq" class="modal"><div class="modal-inner">
+  <div style="display:flex;justify-content:space-between;margin-bottom:16px;"><span style="font-family:var(--font);font-size:17px;font-weight:900;">Nueva FAQ</span><button onclick="document.getElementById('modal-faq').classList.remove('open')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&times;</button></div>
+  <div class="form-group"><label class="form-label">Pregunta</label><input id="f-q" type="text" class="form-input" placeholder="¿Cuánto dura una sesión?"></div>
+  <div class="form-group"><label class="form-label">Respuesta</label><textarea id="f-a" class="form-input" rows="3"></textarea></div>
+  <button class="btn-sm btn-accent" style="width:100%;padding:11px;" onclick="saveFaq()">Guardar</button>
+</div></div>
+
+<script>
+const SUPA_URL='https://dofbxgqzcvfjpnvcvdjb.supabase.co';
+const SUPA_KEY='sb_publishable_gPwLXkMHk3HvFz9nm9hgKA_1D0IJBKA';
+function _crmFetch(i,n){n=n||{};if(n.signal)return fetch(i,n);var c=(typeof AbortController!=='undefined')?new AbortController():null;var t=c?setTimeout(function(){try{c.abort();}catch(e){}},15000):null;if(c)n.signal=c.signal;return fetch(i,n).finally(function(){if(t)clearTimeout(t);});}
+const sb=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'canchero_auth'},global:{fetch:_crmFetch}}); try{window.sb=sb;}catch(e){} try{var _bp=Object.getPrototypeOf(sb.from('users').select('email'));while(_bp&&!Object.prototype.hasOwnProperty.call(_bp,'then'))_bp=Object.getPrototypeOf(_bp);if(_bp&&!_bp.catch)Object.defineProperty(_bp,'catch',{value:function(f){return this.then(undefined,f);},writable:true,configurable:true});}catch(e){}
+let BIZ=null,BIZ_EMAIL='',_services=[];
+const saved=sessionStorage.getItem('crm_biz');
+if(!saved){window.location.href='crm.html';throw '';}
+BIZ=JSON.parse(saved);
+if(BIZ.account_status!=='activo'&&BIZ.account_status!=='active'){window.location.href='crm.html';throw '';}
+BIZ_EMAIL=BIZ.email;
+document.getElementById('biz-name').textContent=BIZ.name||'Mi Perfil';
+
+const SUBTYPES={dt:'📋 Director Técnico',arbitro:'🟨 Árbitro',preparador:'💪 Preparador Físico',kinesiologo:'🩹 Kinesiólogo',nutricionista:'🥗 Nutricionista',scout:'🔍 Scout',fotografo:'📷 Fotógrafo',medico:'🩺 Médico Deportivo'};
+const sub=BIZ.sub_type&&SUBTYPES[BIZ.sub_type]?SUBTYPES[BIZ.sub_type]:'💼 Panel Profesional';
+document.getElementById('biz-subtype').textContent=sub;
+
+const PAGES_T={dashboard:'Dashboard',servicios:'Mis Servicios',agenda:'Agenda',clientes:'Clientes',pagos:'Cobros',chatbot:'Chatbot FAQ',perfil:'Mi Perfil'};
+function toggleCrmSidebar(){const sb=document.getElementById('crm-sidebar');const ov=document.getElementById('crm-overlay');if(sb)sb.classList.toggle('open');if(ov)ov.classList.toggle('open');}
+function showPage(name,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const sb=document.getElementById('crm-sidebar');const ov=document.getElementById('crm-overlay');
+  if(sb&&sb.classList.contains('open')){sb.classList.remove('open');if(ov)ov.classList.remove('open');}
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+name)?.classList.add('active');
+  if(el)el.classList.add('active');
+  document.getElementById('page-title').textContent=PAGES_T[name]||name;
+  if(name==='dashboard')loadDashboard();
+  if(name==='servicios')loadServices();
+  if(name==='agenda'){const d=new Date();document.getElementById('agenda-date').value=d.toISOString().slice(0,10);loadAgenda();}
+  if(name==='clientes')loadClients();
+  if(name==='chatbot')loadFaq();
+  if(name==='perfil')loadPerfil();
+}
+function toast(msg,type='success'){const t=document.createElement('div');t.className='toast';t.style.borderColor=type==='error'?'var(--red)':'var(--accent)';t.style.color=type==='error'?'var(--red)':'var(--accent)';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3200);}
+function doLogout(){sessionStorage.removeItem('crm_biz');window.location.href='crm.html';}
+
+async function loadDashboard(){
+  const today=new Date().toISOString().slice(0,10);
+  const weekStart=new Date(Date.now()-7*86400000).toISOString().slice(0,10);
+  const monthStart=new Date().toISOString().slice(0,8)+'01';
+  const[weekA,pendA,monthRev]=await Promise.all([
+    sb.from('business_appointments').select('id',{count:'exact',head:true}).eq('business_email',BIZ_EMAIL).gte('fecha',weekStart),
+    sb.from('business_appointments').select('id',{count:'exact',head:true}).eq('business_email',BIZ_EMAIL).eq('estado','pendiente'),
+    sb.from('business_appointments').select('precio').eq('business_email',BIZ_EMAIL).eq('estado','confirmado').gte('fecha',monthStart)
+  ]);
+  document.getElementById('kpi-week').textContent=weekA.count||0;
+  document.getElementById('kpi-pend').textContent=pendA.count||0;
+  document.getElementById('kpi-rev').textContent='$'+(monthRev.data||[]).reduce((a,r)=>a+(parseFloat(r.precio)||0),0).toFixed(0);
+  // Today's agenda
+  const{data:todayApp}=await sb.from('business_appointments').select('*').eq('business_email',BIZ_EMAIL).eq('fecha',today).order('hora');
+  const dashAgenda=document.getElementById('dash-agenda');
+  if(!todayApp||!todayApp.length){dashAgenda.innerHTML=`<div style="padding:12px;color:var(--muted);text-align:center;">Sin turnos hoy</div>`;} else {
+    dashAgenda.innerHTML=todayApp.map(a=>`<div class="agenda-hour"><div class="agenda-time">${(a.hora||'').slice(0,5)}</div><div class="agenda-slot"><span class="agenda-booked">${a.client_name||'—'} — ${a.service_name||'Turno'}</span></div></div>`).join('');
+  }
+  // Clients count
+  const{data:allApp}=await sb.from('business_appointments').select('client_email').eq('business_email',BIZ_EMAIL);
+  const uniqueClients=new Set((allApp||[]).map(a=>a.client_email).filter(Boolean));
+  document.getElementById('kpi-clients').textContent=uniqueClients.size;
+  // Next turnos
+  const{data:next}=await sb.from('business_appointments').select('*').eq('business_email',BIZ_EMAIL).gte('fecha',today).order('fecha').order('hora').limit(8);
+  const tbody=document.getElementById('dash-turnos');
+  if(!next||!next.length){tbody.innerHTML=`<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--muted);">Sin turnos próximos</td></tr>`;return;}
+  tbody.innerHTML=next.map(a=>`<tr>
+    <td><strong>${a.client_name||'—'}</strong></td>
+    <td>${a.service_name||'—'}</td>
+    <td>${a.fecha||'—'}</td>
+    <td>${(a.hora||'').slice(0,5)}</td>
+    <td style="color:var(--accent);">$${a.precio||0}</td>
+    <td><span class="badge badge-${a.estado==='confirmado'?'confirmed':a.estado==='cancelado'?'cancelled':'pending'}">${a.estado}</span></td>
+  </tr>`).join('');
+}
+
+async function loadServices(){
+  const{data}=await sb.from('business_services').select('*').eq('business_email',BIZ_EMAIL).eq('is_active',true).order('created_at');
+  _services=data||[];
+  const list=document.getElementById('servicios-list');
+  if(!_services.length){list.innerHTML=`<div style="padding:40px;text-align:center;color:var(--muted);"><i class='bx bx-briefcase' style="font-size:40px;display:block;margin-bottom:10px;opacity:0.4;"></i>Sin servicios. Agregá lo que ofrecés a tus clientes.</div>`;return;}
+  list.innerHTML=_services.map(s=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px;">
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
+      <div><div style="font-family:var(--font);font-size:15px;font-weight:900;">${s.name}</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">${s.description||''}</div></div>
+      <div style="text-align:right;"><div style="font-family:var(--font);font-size:18px;font-weight:900;color:var(--accent);">$${s.price}</div><div style="font-size:10px;color:var(--muted);">${s.duration_minutes||60} min</div></div>
+    </div>
+    <button class="btn-sm btn-danger" onclick="deleteService('${s.id}')"><i class='bx bx-trash'></i> Eliminar</button>
+  </div>`).join('');
+}
+async function saveService(){
+  const name=document.getElementById('s-name').value.trim();
+  if(!name){toast('Ingresá el nombre.','error');return;}
+  const{error}=await sb.from('business_services').insert({business_email:BIZ_EMAIL,name,description:document.getElementById('s-desc').value.trim(),price:parseFloat(document.getElementById('s-price').value)||0,duration_minutes:parseInt(document.getElementById('s-dur').value)||60});
+  if(error){toast('Error: '+error.message,'error');return;}
+  document.getElementById('modal-serv').classList.remove('open');toast('Servicio creado!');loadServices();
+}
+async function deleteService(id){await sb.from('business_services').update({is_active:false}).eq('id',id);loadServices();}
+
+async function loadAgenda(){
+  const fecha=document.getElementById('agenda-date')?.value;
+  if(!fecha)return;
+  const{data}=await sb.from('business_appointments').select('*').eq('business_email',BIZ_EMAIL).eq('fecha',fecha).order('hora');
+  const tbody=document.getElementById('agenda-list');
+  if(!data||!data.length){tbody.innerHTML=`<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--muted);">Sin turnos para este día</td></tr>`;return;}
+  tbody.innerHTML=data.map(a=>`<tr>
+    <td><strong>${(a.hora||'').slice(0,5)}</strong></td>
+    <td>${a.client_name||'—'}<br><span style="font-size:11px;color:var(--muted);">${a.client_email||''}</span></td>
+    <td>${a.service_name||'—'}</td>
+    <td style="color:var(--accent);">$${a.precio||0}</td>
+    <td><span class="badge badge-${a.estado==='confirmado'?'confirmed':a.estado==='cancelado'?'cancelled':'pending'}">${a.estado}</span></td>
+    <td><div style="display:flex;gap:4px;">
+      ${a.estado==='pendiente'?`<button class="btn-sm btn-success" onclick="updateTurno('${a.id}','confirmado')">Confirmar</button>`:''}
+      <button class="btn-sm btn-danger" onclick="updateTurno('${a.id}','cancelado')">Cancelar</button>
+    </div></td>
+  </tr>`).join('');
+}
+function openTurnoModal(){
+  // Populate services
+  const sel=document.getElementById('t-serv');
+  sel.innerHTML='<option value="">Sin especificar</option>'+_services.map(s=>`<option value="${s.id}" data-price="${s.price}" data-name="${s.name}">${s.name} ($${s.price})</option>`).join('');
+  sel.onchange=function(){const opt=this.options[this.selectedIndex];if(opt.dataset.price)document.getElementById('t-precio').value=opt.dataset.price;};
+  document.getElementById('modal-turno').classList.add('open');
+}
+async function saveTurno(){
+  const client=document.getElementById('t-client').value.trim();
+  const fecha=document.getElementById('t-fecha').value;
+  const hora=document.getElementById('t-hora').value;
+  if(!client||!fecha||!hora){toast('Completá cliente, fecha y hora.','error');return;}
+  const servEl=document.getElementById('t-serv');
+  const servName=servEl.options[servEl.selectedIndex]?.dataset?.name||'';
+  const{error}=await sb.from('business_appointments').insert({business_email:BIZ_EMAIL,service_id:servEl.value||null,service_name:servName,client_name:client,client_email:document.getElementById('t-email').value.trim()||null,fecha,hora,precio:parseFloat(document.getElementById('t-precio').value)||0,notas:document.getElementById('t-notas').value.trim(),estado:'pendiente'});
+  if(error){toast('Error: '+error.message,'error');return;}
+  document.getElementById('modal-turno').classList.remove('open');toast('Turno creado!');loadAgenda();loadDashboard();
+}
+async function updateTurno(id,estado){await sb.from('business_appointments').update({estado}).eq('id',id);toast(estado==='confirmado'?'Turno confirmado!':'Turno cancelado.',estado==='confirmado'?'success':'warning');loadAgenda();loadDashboard();}
+
+async function loadClients(){
+  const{data}=await sb.from('business_appointments').select('client_name,client_email,precio,created_at').eq('business_email',BIZ_EMAIL).order('created_at',{ascending:false});
+  const map={};
+  (data||[]).forEach(a=>{const k=a.client_email||a.client_name;if(!map[k])map[k]={name:a.client_name,email:a.client_email,count:0,total:0,last:a.created_at};map[k].count++;map[k].total+=(parseFloat(a.precio)||0);});
+  const clients=Object.values(map).sort((a,b)=>b.count-a.count);
+  const tbody=document.getElementById('clients-list');
+  if(!clients.length){tbody.innerHTML=`<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);">Sin clientes aún</td></tr>`;return;}
+  tbody.innerHTML=clients.map(c=>`<tr><td>${c.name||'—'}</td><td style="font-size:11px;color:var(--muted);">${c.email||'—'}</td><td>${c.count}</td><td style="color:var(--accent);">$${c.total.toFixed(0)}</td><td style="font-size:11px;color:var(--muted);">${c.last?new Date(c.last).toLocaleDateString('es-UY'):'—'}</td></tr>`).join('');
+}
+
+async function saveLinks(){
+  await sb.from('business_requests').update({payment_link_mp:document.getElementById('mp-input').value.trim()||null,payment_link_stripe:document.getElementById('stripe-input').value.trim()||null}).eq('email',BIZ_EMAIL);
+  toast('Links guardados!');
+}
+
+async function loadFaq(){
+  const{data}=await sb.from('business_chatbot_faq').select('*').eq('business_email',BIZ_EMAIL).order('order_index');
+  const list=document.getElementById('faq-list');
+  if(!data||!data.length){list.innerHTML=`<div style="padding:40px;text-align:center;color:var(--muted);">Sin preguntas configuradas.</div>`;return;}
+  list.innerHTML=data.map(f=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;justify-content:space-between;gap:10px;">
+    <div><div style="font-weight:700;margin-bottom:4px;">❓ ${f.question}</div><div style="font-size:12px;color:var(--muted);">${f.answer}</div></div>
+    <button class="btn-sm btn-danger" onclick="sb.from('business_chatbot_faq').delete().eq('id','${f.id}').then(()=>{toast('FAQ eliminada.');loadFaq();})"><i class='bx bx-trash'></i></button>
+  </div>`).join('');
+}
+async function saveFaq(){
+  const q=document.getElementById('f-q').value.trim(),a=document.getElementById('f-a').value.trim();
+  if(!q||!a){toast('Completá ambos campos.','error');return;}
+  await sb.from('business_chatbot_faq').insert({business_email:BIZ_EMAIL,question:q,answer:a,order_index:Date.now()});
+  document.getElementById('modal-faq').classList.remove('open');toast('FAQ agregada!');loadFaq();
+}
+
+function selFrameProf(el,frameId){document.querySelectorAll('.frame-option-crm').forEach(f=>f.classList.remove('selected'));el.classList.add('selected');const fi=document.getElementById('prof-frame-pro');if(fi)fi.value=frameId;}
+async function loadPerfil(){
+  const{data}=await sb.from('users').select('name,bio,city,phone,whatsapp,instagram,website,frame_style,certifications').eq('email',BIZ_EMAIL).maybeSingle();
+  if(data){
+    const sv=function(id,v){const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
+    sv('prof-bio',data.bio);sv('prof-phone',data.phone);sv('prof-wa-pro',data.whatsapp);
+    sv('prof-ig-pro',data.instagram);sv('prof-website-pro',data.website);
+    if(data.certifications&&Array.isArray(data.certifications)){sv('prof-certs',data.certifications.join(', '));}
+    if(data.frame_style){const opt=document.querySelector('.frame-option-crm[data-frame="'+data.frame_style+'"]');if(opt)selFrameProf(opt,data.frame_style);}
+  }
+}
+async function savePerfil(){
+  if(!BIZ_EMAIL){toast('Sesión inválida.','error');return;}
+  // Guardado NO destructivo: solo campos con valor
+  const val=function(id){const e=document.getElementById(id);return e&&e.value!=null?e.value.trim():'';};
+  const updates={};
+  const setU=function(k,v){ if(v) updates[k]=v; };
+  setU('bio',val('prof-bio')); setU('phone',val('prof-phone')); setU('whatsapp',val('prof-wa-pro'));
+  setU('instagram',val('prof-ig-pro')); setU('website',val('prof-website-pro'));
+  const certsRaw=val('prof-certs');
+  if(certsRaw){ updates.certifications=certsRaw.split(',').map(c=>c.trim()).filter(Boolean); }
+  if(Object.keys(updates).length===0){toast('Nada para guardar.','warning');return;}
+  try{const{error}=await sb.from('users').update(updates).eq('email',BIZ_EMAIL);if(error)throw error;toast('Perfil actualizado!','success');}
+  catch(e){toast('Error: '+e.message,'error');}
+}
+
+loadDashboard();
+loadServices();
+</script>
+  <script src="canchero-crm-ventas.js?v=20260624g"></script>
+  <script src="crm-common.js?v=20260717"></script>
+</body>
+</html>

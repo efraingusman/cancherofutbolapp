@@ -1,0 +1,14 @@
+node_modules/
+android/
+.gradle/
+.idea/
+.vercel/
+.git/
+_dev/
+db/
+planes/
+*.apk
+*.bak
+*.py
+*.mjs
+www/

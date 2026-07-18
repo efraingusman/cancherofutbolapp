@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Tiros Libres — Canchero</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { background:#0a1a0a; color:#fff; font-family:'Arial Black',Arial,sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; overflow:hidden; touch-action:none; }
+  canvas { display:block; max-width:100vw; }
+  #ui { width:100%; max-width:500px; padding:8px 16px 12px; }
+  #score-bar { display:flex; justify-content:space-between; align-items:center; padding:6px 0 4px; font-size:13px; color:#aaa; letter-spacing:.5px; }
+  #score-bar .val { color:#baff00; font-size:20px; font-weight:900; }
+  #message { text-align:center; font-size:20px; font-weight:900; min-height:30px; padding:4px 0; letter-spacing:1px; }
+  #controls { display:flex; gap:8px; justify-content:center; margin:8px 0 6px; }
+  .dir-btn { flex:1; padding:13px 0; border-radius:14px; border:2px solid #222; background:#111; color:#888; font-size:13px; font-weight:900; cursor:pointer; transition:all .15s; letter-spacing:.5px; }
+  .dir-btn.selected { border-color:#baff00; background:rgba(186,255,0,0.1); color:#baff00; transform:scale(1.03); }
+  .dir-btn:active { transform:scale(0.97); }
+  #shoot-btn { width:100%; padding:15px; border-radius:16px; border:none; background:#baff00; color:#000; font-size:16px; font-weight:900; cursor:pointer; letter-spacing:1px; transition:opacity .2s, transform .1s; }
+  #shoot-btn:disabled { opacity:0.3; cursor:not-allowed; }
+  #shoot-btn:not(:disabled):active { transform:scale(0.98); }
+  #back-btn { display:none; width:100%; padding:12px; border-radius:14px; border:1px solid #222; background:transparent; color:#666; font-size:14px; cursor:pointer; margin-top:8px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div id="score-bar">
+    <div>REMATE <span class="val" id="shot-num">1</span>/5</div>
+    <div>GOLES <span class="val" id="goals">0</span></div>
+  </div>
+  <div id="message"></div>
+  <div id="controls">
+    <button class="dir-btn" id="btn-left"   onclick="selectDir('left',this)">◀ IZQ</button>
+    <button class="dir-btn" id="btn-center" onclick="selectDir('center',this)">▲ CENTRO</button>
+    <button class="dir-btn" id="btn-right"  onclick="selectDir('right',this)">DER ▶</button>
+  </div>
+  <button id="shoot-btn" onclick="shoot()" disabled>⚽ PATEAR</button>
+  <button id="back-btn" onclick="goBack()">← VOLVER AL MENÚ</button>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+    const maxW = Math.min(window.innerWidth, 500);
+    canvas.width  = maxW;
+    canvas.height = Math.round(maxW * 0.58);
+}
+resize();
+window.addEventListener('resize', () => { resize(); if (!animating) draw(); });
+
+const W = () => canvas.width;
+const H = () => canvas.height;
+
+// Parámetros del arco (proporcionales)
+const G = { x:.18, y:.05, w:.64, h:.52, pw:.018 };
+// Portero
+const KW = .14, KH = .38;
+
+let state = { shot:1, goals:0, dir:null, phase:'aim', keeperX:.5, animT:0, animDur:0, animTarget:null, keeperStart:.5, keeperTarget:.5 };
+let animating = false;
+let rafId = null;
+
+function draw() {
+    ctx.clearRect(0,0,W(),H());
+
+    // Fondo — césped degradado
+    const grd = ctx.createLinearGradient(0,0,0,H());
+    grd.addColorStop(0,'#0d2e0d'); grd.addColorStop(1,'#1a4f1a');
+    ctx.fillStyle = grd; ctx.fillRect(0,0,W(),H());
+
+    // Líneas del campo (decorativo)
+    ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1;
+    ctx.strokeRect(W()*.06,H()*.42,W()*.88,H()*.55);
+    ctx.strokeRect(W()*.22,H()*.42,W()*.56,H()*.22);
+
+    // Arco — postes
+    const gx=W()*G.x, gy=H()*G.y, gw=W()*G.w, gh=H()*G.h, pw=W()*G.pw;
+
+    // Red (líneas)
+    ctx.strokeStyle='rgba(255,255,255,0.12)'; ctx.lineWidth=.8;
+    const cols=10, rows=6;
+    for(let i=0;i<=cols;i++){const x=gx+pw+i*(gw-pw*2)/cols; ctx.beginPath();ctx.moveTo(x,gy+pw);ctx.lineTo(x,gy+gh);ctx.stroke();}
+    for(let i=0;i<=rows;i++){const y=gy+pw+i*(gh-pw)/rows; ctx.beginPath();ctx.moveTo(gx+pw,y);ctx.lineTo(gx+gw-pw,y);ctx.stroke();}
+
+    // Postes y travesaño
+    ctx.fillStyle='#e0e0e0';
+    ctx.fillRect(gx,gy,pw,gh); ctx.fillRect(gx+gw-pw,gy,pw,gh); ctx.fillRect(gx,gy,gw,pw);
+    // Sombra en base de postes
+    ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(gx,gy+gh-3,gw,3);
+
+    // Portero
+    const kx = W()*(state.keeperX - KW/2);
+    const ky = H()*(G.y + G.h - KH);
+    const kw = W()*KW, kh = H()*KH;
+    // guantes (brazos)
+    ctx.fillStyle='#ffdd55';
+    ctx.fillRect(kx-kw*.08, ky+kh*.28, kw*.16, kh*.12);
+    ctx.fillRect(kx+kw*.92, ky+kh*.28, kw*.16, kh*.12);
+    // cuerpo
+    ctx.fillStyle='#cc2222';
+    ctx.beginPath(); ctx.roundRect(kx+kw*.12,ky+kh*.3,kw*.76,kh*.52,4); ctx.fill();
+    // número
+    ctx.fillStyle='#fff'; ctx.font=`bold ${kw*.28}px Arial Black`; ctx.textAlign='center';
+    ctx.fillText('1',kx+kw/2,ky+kh*.66);
+    // cabeza
+    ctx.fillStyle='#f5c9a0';
+    ctx.beginPath(); ctx.arc(kx+kw/2, ky+kh*.2, kw*.28, 0, Math.PI*2); ctx.fill();
+    // cabello
+    ctx.fillStyle='#4a2200';
+    ctx.beginPath(); ctx.arc(kx+kw/2, ky+kh*.1, kw*.28, Math.PI,0); ctx.fill();
+    // piernas
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(kx+kw*.2,ky+kh*.82,kw*.22,kh*.18);
+    ctx.fillRect(kx+kw*.55,ky+kh*.82,kw*.22,kh*.18);
+    // botines
+    ctx.fillStyle='#111';
+    ctx.fillRect(kx+kw*.16,ky+kh*.96,kw*.28,kh*.06);
+    ctx.fillRect(kx+kw*.54,ky+kh*.96,kw*.28,kh*.06);
+
+    // Pelota
+    let bx, by, br;
+    if(state.animTarget && animating) {
+        const t = Math.min(state.animT/state.animDur, 1);
+        const ease = t<.5 ? 2*t*t : -1+(4-2*t)*t;
+        bx = W()*(.5 + (state.animTarget.x-.5)*ease);
+        by = H()*(.85 - (.85-state.animTarget.y)*ease);
+        br = W()*.038*(1-ease*.25);
+    } else {
+        bx = W()*.5; by = H()*.85; br = W()*.038;
+    }
+    drawBall(bx, by, br);
+
+    // Jugador (silueta)
+    drawPlayer(W()*.5, H()*.96);
+}
+
+function drawBall(x,y,r) {
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    const bg = ctx.createRadialGradient(x-r*.3,y-r*.3,r*.05,x,y,r);
+    bg.addColorStop(0,'#ffffff'); bg.addColorStop(1,'#cccccc');
+    ctx.fillStyle=bg; ctx.fill();
+    ctx.strokeStyle='#333'; ctx.lineWidth=.8; ctx.stroke();
+    // pentágonos decorativos
+    ctx.fillStyle='#222';
+    [[0,-.55],[.48,.35],[-.48,.35]].forEach(([dx,dy])=>{
+        ctx.beginPath(); ctx.arc(x+dx*r,y+dy*r,r*.22,0,Math.PI*2); ctx.fill();
+    });
+}
+
+function drawPlayer(x,y) {
+    // silueta simple del pateador
+    ctx.fillStyle='rgba(186,255,0,0.6)';
+    // cuerpo
+    ctx.beginPath(); ctx.roundRect(x-W()*.022,y-H()*.09,W()*.044,H()*.07,3); ctx.fill();
+    // cabeza
+    ctx.beginPath(); ctx.arc(x,y-H()*.12,W()*.018,0,Math.PI*2); ctx.fill();
+}
+
+function selectDir(dir, btn) {
+    if(state.phase !== 'aim') return;
+    state.dir = dir;
+    document.querySelectorAll('.dir-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    document.getElementById('shoot-btn').disabled = false;
+}
+
+function shoot() {
+    if(state.phase !== 'aim' || !state.dir) return;
+    state.phase = 'shooting';
+    document.getElementById('shoot-btn').disabled = true;
+    document.querySelectorAll('.dir-btn').forEach(b=>b.disabled=true);
+
+    // Calcular destino de la pelota en el arco
+    let tx;
+    if(state.dir==='left')   tx = G.x + G.w*(.08+Math.random()*.22);
+    else if(state.dir==='right') tx = G.x + G.w*(.7+Math.random()*.22);
+    else tx = G.x + G.w*(.3+Math.random()*.4);
+    const ty = G.y + G.pw + Math.random()*(G.h-G.pw)*0.85;
+
+    // Portero se mueve aleatoriamente
+    const choices = [.22,.5,.78];
+    state.keeperStart  = state.keeperX;
+    state.keeperTarget = choices[Math.floor(Math.random()*3)];
+
+    state.animTarget = { x: tx, y: ty };
+    state.animT = 0;
+    state.animDur = 520; // ms
+    animating = true;
+
+    let last = null;
+    function frame(ts) {
+        if(!last) last=ts;
+        const dt = ts-last; last=ts;
+        state.animT += dt;
+        const t = Math.min(state.animT/state.animDur,1);
+        const ease = t<.5 ? 2*t*t : -1+(4-2*t)*t;
+        state.keeperX = state.keeperStart + (state.keeperTarget-state.keeperStart)*ease;
+        draw();
+        if(t<1) { rafId=requestAnimationFrame(frame); }
+        else { animating=false; checkResult(tx,ty,state.keeperTarget); }
+    }
+    rafId = requestAnimationFrame(frame);
+}
+
+function checkResult(bx, by, kx) {
+    const inGoal = bx>=G.x+G.pw && bx<=G.x+G.w-G.pw && by>=G.y+G.pw && by<=G.y+G.h;
+    const kLeft  = kx - KW*.55, kRight = kx + KW*.55;
+    const kTop   = G.y + G.h - KH - .04;
+    const saved  = inGoal && bx>=kLeft && bx<=kRight && by>=kTop;
+    const msg = document.getElementById('message');
+    if(inGoal && !saved) {
+        state.goals++;
+        document.getElementById('goals').textContent = state.goals;
+        msg.style.color='#baff00'; msg.textContent='⚽ ¡GOOOOOL!';
+    } else if(saved) {
+        msg.style.color='#ff4444'; msg.textContent='🧤 ¡ATAJADA!';
+    } else {
+        msg.style.color='#ff8c00'; msg.textContent='❌ AFUERA';
+    }
+    setTimeout(()=>{ state.shot<5 ? nextShot() : endGame(); }, 1100);
+}
+
+function nextShot() {
+    state.shot++; state.phase='aim'; state.dir=null; state.keeperX=.5; state.animTarget=null;
+    document.getElementById('shot-num').textContent = state.shot;
+    document.getElementById('message').textContent = '';
+    document.querySelectorAll('.dir-btn').forEach(b=>{b.classList.remove('selected');b.disabled=false;});
+    document.getElementById('shoot-btn').disabled = true;
+    draw();
+}
+
+function endGame() {
+    state.phase='end';
+    const g = state.goals, msg = document.getElementById('message');
+    if(g===5)     { msg.style.color='#baff00'; msg.textContent='🏆 ¡PERFECTO! 5/5'; }
+    else if(g>=3) { msg.style.color='#baff00'; msg.textContent=`⚽ ${g}/5 — ¡BIEN JUGADO!`; }
+    else           { msg.style.color='#ff8c00'; msg.textContent=`😤 ${g}/5 — ¡A PRACTICAR!`; }
+    document.getElementById('controls').style.display='none';
+    document.getElementById('shoot-btn').style.display='none';
+    // Botón reiniciar
+    const ri = document.createElement('button');
+    ri.id='restart-btn';
+    ri.style.cssText='width:100%;padding:14px;border-radius:16px;border:none;background:#baff00;color:#000;font-size:16px;font-weight:900;cursor:pointer;margin-bottom:8px;';
+    ri.textContent='🔄 JUGAR DE NUEVO';
+    ri.onclick=resetGame;
+    document.getElementById('ui').insertBefore(ri, document.getElementById('back-btn'));
+    document.getElementById('back-btn').style.display='block';
+    draw();
+}
+
+function resetGame() {
+    if(rafId) cancelAnimationFrame(rafId);
+    state = { shot:1, goals:0, dir:null, phase:'aim', keeperX:.5, animT:0, animDur:0, animTarget:null, keeperStart:.5, keeperTarget:.5 };
+    animating=false;
+    document.getElementById('shot-num').textContent='1';
+    document.getElementById('goals').textContent='0';
+    document.getElementById('message').textContent='';
+    document.getElementById('controls').style.display='flex';
+    document.getElementById('shoot-btn').style.display='block';
+    document.getElementById('shoot-btn').disabled=true;
+    document.getElementById('back-btn').style.display='none';
+    document.querySelectorAll('.dir-btn').forEach(b=>{b.classList.remove('selected');b.disabled=false;});
+    const ri=document.getElementById('restart-btn');
+    if(ri)ri.remove();
+    draw();
+}
+
+function goBack() {
+    // Cerrar el iframe/juego y volver al launcher
+    try { window.parent.closeGamesModal && window.parent.closeGamesModal(); } catch(e){}
+    try { window.parent.document.getElementById('game-player-overlay')?.remove(); } catch(e){}
+    try { history.back(); } catch(e){}
+}
+
+// Canvas roundRect polyfill para navegadores viejos
+if(!CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r){
+        this.beginPath();this.moveTo(x+r,y);this.lineTo(x+w-r,y);
+        this.arcTo(x+w,y,x+w,y+r,r);this.lineTo(x+w,y+h-r);
+        this.arcTo(x+w,y+h,x+w-r,y+h,r);this.lineTo(x+r,y+h);
+        this.arcTo(x,y+h,x,y+h-r,r);this.lineTo(x,y+r);
+        this.arcTo(x,y,x+r,y,r);this.closePath();
+        return this;
+    };
+}
+
+draw();
+</script>
+</body>
+</html>

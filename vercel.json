@@ -1,0 +1,44 @@
+{
+  "version": 2,
+  "outputDirectory": ".",
+  "functions": {
+    "api/gameproxy.js": {
+      "memory": 256,
+      "maxDuration": 15
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)\\.js",
+      "headers": [
+        { "key": "Content-Type", "value": "application/javascript; charset=utf-8" }
+      ]
+    },
+    {
+      "source": "/(.*)\\.css",
+      "headers": [
+        { "key": "Content-Type", "value": "text/css; charset=utf-8" }
+      ]
+    },
+    {
+      "source": "/(.*)\\.html",
+      "headers": [
+        { "key": "Content-Type", "value": "text/html; charset=utf-8" }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/admin-crm.html",
+      "destination": "/admin-crm.html"
+    },
+    {
+      "source": "/crm.html",
+      "destination": "/crm.html"
+    },
+    {
+      "source": "/((?!api/)(?!.*\\.[a-zA-Z0-9]+$).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

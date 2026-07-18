@@ -1,0 +1,12 @@
+import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
+const SEC=fs.readFileSync(process.env.TEMP+'/sbsec2.txt','utf8').trim();
+const admin=createClient('https://dofbxgqzcvfjpnvcvdjb.supabase.co',SEC);
+const { data:list } = await admin.auth.admin.listUsers({ perPage: 200 });
+const au = list.users.find(x=>x.email==='hijitosuy@gmail.com');
+console.log('hijitosuy AUTH user:', au? ('existe, provider='+(au.app_metadata?.provider||'?')+' confirmado='+!!au.email_confirmed_at) : 'NO EXISTE (nunca creó login)');
+const { data:urow } = await admin.from('users').select('email,role,sub_status').eq('email','hijitosuy@gmail.com');
+console.log('hijitosuy USERS row:', JSON.stringify(urow));
+const { data:br } = await admin.from('business_requests').select('email,role,status,approval_code,code_used').eq('email','hijitosuy@gmail.com');
+console.log('business_request:', JSON.stringify(br));
+process.exit(0);

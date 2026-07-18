@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canchero · Panel de Negocio</title>
+<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Inter:wght@400;500;600&display=swap');
+  :root { --accent:#baff00; --bg:#070907; --bg2:#0f110f; --border:#1e201e; --text:#fff; --muted:#888; --red:#ff4444; --orange:#ffb400; --font:'Outfit',sans-serif; --body:'Inter',sans-serif; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; background:var(--bg); color:var(--text); font-family:var(--body); display:flex; align-items:center; justify-content:center; }
+  .card { background:var(--bg2); border:1px solid var(--border); border-radius:20px; width:100%; max-width:440px; padding:36px; box-shadow:0 0 60px rgba(186,255,0,0.06); }
+  .logo { display:flex; align-items:center; gap:12px; margin-bottom:24px; }
+  .logo-icon { width:44px; height:44px; border-radius:12px; background:var(--accent); display:flex; align-items:center; justify-content:center; }
+  .logo-icon i { font-size:24px; color:#000; }
+  .logo-text { font-family:var(--font); font-size:20px; font-weight:900; color:var(--accent); }
+  .logo-text small { display:block; font-size:10px; color:var(--muted); font-weight:400; text-transform:uppercase; letter-spacing:1px; }
+  .form-label { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:6px; }
+  .form-input { width:100%; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:10px; padding:11px 14px; color:var(--text); font-size:14px; outline:none; transition:.2s; box-sizing:border-box; }
+  .form-input:focus { border-color:var(--accent); }
+  .btn { width:100%; background:var(--accent); color:#000; border:none; padding:13px; border-radius:10px; font-family:var(--font); font-weight:900; font-size:15px; cursor:pointer; text-transform:uppercase; letter-spacing:1px; margin-top:8px; }
+  .btn:hover { background:#d4ff33; }
+  .btn-outline { background:transparent; border:1px solid var(--border); color:var(--muted); margin-top:8px; }
+  .status-screen { display:none; text-align:center; padding:10px 0; }
+  .status-icon { font-size:48px; margin-bottom:16px; }
+  .status-title { font-family:var(--font); font-size:20px; font-weight:900; margin-bottom:8px; }
+  .status-sub { color:var(--muted); font-size:13px; line-height:1.6; margin-bottom:20px; }
+  .code-box { background:rgba(186,255,0,0.06); border:1px solid rgba(186,255,0,0.2); border-radius:10px; padding:16px; margin-bottom:16px; }
+  #login-err { color:var(--red); font-size:12px; text-align:center; margin-top:8px; display:none; }
+  .loading { text-align:center; padding:30px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="card" id="main-card">
+  <div class="logo">
+    <div class="logo-icon"><i class='bx bx-buildings'></i></div>
+    <div class="logo-text">CANCHERO<small>Panel de Negocio</small></div>
+  </div>
+  <div id="login-form">
+    <div style="margin-bottom:14px;"><label class="form-label">EMAIL DEL NEGOCIO</label><input id="crm-email" type="email" class="form-input" placeholder="tu@email.com"></div>
+    <div style="margin-bottom:14px;"><label class="form-label">CONTRASEÑA</label><input id="crm-pass" type="password" class="form-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="btn" onclick="doLogin()">ENTRAR A MI PANEL</button>
+    <div id="login-err">Email o contraseña incorrectos</div>
+    <div style="text-align:center;margin-top:16px;"><a href="https://canchero-app.vercel.app" style="color:var(--muted);font-size:12px;text-decoration:none;">← Volver a Canchero</a></div>
+  </div>
+
+  <!-- ESTADO: PENDIENTE -->
+  <div id="status-pending" class="status-screen">
+    <div class="status-icon">⏳</div>
+    <div class="status-title">Solicitud en revisión</div>
+    <div class="status-sub">Tu solicitud fue recibida y está siendo revisada por el equipo de Canchero.<br><br>Una vez aprobada, recibirás un <strong>código de 6 dígitos</strong> por WhatsApp o email junto con el monto a abonar.</div>
+    <div style="background:rgba(255,180,0,0.08);border:1px solid rgba(255,180,0,0.25);border-radius:10px;padding:14px;font-size:12px;color:#ffb400;margin-bottom:16px;text-align:left;">
+      <i class='bx bx-info-circle'></i> <strong>¿Qué sigue?</strong><br>1. Revisamos tu solicitud (24-48hs)<br>2. Te enviamos el código + monto a pagar<br>3. Realizás el pago y subís el comprobante<br>4. Activamos tu cuenta inmediatamente
+    </div>
+    <button class="btn btn-outline" onclick="doLogout()"><i class='bx bx-log-out'></i> Cerrar sesión</button>
+  </div>
+
+  <!-- ESTADO: APROBADO SIN PAGO -->
+  <div id="status-payment" class="status-screen">
+    <div class="status-icon">✅</div>
+    <div class="status-title">¡Fuiste aprobado!</div>
+    <div class="status-sub">Activá tu cuenta realizando el pago y subiendo el comprobante.</div>
+    <div class="code-box">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">PRECIO DE TU PLAN</div>
+      <div id="pay-price" style="font-family:var(--font);font-size:28px;font-weight:900;color:var(--accent);">$—/mes</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+      <a id="pay-mp-link" href="#" target="_blank" style="flex:1;display:none;background:rgba(0,174,219,0.15);color:#00aedb;border:1px solid rgba(0,174,219,0.3);border-radius:10px;padding:10px;text-align:center;font-weight:700;font-size:12px;text-decoration:none;"><i class='bx bxl-paypal'></i> Pagar con MercadoPago</a>
+      <a id="pay-stripe-link" href="#" target="_blank" style="flex:1;display:none;background:rgba(99,91,255,0.15);color:#635bff;border:1px solid rgba(99,91,255,0.3);border-radius:10px;padding:10px;text-align:center;font-weight:700;font-size:12px;text-decoration:none;"><i class='bx bx-credit-card'></i> Pagar con Stripe</a>
+    </div>
+    <div style="margin-bottom:12px;"><label class="form-label">CÓDIGO DE ACTIVACIÓN (6 dígitos)</label><input id="act-code" type="text" class="form-input" maxlength="6" placeholder="000000" style="letter-spacing:8px;font-size:20px;text-align:center;font-weight:900;"></div>
+    <div style="margin-bottom:16px;">
+      <label class="form-label">COMPROBANTE DE PAGO (foto)</label>
+      <input id="comp-file" type="file" accept="image/*" class="form-input" style="padding:8px;">
+      <div id="comp-preview" style="margin-top:8px;"></div>
+    </div>
+    <button class="btn" onclick="activateAccount()">ACTIVAR MI CUENTA</button>
+    <button class="btn btn-outline" onclick="doLogout()">Cerrar sesión</button>
+  </div>
+
+  <!-- ESTADO: SUSPENDIDO -->
+  <div id="status-suspended" class="status-screen">
+    <div class="status-icon">🔒</div>
+    <div class="status-title">Cuenta suspendida</div>
+    <div class="status-sub">Tu cuenta fue suspendida por falta de pago o por decisión del administrador.<br><br>Para reactivarla, realizá el pago correspondiente y enviá el comprobante a <strong>neurovidstudioia@gmail.com</strong></div>
+    <button class="btn btn-outline" onclick="doLogout()">Cerrar sesión</button>
+  </div>
+
+  <!-- ESTADO: RECHAZADO -->
+  <div id="status-rejected" class="status-screen">
+    <div class="status-icon">❌</div>
+    <div class="status-title">Solicitud rechazada</div>
+    <div class="status-sub">Tu solicitud no fue aprobada en esta instancia. Podés contactarnos para más información.</div>
+    <a href="mailto:neurovidstudioia@gmail.com" class="btn" style="display:block;text-decoration:none;text-align:center;">Contactar admin</a>
+    <button class="btn btn-outline" onclick="doLogout()">Cerrar sesión</button>
+  </div>
+
+  <div id="loading-screen" class="status-screen" style="display:block;">
+    <div class="loading"><i class='bx bx-loader-alt bx-spin' style="font-size:32px;color:var(--accent);display:block;margin-bottom:8px;"></i>Cargando...</div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://dofbxgqzcvfjpnvcvdjb.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_gPwLXkMHk3HvFz9nm9hgKA_1D0IJBKA';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let _bizData = null;
+
+const ROLE_TO_URL = { club:'crm-complejo.html', profesional:'crm-profesional.html', organizacion:'crm-organizacion.html', tienda:'crm-tienda.html' };
+
+function showScreen(id) {
+  ['login-form','status-pending','status-payment','status-suspended','status-rejected','loading-screen'].forEach(s => {
+    const el = document.getElementById(s);
+    if (el) el.style.display = 'none';
+  });
+  const target = document.getElementById(id);
+  if (target) target.style.display = 'block';
+}
+
+// Check session: primero la sesión REAL de Supabase Auth (entró con Google o
+// con contraseña en la app principal — el token vive en este mismo dominio).
+// Solo si no hay sesión activa mostramos el login del CRM.
+async function _crmBootstrap() {
+  showScreen('loading-screen');
+  const cached = sessionStorage.getItem('crm_biz');
+  if (cached) { try { _bizData = JSON.parse(cached); return routeByStatus(_bizData); } catch(e){} }
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session && session.user) {
+      const email = session.user.email.toLowerCase();
+      const { data: biz } = await sb.from('business_requests').select('*').eq('email', email).order('created_at',{ascending:false}).limit(1).maybeSingle();
+      if (biz) { _bizData = biz; sessionStorage.setItem('crm_biz', JSON.stringify(biz)); return routeByStatus(biz); }
+      // tiene sesión pero no es negocio → volver a la app
+      window.location.href = 'https://canchero-app.vercel.app'; return;
+    }
+  } catch(e) {}
+  showScreen('login-form');
+}
+_crmBootstrap();
+
+async function doLogin() {
+  const email = document.getElementById('crm-email').value.trim().toLowerCase();
+  const pass = document.getElementById('crm-pass').value.trim();
+  if (!email || !pass) return;
+  showScreen('loading-screen');
+  // Verificar con Supabase Auth
+  const { data: authData, error: authErr } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (authErr || !authData?.user) {
+    showScreen('login-form');
+    const err = document.getElementById('login-err');
+    err.style.display = 'block';
+    setTimeout(() => err.style.display = 'none', 3000);
+    return;
+  }
+  // Buscar business_request por email
+  const { data: biz } = await sb.from('business_requests').select('*').eq('email', email).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (!biz) {
+    // Verificar si es un usuario común (jugador/club) y redirigir
+    window.location.href = 'https://canchero-app.vercel.app';
+    return;
+  }
+  _bizData = biz;
+  sessionStorage.setItem('crm_biz', JSON.stringify(biz));
+  routeByStatus(biz);
+}
+
+function routeByStatus(biz) {
+  // 2026-07 — Negocios GRATIS: sin código ni pago. Todo negocio entra directo a su
+  // panel (salvo que esté explícitamente rechazado). La cuota con MercadoPago llega
+  // más adelante y no afecta a los ya registrados.
+  biz.account_status = 'activo';
+  sessionStorage.setItem('crm_biz', JSON.stringify(biz));
+  if (biz.status === 'RECHAZADO') { showScreen('status-rejected'); return; }
+  const url = ROLE_TO_URL[biz.role] || 'crm-complejo.html';
+  window.location.href = url;
+}
+
+async function activateAccount() {
+  if (!_bizData) return;
+  const code = document.getElementById('act-code').value.trim();
+  const file = document.getElementById('comp-file').files[0];
+  if (!code || code.length !== 6) { alert('Ingresá el código de 6 dígitos.'); return; }
+  if (code !== _bizData.approval_code) { alert('Código incorrecto. Revisá el código que te enviamos.'); return; }
+  if (!file) { alert('Subí una foto del comprobante de pago.'); return; }
+  // Upload comprobante
+  const fileName = 'comp_' + _bizData.id + '_' + Date.now();
+  const { data: upData, error: upErr } = await sb.storage.from('comprobantes').upload(fileName, file, { upsert: true });
+  if (upErr) { alert('Error al subir el comprobante: ' + upErr.message); return; }
+  const { data: urlData } = sb.storage.from('comprobantes').getPublicUrl(fileName);
+  const compUrl = urlData?.publicUrl || '';
+  await sb.from('business_requests').update({ account_status: 'activo', code_used: true, comprobante_url: compUrl, activated_at: new Date().toISOString() }).eq('id', _bizData.id);
+  _bizData.account_status = 'activo';
+  _bizData.comprobante_url = compUrl;
+  sessionStorage.setItem('crm_biz', JSON.stringify(_bizData));
+  alert('¡Cuenta activada! Redirigiendo a tu panel...');
+  const url = ROLE_TO_URL[_bizData.role] || 'crm-complejo.html';
+  window.location.href = url;
+}
+
+function doLogout() {
+  sessionStorage.removeItem('crm_biz');
+  sb.auth.signOut();
+  showScreen('login-form');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Keeppy Uppy — Canchero</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; touch-action:none; }
+  body { background:#0a0a0a; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:'Arial Black',sans-serif; overflow:hidden; }
+  canvas { display:block; touch-action:none; cursor:pointer; }
+  #info { position:fixed; top:10px; left:0; right:0; text-align:center; color:#baff00; font-size:13px; font-weight:900; letter-spacing:1px; pointer-events:none; }
+  #score-display { position:fixed; top:30px; left:0; right:0; text-align:center; color:#fff; font-size:48px; font-weight:900; pointer-events:none; text-shadow:0 0 20px rgba(186,255,0,0.5); }
+  #best { position:fixed; top:88px; left:0; right:0; text-align:center; color:#555; font-size:13px; pointer-events:none; }
+  #start-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.85); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
+  #start-overlay h1 { color:#baff00; font-size:28px; letter-spacing:2px; }
+  #start-overlay p { color:#888; font-size:14px; text-align:center; max-width:260px; line-height:1.6; }
+  #start-btn { background:#baff00; color:#000; border:none; padding:14px 40px; border-radius:30px; font-size:16px; font-weight:900; cursor:pointer; letter-spacing:1px; }
+</style>
+</head>
+<body>
+<div id="info">KEEPPY UPPY</div>
+<div id="score-display">0</div>
+<div id="best">MEJOR: 0</div>
+<canvas id="c"></canvas>
+<div id="start-overlay">
+  <h1>⚽ KEEPPY UPPY</h1>
+  <p>Tocá o hacé clic para mantener la pelota en el aire. ¡No la dejes caer!</p>
+  <button id="start-btn">JUGAR</button>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H, ball, score, best=0, running=false, gameOver=false;
+
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+function initBall() {
+  ball = {
+    x: W/2, y: H/2,
+    vx: (Math.random()-0.5)*2,
+    vy: -8,
+    r: Math.min(W,H)*0.065,
+    bounce: false
+  };
+  score = 0;
+}
+
+function kick() {
+  if (!running) return;
+  ball.vy = -12 - Math.random()*4;
+  ball.vx += (Math.random()-0.5)*3;
+  ball.vx = Math.max(-6, Math.min(6, ball.vx));
+  score++;
+  document.getElementById('score-display').textContent = score;
+  if (score > best) { best = score; document.getElementById('best').textContent = 'MEJOR: ' + best; }
+  ball.bounce = true;
+  setTimeout(() => ball.bounce = false, 200);
+}
+
+function tap(e) {
+  e.preventDefault();
+  const touch = e.touches ? e.touches[0] : e;
+  const rect = canvas.getBoundingClientRect();
+  const tx = (touch.clientX || touch.pageX) - rect.left;
+  const ty = (touch.clientY || touch.pageY) - rect.top;
+  const dist = Math.hypot(ball.x - tx, ball.y - ty);
+  if (dist < ball.r * 2.5 || score === 0) kick();
+}
+
+canvas.addEventListener('click', tap);
+canvas.addEventListener('touchstart', tap, { passive:false });
+
+const GRAVITY = 0.45;
+
+function drawBall() {
+  // Shadow
+  ctx.beginPath();
+  ctx.ellipse(ball.x, ball.y + ball.r + 4, ball.r*0.8, ball.r*0.2, 0, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fill();
+  // Ball
+  const grad = ctx.createRadialGradient(ball.x - ball.r*0.3, ball.y - ball.r*0.3, ball.r*0.1, ball.x, ball.y, ball.r);
+  grad.addColorStop(0, ball.bounce ? '#ffffff' : '#f0f0f0');
+  grad.addColorStop(1, ball.bounce ? '#baff00' : '#222');
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
+  ctx.fillStyle = grad;
+  ctx.fill();
+  // Pentagon pattern
+  ctx.strokeStyle = ball.bounce ? '#baff00' : '#333';
+  ctx.lineWidth = 1.5;
+  for (let i=0; i<5; i++) {
+    const a = (i/5)*Math.PI*2 - Math.PI/2;
+    const r2 = ball.r * 0.45;
+    ctx.beginPath();
+    for (let j=0; j<5; j++) {
+      const a2 = a + (j/5)*Math.PI*2;
+      const px = ball.x + Math.cos(a2)*r2;
+      const py = ball.y + Math.sin(a2)*r2;
+      j===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+}
+
+function loop() {
+  if (!running) return;
+  ctx.clearRect(0,0,W,H);
+  // Ground
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, H-4, W, 4);
+  ctx.fillStyle = '#baff00';
+  ctx.fillRect(0, H-4, W, 2);
+
+  ball.vy += GRAVITY;
+  ball.x += ball.vx;
+  // Wall bounce
+  if (ball.x - ball.r < 0) { ball.x = ball.r; ball.vx = Math.abs(ball.vx)*0.8; }
+  if (ball.x + ball.r > W) { ball.x = W - ball.r; ball.vx = -Math.abs(ball.vx)*0.8; }
+  ball.y += ball.vy;
+
+  if (ball.y + ball.r >= H - 4) {
+    // Hit ground — game over
+    ctx.clearRect(0,0,W,H);
+    drawBall();
+    running = false;
+    setTimeout(() => showOverlay(), 500);
+    return;
+  }
+  drawBall();
+  requestAnimationFrame(loop);
+}
+
+function showOverlay() {
+  const ov = document.getElementById('start-overlay');
+  ov.innerHTML = `
+    <h1 style="color:#ff4444">⚽ GAME OVER</h1>
+    <p style="color:#baff00;font-size:28px;font-weight:900">${score}</p>
+    <p style="color:#888">MEJOR: ${best}</p>
+    <button id="start-btn" onclick="startGame()" style="background:#baff00;color:#000;border:none;padding:14px 40px;border-radius:30px;font-size:16px;font-weight:900;cursor:pointer;margin-top:8px;">JUGAR DE NUEVO</button>`;
+  ov.style.display = 'flex';
+}
+
+function startGame() {
+  document.getElementById('start-overlay').style.display = 'none';
+  initBall();
+  running = true;
+  loop();
+}
+
+document.getElementById('start-btn').addEventListener('click', startGame);
+</script>
+</body>
+</html>

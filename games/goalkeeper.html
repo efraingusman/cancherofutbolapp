@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Arquero — Canchero</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;touch-action:none;}
+  body{background:#0a0a0a;display:flex;align-items:center;justify-content:center;height:100vh;font-family:'Arial Black',sans-serif;overflow:hidden;}
+  canvas{display:block;}
+  #ui{position:fixed;top:12px;left:0;right:0;text-align:center;color:#fff;pointer-events:none;}
+  #ui .title{color:#baff00;font-size:13px;letter-spacing:2px;}
+  #ui .sc{font-size:38px;font-weight:900;}
+  #msg{position:fixed;top:35%;left:0;right:0;text-align:center;font-size:30px;font-weight:900;pointer-events:none;opacity:0;transition:opacity 0.3s;}
+  #overlay{position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
+  .btn{background:#baff00;color:#000;border:none;padding:13px 36px;border-radius:28px;font-size:15px;font-weight:900;cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="ui"><div class="title">ARQUERO</div><div class="sc" id="sc">0 / 10</div></div>
+<div id="msg"></div>
+<canvas id="c"></canvas>
+<div id="overlay">
+  <h1 style="color:#baff00;font-size:26px;letter-spacing:2px;">🧤 ARQUERO</h1>
+  <p style="color:#888;font-size:13px;text-align:center;max-width:250px;line-height:1.6">Mové el arquero con el mouse o tocá la pantalla. ¡Pará los 10 penales!</p>
+  <button class="btn" onclick="startGame()">JUGAR</button>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let W,H,shots=0,saved=0,kx,ky,kw,kh,ball,state='idle',ballActive=false,animId;
+
+function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;kw=Math.min(80,W*0.18);kh=kw*0.55;kx=W/2;ky=H*0.28;}
+resize();window.addEventListener('resize',resize);
+
+const GW=Math.min(300,window.innerWidth*0.78),GH=120;
+function gl(){return (W-GW)/2;}
+function gt(){return H*0.15;}
+function gr(){return gl()+GW;}
+function gb(){return gt()+GH;}
+
+function moveKeeper(x){
+  kx=Math.max(gl()+kw/2,Math.min(gr()-kw/2,x));
+  ky=gb()-kh*0.35;
+}
+
+c.addEventListener('mousemove',e=>{if(state==='playing')moveKeeper(e.clientX-c.getBoundingClientRect().left);});
+c.addEventListener('touchmove',e=>{e.preventDefault();if(state==='playing')moveKeeper(e.touches[0].clientX-c.getBoundingClientRect().left);},{passive:false});
+
+function drawField(){
+  ctx.fillStyle='#0d1f0d';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#1a3a1a';ctx.lineWidth=1;
+  for(let i=0;i<H;i+=40){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(W,i);ctx.stroke();}
+}
+function drawGoal(){
+  ctx.strokeStyle='rgba(255,255,255,0.07)';ctx.lineWidth=1;
+  for(let x=gl();x<gr();x+=16){ctx.beginPath();ctx.moveTo(x,gt());ctx.lineTo(x,gb());ctx.stroke();}
+  for(let y=gt();y<gb();y+=16){ctx.beginPath();ctx.moveTo(gl(),y);ctx.lineTo(gr(),y);ctx.stroke();}
+  ctx.strokeStyle='#fff';ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(gl(),gb());ctx.lineTo(gl(),gt());ctx.lineTo(gr(),gt());ctx.lineTo(gr(),gb());ctx.stroke();
+}
+function drawKeeper(){
+  ctx.fillStyle='#ff6600';
+  ctx.beginPath();ctx.ellipse(kx,ky,kw/2,kh/2,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#ffcc99';ctx.beginPath();ctx.arc(kx,ky-kh*0.65,kh*0.32,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#ff6600';ctx.lineWidth=7;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(kx-kw*0.4,ky-kh*0.1);ctx.lineTo(kx-kw*0.85,ky-kh*0.35);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(kx+kw*0.4,ky-kh*0.1);ctx.lineTo(kx+kw*0.85,ky-kh*0.35);ctx.stroke();
+}
+function drawBall(){
+  if(!ball) return;
+  const grad=ctx.createRadialGradient(ball.x-3,ball.y-3,2,ball.x,ball.y,ball.r);
+  grad.addColorStop(0,'#fff');grad.addColorStop(1,'#222');
+  ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fillStyle=grad;ctx.fill();
+}
+
+function shootBall(){
+  const tx=gl()+20+Math.random()*(GW-40);
+  const ty=gt()+10+Math.random()*(GH-20);
+  const bx=W/2+(Math.random()-0.5)*40;
+  const by=H*0.78;
+  const spd=16+Math.random()*8;
+  const dx=tx-bx,dy=ty-by;
+  const len=Math.hypot(dx,dy);
+  ball={x:bx,y:by,vx:dx/len*spd,vy:dy/len*spd,r:13,tx,ty};
+  ballActive=true;
+}
+
+function checkCollision(){
+  if(!ball) return;
+  const wasSaved=Math.abs(ball.x-kx)<kw*0.6&&Math.abs(ball.y-ky)<kh*0.7;
+  const inGoal=ball.x>gl()&&ball.x<gr()&&ball.y>gt()&&ball.y<gb();
+  if(wasSaved){showResult(true,'🧤 ATAJADO');return;}
+  if(inGoal||(ball.y<gt()-30)){showResult(false,'⚽ GOL!');return;}
+  if(ball.y<0||ball.x<0||ball.x>W){showResult(false,'¡AFUERA!');return;}
+}
+
+function showResult(didSave,txt){
+  ballActive=false;ball=null;
+  shots++;
+  if(didSave) saved++;
+  document.getElementById('sc').textContent=saved+' / '+shots;
+  const msg=document.getElementById('msg');
+  msg.textContent=txt;msg.style.color=didSave?'#baff00':'#ff4444';msg.style.opacity='1';
+  setTimeout(()=>{
+    msg.style.opacity='0';
+    if(shots>=10){endGame();return;}
+    setTimeout(shootBall,800);
+  },900);
+}
+
+function endGame(){
+  state='idle';cancelAnimationFrame(animId);
+  const ov=document.getElementById('overlay');
+  ov.style.display='flex';
+  ov.innerHTML=`<h1 style="color:${saved>=8?'#baff00':'#fff'};font-size:26px;letter-spacing:2px;">🧤 ${saved>=9?'¡INCREÍBLE!':saved>=6?'¡BUEN ARCO!':'¡SEGUÍ ENTRENANDO!'}</h1>
+    <div style="font-size:48px;font-weight:900;color:#baff00">${saved}/10</div>
+    <div style="color:#888;font-size:13px">penales atajados</div>
+    <button class="btn" onclick="startGame()">JUGAR DE NUEVO</button>`;
+}
+
+function loop(){
+  drawField();drawGoal();
+  if(ball&&ballActive){
+    ball.x+=ball.vx;ball.y+=ball.vy;
+    checkCollision();
+  }
+  drawKeeper();drawBall();
+  animId=requestAnimationFrame(loop);
+}
+
+function startGame(){
+  shots=0;saved=0;state='playing';ball=null;ballActive=false;
+  document.getElementById('sc').textContent='0 / 10';
+  document.getElementById('overlay').style.display='none';
+  kx=W/2;ky=gb()-kh*0.35;
+  cancelAnimationFrame(animId);
+  loop();
+  setTimeout(shootBall,1000);
+}
+</script>
+</body>
+</html>

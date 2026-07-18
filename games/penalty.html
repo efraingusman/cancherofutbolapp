@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Tiro Libre — Canchero</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;touch-action:none;}
+  body{background:#0a0a0a;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:'Arial Black',sans-serif;overflow:hidden;color:#fff;}
+  canvas{display:block;}
+  #ui{position:fixed;top:10px;left:0;right:0;text-align:center;}
+  #ui h2{color:#baff00;font-size:14px;letter-spacing:2px;}
+  #ui .sc{font-size:36px;font-weight:900;color:#fff;}
+  #msg{position:fixed;top:40%;left:0;right:0;text-align:center;font-size:32px;font-weight:900;pointer-events:none;opacity:0;transition:opacity 0.3s;}
+  #overlay{position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
+  #overlay h1{color:#baff00;font-size:26px;letter-spacing:2px;}
+  .btn{background:#baff00;color:#000;border:none;padding:13px 36px;border-radius:28px;font-size:15px;font-weight:900;cursor:pointer;letter-spacing:1px;}
+</style>
+</head>
+<body>
+<div id="ui"><div class="sc" id="sc">0 / 5</div><div style="color:#555;font-size:11px;letter-spacing:1px;margin-top:2px;">TOCÁ PARA APUNTAR Y PATEAR</div></div>
+<div id="msg"></div>
+<canvas id="c"></canvas>
+<div id="overlay">
+  <h1>⚽ TIRO LIBRE</h1>
+  <p style="color:#888;font-size:13px;text-align:center;max-width:250px;line-height:1.6">Tocá la cancha para apuntar. La mira se mueve sola. ¡5 tiros para meter todos!</p>
+  <button class="btn" onclick="startGame()">JUGAR</button>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+let W,H,state='idle',shots=0,goals=0,aim={x:0,y:0,dir:1,speed:3},ball={x:0,y:0,vx:0,vy:0,active:false},keeper={x:0,dir:1,speed:2.5},phase='aim';
+
+function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;reset();}
+resize();window.addEventListener('resize',resize);
+
+function reset(){aim.x=W/2;aim.y=H*0.28;}
+function initKeeper(){keeper.x=W/2;keeper.dir=(Math.random()>0.5?1:-1);}
+
+const GW=Math.min(320,window.innerWidth*0.8),GH=140;
+function goalLeft(){return (W-GW)/2;}
+function goalTop(){return H*0.18;}
+function goalRight(){return goalLeft()+GW;}
+function goalBottom(){return goalTop()+GH;}
+
+function drawField(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#0d1f0d';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#1a3a1a';ctx.lineWidth=1;
+  for(let i=0;i<H;i+=40){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(W,i);ctx.stroke();}
+  ctx.beginPath();ctx.arc(W/2,H*0.72,5,0,Math.PI*2);ctx.fillStyle='#2a5a2a';ctx.fill();
+  const bw=GW*1.4,bh=H*0.25;
+  ctx.strokeStyle='#2a6a2a';ctx.lineWidth=2;
+  ctx.strokeRect((W-bw)/2,goalTop()-20,bw,bh);
+}
+
+function drawGoal(){
+  const gl=goalLeft(),gt=goalTop(),gr=goalRight(),gb=goalBottom();
+  ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1;
+  for(let x=gl;x<gr;x+=18){ctx.beginPath();ctx.moveTo(x,gt);ctx.lineTo(x,gb);ctx.stroke();}
+  for(let y=gt;y<gb;y+=18){ctx.beginPath();ctx.moveTo(gl,y);ctx.lineTo(gr,y);ctx.stroke();}
+  ctx.strokeStyle='#fff';ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(gl,gb);ctx.lineTo(gl,gt);ctx.lineTo(gr,gt);ctx.lineTo(gr,gb);ctx.stroke();
+}
+
+function drawKeeper(){
+  const kx=keeper.x,ky=goalBottom()-30;
+  ctx.fillStyle='#ff6600';
+  ctx.beginPath();ctx.ellipse(kx,ky,14,22,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#ffcc99';ctx.beginPath();ctx.arc(kx,ky-28,10,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#ff6600';ctx.lineWidth=6;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(kx-14,ky-10);ctx.lineTo(kx-28,ky-5);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(kx+14,ky-10);ctx.lineTo(kx+28,ky-5);ctx.stroke();
+}
+
+function drawAimCursor(){
+  if(state!=='aiming') return;
+  ctx.strokeStyle='rgba(186,255,0,0.8)';ctx.lineWidth=2;
+  const x=aim.x,y=aim.y,r=18;
+  ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x-r-6,y);ctx.lineTo(x+r+6,y);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x,y-r-6);ctx.lineTo(x,y+r+6);ctx.stroke();
+  const dx=x-W/2,dy=y-H*0.72;
+  const len=Math.hypot(dx,dy);
+  if(len>0){
+    ctx.strokeStyle='rgba(186,255,0,0.4)';ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.moveTo(W/2,H*0.72);ctx.lineTo(x,y);ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+function drawBallOnSpot(){
+  const bx=W/2,by=H*0.72;
+  const grad=ctx.createRadialGradient(bx-4,by-4,2,bx,by,14);
+  grad.addColorStop(0,'#fff');grad.addColorStop(1,'#333');
+  ctx.beginPath();ctx.arc(bx,by,14,0,Math.PI*2);ctx.fillStyle=grad;ctx.fill();
+}
+
+function drawFlyingBall(){
+  if(!ball.active) return;
+  const grad=ctx.createRadialGradient(ball.x-3,ball.y-3,2,ball.x,ball.y,12);
+  grad.addColorStop(0,'#fff');grad.addColorStop(1,'#333');
+  ctx.beginPath();ctx.arc(ball.x,ball.y,12,0,Math.PI*2);ctx.fillStyle=grad;ctx.fill();
+}
+
+let animId;
+function gameLoop(){
+  drawField();drawGoal();
+  if(phase==='aim'){
+    drawKeeper();
+    aim.x+=aim.speed*aim.dir;
+    if(aim.x>goalRight()-10){aim.dir=-1;}
+    if(aim.x<goalLeft()+10){aim.dir=1;}
+    drawBallOnSpot();
+    drawAimCursor();
+  } else if(phase==='flying'){
+    keeper.x+=keeper.speed*keeper.dir;
+    if(keeper.x>goalRight()-20){keeper.dir=-1;}
+    if(keeper.x<goalLeft()+20){keeper.dir=1;}
+    drawKeeper();
+    ball.x+=ball.vx;ball.y+=ball.vy;ball.vy-=0.3;
+    drawFlyingBall();
+    const inGoal=ball.x>goalLeft()+10&&ball.x<goalRight()-10&&ball.y>goalTop()&&ball.y<goalBottom();
+    const saved=Math.abs(ball.x-keeper.x)<30&&Math.abs(ball.y-(goalBottom()-30))<30;
+    if(ball.y<goalTop()-20||ball.y>H||ball.x<0||ball.x>W){showResult(false,'¡AFUERA!');}
+    else if(saved){showResult(false,'¡ATAJADO!');}
+    else if(inGoal){showResult(true,'⚽ ¡GOL!');}
+  }
+  animId=requestAnimationFrame(gameLoop);
+}
+
+function showResult(isGoal,txt){
+  cancelAnimationFrame(animId);
+  phase='result';
+  drawField();drawGoal();drawKeeper();
+  if(isGoal){goals++;}
+  shots++;
+  const msg=document.getElementById('msg');
+  msg.textContent=txt;
+  msg.style.color=isGoal?'#baff00':'#ff4444';
+  msg.style.opacity='1';
+  document.getElementById('sc').textContent=goals+' / '+shots;
+  setTimeout(()=>{
+    msg.style.opacity='0';
+    if(shots>=5){endGame();return;}
+    phase='aim';
+    aim.x=W/2;aim.dir=1;
+    initKeeperRand();
+    animId=requestAnimationFrame(gameLoop);
+  },1200);
+}
+
+function initKeeperRand(){keeper.x=W/2+(Math.random()-0.5)*GW*0.4;keeper.dir=Math.random()>0.5?1:-1;keeper.speed=2+Math.random()*2;}
+
+function endGame(){
+  document.getElementById('overlay').style.display='flex';
+  document.getElementById('overlay').innerHTML=`
+    <h1 style="color:${goals>=4?'#baff00':'#fff'}">⚽ ${goals>=5?'¡PERFECTO!':goals>=3?'¡BIEN!':'¡PODÉS MÁS!'}</h1>
+    <div style="font-size:48px;font-weight:900;color:#baff00">${goals}/5</div>
+    <div style="color:#888;font-size:13px">goles convertidos</div>
+    <button class="btn" onclick="startGame()" style="background:#baff00;color:#000;border:none;padding:13px 36px;border-radius:28px;font-size:15px;font-weight:900;cursor:pointer;margin-top:8px;">JUGAR DE NUEVO</button>`;
+}
+
+function shoot(e){
+  if(state!=='aiming'||phase!=='aim') return;
+  e.preventDefault();
+  const rect=canvas.getBoundingClientRect();
+  const tx=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+  const ty=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+  const tx2=Math.max(goalLeft()+10,Math.min(goalRight()-10,tx));
+  const ty2=Math.max(goalTop()+10,Math.min(goalBottom()-10,ty));
+  const dx=tx2-W/2,dy=ty2-H*0.72;
+  const spd=22;
+  const len=Math.hypot(dx,dy);
+  ball={x:W/2,y:H*0.72,vx:dx/len*spd*0.6,vy:-(spd),active:true};
+  phase='flying';
+  initKeeperRand();
+  keeper.speed=2.5+Math.random()*2;
+}
+
+canvas.addEventListener('click',shoot);
+canvas.addEventListener('touchstart',shoot,{passive:false});
+
+function startGame(){
+  shots=0;goals=0;phase='aim';aim.x=W/2;aim.dir=1;aim.speed=3;
+  state='aiming';
+  document.getElementById('sc').textContent='0 / 5';
+  document.getElementById('overlay').style.display='none';
+  initKeeperRand();
+  cancelAnimationFrame(animId);
+  animId=requestAnimationFrame(gameLoop);
+}
+</script>
+</body>
+</html>

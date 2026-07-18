@@ -1,0 +1,31 @@
+{
+  "name": "canchero-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "append_logic.js",
+  "scripts": {
+    "build": "node build.js",
+    "sync": "npm run build && npx cap sync",
+    "open:android": "npx cap open android",
+    "release": "node release.js",
+    "test:e2e": "npm run build && playwright test",
+    "test:e2e:pc": "npm run build && playwright test --project=pc-horizontal",
+    "test:e2e:mobile": "npm run build && playwright test --project=celular-vertical",
+    "test:e2e:report": "playwright show-report tests/report"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/core": "^8.3.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.3.4",
+    "@playwright/test": "^1.61.1",
+    "@supabase/supabase-js": "^2.106.2",
+    "pg": "^8.21.0",
+    "web-push": "^3.6.7"
+  }
+}

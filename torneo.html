@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Torneo · Canchero</title>
+<meta name="description" content="Seguí el torneo en vivo: tabla de posiciones, fixture, goleadores y equipos. Sin login.">
+<!-- Open Graph (se actualizan por JS con los datos del torneo) -->
+<meta property="og:type" content="website">
+<meta property="og:title" id="og-title" content="Torneo · Canchero">
+<meta property="og:description" id="og-desc" content="Tabla, fixture, goleadores y equipos en vivo.">
+<meta property="og:image" content="og-black.jpg">
+<meta name="theme-color" content="#070907">
+<link rel="icon" href="icon-black-192.png">
+<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Inter:wght@400;500;600&display=swap');
+  :root{--accent:#baff00;--bg:#070907;--bg2:#0f110f;--border:#1e201e;--text:#fff;--muted:#666;--font:'Outfit',sans-serif;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;min-height:100%;}
+  a{color:var(--accent);text-decoration:none;}
+  .wrap{max-width:720px;margin:0 auto;padding:16px 16px 60px;}
+  /* Top bar */
+  .pubbar{position:sticky;top:0;z-index:20;background:rgba(7,9,7,0.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:10px 16px;}
+  .pubbar .brand{display:flex;align-items:center;gap:8px;font-family:var(--font);font-weight:900;font-size:16px;color:var(--accent);letter-spacing:-.5px;}
+  .pubbar .brand img{height:26px;width:auto;}
+  .pubbar-actions{display:flex;gap:8px;}
+  .btn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:12px;padding:8px 14px;font-family:var(--font);font-weight:900;font-size:12px;letter-spacing:.3px;cursor:pointer;transition:.15s;}
+  .btn-accent{background:linear-gradient(135deg,#baff00,#8fd400);color:#000;box-shadow:0 3px 14px rgba(186,255,0,.3);}
+  .btn-accent:hover{transform:translateY(-1px);}
+  .btn-glass{background:rgba(255,255,255,.05);border:1px solid var(--border);color:#fff;}
+  .btn-glass:hover{border-color:var(--accent);color:var(--accent);}
+  .btn i{font-size:16px;}
+  /* Header torneo */
+  .cover{width:100%;height:170px;object-fit:cover;border-radius:18px;margin-bottom:16px;}
+  .t-title{font-family:var(--font);font-weight:900;font-size:24px;line-height:1.1;margin:0;}
+  .badge{font-size:11px;font-weight:800;border-radius:8px;padding:3px 10px;background:rgba(255,255,255,.06);}
+  .meta{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 4px;color:var(--muted);font-size:12px;}
+  .meta i{color:var(--accent);}
+  .t-desc{font-size:13px;color:#aaa;line-height:1.6;margin:10px 0;}
+  /* Tabs */
+  .tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:18px 0 14px;padding-bottom:2px;}
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab{display:inline-flex;align-items:center;gap:6px;background:transparent;color:#888;border:1px solid var(--border);border-radius:22px;padding:8px 16px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;transition:.15s;}
+  .tab.active{background:rgba(186,255,0,.12);color:var(--accent);border-color:rgba(186,255,0,.35);}
+  .tab i{font-size:15px;}
+  #ctp-content{min-height:240px;}
+  .center-msg{text-align:center;padding:48px 16px;color:var(--muted);}
+  .foot{margin-top:34px;padding-top:18px;border-top:1px solid var(--border);text-align:center;color:#555;font-size:12px;}
+  .foot a{font-weight:800;}
+  /* Toast */
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);opacity:0;background:#111;border:1px solid var(--border);color:#fff;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:600;z-index:9999;transition:.25s;pointer-events:none;max-width:90vw;}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  #toast.error{border-color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="pubbar">
+  <a class="brand" href="index.html"><img src="logo.png" alt="Canchero" onerror="this.style.display='none'"> CANCHERO</a>
+  <div class="pubbar-actions">
+    <button class="btn btn-glass" id="btn-follow" onclick="toggleFollow()"><i class='bx bx-bell'></i> <span id="follow-label">Seguir</span></button>
+    <button class="btn btn-accent" onclick="sharePage()"><i class='bx bx-share-alt'></i> Compartir</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="t-header"><div class="center-msg"><i class='bx bx-loader-alt bx-spin' style="font-size:26px;"></i><div style="margin-top:10px;">Cargando torneo…</div></div></div>
+  <div id="t-body" style="display:none;">
+    <div class="tabs" id="t-tabs">
+      <button class="tab active" data-tab="tabla"      onclick="pubTab('tabla',this)"><i class='bx bx-list-ol'></i> Tabla</button>
+      <button class="tab"        data-tab="fixture"    onclick="pubTab('fixture',this)"><i class='bx bx-calendar'></i> Fixture</button>
+      <button class="tab"        data-tab="equipos"    onclick="pubTab('equipos',this)"><i class='bx bx-shield-quarter'></i> Equipos</button>
+      <button class="tab"        data-tab="goleadores" onclick="pubTab('goleadores',this)"><i class='bx bx-football'></i> Goleadores</button>
+      <button class="tab"        data-tab="jugadores"  onclick="pubTab('jugadores',this)"><i class='bx bx-group'></i> Jugadores</button>
+    </div>
+    <div id="ctp-content"></div>
+  </div>
+  <div class="foot">
+    Página pública del torneo · <a href="index.html">Creá el tuyo gratis en Canchero</a>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const SUPA_URL='https://dofbxgqzcvfjpnvcvdjb.supabase.co';
+const SUPA_KEY='sb_publishable_gPwLXkMHk3HvFz9nm9hgKA_1D0IJBKA';
+const sb=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+// Puente para reutilizar el motor canchero-tournaments.js (espera window._sb / userData / showToast)
+window._sb=sb;
+window.userData=null;               // viewer anónimo → sin controles de gestión
+window.showToast=function(m,t){ var el=document.getElementById('toast'); if(!el)return; el.textContent=m; el.className=(t==='error'?'error ':'')+'show'; clearTimeout(window.__tt); window.__tt=setTimeout(function(){el.className='';},2600); };
+
+const params=new URLSearchParams(location.search);
+const TID=params.get('id')||params.get('t')||'';
+let TORNEO=null;
+
+const STATUS={ draft:{l:'Borrador',c:'#888'}, registration:{l:'Inscripciones abiertas',c:'#ffaa00'}, active:{l:'En curso',c:'#00e676'}, finished:{l:'Finalizado',c:'#4fc3f7'}, cancelled:{l:'Cancelado',c:'#ff4444'} };
+
+function esc(s){return String(s==null?'':s).replace(/[<>&"]/g,function(c){return{'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];});}
+
+async function boot(){
+  if(!TID){ header404('Falta el identificador del torneo en el link.'); return; }
+  let t=null,err=null;
+  try{ const r=await sb.from('tournaments').select('*').eq('id',TID).single(); t=r.data; err=r.error; }catch(e){ err=e; }
+  if(err||!t){ header404('No pudimos cargar este torneo. Puede que el link sea incorrecto o que el torneo no sea público.'); return; }
+  TORNEO=t;
+  renderHeader(t);
+  document.getElementById('t-body').style.display='block';
+  pubTab('tabla', document.querySelector('#t-tabs .tab'));
+}
+
+function header404(msg){
+  document.getElementById('t-header').innerHTML='<div class="center-msg"><i class="bx bx-error-circle" style="font-size:30px;color:#ff4444;"></i><div style="margin-top:10px;">'+esc(msg)+'</div><div style="margin-top:14px;"><a href="index.html">Ir a Canchero</a></div></div>';
+}
+
+function renderHeader(t){
+  const st=STATUS[t.status]||{l:t.status,c:'#888'};
+  const d=[];
+  if(t.city) d.push('<span><i class="bx bx-map"></i> '+esc(t.city)+'</span>');
+  if(t.start_date) d.push('<span><i class="bx bx-calendar"></i> '+new Date(t.start_date+'T00:00').toLocaleDateString('es-UY',{day:'numeric',month:'short',year:'numeric'})+'</span>');
+  const fmt={groups:'Grupos + Eliminación',league:'Liga',elimination:'Eliminación directa'}[t.format]||'';
+  if(fmt) d.push('<span><i class="bx bx-sitemap"></i> '+fmt+'</span>');
+  if(t.prize_pool) d.push('<span style="color:var(--accent)"><i class="bx bx-trophy"></i> '+esc(t.prize_pool)+'</span>');
+  if(t.entry_fee>0) d.push('<span style="color:#ffaa00"><i class="bx bx-dollar-circle"></i> Inscripción: $'+esc(t.entry_fee)+'</span>');
+  else d.push('<span style="color:#00e676"><i class="bx bx-dollar-circle"></i> Gratis</span>');
+  document.getElementById('t-header').innerHTML=
+    (t.cover_url?'<div style="position:relative;margin-bottom:14px;"><img class="cover" src="'+esc(t.cover_url)+'" onerror="this.parentNode.style.display=\'none\'">'+
+      (t.logo_url?'<span style="position:absolute;left:12px;bottom:-18px;width:60px;height:60px;border-radius:16px;border:3px solid var(--bg);background:#111 center/cover url(\''+esc(t.logo_url)+'\');"></span>':'')+
+     '</div>':'')+
+    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;'+(t.cover_url&&t.logo_url?'padding-left:74px;':'')+'">'+
+      '<h1 class="t-title">'+esc(t.name)+'</h1>'+
+      '<span class="badge" style="color:'+st.c+'">'+esc(st.l)+'</span>'+
+    '</div>'+
+    '<div class="meta">'+d.join('')+'</div>'+
+    (t.description?'<p class="t-desc">'+esc(t.description)+'</p>':'')+
+    (t.rules?'<details style="margin-top:8px;"><summary style="cursor:pointer;color:var(--muted);font-size:12px;font-weight:700;">Ver reglamento</summary><p style="font-size:12px;color:#888;line-height:1.6;white-space:pre-wrap;margin-top:8px;">'+esc(t.rules)+'</p></details>':'');
+  // SEO / compartir
+  document.title=t.name+' · Canchero';
+  const ogt=document.getElementById('og-title'), ogd=document.getElementById('og-desc');
+  if(ogt) ogt.content=t.name+' · Canchero';
+  if(ogd) ogd.content='Seguí '+t.name+': tabla, fixture y goleadores en vivo'+(t.city?' · '+t.city:'')+'. Sin login.';
+  // Imagen del preview al compartir: portada del torneo si tiene
+  if(t.cover_url){ const ogi=document.querySelector('meta[property="og:image"]'); if(ogi) ogi.content=t.cover_url; }
+  refreshFollowLabel();
+}
+
+// Reutiliza el render del motor para cada pestaña (dentro de #ctp-content)
+async function pubTab(tab, btn){
+  document.querySelectorAll('#t-tabs .tab').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const c=document.getElementById('ctp-content');
+  c.innerHTML='<div class="center-msg"><i class="bx bx-loader-alt bx-spin" style="font-size:24px;"></i></div>';
+  if(window.CancheroTournaments && CancheroTournaments._ctpTab){
+    try{ await CancheroTournaments._ctpTab(tab, TID, TORNEO?TORNEO.organizer_email:'', null); }
+    catch(e){ c.innerHTML='<div class="center-msg">No se pudo cargar esta sección.</div>'; }
+  } else {
+    c.innerHTML='<div class="center-msg">Cargando módulo…</div>';
+  }
+}
+
+// Compartir
+async function sharePage(){
+  const url=location.href;
+  const title=(TORNEO?TORNEO.name:'Torneo')+' · Canchero';
+  try{
+    if(navigator.share){ await navigator.share({title,text:'Seguí el torneo en Canchero',url}); return; }
+  }catch(e){ /* cancelado */ return; }
+  try{ await navigator.clipboard.writeText(url); showToast('Link copiado ✓'); }
+  catch(e){ showToast('Copiá el link: '+url); }
+}
+
+// Seguir (local por ahora; los avisos llegan dentro de la app)
+function followKey(){ return 'cf_follow_'+TID; }
+function toggleFollow(){
+  const on=localStorage.getItem(followKey())==='1';
+  if(on){ localStorage.removeItem(followKey()); showToast('Dejaste de seguir el torneo.'); }
+  else { localStorage.setItem(followKey(),'1'); showToast('Siguiendo. Abrí Canchero para recibir avisos de resultados.'); }
+  refreshFollowLabel();
+}
+function refreshFollowLabel(){
+  const on=localStorage.getItem(followKey())==='1';
+  const l=document.getElementById('follow-label'); const b=document.getElementById('btn-follow');
+  if(l) l.textContent=on?'Siguiendo':'Seguir';
+  if(b){ b.classList.toggle('btn-accent',on); b.classList.toggle('btn-glass',!on); }
+}
+
+// Cargar el motor y arrancar
+(function(){
+  const s=document.createElement('script');
+  s.src='canchero-tournaments.js?v=20260717d';
+  s.onload=boot;
+  s.onerror=function(){ header404('No se pudo cargar el módulo de torneos.'); };
+  document.body.appendChild(s);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Canchero</string>
+    <string name="title_activity_main">Canchero</string>
+    <string name="package_name">com.canchero.app</string>
+    <string name="custom_url_scheme">com.canchero.app</string>
+</resources>

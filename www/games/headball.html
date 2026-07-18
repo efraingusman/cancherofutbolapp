@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Cabezones Futboleros — Canchero</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;touch-action:none;-webkit-user-select:none;user-select:none;}
+  html,body{height:100%;}
+  body{background:#0a0a0a;overflow:hidden;font-family:'Arial Black','Outfit',sans-serif;}
+  canvas{display:block;width:100vw;height:100%;}
+  #hud{position:fixed;top:max(10px,env(safe-area-inset-top));left:0;right:0;display:flex;justify-content:center;gap:26px;align-items:center;pointer-events:none;}
+  .sc{font-size:34px;font-weight:900;text-shadow:0 2px 8px rgba(0,0,0,.6);}
+  #t{color:#fff;font-size:15px;background:rgba(0,0,0,.45);padding:4px 12px;border-radius:14px;}
+  #me{color:#baff00;} #cpu{color:#ff6b6b;}
+  #overlay{position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px;}
+  .btn{background:#baff00;color:#000;border:none;padding:14px 38px;border-radius:28px;font-size:16px;font-weight:900;cursor:pointer;font-family:inherit;}
+  #controls{position:fixed;bottom:max(14px,env(safe-area-inset-bottom));left:0;right:0;display:flex;justify-content:space-between;padding:0 18px;pointer-events:none;}
+  .pad{display:flex;gap:12px;pointer-events:auto;}
+  .cbtn{width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);color:#fff;font-size:26px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);}
+  .cbtn:active{background:rgba(186,255,0,0.25);}
+  #jump{background:rgba(186,255,0,0.14);border-color:rgba(186,255,0,0.4);color:#baff00;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"><div class="sc" id="me">0</div><div id="t">1:00</div><div class="sc" id="cpu">0</div></div>
+<div id="controls">
+  <div class="pad"><div class="cbtn" id="left">◀</div><div class="cbtn" id="right">▶</div></div>
+  <div class="pad"><div class="cbtn" id="jump">⤒</div></div>
+</div>
+<div id="overlay">
+  <h1 style="color:#baff00;font-size:26px;letter-spacing:2px;">🧠 CABEZONES</h1>
+  <p style="color:#999;font-size:13px;max-width:260px;line-height:1.6">1 minuto contra la IA. Movete con ◀ ▶, saltá con ⤒ y metele cabezazos a la pelota para hacer goles.</p>
+  <button class="btn" onclick="startGame()">JUGAR</button>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let W,H,GY;
+function resize(){
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  W=window.innerWidth;H=window.innerHeight;
+  c.width=W*dpr;c.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+  GY=H*0.86;
+}
+resize();window.addEventListener('resize',resize);
+
+const G=0.55, JUMP=-12.5, SPD=5.2, R=26, BR=14;
+let p1,p2,ball,s1,s2,timeLeft,running=false,raf,lastT,goalFlash=0,goalTxt='';
+
+function reset(kickTo){
+  p1={x:W*0.25,y:GY,vx:0,vy:0,onG:true};
+  p2={x:W*0.75,y:GY,vx:0,vy:0,onG:true};
+  ball={x:W/2+(kickTo||0)*40,y:H*0.3,vx:(Math.random()-0.5)*2,vy:0};
+}
+function goalH(){ return Math.min(150,H*0.2); }
+const GW=14;
+
+const keys={l:false,r:false};
+function bindHold(id,on,off){const el=document.getElementById(id);
+  ['touchstart','mousedown'].forEach(e=>el.addEventListener(e,ev=>{ev.preventDefault();on();}));
+  ['touchend','touchcancel','mouseup','mouseleave'].forEach(e=>el.addEventListener(e,ev=>{ev.preventDefault();off();}));}
+bindHold('left',()=>keys.l=true,()=>keys.l=false);
+bindHold('right',()=>keys.r=true,()=>keys.r=false);
+bindHold('jump',()=>{if(p1&&p1.onG&&running){p1.vy=JUMP;p1.onG=false;}},()=>{});
+window.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')keys.l=true;if(e.key==='ArrowRight')keys.r=true;if((e.key==='ArrowUp'||e.key===' ')&&p1&&p1.onG&&running){p1.vy=JUMP;p1.onG=false;}});
+window.addEventListener('keyup',e=>{if(e.key==='ArrowLeft')keys.l=false;if(e.key==='ArrowRight')keys.r=false;});
+
+function physPlayer(p,minX,maxX){
+  p.vy+=G;p.y+=p.vy;p.x+=p.vx;
+  if(p.y>=GY){p.y=GY;p.vy=0;p.onG=true;}
+  p.x=Math.max(minX,Math.min(maxX,p.x));
+}
+function ai(){
+  const tx=ball.x+ball.vx*8;
+  p2.vx = Math.abs(tx-p2.x)<6 ? 0 : (tx>p2.x?SPD*0.68:-SPD*0.68);
+  if(p2.onG && ball.y<p2.y-60 && Math.abs(ball.x-p2.x)<90 && Math.random()<0.05){p2.vy=JUMP;p2.onG=false;}
+}
+function headBounce(p,weak){
+  const hx=p.x, hy=p.y-R;
+  const dx=ball.x-hx, dy=ball.y-hy, d=Math.hypot(dx,dy);
+  if(d<R+BR){
+    const nx=dx/(d||1), ny=dy/(d||1);
+    ball.x=hx+nx*(R+BR); ball.y=hy+ny*(R+BR);
+    const pw=Math.hypot(p.vx,p.vy);
+    ball.vx=(nx*(6.5+pw*0.5)+p.vx*0.6)*(weak?0.72:1);
+    ball.vy=Math.min(-4,ny*8-3);
+  }
+}
+function step(){
+  if(goalFlash>20) return; // mini pausa tras el gol
+  p1.vx = keys.l?-SPD:keys.r?SPD:0;
+  physPlayer(p1,R,W/2-R*0.7);
+  ai(); physPlayer(p2,W/2+R*0.7,W-R);
+  ball.vy+=G*0.78; ball.x+=ball.vx; ball.y+=ball.vy;
+  if(ball.y+BR>GY+R*0.55){ball.y=GY+R*0.55-BR;ball.vy=-Math.abs(ball.vy)*0.78;ball.vx*=0.985;}
+  if(ball.y-BR<0){ball.y=BR;ball.vy=Math.abs(ball.vy)*0.8;}
+  const gh=GY+R*0.55-goalH();
+  if(ball.x-BR<GW){ if(ball.y>gh){score('cpu');return;} ball.x=GW+BR;ball.vx=Math.abs(ball.vx)*0.8; }
+  if(ball.x+BR>W-GW){ if(ball.y>gh){score('me');return;} ball.x=W-GW-BR;ball.vx=-Math.abs(ball.vx)*0.8; }
+  headBounce(p1); headBounce(p2,true);
+  [p1,p2].forEach(p=>{const dx=ball.x-p.x,dy=ball.y-(p.y-R*0.2);if(Math.abs(dx)<R*0.9&&Math.abs(dy)<R*1.4&&ball.y>p.y-R){ball.vx+=(dx>0?1:-1)*1.2;}});
+  ball.vx=Math.max(-10,Math.min(10,ball.vx));
+}
+function score(who){
+  if(who==='me'){s1++;document.getElementById('me').textContent=s1;goalTxt='¡GOOOL! ⚽';}
+  else{s2++;document.getElementById('cpu').textContent=s2;goalTxt='Gol de la IA 😬';}
+  goalFlash=40; reset(who==='me'?1:-1);
+}
+function draw(){
+  ctx.fillStyle='#0d1f0d';ctx.fillRect(0,0,W,H);
+  const grd=ctx.createLinearGradient(0,0,0,H*0.4);grd.addColorStop(0,'#10240f');grd.addColorStop(1,'#0d1f0d');
+  ctx.fillStyle=grd;ctx.fillRect(0,0,W,H*0.4);
+  ctx.fillStyle='rgba(255,255,255,0.04)';for(let i=0;i<5;i++)ctx.fillRect(0,30+i*22,W,10);
+  ctx.fillStyle='#123612';ctx.fillRect(0,GY+R*0.55,W,H);
+  for(let i=0;i<6;i++){ctx.fillStyle=i%2?'#143d14':'#123612';ctx.fillRect(i*W/6,GY+R*0.55,W/6,H);}
+  ctx.strokeStyle='rgba(255,255,255,0.18)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(W/2,GY+R*0.55);ctx.lineTo(W/2,GY-160);ctx.stroke();
+  const gh=goalH(), gy=GY+R*0.55;
+  ctx.lineWidth=4;ctx.strokeStyle='#eee';
+  ctx.strokeRect(2,gy-gh,GW+26,gh); ctx.strokeRect(W-GW-28,gy-gh,GW+26,gh);
+  ctx.fillStyle='rgba(255,255,255,0.07)';ctx.fillRect(2,gy-gh,GW+26,gh);ctx.fillRect(W-GW-28,gy-gh,GW+26,gh);
+  drawHead(p1,'#baff00','#063');drawHead(p2,'#ff6b6b','#611');
+  const bg=ctx.createRadialGradient(ball.x-4,ball.y-4,2,ball.x,ball.y,BR);bg.addColorStop(0,'#fff');bg.addColorStop(1,'#888');
+  ctx.beginPath();ctx.arc(ball.x,ball.y,BR,0,7);ctx.fillStyle=bg;ctx.fill();ctx.strokeStyle='#333';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.beginPath();ctx.arc(ball.x,ball.y,BR*0.45,0,7);ctx.strokeStyle='#555';ctx.stroke();
+  if(goalFlash>0){goalFlash--;ctx.fillStyle='rgba(186,255,0,'+(goalFlash/40*0.18)+')';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#fff';ctx.font='900 30px Arial Black';ctx.textAlign='center';ctx.fillText(goalTxt,W/2,H*0.32);}
+}
+function drawHead(p,col,dark){
+  ctx.beginPath();ctx.ellipse(p.x,GY+R*0.55,R*0.9,6,0,0,7);ctx.fillStyle='rgba(0,0,0,0.35)';ctx.fill();
+  ctx.fillStyle=dark;ctx.fillRect(p.x-8,p.y-R*0.4,16,R*0.9);
+  ctx.beginPath();ctx.arc(p.x,p.y-R,R,0,7);ctx.fillStyle='#ffcf9e';ctx.fill();ctx.strokeStyle=col;ctx.lineWidth=3;ctx.stroke();
+  ctx.fillStyle='#222';ctx.beginPath();ctx.arc(p.x,p.y-R-R*0.45,R*0.62,Math.PI,0);ctx.fill();
+  const dx=ball.x>p.x?4:-4;
+  ctx.fillStyle='#222';ctx.beginPath();ctx.arc(p.x-8+dx*0.4,p.y-R-2,3.4,0,7);ctx.arc(p.x+8+dx*0.4,p.y-R-2,3.4,0,7);ctx.fill();
+  ctx.fillStyle=col;ctx.fillRect(p.x-R*0.85,p.y-R-6,R*1.7,5);
+}
+function loop(ts){
+  if(!running)return;
+  if(!lastT)lastT=ts;
+  if(ts-lastT>=1000){lastT+=1000;timeLeft--;document.getElementById('t').textContent='0:'+String(Math.max(0,timeLeft)).padStart(2,'0');
+    if(timeLeft<=0){end();return;}}
+  step();draw();
+  raf=requestAnimationFrame(loop);
+}
+function end(){
+  running=false;cancelAnimationFrame(raf);
+  const ov=document.getElementById('overlay');
+  const win=s1>s2,tie=s1===s2;
+  ov.style.display='flex';
+  ov.innerHTML='<div style="font-size:56px;">'+(win?'🏆':tie?'🤝':'😬')+'</div>'+
+    '<h1 style="color:'+(win?'#baff00':tie?'#ccc':'#ff6b6b')+';font-size:24px;">'+(win?'¡GANASTE!':tie?'EMPATE':'PERDISTE')+'</h1>'+
+    '<div style="font-size:40px;font-weight:900;color:#fff;">'+s1+' - '+s2+'</div>'+
+    '<button class="btn" onclick="startGame()">JUGAR DE NUEVO</button>';
+  try{ parent.postMessage({type:'canchero-game-score',game:'cabezones',score:s1*100+(win?50:0)},'*'); }catch(e){}
+}
+function startGame(){
+  document.getElementById('overlay').style.display='none';
+  s1=0;s2=0;timeLeft=60;lastT=0;
+  document.getElementById('me').textContent='0';document.getElementById('cpu').textContent='0';
+  document.getElementById('t').textContent='1:00';
+  reset(0);running=true;cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);
+}
+reset(0);draw();
+</script>
+</body>
+</html>

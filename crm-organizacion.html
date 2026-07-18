@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canchero · Panel Organización</title>
+<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Inter:wght@400;500;600&display=swap');
+  :root{--accent:#baff00;--bg:#070907;--bg2:#0f110f;--border:#1e201e;--text:#fff;--muted:#666;--red:#ff4444;--orange:#ffb400;--blue:#4fc3f7;--green:#22c55e;--font:'Outfit',sans-serif;}
+  *{margin:0;padding:0;box-sizing:border-box;}html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;}
+  .app{display:flex;height:100vh;overflow:hidden;}
+  .sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
+  .sidebar-brand{padding:20px 16px;border-bottom:1px solid var(--border);}
+  .brand-name{font-family:var(--font);font-size:14px;font-weight:900;color:var(--accent);}
+  .brand-role{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+  .sidebar-section{padding:14px 10px 4px;}
+  .sidebar-title{font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;padding-left:8px;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;transition:.15s;font-size:13px;color:#aaa;font-weight:600;margin-bottom:2px;}
+  .nav-item:hover{background:rgba(255,255,255,0.05);color:#fff;}
+  .nav-item.active{background:rgba(186,255,0,0.08);color:var(--accent);}
+  .nav-item i{font-size:18px;width:22px;flex-shrink:0;}
+  .content{flex:1;overflow-y:auto;}
+  .topbar{height:52px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;position:sticky;top:0;z-index:10;}
+  .topbar-title{font-family:var(--font);font-size:16px;font-weight:900;flex:1;}
+  .page{padding:20px;display:none;}.page.active{display:block;}
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:20px;}
+  .kpi{min-width:0;}
+  .kpi .kpi-label{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .kpi .kpi-value{font-size:16px;}
+  .kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;position:relative;overflow:hidden;}
+  .kpi::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--accent);}
+  .kpi.blue::before{background:var(--blue);}.kpi.orange::before{background:var(--orange);}
+  .kpi-label{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+  .kpi-value{font-family:var(--font);font-size:26px;font-weight:900;line-height:1;}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;}
+  .card-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .card-title{font-family:var(--font);font-size:14px;font-weight:800;}
+  table{width:100%;border-collapse:collapse;}
+  th{padding:9px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
+  td{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:13px;vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .form-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:5px;}
+  .form-input{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none;box-sizing:border-box;}
+  .form-input:focus{border-color:var(--accent);}select.form-input option{background:var(--bg2);}
+  .form-group{margin-bottom:12px;}
+  .btn-sm{padding:10px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:var(--font);min-height:44px;touch-action:manipulation;}
+  .btn-accent{background:var(--accent);color:#000;}.btn-glass{background:rgba(255,255,255,0.05);border:1px solid var(--border);color:#fff;}
+  .btn-danger{background:rgba(255,68,68,0.12);color:var(--red);border:1px solid rgba(255,68,68,0.25);}
+  .btn-success{background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.25);}
+  .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;}
+  .badge-pending{background:rgba(255,180,0,0.15);color:var(--orange);}
+  .badge-confirmed{background:rgba(186,255,0,0.12);color:var(--accent);}
+  .modal{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);padding:16px;}
+  .modal.open{display:flex;}
+  .modal-inner{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:100%;max-width:480px;padding:24px;max-height:90vh;overflow-y:auto;}
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--bg2);border:1px solid var(--accent);color:var(--accent);padding:10px 16px;border-radius:10px;font-size:13px;font-weight:700;z-index:99999;animation:ti .3s ease;}
+  @keyframes ti{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .crm-mobile-topbar{display:none;position:fixed;top:0;left:0;right:0;z-index:300;height:44px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;padding:0 14px;gap:10px;}
+  .crm-mobile-topbar .brand{font-family:var(--font);font-weight:900;color:var(--accent);font-size:15px;flex:1;}
+  .crm-mobile-overlay{display:none;position:fixed;inset:0;z-index:199;background:rgba(0,0,0,0.7);}
+  .crm-mobile-overlay.open{display:block;}
+  @media(max-width:768px){.sidebar{position:fixed;top:0;left:-240px;height:100vh;z-index:200;transition:left .3s ease;width:230px!important;}.sidebar.open{left:0;}.page{padding:12px;padding-top:50px;}.crm-mobile-topbar{display:flex;}.topbar{display:none;}.page{padding-top:calc(56px + env(safe-area-inset-top,0px)) !important;}
+    .card{overflow-x:auto;}
+    .page table{width:100%;min-width:0;}.app{flex-direction:column;}}
+  .pos-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .pos-table th{background:var(--bg2);padding:8px 12px;text-align:center;border:1px solid var(--border);font-size:10px;font-weight:700;color:var(--muted);}
+  .pos-table td{padding:8px 12px;border:1px solid var(--border);text-align:center;}
+  .pos-table tr:first-child td{font-weight:700;color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="crm-mobile-topbar" id="crm-mob-bar"><button onclick="toggleCrmSidebar()" style="background:none;border:none;color:#aaa;font-size:24px;cursor:pointer;padding:4px;"><i class='bx bx-menu'></i></button><span class="brand"><i class='bx bx-trophy'></i> Panel Organización</span></div>
+<div class="crm-mobile-overlay" id="crm-overlay" onclick="toggleCrmSidebar()"></div>
+<div class="app">
+  <nav class="sidebar" id="crm-sidebar">
+    <div class="sidebar-brand"><div class="brand-name" id="biz-name">Mi Organización</div><div class="brand-role"><i class='bx bx-trophy' style="vertical-align:-2px;"></i> Panel Organización</div></div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Principal</div>
+      <div class="nav-item active" onclick="showPage('dashboard',this)"><i class='bx bx-grid-alt'></i> Dashboard</div>
+      <div class="nav-item" onclick="showPage('torneos',this)"><i class='bx bx-trophy'></i> Torneos</div>
+      <div class="nav-item" onclick="showPage('inscripciones',this)"><i class='bx bx-user-plus'></i> Inscripciones</div>
+      <div class="nav-item" onclick="showPage('posiciones',this)"><i class='bx bx-list-ol'></i> Tabla Posiciones</div>
+      <div class="nav-item" onclick="showPage('comunicaciones',this)"><i class='bx bx-broadcast'></i> Comunicaciones</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Negocio</div>
+      <div class="nav-item" onclick="showPage('caja',this)"><i class='bx bx-wallet'></i> Caja</div>
+      <div class="nav-item" onclick="showPage('proveedores',this)"><i class='bx bx-package'></i> Proveedores</div>
+      <div class="nav-item" onclick="showPage('clientes-crm',this)"><i class='bx bx-group'></i> Clientes</div>
+      <div class="nav-item" onclick="crmOpenSupport()"><i class='bx bx-support'></i> Hablar con soporte</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Más</div>
+    </div>
+  </nav>
+  <div class="content">
+    <div class="topbar"><div class="topbar-title" id="page-title">Dashboard</div>
+      <button id="topbar-new-torneo" class="btn-sm btn-accent" onclick="showPage('torneos',null);setTimeout(openTorneoModal,100)"><i class='bx bx-plus'></i> Nuevo torneo</button>
+    </div>
+
+    <div id="page-dashboard" class="page active">
+      <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-label">Torneos activos</div><div class="kpi-value" id="kpi-torneos">—</div></div>
+        <div class="kpi blue"><div class="kpi-label">Inscriptos</div><div class="kpi-value" id="kpi-inscr">—</div></div>
+        <div class="kpi orange"><div class="kpi-label">Pendientes</div><div class="kpi-value" id="kpi-pend">—</div></div>
+        <div class="kpi"><div class="kpi-label">Ingresos</div><div class="kpi-value" id="kpi-rev">$0</div></div>
+      </div>
+      <div class="card"><div class="card-header"><span class="card-title">Torneos activos</span></div>
+        <table><thead><tr><th>Nombre</th><th>Tipo</th><th>Ciudad</th><th>Equipos</th><th>Estado</th></tr></thead><tbody id="dash-torneos"></tbody></table>
+      </div>
+    </div>
+
+    <div id="page-torneos" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Mis Torneos</h2>
+        <button class="btn-sm btn-accent" onclick="openTorneoModal()"><i class='bx bx-plus'></i> Nuevo</button>
+      </div>
+      <div id="torneos-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+
+    <div id="page-inscripciones" class="page">
+      <h2 style="font-family:var(--font);font-size:20px;font-weight:900;margin-bottom:12px;">Inscripciones</h2>
+      <div class="form-group" style="max-width:300px;margin-bottom:16px;">
+        <label class="form-label">Filtrar por torneo</label>
+        <select id="inscr-torneo-sel" class="form-input" onchange="loadInscriptions()"><option value="">Todos</option></select>
+      </div>
+      <div class="card"><table><thead><tr><th>Equipo</th><th>Torneo</th><th>Comprobante</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="inscr-list"></tbody></table></div>
+    </div>
+
+    <div id="page-posiciones" class="page">
+      <h2 style="font-family:var(--font);font-size:20px;font-weight:900;margin-bottom:12px;">Tabla de Posiciones</h2>
+      <div class="form-group" style="max-width:300px;margin-bottom:16px;">
+        <select id="pos-torneo-sel" class="form-input" onchange="loadPosiciones()"><option value="">Seleccioná torneo</option></select>
+      </div>
+      <div id="pos-table-wrap"></div>
+      <div style="margin-top:16px;" id="pos-add-result"></div>
+    </div>
+
+    <div id="page-comunicaciones" class="page">
+      <h2 style="font-family:var(--font);font-size:20px;font-weight:900;margin-bottom:16px;">Comunicaciones</h2>
+      <div class="card" style="padding:16px;margin-bottom:16px;">
+        <div class="card-title" style="margin-bottom:12px;">Enviar comunicado</div>
+        <div class="form-group"><label class="form-label">Torneo</label><select id="com-torneo" class="form-input" onchange="comLoadTeams()"><option value="">Elegí un torneo…</option></select></div>
+        <div class="form-group"><label class="form-label">Enviar a</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#ccc;cursor:pointer;"><input type="radio" name="com-who" value="capitanes" checked onchange="comDestMode()" style="accent-color:var(--accent);"> Capitanes</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#ccc;cursor:pointer;"><input type="radio" name="com-who" value="jugadores" onchange="comDestMode()" style="accent-color:var(--accent);"> Todos los jugadores</label>
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Equipos</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#ccc;cursor:pointer;"><input type="radio" name="com-dest" value="todos" checked onchange="comDestMode()" style="accent-color:var(--accent);"> Todos los equipos del torneo</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#ccc;cursor:pointer;"><input type="radio" name="com-dest" value="elegir" onchange="comDestMode()" style="accent-color:var(--accent);"> Elegir equipos</label>
+          </div>
+        </div>
+        <div id="com-teams-box" style="display:none;margin-bottom:12px;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:10px;"></div>
+        <div class="form-group"><label class="form-label">Mensaje</label><textarea id="com-msg" class="form-input" rows="4" placeholder="Aviso: horarios, cambios de cancha, recordatorios de pago..."></textarea></div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#aaa;margin-bottom:12px;cursor:pointer;"><input id="com-feed" type="checkbox" style="width:15px;height:15px;accent-color:var(--accent);"> Publicar también como comunicado en el feed</label>
+        <button class="btn-sm btn-accent" onclick="sendComunicado()"><i class='bx bx-send'></i> Enviar (notificación en la app)</button>
+        <div id="com-log" style="margin-top:10px;font-size:12px;color:var(--muted);"></div>
+      </div>
+      <!-- WhatsApp: enviar el mismo mensaje a un número puntual (nombre + número) -->
+      <div class="card" style="padding:16px;">
+        <div class="card-title" style="margin-bottom:6px;"><i class='bx bxl-whatsapp' style="color:#25D366;"></i> Enviar por WhatsApp</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Ingresá nombre y número (con código de país, ej. 598…). Abre WhatsApp con el mensaje de arriba listo para enviar.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          <input id="wa-name" class="form-input" placeholder="Nombre" style="flex:1;min-width:120px;">
+          <input id="wa-phone" class="form-input" inputmode="tel" placeholder="Número (ej. 59899123456)" style="flex:1;min-width:150px;">
+          <button class="btn-sm btn-accent" onclick="comWhatsApp()"><i class='bx bxl-whatsapp'></i> Abrir WhatsApp</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAJA: ingresos/egresos manuales + suma automática (P3.8) -->
+    <div id="page-caja" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+        <h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Caja</h2>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-sm btn-accent" onclick="crmCajaAdd('ingreso')"><i class='bx bx-plus'></i> Ingreso</button>
+          <button class="btn-sm btn-danger" onclick="crmCajaAdd('egreso')"><i class='bx bx-minus'></i> Egreso</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px;">
+        <div class="card" style="padding:12px;text-align:center;"><div style="font-size:10px;color:var(--muted);font-weight:800;letter-spacing:.5px;">INGRESOS</div><div id="caja-in" style="font-size:18px;font-weight:900;color:var(--accent);">$0</div></div>
+        <div class="card" style="padding:12px;text-align:center;"><div style="font-size:10px;color:var(--muted);font-weight:800;letter-spacing:.5px;">EGRESOS</div><div id="caja-out" style="font-size:18px;font-weight:900;color:#ff6666;">$0</div></div>
+        <div class="card" style="padding:12px;text-align:center;"><div style="font-size:10px;color:var(--muted);font-weight:800;letter-spacing:.5px;">BALANCE</div><div id="caja-total" style="font-size:18px;font-weight:900;">$0</div></div>
+      </div>
+      <div class="card"><table><thead><tr><th>Fecha</th><th>Concepto</th><th>Tipo</th><th style="text-align:right;">Monto</th><th></th></tr></thead><tbody id="caja-list"></tbody></table></div>
+    </div>
+
+    <!-- PROVEEDORES (P3.9) -->
+    <div id="page-proveedores" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Proveedores</h2>
+        <button class="btn-sm btn-accent" onclick="crmProvAdd()"><i class='bx bx-plus'></i> Agregar</button>
+      </div>
+      <div class="card"><table><thead><tr><th>Nombre</th><th>Servicio</th><th style="text-align:right;">Gasto</th><th></th></tr></thead><tbody id="prov-list"></tbody></table></div>
+    </div>
+
+    <!-- CLIENTES = pipeline de inscripciones/pagos de los torneos -->
+    <div id="page-clientes-crm" class="page">
+      <h2 style="font-family:var(--font);font-size:20px;font-weight:900;margin-bottom:6px;">Clientes</h2>
+      <p style="color:var(--muted);font-size:12px;margin-bottom:14px;">Equipos anotados y aceptados en tus torneos, organizados por etapa de pago.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        <select id="cli-torneo" class="form-input" style="max-width:240px;" onchange="orgClientsLoad()"><option value="">Todos los torneos</option></select>
+        <select id="cli-etapa" class="form-input" style="max-width:200px;" onchange="orgClientsLoad()">
+          <option value="">Todas las etapas</option>
+          <option value="pending">Pendiente de pago</option>
+          <option value="paid">Pagó</option>
+          <option value="waived">Exento</option>
+        </select>
+      </div>
+      <div id="cli-kpis" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px;"></div>
+      <div id="cli-pipeline" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
+    <!-- PERFIL PÚBLICO -->
+    <div id="page-perfil" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <div><h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Mi Perfil Público</h2><p style="color:var(--muted);font-size:12px;">Así te ven los jugadores en Canchero</p></div>
+        <div style="display:flex;gap:8px;"><button class="btn-sm btn-accent" onclick="savePerfilOrg()"><i class='bx bx-save'></i> Guardar</button><button class="btn-sm btn-glass" onclick="window.location.href='index.html'"><i class='bx bx-globe'></i> Ver perfil</button></div>
+      </div>
+      <input type="hidden" id="prof-frame-org" value="">
+      <!-- Info -->
+      <div class="card" style="padding:20px;margin-bottom:16px;">
+        <div style="font-family:var(--font);font-size:13px;font-weight:900;margin-bottom:14px;color:var(--accent);">Información de la Organización</div>
+        <div style="display:grid;gap:12px;">
+          <div><label class="form-label">DESCRIPCIÓN / BIO</label><textarea id="prof-bio-org" rows="3" class="form-input" style="resize:vertical;" placeholder="Describí tu organización, torneos que organizás..."></textarea></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div><label class="form-label">TELÉFONO</label><input id="prof-phone-org" type="tel" class="form-input" placeholder="091234567"></div>
+            <div><label class="form-label">WHATSAPP</label><input id="prof-wa-org" type="tel" class="form-input" placeholder="59891234567"></div>
+          </div>
+          <div><label class="form-label">DIRECCIÓN / SEDE</label><input id="prof-address-org" type="text" class="form-input" placeholder="Sede de la organización"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div><label class="form-label">INSTAGRAM</label><input id="prof-ig-org" type="text" class="form-input" placeholder="@tuorganizacion"></div>
+            <div><label class="form-label">SITIO WEB</label><input id="prof-website-org" type="url" class="form-input" placeholder="https://..."></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div id="modal-torneo" class="modal"><div class="modal-inner">
+  <div style="display:flex;justify-content:space-between;margin-bottom:16px;"><span style="font-family:var(--font);font-size:17px;font-weight:900;">Nuevo Torneo</span><button onclick="document.getElementById('modal-torneo').classList.remove('open')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&times;</button></div>
+  <!-- Portada + logo del torneo -->
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
+    <label style="flex:1;height:70px;border:1px dashed #333;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--muted);cursor:pointer;font-size:12px;background-size:cover;background-position:center;" id="t-cover-box"><i class='bx bx-image'></i> Portada<input id="t-cover" type="file" accept="image/*" style="display:none;" onchange="_tPickImg(this,'cover')"></label>
+    <label style="width:70px;height:70px;border:1px dashed #333;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer;font-size:11px;text-align:center;background-size:cover;background-position:center;" id="t-logo-box"><i class='bx bx-camera'></i><input id="t-logo" type="file" accept="image/*" style="display:none;" onchange="_tPickImg(this,'logo')"></label>
+  </div>
+  <div class="form-group"><label class="form-label">Nombre</label><input id="t-name" type="text" class="form-input" placeholder="Copa Canchero 2026..."></div>
+  <!-- Los value coinciden con el motor CancheroTournaments (_generateFixture): league / elimination / groups -->
+  <div class="form-group"><label class="form-label">Tipo</label><select id="t-type" class="form-input"><option value="league">Liga (todos contra todos)</option><option value="elimination">Eliminatoria (playoffs)</option><option value="groups">Copa (grupos + playoffs)</option></select></div>
+  <div style="display:flex;gap:8px;">
+    <div class="form-group" style="flex:1;"><label class="form-label">País</label><input id="t-country" type="text" class="form-input" value="Uruguay"></div>
+    <div class="form-group" style="flex:1;"><label class="form-label">Departamento / Ciudad</label><select id="t-city" class="form-input"><option value="">Elegir…</option></select></div>
+  </div>
+  <!-- Dónde se juega: complejo registrado (opcional) + cancha/sede -->
+  <div class="form-group"><label class="form-label">Complejo (registrado en Canchero)</label><select id="t-complex" class="form-input" onchange="_onComplexPick()"><option value="">— Sin complejo / a definir —</option></select></div>
+  <div class="form-group"><label class="form-label">Cancha(s) / sede</label><input id="t-venue" type="text" class="form-input" placeholder="Ej: Cancha 1 y 2, o dirección"></div>
+  <div style="display:flex;gap:8px;">
+    <div class="form-group" style="flex:1;"><label class="form-label">Inicio</label><input id="t-start" type="date" class="form-input"></div>
+    <div class="form-group" style="flex:1;"><label class="form-label">Fin (estimado)</label><input id="t-end" type="date" class="form-input"></div>
+  </div>
+  <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#ccc;margin-bottom:12px;cursor:pointer;"><input id="t-double" type="checkbox" style="width:16px;height:16px;accent-color:var(--accent);"> Ida y vuelta (todos contra todos dos veces)</label>
+  <div class="form-group"><label class="form-label">Precio de inscripción ($)</label><input id="t-price" type="number" class="form-input" min="0" value="0"></div>
+  <button class="btn-sm btn-accent" style="width:100%;padding:11px;" onclick="saveTorneo()">Crear torneo</button>
+</div></div>
+
+<div id="modal-faq" class="modal"><div class="modal-inner">
+  <div style="display:flex;justify-content:space-between;margin-bottom:16px;"><span style="font-family:var(--font);font-size:17px;font-weight:900;">Nueva FAQ</span><button onclick="document.getElementById('modal-faq').classList.remove('open')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&times;</button></div>
+  <div class="form-group"><label class="form-label">Pregunta</label><input id="f-q" type="text" class="form-input"></div>
+  <div class="form-group"><label class="form-label">Respuesta</label><textarea id="f-a" class="form-input" rows="3"></textarea></div>
+  <button class="btn-sm btn-accent" style="width:100%;padding:11px;" onclick="saveFaq()">Guardar</button>
+</div></div>
+
+<script>
+const SUPA_URL='https://dofbxgqzcvfjpnvcvdjb.supabase.co';
+const SUPA_KEY='sb_publishable_gPwLXkMHk3HvFz9nm9hgKA_1D0IJBKA';
+function _crmFetch(i,n){n=n||{};if(n.signal)return fetch(i,n);var c=(typeof AbortController!=='undefined')?new AbortController():null;var t=c?setTimeout(function(){try{c.abort();}catch(e){}},15000):null;if(c)n.signal=c.signal;return fetch(i,n).finally(function(){if(t)clearTimeout(t);});}
+const sb=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'canchero_auth'},global:{fetch:_crmFetch}}); try{window.sb=sb;}catch(e){} try{var _bp=Object.getPrototypeOf(sb.from('users').select('email'));while(_bp&&!Object.prototype.hasOwnProperty.call(_bp,'then'))_bp=Object.getPrototypeOf(_bp);if(_bp&&!_bp.catch)Object.defineProperty(_bp,'catch',{value:function(f){return this.then(undefined,f);},writable:true,configurable:true});}catch(e){}
+let BIZ=null,BIZ_EMAIL='',_torneos=[];
+const saved=sessionStorage.getItem('crm_biz');
+if(!saved){window.location.href='crm.html';throw '';}
+BIZ=JSON.parse(saved);
+if(BIZ.account_status!=='activo'&&BIZ.account_status!=='active'){window.location.href='crm.html';throw '';}
+BIZ_EMAIL=BIZ.email;
+document.getElementById('biz-name').textContent=BIZ.name||'Mi Organización';
+
+// ── Puente con el motor de torneos (canchero-tournaments.js) ──────────────
+// CancheroTournaments espera window._sb, window.userData y window.showToast.
+// Con esto, la Organización gestiona torneos con TODAS las opciones (equipos,
+// fixture con cruces automáticos, tabla, jugadores, goleadores) sin duplicar código.
+try {
+  window._sb = sb;
+  window.userData = { email: BIZ_EMAIL, name: BIZ.name || 'Organización', role: 'organizacion' };
+  window.showToast = window.showToast || function(m,t){ try{ toast(m,t);}catch(e){} };
+} catch(e){}
+window.orgGestionarTorneo = function(id){
+  if(window.CancheroTournaments && CancheroTournaments.openTournamentManager){
+    CancheroTournaments.openTournamentManager(id, BIZ_EMAIL);
+  } else { toast('Cargando gestor de torneos…','warning'); }
+};
+// Página pública del torneo (sin login) — se comparte por link. Ver torneo.html
+window.torneoPublicUrl = function(id){ return location.origin + '/torneo.html?id=' + id; };
+window.copiarLinkPublico = function(id){
+  var url = window.torneoPublicUrl(id);
+  var done = function(){ toast('Link público copiado ✓'); };
+  if(navigator.share){ navigator.share({title:'Torneo · Canchero', url:url}).catch(function(){ navigator.clipboard&&navigator.clipboard.writeText(url).then(done).catch(function(){ prompt('Copiá el link del torneo:', url); }); }); return; }
+  if(navigator.clipboard){ navigator.clipboard.writeText(url).then(done).catch(function(){ prompt('Copiá el link del torneo:', url); }); }
+  else { prompt('Copiá el link del torneo:', url); }
+};
+
+function toggleCrmSidebar(){const sb=document.getElementById('crm-sidebar');const ov=document.getElementById('crm-overlay');if(sb)sb.classList.toggle('open');if(ov)ov.classList.toggle('open');}
+function showPage(name,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const sb=document.getElementById('crm-sidebar');const ov=document.getElementById('crm-overlay');
+  if(sb&&sb.classList.contains('open')){sb.classList.remove('open');if(ov)ov.classList.remove('open');}
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+name)?.classList.add('active');
+  if(el)el.classList.add('active');
+  const titles={dashboard:'Dashboard',torneos:'Torneos',inscripciones:'Inscripciones',posiciones:'Tabla de Posiciones',comunicaciones:'Comunicaciones',caja:'Caja',proveedores:'Proveedores','clientes-crm':'Clientes'};
+  document.getElementById('page-title').textContent=titles[name]||name;
+  // El botón "Nuevo torneo" de la topbar duplica el header propio de la página Torneos
+  // ("Mis Torneos + Nuevo") → se oculta ahí y se muestra como atajo en las demás páginas.
+  var _tbNew=document.getElementById('topbar-new-torneo'); if(_tbNew) _tbNew.style.display=(name==='torneos')?'none':'';
+  if(name==='dashboard')loadDashboard();
+  if(name==='torneos')loadTorneos();
+  if(name==='inscripciones'){loadTorneoSelects();loadInscriptions();}
+  if(name==='posiciones')loadTorneoSelects();
+  if(name==='comunicaciones')loadTorneoSelects();
+  if(name==='caja')crmCajaLoad();
+  if(name==='proveedores')crmProvLoad();
+  if(name==='clientes-crm')orgClientsLoad();
+  if(name==='perfil')initPerfilOrg();
+}
+function selFrameOrg(el,frameId){document.querySelectorAll('.frame-option-crm').forEach(f=>f.classList.remove('selected'));el.classList.add('selected');const fi=document.getElementById('prof-frame-org');if(fi)fi.value=frameId;}
+async function initPerfilOrg(){
+  if(!(BIZ&&BIZ.email))return;
+  try{ const{data:fresh}=await sb.from('users').select('*').eq('email',BIZ.email).maybeSingle(); if(fresh){Object.assign(BIZ,fresh);sessionStorage.setItem('crm_biz',JSON.stringify(BIZ));} }catch(e){}
+  const sv=function(id,v){const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
+  sv('prof-bio-org',BIZ.bio);sv('prof-phone-org',BIZ.phone);sv('prof-wa-org',BIZ.whatsapp);
+  sv('prof-address-org',BIZ.address);sv('prof-ig-org',BIZ.instagram);sv('prof-website-org',BIZ.website);
+}
+async function savePerfilOrg(){
+  if(!BIZ||!BIZ.email){toast('Sesión inválida.','error');return;}
+  // Guardado NO destructivo: solo campos con valor
+  const val=function(id){const e=document.getElementById(id);return e&&e.value!=null?e.value.trim():'';};
+  const updates={};
+  const setU=function(k,v){ if(v) updates[k]=v; };
+  setU('bio',val('prof-bio-org')); setU('phone',val('prof-phone-org')); setU('whatsapp',val('prof-wa-org'));
+  setU('address',val('prof-address-org')); setU('instagram',val('prof-ig-org')); setU('website',val('prof-website-org'));
+  if(Object.keys(updates).length===0){toast('Nada para guardar.','warning');return;}
+  try{const{error}=await sb.from('users').update(updates).eq('email',BIZ.email);if(error)throw error;
+    try{ if(window.crmSyncBizPayload) await crmSyncBizPayload(updates); }catch(e){}
+    Object.assign(BIZ,updates);sessionStorage.setItem('crm_biz',JSON.stringify(BIZ));toast('Perfil actualizado.','success');}
+  catch(e){toast('Error: '+e.message,'error');}
+}
+function toast(msg,type='success'){const t=document.createElement('div');t.className='toast';t.style.borderColor=type==='error'?'var(--red)':'var(--accent)';t.style.color=type==='error'?'var(--red)':'var(--accent)';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3200);}
+function doLogout(){sessionStorage.removeItem('crm_biz');window.location.href='crm.html';}
+
+async function loadDashboard(){
+  const{data:t}=await sb.from('tournaments').select('*').eq('organizer_email',BIZ_EMAIL).neq('status','finished');
+  _torneos=t||[];
+  document.getElementById('kpi-torneos').textContent=_torneos.length;
+  const ids=_torneos.map(x=>x.id);
+  // Inscriptos REALES = equipos en tournament_teams de estos torneos
+  let teamsByT={};
+  if(ids.length){
+    const{data:tt}=await sb.from('tournament_teams').select('id,tournament_id,status').in('tournament_id',ids);
+    (tt||[]).forEach(x=>{teamsByT[x.tournament_id]=(teamsByT[x.tournament_id]||0)+1;});
+    document.getElementById('kpi-inscr').textContent=(tt||[]).length;
+  } else { document.getElementById('kpi-inscr').textContent=0; }
+  const tbody=document.getElementById('dash-torneos');
+  if(!_torneos.length){tbody.innerHTML=`<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);">Sin torneos activos</td></tr>`;return;}
+  const fmt={league:'Liga',elimination:'Eliminatoria',groups:'Copa',liga:'Liga',eliminatoria:'Eliminatoria',copa:'Copa'};
+  tbody.innerHTML=_torneos.map(t=>`<tr onclick="orgGestionarTorneo('${t.id}')" style="cursor:pointer;">
+    <td><div style="display:flex;align-items:center;gap:10px;"><span style="width:34px;height:34px;border-radius:9px;flex-shrink:0;background:${t.logo_url||t.cover_url?`#000 center/cover url('${(t.logo_url||t.cover_url).replace(/"/g,'')}')`:'rgba(186,255,0,0.12)'};display:flex;align-items:center;justify-content:center;">${(t.logo_url||t.cover_url)?'':"<i class='bx bx-trophy' style=\"color:var(--accent);\"></i>"}</span><strong>${(t.name||'').replace(/</g,'&lt;')}</strong></div></td>
+    <td>${fmt[t.format||t.type]||t.format||'liga'}</td>
+    <td>${t.city||'—'}</td>
+    <td>${teamsByT[t.id]||0} equipos</td>
+    <td><span class="badge badge-confirmed">Activo</span></td>
+  </tr>`).join('');
+}
+
+async function loadTorneos(){
+  const{data}=await sb.from('tournaments').select('*').eq('organizer_email',BIZ_EMAIL).order('created_at',{ascending:false});
+  _torneos=data||[];
+  const list=document.getElementById('torneos-list');
+  if(!_torneos.length){list.innerHTML=`<div style="padding:40px;text-align:center;color:var(--muted);"><i class='bx bx-trophy' style="font-size:40px;display:block;margin-bottom:10px;opacity:0.4;"></i>Sin torneos creados.</div>`;return;}
+  const fmt2={league:'Liga',elimination:'Eliminatoria',groups:'Copa',liga:'Liga',eliminatoria:'Eliminatoria',copa:'Copa'};
+  list.innerHTML=_torneos.map(t=>{
+    const img=t.logo_url||t.cover_url||'';
+    const photo=(t.cover_url||t.logo_url||'').replace(/'/g,'');
+    return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px;">
+    ${t.cover_url?`<div style="height:96px;background:#000 center/cover url('${t.cover_url.replace(/'/g,'')}');"></div>`:''}
+    <div style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:12px;min-width:0;cursor:pointer;" onclick="orgGestionarTorneo('${t.id}')">
+        <span style="width:44px;height:44px;border-radius:11px;flex-shrink:0;background:${img?`#000 center/cover url('${img.replace(/'/g,'')}')`:'rgba(186,255,0,0.12)'};display:flex;align-items:center;justify-content:center;">${img?'':"<i class='bx bx-trophy' style=\"color:var(--accent);font-size:22px;\"></i>"}</span>
+        <div style="min-width:0;"><div style="font-family:var(--font);font-size:15px;font-weight:900;">${(t.name||'').replace(/</g,'&lt;')}</div><div style="font-size:12px;color:var(--muted);margin-top:3px;">${fmt2[t.format||t.type]||t.format||'liga'} · ${t.city||'Sin ciudad'} · ${t.start_date||'Sin fecha'}</div></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn-sm btn-accent" onclick="orgGestionarTorneo('${t.id}')"><i class='bx bx-slider-alt'></i> Gestionar</button>
+        <button class="btn-sm btn-glass" onclick="copiarLinkPublico('${t.id}')"><i class='bx bx-link'></i> Link público</button>
+        <button class="btn-sm btn-glass" onclick="crmShareToFeed({kind:'torneo',id:'${t.id}',name:'${(t.name||'').replace(/'/g,'')}',price:'',photo:'${photo}',detail:'${((fmt2[t.format||t.type]||'Liga')+' · '+(t.city||'')+' · '+(t.start_date||'')).replace(/'/g,'')}'})"><i class='bx bx-share-alt'></i> Feed</button>
+        <button class="btn-sm btn-danger" onclick="deleteTorneo('${t.id}')"><i class='bx bx-trash'></i></button>
+      </div>
+    </div>
+  </div>`;}).join('');
+}
+const DEPARTAMENTOS_UY=['Artigas','Canelones','Cerro Largo','Colonia','Durazno','Flores','Florida','Lavalleja','Maldonado','Montevideo','Paysandú','Río Negro','Rivera','Rocha','Salto','San José','Soriano','Tacuarembó','Treinta y Tres'];
+window._complexList=[];
+async function openTorneoModal(){
+  // Departamentos
+  const cs=document.getElementById('t-city');
+  if(cs && cs.options.length<=1){ cs.innerHTML='<option value="">Elegir…</option>'+DEPARTAMENTOS_UY.map(d=>`<option value="${d}">${d}</option>`).join(''); }
+  // Complejos registrados
+  const xs=document.getElementById('t-complex');
+  if(xs){
+    try{
+      const{data}=await sb.from('users').select('email,name,city,address').in('role',['complejo','club']).limit(200);
+      window._complexList=data||[];
+      xs.innerHTML='<option value="">— Sin complejo / a definir —</option>'+(data||[]).map(c=>`<option value="${(c.email||'').replace(/"/g,'')}">${(c.name||c.email||'').replace(/</g,'&lt;')}${c.city?(' · '+c.city):''}</option>`).join('');
+    }catch(e){}
+  }
+  document.getElementById('modal-torneo').classList.add('open');
+}
+function _onComplexPick(){
+  const em=document.getElementById('t-complex')?.value;
+  if(!em) return;
+  const c=(window._complexList||[]).find(x=>x.email===em);
+  if(!c) return;
+  const v=document.getElementById('t-venue'); if(v&&!v.value&&c.address) v.value=c.address;
+  const cs=document.getElementById('t-city'); if(cs&&c.city){ if(![...cs.options].some(o=>o.value===c.city)) cs.add(new Option(c.city,c.city)); cs.value=c.city; }
+}
+// Portada/logo del torneo antes de crearlo (se suben al bucket media)
+window.__tImg={cover:null,logo:null};
+async function _tPickImg(input,which){
+  const f=input.files&&input.files[0]; if(!f) return;
+  toast('Subiendo imagen...','success');
+  const path=(which==='cover'?'torneos/covers/':'torneos/logos/')+Date.now()+'.jpg';
+  const up=await sb.storage.from('media').upload(path,f,{upsert:true,contentType:f.type||'image/jpeg'});
+  if(up.error){toast('No se pudo subir.','error');return;}
+  const url=sb.storage.from('media').getPublicUrl(path).data.publicUrl;
+  window.__tImg[which]=url;
+  const box=document.getElementById(which==='cover'?'t-cover-box':'t-logo-box');
+  if(box){box.style.backgroundImage=`url('${url}')`;box.innerHTML='';}
+}
+async function saveTorneo(){
+  const name=document.getElementById('t-name').value.trim();
+  if(!name){toast('Ingresá el nombre.','error');return;}
+  // La tabla real es 'tournaments' (organizer_email/format), NO 'torneos' (no existía →
+  // "crear torneo" fallaba en silencio). Unificado con el módulo de torneos del jugador.
+  const row={name,format:document.getElementById('t-type').value,city:(document.getElementById('t-city')?.value||'').trim()||null,country:(document.getElementById('t-country')?.value||'').trim()||null,venue:(document.getElementById('t-venue')?.value||'').trim()||null,complex_email:(document.getElementById('t-complex')?.value||'')||null,start_date:document.getElementById('t-start').value||null,end_date:document.getElementById('t-end')?.value||null,entry_fee:parseFloat(document.getElementById('t-price')?.value)||0,double_round:!!document.getElementById('t-double')?.checked,cover_url:window.__tImg.cover||null,logo_url:window.__tImg.logo||null,organizer_email:BIZ_EMAIL,status:'registration'};
+  const{data,error}=await sb.from('tournaments').insert(row).select('id').single();
+  if(error){toast('Error: '+error.message,'error');return;}
+  window.__tImg={cover:null,logo:null};
+  ['t-name','t-city','t-start','t-end'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  const cb=document.getElementById('t-cover-box'); if(cb){cb.style.backgroundImage='';cb.innerHTML="<i class='bx bx-image'></i> Portada";}
+  const lb=document.getElementById('t-logo-box'); if(lb){lb.style.backgroundImage='';lb.innerHTML="<i class='bx bx-camera'></i>";}
+  document.getElementById('modal-torneo').classList.remove('open');toast('Torneo creado!');loadTorneos();loadDashboard();
+  // Abrir la gestión del torneo recién creado
+  if(data&&data.id) orgGestionarTorneo(data.id);
+}
+async function deleteTorneo(id){if(!confirm('¿Eliminar este torneo?'))return;await sb.from('tournaments').delete().eq('id',id);loadTorneos();loadDashboard();}
+
+async function loadTorneoSelects(){
+  if(!_torneos.length){const{data}=await sb.from('tournaments').select('id,name').eq('organizer_email',BIZ_EMAIL);_torneos=data||[];}
+  const opts='<option value="">Todos</option>'+_torneos.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+  ['inscr-torneo-sel','pos-torneo-sel','com-torneo'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
+}
+
+// Inscripciones/solicitudes REALES: equipos que se inscribieron a los torneos de esta
+// organización (tabla tournament_teams). pending = solicitud a aceptar/rechazar.
+async function loadInscriptions(){
+  const tid=document.getElementById('inscr-torneo-sel')?.value;
+  const{data:ts}=await sb.from('tournaments').select('id,name').eq('organizer_email',BIZ_EMAIL);
+  const nameById={}; (ts||[]).forEach(t=>nameById[t.id]=t.name);
+  const ids = tid ? [tid] : (ts||[]).map(t=>t.id);
+  const tbody=document.getElementById('inscr-list');
+  if(!ids.length){tbody.innerHTML=`<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);">Creá un torneo primero.</td></tr>`;return;}
+  const{data}=await sb.from('tournament_teams').select('*').in('tournament_id',ids).order('created_at',{ascending:false}).limit(200);
+  if(!data||!data.length){tbody.innerHTML=`<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);">Sin inscripciones aún</td></tr>`;return;}
+  const estLabel={pending:'Pendiente',approved:'Aprobado',rejected:'Rechazado',eliminated:'Eliminado'};
+  const _estados=['pending','approved','rejected','eliminated'];
+  tbody.innerHTML=data.map(i=>`<tr>
+    <td><strong>${(i.team_name||'—').replace(/</g,'&lt;')}</strong></td>
+    <td style="font-size:12px;color:var(--muted);">${(nameById[i.tournament_id]||'—').replace(/</g,'&lt;')}</td>
+    <td>${i.payment_proof_url?`<a href="${i.payment_proof_url}" target="_blank" style="color:var(--accent);">Ver</a> `:''}<button class="btn-sm btn-glass" style="padding:3px 8px;font-size:11px;" onclick="editInscrProof('${i.id}')"><i class='bx bx-edit'></i> ${i.payment_proof_url?'Cambiar':'Cargar'}</button></td>
+    <td><select class="form-input" style="padding:5px 8px;font-size:12px;min-width:120px;" onchange="setInscrStatus('${i.id}',this.value)">${_estados.map(e=>`<option value="${e}" ${i.status===e?'selected':''}>${estLabel[e]}</option>`).join('')}</select></td>
+    <td>${i.status==='pending'?`<button class="btn-sm btn-success" onclick="confirmInscr('${i.id}')">Aceptar</button> <button class="btn-sm btn-danger" onclick="rejectInscr('${i.id}')">Rechazar</button>`:''}</td>
+  </tr>`).join('');
+}
+// Editar estado de una inscripción directamente (columna status). Si pasa a approved
+// desde pendiente, reutiliza confirmInscr (aviso al capitán + auto-caja).
+async function setInscrStatus(id,val){
+  const{data:cur}=await sb.from('tournament_teams').select('status').eq('id',id).single();
+  if(val==='approved' && cur && cur.status!=='approved'){ return confirmInscr(id); }
+  await sb.from('tournament_teams').update({status:val}).eq('id',id);
+  toast('Estado actualizado.');
+  loadInscriptions(); if(typeof loadDashboard==='function')loadDashboard();
+}
+// Cargar/cambiar el comprobante de pago (URL). payment_proof_url es una columna existente.
+async function editInscrProof(id){
+  const url=prompt('Pegá el link del comprobante (imagen/PDF). Dejalo vacío para borrarlo:');
+  if(url===null) return;
+  await sb.from('tournament_teams').update({payment_proof_url:(url.trim()||null)}).eq('id',id);
+  toast('Comprobante actualizado.');
+  loadInscriptions();
+}
+async function confirmInscr(id){
+  const{data:team}=await sb.from('tournament_teams').select('*').eq('id',id).single();
+  await sb.from('tournament_teams').update({status:'approved'}).eq('id',id);
+  toast('Equipo aceptado en el torneo.');
+  // Aviso al capitán + auto-caja si el torneo tiene inscripción paga
+  try{
+    const{data:t}=await sb.from('tournaments').select('name,entry_fee').eq('id',team.tournament_id).single();
+    if(team&&team.captain_email){
+      await sb.from('notifications').insert({recipient_email:team.captain_email,type:'torneo_solicitud',actor_name:BIZ.name||'Organización',actor_email:BIZ_EMAIL,message:`Tu equipo ${team.team_name} fue ACEPTADO en ${t?t.name:'el torneo'}.`,post_id:team.tournament_id,read:false});
+    }
+    const fee=(t&&t.entry_fee)||0;
+    if(fee>0 && team && team.payment_status!=='paid' && team.payment_status!=='waived'){
+      if(confirm(`El torneo tiene inscripción de $${fee}. ¿Registrar el ingreso de ${team.team_name} en Caja y marcarlo como PAGADO?\n(Cancelar = queda pendiente de pago)`)){
+        await registrarPagoInscripcion(team, t, fee);
+      }
+    }
+  }catch(e){}
+  loadInscriptions();loadDashboard();
+}
+async function rejectInscr(id){await sb.from('tournament_teams').update({status:'rejected'}).eq('id',id);toast('Solicitud rechazada.');loadInscriptions();}
+
+// Registra el pago de inscripción: asiento en Caja + estado pagado + agradecimiento al capitán.
+async function registrarPagoInscripcion(team, t, fee){
+  try{ await sb.from('business_cashflow').insert({business_email:BIZ_EMAIL,type:'ingreso',concept:'Inscripción: '+(team.team_name||'equipo')+(t&&t.name?(' — '+t.name):''),amount:fee}); }catch(e){ toast('No se pudo registrar en Caja: '+(e.message||''),'error'); return false; }
+  try{ await sb.from('tournament_teams').update({payment_status:'paid'}).eq('id',team.id); }catch(e){}
+  try{ if(team.captain_email) await sb.from('notifications').insert({recipient_email:team.captain_email,type:'torneo_pago',actor_name:BIZ.name||'Organización',actor_email:BIZ_EMAIL,message:`Recibimos el pago de inscripción de ${team.team_name}. ¡Gracias! Nos vemos en la cancha.`,post_id:team.tournament_id,read:false}); }catch(e){}
+  toast('Pago registrado en Caja.');
+  return true;
+}
+
+// ── CLIENTES: pipeline de equipos inscriptos por etapa de pago ────────────────
+let _cliTeams=[];
+async function orgClientsLoad(){
+  const wrap=document.getElementById('cli-pipeline'); if(!wrap) return;
+  wrap.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted);"><i class="bx bx-loader-alt bx-spin" style="font-size:22px;"></i></div>';
+  // torneos de esta org (para filtro + nombres + fee)
+  const{data:ts}=await sb.from('tournaments').select('id,name,entry_fee').eq('organizer_email',BIZ_EMAIL);
+  const tById={}; (ts||[]).forEach(t=>tById[t.id]=t);
+  const sel=document.getElementById('cli-torneo');
+  if(sel&&sel.options.length<=1){ sel.innerHTML='<option value="">Todos los torneos</option>'+(ts||[]).map(t=>`<option value="${t.id}">${(t.name||'').replace(/</g,'&lt;')}</option>`).join(''); }
+  const tid=sel?.value||''; const etapa=document.getElementById('cli-etapa')?.value||'';
+  const ids=tid?[tid]:(ts||[]).map(t=>t.id);
+  if(!ids.length){wrap.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted);">Creá un torneo primero.</div>';document.getElementById('cli-kpis').innerHTML='';return;}
+  let q=sb.from('tournament_teams').select('*').in('tournament_id',ids).in('status',['approved','pending']).order('created_at',{ascending:false}).limit(300);
+  const{data}=await q; _cliTeams=data||[];
+  // KPIs
+  const fee=t=>((tById[t.tournament_id]||{}).entry_fee)||0;
+  const paid=_cliTeams.filter(t=>t.payment_status==='paid');
+  const pend=_cliTeams.filter(t=>t.payment_status==='pending'&&fee(t)>0);
+  const kp=document.getElementById('cli-kpis');
+  if(kp) kp.innerHTML=`
+    <div class="card" style="padding:12px;text-align:center;"><div style="font-size:10px;color:var(--muted);font-weight:800;">EQUIPOS</div><div style="font-size:18px;font-weight:900;">${_cliTeams.length}</div></div>
+    <div class="card" style="padding:12px;text-align:center;"><div style="font-size:10px;color:var(--muted);font-weight:800;">PAGARON</div><div style="font-size:18px;font-weight:900;color:var(--accent);">${paid.length} · $${paid.reduce((s,t)=>s+fee(t),0)}</div></div>
+    <div class="card" style="padding:12px;text-align:center;"><div style="font-size:10px;color:var(--muted);font-weight:800;">POR COBRAR</div><div style="font-size:18px;font-weight:900;color:var(--orange);">${pend.length} · $${pend.reduce((s,t)=>s+fee(t),0)}</div></div>`;
+  let list=_cliTeams;
+  if(etapa) list=list.filter(t=>(t.payment_status||'pending')===etapa);
+  if(!list.length){wrap.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted);">Sin equipos en esta etapa.</div>';return;}
+  const stage={pending:{l:'Pendiente de pago',c:'var(--orange)'},paid:{l:'Pagó',c:'var(--accent)'},waived:{l:'Exento',c:'#4fc3f7'}};
+  wrap.innerHTML=list.map(t=>{
+    const st=stage[t.payment_status||'pending']||stage.pending;
+    const tn=(tById[t.tournament_id]||{}).name||'—';
+    const f=fee(t);
+    const logo=t.logo_url?`#000 center/cover url('${(t.logo_url||'').replace(/'/g,'')}')`:'rgba(186,255,0,0.12)';
+    const cap=(t.captain_email||'').replace(/'/g,'');
+    const perfilRef=t.club_email&&String(t.club_email).indexOf('club:')===0?('index.html?club='+encodeURIComponent(String(t.club_email).slice(5))):(cap?('index.html?perfil='+encodeURIComponent(cap)):'');
+    return `<div class="card" style="padding:12px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:0;">
+      <span style="width:40px;height:40px;border-radius:10px;flex-shrink:0;background:${logo};display:flex;align-items:center;justify-content:center;font-weight:900;color:var(--accent);">${t.logo_url?'':(t.team_name||'?')[0].toUpperCase()}</span>
+      <div style="flex:1;min-width:150px;">
+        <div style="font-weight:800;">${(t.team_name||'').replace(/</g,'&lt;')} ${t.status==='pending'?'<span style="font-size:9px;color:var(--orange);font-weight:900;">(SOLICITUD)</span>':''}</div>
+        <div style="font-size:11px;color:var(--muted);">${tn.replace(/</g,'&lt;')} · Cap: ${(t.captain_name||t.captain_email||'—').replace(/</g,'&lt;')}${f?` · $${f}`:' · Gratis'}</div>
+        ${(t.paid_amount!=null||t.paid_at||t.next_payment_at||t.notes)?`<div style="font-size:10px;color:var(--muted);margin-top:2px;">${t.paid_amount!=null?`Pagó $${t.paid_amount}`:''}${t.paid_at?` · ${new Date(t.paid_at).toLocaleDateString('es-UY')}`:''}${t.next_payment_at?` · Próx. pago: ${new Date(t.next_payment_at).toLocaleDateString('es-UY')}`:''}${t.notes?` · ${(t.notes||'').replace(/</g,'&lt;')}`:''}</div>`:''}
+      </div>
+      <span style="font-size:10px;font-weight:800;color:${st.c};background:rgba(255,255,255,0.05);border-radius:20px;padding:4px 12px;">${st.l}</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${t.payment_status==='pending'&&f>0?`<button class="btn-sm btn-accent" onclick="cliMarkPaid('${t.id}')"><i class='bx bx-dollar-circle'></i> Marcar pagado</button>
+        <button class="btn-sm btn-glass" onclick="cliRemind('${t.id}')"><i class='bx bx-bell'></i> Recordar pago</button>`:''}
+        <button class="btn-sm btn-glass" onclick="cliEditPay('${t.id}')"><i class='bx bx-edit'></i> Editar pago</button>
+        ${perfilRef?`<button class="btn-sm btn-glass" onclick="window.open('${perfilRef}','_blank')"><i class='bx bx-user'></i> Perfil</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+// Editor de pago del cliente: estado, monto, fecha de pago, próximo pago y notas.
+// Escritura DEFENSIVA: primero intenta con todas las columnas; si faltan (falta correr la
+// migración sql/2026-07-17-tournament-teams-payments.sql) reintenta solo con payment_status.
+function cliEditPay(teamId){
+  const t=_cliTeams.find(x=>String(x.id)===String(teamId)); if(!t) return;
+  const _v=(x)=>x==null?'':x;
+  const _dateVal=(d)=>{ if(!d) return ''; try{ return new Date(d).toISOString().slice(0,10); }catch(e){ return ''; } };
+  const ex=document.getElementById('cli-pay-modal'); if(ex) ex.remove();
+  const m=document.createElement('div');
+  m.id='cli-pay-modal';
+  m.style.cssText='position:fixed;inset:0;z-index:100050;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;';
+  m.innerHTML=`<div style="background:#101210;border:1px solid #242624;border-radius:16px;width:100%;max-width:400px;padding:18px;margin-top:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><b style="font-size:15px;">Pago — ${(t.team_name||'').replace(/</g,'&lt;')}</b><button onclick="document.getElementById('cli-pay-modal').remove()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;">&times;</button></div>
+    <label class="form-label">Estado de pago</label>
+    <select id="cp-status" class="form-input" style="margin-bottom:10px;">
+      <option value="pending" ${(t.payment_status||'pending')==='pending'?'selected':''}>Pendiente de pago</option>
+      <option value="paid" ${t.payment_status==='paid'?'selected':''}>Pagó</option>
+      <option value="waived" ${t.payment_status==='waived'?'selected':''}>Exento</option>
+    </select>
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1;"><label class="form-label">Monto pagado</label><input id="cp-amount" type="number" min="0" class="form-input" value="${_v(t.paid_amount)}" placeholder="$"></div>
+      <div style="flex:1;"><label class="form-label">Fecha de pago</label><input id="cp-paidat" type="date" class="form-input" value="${_dateVal(t.paid_at)}"></div>
+    </div>
+    <label class="form-label" style="margin-top:10px;">Próximo pago</label>
+    <input id="cp-next" type="date" class="form-input" value="${_dateVal(t.next_payment_at)}" style="margin-bottom:10px;">
+    <label class="form-label">Notas</label>
+    <textarea id="cp-notes" class="form-input" rows="2" placeholder="Ej: pagó la mitad, resto el viernes...">${_v(t.notes)}</textarea>
+    <button class="btn-sm btn-accent" style="width:100%;margin-top:14px;" onclick="cliSavePay('${t.id}')">Guardar</button>
+    <div style="font-size:10px;color:var(--muted);margin-top:8px;">Si el monto/fechas/notas no se guardan, falta correr la migración SQL de pagos.</div>
+  </div>`;
+  m.onclick=e=>{ if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+}
+async function cliSavePay(teamId){
+  const status=document.getElementById('cp-status')?.value||'pending';
+  const amount=document.getElementById('cp-amount')?.value;
+  const paidAt=document.getElementById('cp-paidat')?.value;
+  const next=document.getElementById('cp-next')?.value;
+  const notes=(document.getElementById('cp-notes')?.value||'').trim();
+  const full={ payment_status:status, paid_amount:(amount!==''&&!isNaN(parseFloat(amount)))?parseFloat(amount):null, paid_at:paidAt?new Date(paidAt).toISOString():null, next_payment_at:next||null, notes:notes||null };
+  let {error}=await sb.from('tournament_teams').update(full).eq('id',teamId);
+  if(error){ await sb.from('tournament_teams').update({payment_status:status}).eq('id',teamId); toast('Estado guardado. Corré la migración SQL para monto/fechas/notas.','warning'); }
+  else { toast('Pago actualizado.'); }
+  document.getElementById('cli-pay-modal')?.remove();
+  orgClientsLoad();
+}
+async function cliMarkPaid(teamId){
+  const t=_cliTeams.find(x=>String(x.id)===String(teamId)); if(!t) return;
+  const{data:tor}=await sb.from('tournaments').select('name,entry_fee').eq('id',t.tournament_id).single();
+  const fee=(tor&&tor.entry_fee)||0;
+  if(!confirm(`¿Registrar el pago de $${fee} de ${t.team_name} en Caja?`)) return;
+  await registrarPagoInscripcion(t,tor,fee);
+  orgClientsLoad();
+}
+async function cliRemind(teamId){
+  const t=_cliTeams.find(x=>String(x.id)===String(teamId)); if(!t||!t.captain_email){toast('El equipo no tiene capitán con cuenta.','error');return;}
+  const{data:tor}=await sb.from('tournaments').select('name,entry_fee,payment_link').eq('id',t.tournament_id).single();
+  try{
+    await sb.from('notifications').insert({recipient_email:t.captain_email,type:'torneo_pago',actor_name:BIZ.name||'Organización',actor_email:BIZ_EMAIL,message:`Recordatorio: falta el pago de inscripción de ${t.team_name} en ${tor?tor.name:'el torneo'} ($${(tor&&tor.entry_fee)||0}).${tor&&tor.payment_link?' Pagá en: '+tor.payment_link:''}`,post_id:t.tournament_id,read:false});
+    toast('Recordatorio enviado al capitán.');
+  }catch(e){toast('No se pudo enviar: '+(e.message||''),'error');}
+}
+
+async function loadPosiciones(){
+  const wrap=document.getElementById('pos-table-wrap');
+  const tid=document.getElementById('pos-torneo-sel')?.value;
+  if(!tid){
+    wrap.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);">Seleccioná un torneo para ver su tabla de posiciones.</div>`;
+    return;
+  }
+  // Tabla INLINE acá mismo (aunque todos tengan 0 puntos). Gestionar se hace desde Torneos.
+  if(window.CancheroTournaments && CancheroTournaments.renderStandingsInto){
+    await CancheroTournaments.renderStandingsInto(tid, wrap);
+    wrap.insertAdjacentHTML('beforeend', `<div style="margin-top:10px;text-align:right;"><button class="btn-sm btn-glass" onclick="orgGestionarTorneo('${tid}')"><i class='bx bx-slider-alt'></i> Abrir gestión completa</button></div>`);
+  } else {
+    wrap.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);">Cargando módulo de torneos…</div>`;
+  }
+}
+
+// ── Comunicados selectivos: a TODOS los capitanes del torneo o a equipos elegidos ──
+function comDestMode(){
+  const mode=document.querySelector('input[name="com-dest"]:checked')?.value;
+  const box=document.getElementById('com-teams-box');
+  if(box) box.style.display = mode==='elegir' ? 'block' : 'none';
+  if(mode==='elegir') comLoadTeams();
+}
+function _comAvatar(url,name){
+  const init=((name||'?').trim()[0]||'?').toUpperCase();
+  return url
+    ? `<span style="width:26px;height:26px;border-radius:50%;flex-shrink:0;background:#222 center/cover url('${(url||'').replace(/"/g,'')}');border:1px solid rgba(186,255,0,0.4);display:inline-block;"></span>`
+    : `<span style="width:26px;height:26px;border-radius:50%;flex-shrink:0;background:rgba(186,255,0,0.12);border:1px solid rgba(186,255,0,0.4);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--accent);">${init}</span>`;
+}
+async function comLoadTeams(){
+  const tid=document.getElementById('com-torneo')?.value;
+  const box=document.getElementById('com-teams-box');
+  const mode=document.querySelector('input[name="com-dest"]:checked')?.value;
+  if(!box||mode!=='elegir') return;
+  if(!tid){box.innerHTML='<div style="color:var(--muted);font-size:12px;">Elegí un torneo primero.</div>';return;}
+  const{data}=await sb.from('tournament_teams').select('id,team_name,captain_email,captain_name,logo_url').eq('tournament_id',tid).eq('status','approved');
+  if(!data||!data.length){box.innerHTML='<div style="color:var(--muted);font-size:12px;">Sin equipos aprobados en este torneo.</div>';return;}
+  box.innerHTML=data.map(t=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:13px;color:#ccc;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);">
+    <input type="checkbox" class="com-team-chk" value="${t.id}" data-cap="${(t.captain_email||'').replace(/"/g,'')}" data-name="${(t.team_name||'').replace(/"/g,'')}" checked style="accent-color:var(--accent);">
+    ${_comAvatar(t.logo_url,t.team_name)}
+    <span style="flex:1;min-width:0;">${(t.team_name||'').replace(/</g,'&lt;')} <span style="color:#555;font-size:11px;">· ${(t.captain_name||t.captain_email||'').replace(/</g,'&lt;')}</span></span>
+  </label>`).join('');
+}
+async function sendComunicado(){
+  const msg=document.getElementById('com-msg')?.value.trim();
+  const tid=document.getElementById('com-torneo')?.value;
+  if(!msg){toast('Escribí el comunicado.','error');return;}
+  if(!tid){toast('Elegí el torneo.','error');return;}
+  const teamMode=document.querySelector('input[name="com-dest"]:checked')?.value||'todos';
+  const whoMode=document.querySelector('input[name="com-who"]:checked')?.value||'capitanes';
+  // 1) Determinar los EQUIPOS objetivo (todos aprobados, o los tildados).
+  let teamIds=[];
+  if(teamMode==='elegir'){
+    teamIds=[...document.querySelectorAll('.com-team-chk:checked')].map(c=>c.value);
+    if(!teamIds.length){toast('Elegí al menos un equipo.','error');return;}
+  } else {
+    const{data}=await sb.from('tournament_teams').select('id').eq('tournament_id',tid).eq('status','approved');
+    teamIds=(data||[]).map(t=>t.id);
+    if(!teamIds.length){toast('El torneo no tiene equipos aprobados.','error');return;}
+  }
+  // 2) Determinar los DESTINATARIOS: capitanes de esos equipos, o todos sus jugadores.
+  let emails=new Set();
+  if(whoMode==='jugadores'){
+    const{data:pls}=await sb.from('tournament_players').select('user_email,team_id').in('team_id',teamIds);
+    (pls||[]).forEach(p=>{ if(p.user_email) emails.add((p.user_email||'').toLowerCase()); });
+  } else {
+    const{data:tt}=await sb.from('tournament_teams').select('captain_email').in('id',teamIds);
+    (tt||[]).forEach(t=>{ if(t.captain_email) emails.add((t.captain_email||'').toLowerCase()); });
+  }
+  const recipients=[...emails];
+  if(!recipients.length){toast(whoMode==='jugadores'?'Esos equipos no tienen jugadores registrados con cuenta.':'Esos equipos no tienen capitán con email.','error');return;}
+  const{data:tInfo}=await sb.from('tournaments').select('name').eq('id',tid).single();
+  const tName=(tInfo&&tInfo.name)||'el torneo';
+  let sent=0;
+  for(const em of recipients){
+    try{ await sb.from('notifications').insert({recipient_email:em,type:'torneo_comunicado',actor_name:BIZ.name||'Organización',actor_email:BIZ_EMAIL,message:`Comunicado de ${tName}: ${msg}`,post_id:tid,read:false}); sent++; }catch(e){}
+  }
+  if(document.getElementById('com-feed')?.checked){
+    try{ await sb.from('posts').insert({user_email:BIZ_EMAIL,user_name:BIZ.name||'Organización',content:'COMUNICADO OFICIAL — '+tName+'\n\n'+msg,created_at:new Date().toISOString()}); }catch(e){}
+  }
+  const log=document.getElementById('com-log');
+  const _quien = (whoMode==='jugadores')?('jugador'+(sent===1?'':'es')):('capitán'+(sent===1?'':'es'));
+  if(log) log.textContent='Enviado a '+sent+' '+_quien+' (les llega a la campana de notificaciones).';
+  toast('Comunicado enviado a '+sent+' '+_quien+'.');
+}
+// WhatsApp: abre wa.me con el mensaje de arriba listo para enviar a un número puntual.
+// La organización ingresa el número y confirma el envío en WhatsApp (no se envía solo).
+function comWhatsApp(){
+  const name=(document.getElementById('wa-name')?.value||'').trim();
+  let phone=(document.getElementById('wa-phone')?.value||'').replace(/[^\d]/g,'');
+  const msg=(document.getElementById('com-msg')?.value||'').trim();
+  if(!phone){toast('Ingresá el número (con código de país).','error');return;}
+  if(!msg){toast('Escribí el mensaje arriba primero.','error');return;}
+  const saludo = name ? ('Hola '+name+', ') : '';
+  const text = encodeURIComponent(saludo + msg);
+  window.open('https://wa.me/'+phone+'?text='+text,'_blank');
+}
+
+async function saveLinks(){
+  await sb.from('business_requests').update({payment_link_mp:document.getElementById('mp-input').value.trim()||null,payment_link_stripe:document.getElementById('stripe-input').value.trim()||null}).eq('email',BIZ_EMAIL);
+  toast('Links guardados!');
+}
+
+async function loadFaq(){
+  const{data}=await sb.from('business_chatbot_faq').select('*').eq('business_email',BIZ_EMAIL).order('order_index');
+  const list=document.getElementById('faq-list');
+  if(!data||!data.length){list.innerHTML=`<div style="padding:40px;text-align:center;color:var(--muted);">Sin preguntas configuradas.</div>`;return;}
+  list.innerHTML=data.map(f=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;justify-content:space-between;gap:10px;">
+    <div><div style="font-weight:700;margin-bottom:4px;"><i class='bx bx-help-circle' style="color:var(--accent);vertical-align:-2px;"></i> ${f.question}</div><div style="font-size:12px;color:var(--muted);">${f.answer}</div></div>
+    <button class="btn-sm btn-danger" onclick="sb.from('business_chatbot_faq').delete().eq('id','${f.id}').then(()=>{toast('FAQ eliminada.');loadFaq();})"><i class='bx bx-trash'></i></button>
+  </div>`).join('');
+}
+async function saveFaq(){
+  const q=document.getElementById('f-q').value.trim(),a=document.getElementById('f-a').value.trim();
+  if(!q||!a){toast('Completá ambos campos.','error');return;}
+  await sb.from('business_chatbot_faq').insert({business_email:BIZ_EMAIL,question:q,answer:a,order_index:Date.now()});
+  document.getElementById('modal-faq').classList.remove('open');toast('FAQ agregada!');loadFaq();
+}
+
+loadDashboard();
+</script>
+  <script src="canchero-crm-ventas.js?v=20260624g"></script>
+<script src="crm-common.js?v=20260717"></script>
+<!-- Motor de torneos: equipos, fixture (cruces automáticos), tabla, jugadores, goleadores, vista pública -->
+<script src="canchero-tournaments.js?v=20260717d"></script>
+</body>
+</html>

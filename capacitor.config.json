@@ -1,0 +1,9 @@
+{
+  "appId": "com.canchero.app",
+  "appName": "Canchero",
+  "webDir": "www",
+  "server": {
+    "url": "https://canchero-app.vercel.app",
+    "cleartext": true
+  }
+}

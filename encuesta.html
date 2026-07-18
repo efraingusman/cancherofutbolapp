@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Canchero · Encuesta</title>
+<link rel="icon" type="image/png" href="logo.png">
+<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Inter:wght@400;500;600&display=swap');
+:root{--accent:#baff00;--bg:#070907;--bg2:#0f110f;--bg3:#161816;--border:#1e201e;--text:#fff;--muted:#888;--red:#ff4444;--font:'Outfit',sans-serif;--body:'Inter',sans-serif;}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:var(--body);font-size:15px;-webkit-font-smoothing:antialiased;}
+body{display:flex;flex-direction:column;align-items:center;padding:20px 16px 60px;}
+
+.header{text-align:center;margin-bottom:32px;max-width:520px;}
+.header img{height:48px;margin-bottom:12px;}
+.header h1{font-family:var(--font);font-weight:800;font-size:26px;letter-spacing:-0.5px;margin-bottom:6px;}
+.header h1 span{color:var(--accent);}
+.header p{color:var(--muted);font-size:14px;line-height:1.5;}
+
+.form{width:100%;max-width:560px;display:flex;flex-direction:column;gap:26px;}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:22px 20px;}
+.card.invalid{border-color:var(--red);animation:shake .4s;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.qnum{font-family:var(--font);font-weight:800;font-size:11px;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;}
+.qtxt{font-family:var(--font);font-weight:600;font-size:17px;margin-bottom:16px;line-height:1.4;}
+.req{color:var(--red);margin-left:3px;}
+.err{color:var(--red);font-size:12px;margin-top:8px;display:none;}
+.card.invalid .err{display:block;}
+
+.opts{display:flex;flex-direction:column;gap:8px;}
+.opt{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;border:1px solid var(--border);cursor:pointer;transition:all .2s;user-select:none;}
+.opt:hover{border-color:var(--accent);background:rgba(186,255,0,0.04);}
+.opt.on{border-color:var(--accent);background:rgba(186,255,0,0.06);box-shadow:0 0 0 1px var(--accent);}
+.dot{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;}
+.multi .dot{border-radius:5px;}
+.opt.on .dot{border-color:var(--accent);background:var(--accent);}
+.opt.on .dot::after{content:'';display:block;}
+.single .opt.on .dot::after{width:8px;height:8px;border-radius:50%;background:var(--bg);}
+.multi .opt.on .dot::after{width:10px;height:5px;border-bottom:2.5px solid var(--bg);border-left:2.5px solid var(--bg);transform:rotate(-45deg);margin-top:-2px;}
+.opt span{font-size:14px;line-height:1.4;}
+
+textarea,input[type=text]{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:var(--body);font-size:14px;outline:none;transition:border .2s;}
+textarea:focus,input[type=text]:focus{border-color:var(--accent);}
+textarea{min-height:90px;resize:vertical;}
+
+.scale{display:flex;gap:6px;flex-wrap:wrap;}
+.sbtn{width:44px;height:44px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:var(--font);font-weight:700;font-size:16px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;}
+.sbtn:hover{border-color:var(--accent);}
+.sbtn.on{background:var(--accent);color:var(--bg);border-color:var(--accent);}
+.slabels{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--muted);}
+
+.progress{position:fixed;top:0;left:0;height:3px;background:var(--accent);transition:width .4s ease;z-index:999;}
+
+.submit{width:100%;padding:16px;border:none;border-radius:12px;background:var(--accent);color:var(--bg);font-family:var(--font);font-weight:800;font-size:17px;cursor:pointer;transition:all .2s;margin-top:8px;}
+.submit:hover{box-shadow:0 0 30px rgba(186,255,0,0.3);}
+.submit:disabled{opacity:0.4;cursor:not-allowed;}
+
+.thanks{display:none;text-align:center;padding:60px 20px;max-width:480px;}
+.thanks i{font-size:64px;color:var(--accent);margin-bottom:16px;}
+.thanks h2{font-family:var(--font);font-weight:800;font-size:28px;margin-bottom:10px;}
+.thanks p{color:var(--muted);line-height:1.6;}
+.thanks .go{display:inline-block;margin-top:24px;padding:14px 32px;border-radius:10px;background:var(--accent);color:var(--bg);font-family:var(--font);font-weight:700;text-decoration:none;font-size:15px;}
+</style>
+</head>
+<body>
+
+<div class="progress" id="prog"></div>
+
+<div class="header" id="hdr">
+  <img src="logo-oficial.png" onerror="this.src='logo.png'">
+  <h1>Encuesta <span>Canchero</span></h1>
+  <p>Respondela en 2 minutos y ayudanos a construir la app que el futbol 5 uruguayo necesita.</p>
+</div>
+
+<div class="form" id="form">
+
+  <!-- 1 -->
+  <div class="card single" data-q="frecuencia" data-req="1">
+    <div class="qnum">Pregunta 1 de 12</div>
+    <div class="qtxt">Cada cuanto jugas al futbol 5?<span class="req">*</span></div>
+    <div class="opts">
+      <div class="opt" data-v="2_o_mas_semana" onclick="pick(this)"><div class="dot"></div><span>2 o mas veces por semana</span></div>
+      <div class="opt" data-v="1_semana" onclick="pick(this)"><div class="dot"></div><span>1 vez por semana</span></div>
+      <div class="opt" data-v="quincenal" onclick="pick(this)"><div class="dot"></div><span>Cada 2 semanas mas o menos</span></div>
+      <div class="opt" data-v="mensual_o_menos" onclick="pick(this)"><div class="dot"></div><span>1 vez al mes o menos</span></div>
+      <div class="opt" data-v="deje" onclick="pick(this)"><div class="dot"></div><span>Antes jugaba pero deje</span></div>
+    </div>
+    <div class="err">Elegí una opcion</div>
+  </div>
+
+  <!-- 2 -->
+  <div class="card single" data-q="como_arma" data-req="1">
+    <div class="qnum">Pregunta 2 de 12</div>
+    <div class="qtxt">Como armas partido normalmente?<span class="req">*</span></div>
+    <div class="opts">
+      <div class="opt" data-v="grupo_whatsapp" onclick="pick(this)"><div class="dot"></div><span>Grupo de WhatsApp fijo</span></div>
+      <div class="opt" data-v="msj_uno_a_uno" onclick="pick(this)"><div class="dot"></div><span>Mando mensajes uno por uno</span></div>
+      <div class="opt" data-v="otro_arma" onclick="pick(this)"><div class="dot"></div><span>Otro se encarga de armar</span></div>
+      <div class="opt" data-v="complejo_organiza" onclick="pick(this)"><div class="dot"></div><span>El complejo organiza partidos</span></div>
+      <div class="opt" data-v="cuesta_armar" onclick="pick(this)"><div class="dot"></div><span>Me cuesta conseguir partido</span></div>
+    </div>
+    <div class="err">Elegí una opcion</div>
+  </div>
+
+  <!-- 3 - multi -->
+  <div class="card multi" data-q="dolores" data-req="1">
+    <div class="qnum">Pregunta 3 de 12</div>
+    <div class="qtxt">Cuales de estos problemas te pasan? (podes elegir varios)<span class="req">*</span></div>
+    <div class="opts">
+      <div class="opt" data-v="faltan_jugadores" onclick="pickM(this)"><div class="dot"></div><span>Siempre falta gente y se cae el partido</span></div>
+      <div class="opt" data-v="cancha_llena" onclick="pickM(this)"><div class="dot"></div><span>No encuentro cancha disponible en el horario que quiero</span></div>
+      <div class="opt" data-v="whatsapp_caos" onclick="pickM(this)"><div class="dot"></div><span>El grupo de WhatsApp es un quilombo para confirmar</span></div>
+      <div class="opt" data-v="cobrar_cuota" onclick="pickM(this)"><div class="dot"></div><span>Cobrar la plata del partido es un dolor de cabeza</span></div>
+      <div class="opt" data-v="no_registro_goles" onclick="pickM(this)"><div class="dot"></div><span>No tengo donde anotar mis goles ni estadisticas</span></div>
+      <div class="opt" data-v="no_rivales" onclick="pickM(this)"><div class="dot"></div><span>Quiero jugar contra otros equipos y no se como</span></div>
+      <div class="opt" data-v="no_se_canchas" onclick="pickM(this)"><div class="dot"></div><span>No conozco todas las canchas de mi zona</span></div>
+      <div class="opt" data-v="ninguno" onclick="pickM(this)"><div class="dot"></div><span>Ninguno de estos</span></div>
+    </div>
+    <div class="err">Elegí al menos una</div>
+  </div>
+
+  <!-- 4 - open -->
+  <div class="card" data-q="frustracion">
+    <div class="qnum">Pregunta 4 de 12</div>
+    <div class="qtxt">Que es lo que mas te frustra cuando queres jugar un partido?</div>
+    <textarea placeholder="Contanos con tus palabras..."></textarea>
+  </div>
+
+  <!-- 5 -->
+  <div class="card single" data-q="registra_goles" data-req="1">
+    <div class="qnum">Pregunta 5 de 12</div>
+    <div class="qtxt">Llevas la cuenta de tus goles o stats?<span class="req">*</span></div>
+    <div class="opts">
+      <div class="opt" data-v="si_mental" onclick="pick(this)"><div class="dot"></div><span>Si, de memoria nomas</span></div>
+      <div class="opt" data-v="si_anoto" onclick="pick(this)"><div class="dot"></div><span>Si, anoto en algún lado (notas, excel)</span></div>
+      <div class="opt" data-v="me_gustaria" onclick="pick(this)"><div class="dot"></div><span>No pero me gustaria</span></div>
+      <div class="opt" data-v="no_interesa" onclick="pick(this)"><div class="dot"></div><span>No, no me interesa</span></div>
+    </div>
+    <div class="err">Elegí una opcion</div>
+  </div>
+
+  <!-- 6 -->
+  <div class="card single" data-q="busca_cancha" data-req="1">
+    <div class="qnum">Pregunta 6 de 12</div>
+    <div class="qtxt">Como buscas cancha para jugar?<span class="req">*</span></div>
+    <div class="opts">
+      <div class="opt" data-v="siempre_misma" onclick="pick(this)"><div class="dot"></div><span>Siempre voy a la misma</span></div>
+      <div class="opt" data-v="google_instagram" onclick="pick(this)"><div class="dot"></div><span>Busco en Google o Instagram</span></div>
+      <div class="opt" data-v="boca_a_boca" onclick="pick(this)"><div class="dot"></div><span>Por recomendacion de amigos</span></div>
+      <div class="opt" data-v="no_busco" onclick="pick(this)"><div class="dot"></div><span>No busco, otro se encarga</span></div>
+    </div>
+    <div class="err">Elegí una opcion</div>
+  </div>
+
+  <!-- 7 - multi -->
+  <div class="card multi" data-q="que_usaria" data-req="1">
+    <div class="qnum">Pregunta 7 de 12</div>
+    <div class="qtxt">Si existiera una app para el futbol 5, que te serviria? (varias)<span class="req">*</span></div>
+    <div class="opts">
+      <div class="opt" data-v="armar_partido" onclick="pickM(this)"><div class="dot"></div><span>Armar partido facil sin el caos de WhatsApp</span></div>
+      <div class="opt" data-v="encontrar_cancha" onclick="pickM(this)"><div class="dot"></div><span>Ver canchas disponibles y reservar</span></div>
+      <div class="opt" data-v="stats_goles" onclick="pickM(this)"><div class="dot"></div><span>Registrar mis goles y estadisticas</span></div>
+      <div class="opt" data-v="perfil_jugador" onclick="pickM(this)"><div class="dot"></div><span>Tener un perfil de jugador con mi historial</span></div>
+      <div class="opt" data-v="buscar_jugadores" onclick="pickM(this)"><div class="dot"></div><span>Encontrar jugadores cuando falta gente</span></div>
+      <div class="opt" data-v="torneos" onclick="pickM(this)"><div class="dot"></div><span>Anotarme en torneos con fixture y posiciones</span></div>
+      <div class="opt" data-v="desafiar_equipos" onclick="pickM(this)"><div class="dot"></div><span>Desafiar a otros equipos a jugar</span></div>
+      <div class="opt" data-v="ranking" onclick="pickM(this)"><div class="dot"></div><span>Ver ranking de goleadores o mejores jugadores</span></div>
+    </div>
+    <div class="err">Elegí al menos una</div>
+  </div>
+
+  <!-- 8 -->
+  <div class="card single" data-q="conoce_canchero" data-req="1">
+    <div class="qnum">Pregunta 8 de 12</div>
+    <div class="qtxt">Conocias Canchero?<span class="req">*</span></div>
+    <div class="opts">
+      <div class="opt" data-v="si_uso" onclick="pick(this)"><div class="dot"></div><span>Si, ya la probé</span></div>
+      <div class="opt" data-v="si_vi" onclick="pick(this)"><div class="dot"></div><span>La vi pero no la usé</span></div>
+      <div class="opt" data-v="no" onclick="pick(this)"><div class="dot"></div><span>No, primera vez</span></div>
+    </div>
+    <div class="err">Elegí una opcion</div>
+  </div>
+
+  <!-- 9 - scale -->
+  <div class="card" data-q="impresion" data-type="scale" data-req="1">
+    <div class="qnum">Pregunta 9 de 12</div>
+    <div class="qtxt">Que impresion te da Canchero? (1 = mala, 10 = excelente)<span class="req">*</span></div>
+    <div class="scale" data-name="impresion">
+      <div class="sbtn" onclick="pickS(this,1)">1</div>
+      <div class="sbtn" onclick="pickS(this,2)">2</div>
+      <div class="sbtn" onclick="pickS(this,3)">3</div>
+      <div class="sbtn" onclick="pickS(this,4)">4</div>
+      <div class="sbtn" onclick="pickS(this,5)">5</div>
+      <div class="sbtn" onclick="pickS(this,6)">6</div>
+      <div class="sbtn" onclick="pickS(this,7)">7</div>
+      <div class="sbtn" onclick="pickS(this,8)">8</div>
+      <div class="sbtn" onclick="pickS(this,9)">9</div>
+      <div class="sbtn" onclick="pickS(this,10)">10</div>
+    </div>
+    <div class="slabels"><span>Mala</span><span>Excelente</span></div>
+    <div class="err">Elegí un valor</div>
+  </div>
+
+  <!-- 10 - scale NPS -->
+  <div class="card" data-q="nps" data-type="scale" data-req="1">
+    <div class="qnum">Pregunta 10 de 12</div>
+    <div class="qtxt">Se la recomendarias a un amigo que juega futbol 5? (1 a 10)<span class="req">*</span></div>
+    <div class="scale" data-name="nps">
+      <div class="sbtn" onclick="pickS(this,1)">1</div>
+      <div class="sbtn" onclick="pickS(this,2)">2</div>
+      <div class="sbtn" onclick="pickS(this,3)">3</div>
+      <div class="sbtn" onclick="pickS(this,4)">4</div>
+      <div class="sbtn" onclick="pickS(this,5)">5</div>
+      <div class="sbtn" onclick="pickS(this,6)">6</div>
+      <div class="sbtn" onclick="pickS(this,7)">7</div>
+      <div class="sbtn" onclick="pickS(this,8)">8</div>
+      <div class="sbtn" onclick="pickS(this,9)">9</div>
+      <div class="sbtn" onclick="pickS(this,10)">10</div>
+    </div>
+    <div class="slabels"><span>Ni loco</span><span>Seguro que si</span></div>
+    <div class="err">Elegí un valor</div>
+  </div>
+
+  <!-- 11 -->
+  <div class="card single" data-q="pagaria" data-req="1">
+    <div class="qnum">Pregunta 11 de 12</div>
+    <div class="qtxt">Pagarias por una app que te resuelva todo esto?<span class="req">*</span></div>
+    <div class="opts">
+      <div class="opt" data-v="si" onclick="pick(this)"><div class="dot"></div><span>Si, si funciona bien pago tranquilo</span></div>
+      <div class="opt" data-v="depende" onclick="pick(this)"><div class="dot"></div><span>Depende del precio y que ofrezca</span></div>
+      <div class="opt" data-v="no" onclick="pick(this)"><div class="dot"></div><span>No, tiene que ser gratis</span></div>
+    </div>
+    <div class="err">Elegí una opcion</div>
+  </div>
+
+  <!-- 12 - open -->
+  <div class="card" data-q="comentario">
+    <div class="qnum">Pregunta 12 de 12</div>
+    <div class="qtxt">Algo mas que nos quieras decir? Critica, idea, lo que sea</div>
+    <textarea placeholder="Todo suma..."></textarea>
+  </div>
+
+  <!-- Contacto -->
+  <div class="card" data-q="contacto">
+    <div class="qnum">Opcional</div>
+    <div class="qtxt">Si queres que te avisemos novedades, dejanos tu IG o email</div>
+    <input type="text" placeholder="@tu_instagram o tu@email.com">
+  </div>
+
+  <button class="submit" id="btnSend" onclick="send()">ENVIAR ENCUESTA</button>
+</div>
+
+<div class="thanks" id="thanks">
+  <i class='bx bx-check-circle'></i>
+  <h2>Gracias crack!</h2>
+  <p>Tu respuesta ya quedo guardada. Nos ayuda un monton a hacer la mejor app para el futbol 5 uruguayo.</p>
+  <a href="index.html#jugador" class="go">Ir a Canchero</a>
+</div>
+
+<script>
+const sb=window.supabase.createClient('https://dofbxgqzcvfjpnvcvdjb.supabase.co','sb_publishable_gPwLXkMHk3HvFz9nm9hgKA_1D0IJBKA');
+
+const answers={};
+const scaleVals={};
+
+function pick(el){
+  const card=el.closest('.card');
+  const q=card.dataset.q;
+  card.querySelectorAll('.opt').forEach(o=>o.classList.remove('on'));
+  el.classList.add('on');
+  answers[q]=el.dataset.v;
+  card.classList.remove('invalid');
+  prog();
+}
+
+function pickM(el){
+  el.classList.toggle('on');
+  const card=el.closest('.card');
+  const q=card.dataset.q;
+  const selected=[];
+  card.querySelectorAll('.opt.on').forEach(o=>selected.push(o.dataset.v));
+  answers[q]=selected.length?selected:null;
+  card.classList.remove('invalid');
+  prog();
+}
+
+function pickS(btn,val){
+  const card=btn.closest('.card');
+  const q=card.dataset.q;
+  card.querySelectorAll('.sbtn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  scaleVals[q]=val;
+  card.classList.remove('invalid');
+  prog();
+}
+
+function prog(){
+  const reqs=document.querySelectorAll('.card[data-req]');
+  let done=0;
+  reqs.forEach(c=>{
+    const q=c.dataset.q;
+    if(c.dataset.type==='scale'){if(scaleVals[q])done++;}
+    else if(answers[q]&&(!Array.isArray(answers[q])||answers[q].length))done++;
+  });
+  document.getElementById('prog').style.width=Math.round(done/reqs.length*100)+'%';
+}
+
+function validate(){
+  let ok=true;
+  document.querySelectorAll('.card[data-req]').forEach(c=>{
+    const q=c.dataset.q;
+    let filled=false;
+    if(c.dataset.type==='scale') filled=!!scaleVals[q];
+    else if(Array.isArray(answers[q])) filled=answers[q].length>0;
+    else filled=!!answers[q];
+    if(!filled){c.classList.add('invalid');ok=false;}
+    else c.classList.remove('invalid');
+  });
+  if(!ok) document.querySelector('.card.invalid').scrollIntoView({behavior:'smooth',block:'center'});
+  return ok;
+}
+
+async function send(){
+  if(!validate())return;
+  const btn=document.getElementById('btnSend');
+  btn.disabled=true;btn.textContent='ENVIANDO...';
+
+  document.querySelectorAll('.card').forEach(c=>{
+    const q=c.dataset.q;
+    if(!q)return;
+    const ta=c.querySelector('textarea');
+    if(ta&&ta.value.trim()) answers[q]=ta.value.trim();
+    const inp=c.querySelector('input[type=text]');
+    if(inp&&inp.value.trim()) answers[q]=inp.value.trim();
+  });
+
+  Object.keys(scaleVals).forEach(k=>answers[k]=scaleVals[k]);
+
+  if(Array.isArray(answers.dolores)) answers.dolores=JSON.stringify(answers.dolores);
+  if(Array.isArray(answers.que_usaria)) answers.que_usaria=JSON.stringify(answers.que_usaria);
+
+  answers.created_at=new Date().toISOString();
+
+  const{error}=await sb.from('encuesta_mvp').insert([answers]);
+  if(error){
+    console.error(error);
+    btn.disabled=false;btn.textContent='ENVIAR ENCUESTA';
+    alert('Error al enviar, intenta de nuevo.');
+    return;
+  }
+  document.getElementById('form').style.display='none';
+  document.getElementById('hdr').style.display='none';
+  document.getElementById('prog').style.width='100%';
+  document.getElementById('thanks').style.display='block';
+}
+</script>
+</body>
+</html>

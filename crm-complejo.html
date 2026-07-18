@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canchero · Panel Complejo</title>
+<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Inter:wght@400;500;600&display=swap');
+  :root{--accent:#baff00;--bg:#070907;--bg2:#0f110f;--bg3:#161816;--border:#1e201e;--text:#fff;--muted:#666;--red:#ff4444;--orange:#ffb400;--blue:#4fc3f7;--green:#22c55e;--font:'Outfit',sans-serif;--body:'Inter',sans-serif;}
+i.bx.bx-cancha,i.bx-cancha{display:inline-block;width:1em;height:1em;vertical-align:-0.125em;background-color:currentColor;-webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='4.5' width='20' height='15' rx='2'/><line x1='12' y1='4.5' x2='12' y2='19.5'/><circle cx='12' cy='12' r='2.6'/><path d='M2 9h3.2v6H2'/><path d='M22 9h-3.2v6H22'/></svg>") center / contain no-repeat;mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='4.5' width='20' height='15' rx='2'/><line x1='12' y1='4.5' x2='12' y2='19.5'/><circle cx='12' cy='12' r='2.6'/><path d='M2 9h3.2v6H2'/><path d='M22 9h-3.2v6H22'/></svg>") center / contain no-repeat;}i.bx.bx-cancha::before,i.bx-cancha::before{content:'';}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--body);font-size:14px;}
+  .app{display:flex;height:100vh;overflow:hidden;}
+  /* Sidebar */
+  .sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;}
+  .sidebar::-webkit-scrollbar{width:0;height:0;display:none;}
+  .sidebar-brand{padding:12px 16px;border-bottom:1px solid var(--border);}
+  .sidebar-brand .name{font-family:var(--font);font-size:14px;font-weight:900;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sidebar-brand .role{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+  .sidebar-section{padding:6px 10px 2px;}
+  .sidebar-title{font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:2px;padding-left:8px;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:5px 12px;border-radius:8px;cursor:pointer;transition:.15s;font-size:12.5px;color:#aaa;font-weight:600;margin-bottom:1px;}
+  .nav-item:hover{background:rgba(255,255,255,0.05);color:#fff;}
+  .nav-item.active{background:rgba(186,255,0,0.08);color:var(--accent);}
+  .nav-item i{font-size:18px;width:22px;flex-shrink:0;}
+  /* Content */
+  .content{flex:1;overflow-y:auto;background:var(--bg);}
+  .topbar{height:52px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:10;}
+  .topbar-title{font-family:var(--font);font-size:16px;font-weight:900;flex:1;}
+  .topbar-actions{display:flex;gap:8px;}
+  .page{padding:20px;display:none;}
+  .page.active{display:block;}
+  /* Cards */
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px;}
+  .kpi-grid .kpi{padding:12px 8px;}
+  .kpi-grid .kpi-label{font-size:8.5px;margin-bottom:4px;}
+  .kpi-grid .kpi-value{font-size:20px;}
+  .kpi-grid .kpi-sub{font-size:8.5px!important;}
+  .kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;position:relative;overflow:hidden;}
+  .kpi::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--accent);}
+  .kpi.red::before{background:var(--red);}
+  .kpi.blue::before{background:var(--blue);}
+  .kpi.orange::before{background:var(--orange);}
+  .kpi-label{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+  .kpi-value{font-family:var(--font);font-size:28px;font-weight:900;line-height:1;}
+  .kpi-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+  /* Table */
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;}
+  .card-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .card-title{font-family:var(--font);font-size:14px;font-weight:800;}
+  table{width:100%;border-collapse:collapse;}
+  th{padding:9px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
+  td{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:13px;vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:rgba(255,255,255,0.015);}
+  /* Forms */
+  .form-group{margin-bottom:14px;}
+  .form-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:5px;}
+  .form-input{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none;transition:.15s;}
+  .form-input:focus{border-color:var(--accent);}
+  select.form-input option{background:var(--bg2);}
+  /* Buttons */
+  .btn-sm{padding:10px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:var(--font);min-height:44px;touch-action:manipulation;}
+  .btn-accent{background:var(--accent);color:#000;}
+  .btn-glass{background:rgba(255,255,255,0.05);border:1px solid var(--border);color:#fff;}
+  .btn-glass:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-danger{background:rgba(255,68,68,0.12);color:var(--red);border:1px solid rgba(255,68,68,0.25);}
+  .btn-success{background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.25);}
+  /* Badge */
+  .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;}
+  .badge-pending{background:rgba(255,180,0,0.15);color:var(--orange);border:1px solid rgba(255,180,0,0.3);}
+  .badge-confirmed{background:rgba(186,255,0,0.12);color:var(--accent);border:1px solid rgba(186,255,0,0.25);}
+  .badge-cancelled{background:rgba(255,68,68,0.12);color:var(--red);border:1px solid rgba(255,68,68,0.25);}
+  /* Modal */
+  .modal{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);padding:16px;}
+  .modal.open{display:flex;}
+  .modal-inner{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:100%;max-width:480px;padding:24px;max-height:90vh;overflow-y:auto;}
+  .modal-title{font-family:var(--font);font-size:18px;font-weight:900;margin-bottom:20px;}
+  /* Calendar grid */
+  .cal-grid{display:grid;grid-template-columns:80px repeat(7,1fr);border:1px solid var(--border);border-radius:12px;overflow:hidden;font-size:12px;}
+  .cal-cell{padding:8px 6px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);min-height:36px;position:relative;}
+  .cal-cell:last-child{border-right:none;}
+  .cal-header{background:var(--bg3);font-weight:700;font-size:10px;text-transform:uppercase;color:var(--muted);text-align:center;}
+  .cal-time{background:var(--bg2);color:var(--muted);font-size:10px;text-align:right;padding-right:8px;border-right:1px solid var(--border);}
+  .cal-res{background:rgba(186,255,0,0.15);border:1px solid rgba(186,255,0,0.4);border-radius:4px;padding:2px 4px;font-size:10px;color:var(--accent);font-weight:700;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cal-free{cursor:pointer;width:100%;height:100%;}
+  .cal-free:hover{background:rgba(186,255,0,0.05);}
+  /* Toast */
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--bg2);border:1px solid var(--accent);color:var(--accent);padding:10px 16px;border-radius:10px;font-size:13px;font-weight:700;z-index:99999;animation:toastIn .3s ease;}
+  @keyframes toastIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .crm-mobile-topbar{display:none;position:fixed;top:0;left:0;right:0;z-index:300;height:calc(44px + env(safe-area-inset-top,0px));padding-top:env(safe-area-inset-top,0px);box-sizing:border-box;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;padding-left:14px;padding-right:14px;gap:10px;}
+  .crm-mobile-topbar .brand{font-family:var(--font);font-weight:900;color:var(--accent);font-size:15px;flex:1;}
+  .crm-mobile-overlay{display:none;position:fixed;inset:0;z-index:199;background:rgba(0,0,0,0.7);}
+  .crm-mobile-overlay.open{display:block;}
+  .crm-chat-back{display:none;}
+  @media(max-width:768px){
+    .sidebar{position:fixed;top:0;left:-240px;height:100vh;z-index:200;transition:left .3s ease;width:230px!important;}
+    .sidebar.open{left:0;}
+    .page{padding:12px;padding-top:calc(46px + env(safe-area-inset-top,0px));}
+    .page > h2:first-child, .page > .panel-header:first-child, .page > div:first-child > h2:first-child { margin-top:0 !important; }
+    .crm-mobile-topbar{display:flex;}
+    .topbar{display:none;}
+    .page{padding-top:calc(56px + env(safe-area-inset-top,0px)) !important;}
+    .card{overflow-x:auto;}
+    .page table{width:100%;min-width:0;}
+    .app{flex-direction:column;}
+    /* Chat móvil tipo WhatsApp: lista full → al abrir, hilo full screen con input fijo */
+    .crm-chat-grid{grid-template-columns:1fr !important;height:auto !important;min-height:0 !important;gap:0 !important;}
+    .crm-chat-grid:not(.chat-open) > .card:last-child{display:none !important;}
+    .crm-chat-grid.chat-open .crm-chat-col-list{display:none !important;}
+    .crm-chat-grid.chat-open > .card:last-child{position:fixed;inset:0;z-index:5000;border-radius:0;min-height:0;height:100dvh;display:flex;flex-direction:column;background:var(--bg,#0a0a0a);}
+    .crm-chat-grid.chat-open #crm-chat-messages{flex:1;min-height:0;}
+    .crm-chat-grid.chat-open #crm-chat-input-wrap{position:sticky;bottom:0;background:var(--bg2,#111);padding:10px calc(10px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));}
+    .crm-chat-back{display:inline-flex !important;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.08);border:none;color:#fff;font-size:20px;cursor:pointer;flex-shrink:0;margin-right:4px;}
+    #crm-chat-messages{word-break:break-word;overflow-wrap:anywhere;}
+    #crm-chat-input{font-size:16px;}
+  }
+</style>
+</head>
+<body>
+<div class="crm-mobile-topbar" id="crm-mob-bar">
+  <button onclick="toggleCrmSidebar()" style="background:none;border:none;color:#aaa;font-size:24px;cursor:pointer;padding:4px;"><i class='bx bx-menu'></i></button>
+  <span class="brand"><i class='bx bx-cancha'></i> Panel Complejo</span>
+</div>
+<div class="crm-mobile-overlay" id="crm-overlay" onclick="toggleCrmSidebar()"></div>
+<div class="app">
+  <nav class="sidebar" id="crm-sidebar">
+    <div class="sidebar-brand"><div class="name" id="biz-name">Mi Complejo</div><div class="role"><i class='bx bx-cancha'></i> Panel Complejo</div></div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Principal</div>
+      <div class="nav-item active" onclick="showPage('dashboard',this)"><i class='bx bx-grid-alt'></i> Dashboard</div>
+      <div class="nav-item" onclick="showPage('canchas',this)"><i class='bx bx-football'></i> Mis Canchas</div>
+      <div class="nav-item" onclick="showPage('reservas',this)"><i class='bx bx-calendar'></i> Reservas</div>
+      <div class="nav-item" onclick="showPage('chats',this)"><i class='bx bx-message-rounded-dots'></i> Chats <span id="crm-chats-badge" style="display:none;background:var(--red);color:#fff;font-size:10px;font-weight:900;border-radius:10px;padding:2px 7px;margin-left:6px;"></span></div>
+      <div class="nav-item" onclick="showPage('clientes',this)"><i class='bx bx-group'></i> Clientes</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Negocio</div>
+      <div class="nav-item" onclick="crmRegisterSale()"><i class='bx bx-badge-check'></i> Registrar venta</div>
+      <div class="nav-item" onclick="showPage('caja',this)"><i class='bx bx-wallet'></i> Caja</div>
+      <div class="nav-item" onclick="showPage('proveedores',this)"><i class='bx bx-package'></i> Proveedores</div>
+      <div class="nav-item" onclick="showPage('empleados',this)"><i class='bx bx-id-card'></i> Empleados</div>
+      <div class="nav-item" onclick="crmOpenSupport()"><i class='bx bx-support'></i> Hablar con soporte</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Más</div>
+    </div>
+  </nav>
+  <div class="content">
+    <div class="topbar">
+      <div class="topbar-title" id="page-title">Dashboard</div>
+      <div class="topbar-actions">
+        <button class="btn-sm btn-glass" onclick="showPage('reservas',null)"><i class='bx bx-plus'></i> Nueva reserva</button>
+      </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-label">Reservas hoy</div><div class="kpi-value" id="kpi-today">—</div><div class="kpi-sub">partidos agendados</div></div>
+        <div class="kpi blue"><div class="kpi-label">Esta semana</div><div class="kpi-value" id="kpi-week">—</div><div class="kpi-sub">reservas totales</div></div>
+        <div class="kpi orange"><div class="kpi-label">Pendientes</div><div class="kpi-value" id="kpi-pending">—</div><div class="kpi-sub">por confirmar</div></div>
+        <div class="kpi"><div class="kpi-label">Ingresos mes</div><div class="kpi-value" id="kpi-revenue">$0</div><div class="kpi-sub">confirmados</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">📅 Próximas reservas</span><button class="btn-sm btn-glass" onclick="loadDashboard()"><i class='bx bx-refresh'></i></button></div>
+        <table><thead><tr><th>Cliente</th><th>Cancha</th><th>Fecha</th><th>Hora</th><th>Precio</th><th>Estado</th></tr></thead><tbody id="dash-reservas"></tbody></table>
+      </div>
+    </div>
+
+    <!-- CANCHAS -->
+    <div id="page-canchas" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Mis Canchas</h2>
+        <button class="btn-sm btn-accent" onclick="openCourtModal()"><i class='bx bx-plus'></i> Nueva cancha</button>
+      </div>
+      <div id="courts-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;"></div>
+    </div>
+
+    <!-- RESERVAS -->
+    <div id="page-reservas" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+        <h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Reservas</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn-sm btn-glass" onclick="resPrevDay()"><i class='bx bx-chevron-left'></i></button>
+          <input id="res-date" type="date" class="form-input" style="width:auto;" onchange="loadReservations();renderCalendar()">
+          <button class="btn-sm btn-glass" onclick="resNextDay()"><i class='bx bx-chevron-right'></i></button>
+          <button class="btn-sm btn-accent" onclick="openResModal()"><i class='bx bx-plus'></i> Nueva</button>
+        </div>
+      </div>
+      <!-- CALENDARIO MENSUAL -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <button class="btn-sm btn-glass" onclick="resMonthNav(-1)"><i class='bx bx-chevron-left'></i></button>
+          <span id="res-month-label" style="font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:1px;"></span>
+          <button class="btn-sm btn-glass" onclick="resMonthNav(1)"><i class='bx bx-chevron-right'></i></button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;">
+          <div style="font-size:9px;color:var(--muted);font-weight:800;padding:4px;">LUN</div>
+          <div style="font-size:9px;color:var(--muted);font-weight:800;padding:4px;">MAR</div>
+          <div style="font-size:9px;color:var(--muted);font-weight:800;padding:4px;">MIE</div>
+          <div style="font-size:9px;color:var(--muted);font-weight:800;padding:4px;">JUE</div>
+          <div style="font-size:9px;color:var(--muted);font-weight:800;padding:4px;">VIE</div>
+          <div style="font-size:9px;color:var(--muted);font-weight:800;padding:4px;">SAB</div>
+          <div style="font-size:9px;color:var(--muted);font-weight:800;padding:4px;">DOM</div>
+        </div>
+        <div id="res-month-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;"></div>
+      </div>
+      <!-- CALENDARIO POR HORAS -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="font-size:11px;color:var(--muted);font-weight:800;letter-spacing:1px;margin-bottom:10px;">AGENDA DEL DÍA</div>
+        <div id="res-calendar" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;"></div>
+      </div>
+      <div class="card">
+        <table><thead><tr><th>Cliente</th><th>Cancha</th><th>Hora</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="res-list"></tbody></table>
+      </div>
+    </div>
+
+    <!-- CHATS -->
+    <div id="page-chats" class="page">
+      <h2 style="font-family:var(--font);font-size:20px;font-weight:900;margin-bottom:16px;">Mensajes</h2>
+      <div class="crm-chat-grid" style="display:grid;grid-template-columns:300px 1fr;gap:16px;height:calc(100vh - 200px);min-height:500px;">
+        <div class="card crm-chat-col-list" style="overflow-y:auto;padding:0;">
+          <div id="crm-chat-list"><div style="padding:20px;text-align:center;color:var(--muted);font-size:12px;"><i class='bx bx-loader-alt bx-spin'></i></div></div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;padding:0;">
+          <div id="crm-chat-header" style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:800;font-size:14px;color:var(--muted);">Elegí una conversación</div>
+          <div id="crm-chat-messages" style="flex:1;overflow-y:auto;padding:14px 18px;"></div>
+          <div id="crm-chat-input-wrap" style="display:none;padding:12px;border-top:1px solid var(--border);gap:8px;">
+            <input id="crm-chat-input" class="form-input" placeholder="Escribir mensaje..." style="flex:1;" onkeydown="if(event.key==='Enter')crmSendMsg()">
+            <button class="btn-sm btn-accent" onclick="crmSendMsg()"><i class='bx bx-send'></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLIENTES -->
+    <div id="page-clientes" class="page">
+      <h2 style="font-family:var(--font);font-size:20px;font-weight:900;margin-bottom:16px;">Clientes</h2>
+      <div class="card">
+        <table><thead><tr><th>Nombre</th><th>Email</th><th>Reservas</th><th>Total gastado</th><th>Última visita</th></tr></thead><tbody id="clients-list"></tbody></table>
+      </div>
+    </div>
+
+    <!-- CAJA: ingresos/egresos manuales + suma automática (P3.8) -->
+    <div id="page-caja" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+        <h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Caja</h2>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-sm btn-accent" onclick="crmCajaAdd('ingreso')"><i class='bx bx-plus'></i> Ingreso</button>
+          <button class="btn-sm btn-danger" onclick="crmCajaAdd('egreso')"><i class='bx bx-minus'></i> Egreso</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px;">
+        <div class="card" style="padding:12px;text-align:center;"><div style="font-size:10px;color:var(--muted);font-weight:800;letter-spacing:.5px;">INGRESOS</div><div id="caja-in" style="font-size:18px;font-weight:900;color:var(--accent);">$0</div></div>
+        <div class="card" style="padding:12px;text-align:center;"><div style="font-size:10px;color:var(--muted);font-weight:800;letter-spacing:.5px;">EGRESOS</div><div id="caja-out" style="font-size:18px;font-weight:900;color:#ff6666;">$0</div></div>
+        <div class="card" style="padding:12px;text-align:center;"><div style="font-size:10px;color:var(--muted);font-weight:800;letter-spacing:.5px;">BALANCE</div><div id="caja-total" style="font-size:18px;font-weight:900;">$0</div></div>
+      </div>
+      <div class="card"><table><thead><tr><th>Fecha</th><th>Concepto</th><th>Tipo</th><th style="text-align:right;">Monto</th><th></th></tr></thead><tbody id="caja-list"></tbody></table></div>
+    </div>
+
+    <!-- PROVEEDORES (P3.9) -->
+    <div id="page-proveedores" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Proveedores</h2>
+        <button class="btn-sm btn-accent" onclick="crmProvAdd()"><i class='bx bx-plus'></i> Agregar</button>
+      </div>
+      <div class="card"><table><thead><tr><th>Nombre</th><th>Servicio</th><th style="text-align:right;">Gasto</th><th></th></tr></thead><tbody id="prov-list"></tbody></table></div>
+    </div>
+
+    <!-- EMPLEADOS -->
+    <div id="page-empleados" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Empleados</h2>
+        <button class="btn-sm btn-accent" onclick="openEmployeeModal()"><i class='bx bx-plus'></i> Agregar</button>
+      </div>
+      <div class="card">
+        <table><thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Teléfono</th><th>Acciones</th></tr></thead><tbody id="emp-list"></tbody></table>
+      </div>
+    </div>
+
+    <!-- PERFIL -->
+    <div id="page-perfil" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <div><h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Mi Perfil Público</h2><p style="color:var(--muted);font-size:12px;margin-top:2px;">Así te ven los jugadores en Canchero</p></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-sm btn-accent" onclick="savePerfil()"><i class='bx bx-save'></i> Guardar</button>
+        </div>
+      </div>
+      <!-- Identidad: portada + foto + nombre -->
+      <div class="chart-card" style="margin-bottom:16px;padding:0;overflow:hidden;">
+        <div id="crm-cover" style="height:120px;background:linear-gradient(135deg,#0e1a0e,#0a0a0a);position:relative;">
+          <div style="position:absolute;top:10px;right:10px;display:flex;gap:8px;z-index:3;">
+            <button onclick="crmAdjust('cover')" style="background:rgba(0,0,0,0.65);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:18px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><i class='bx bx-move'></i> Ajustar</button>
+            <button onclick="document.getElementById('crm-cover-in').click()" style="background:rgba(0,0,0,0.65);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:18px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><i class='bx bx-image'></i> Portada</button>
+          </div>
+          <input type="file" id="crm-cover-in" accept="image/*" style="display:none;" onchange="crmUploadCover(this)">
+          <div id="crm-photo" style="position:absolute;left:18px;bottom:-30px;width:72px;height:72px;border-radius:50%;background:#111 center/cover;border:4px solid #0d0f0d;display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:900;font-size:26px;z-index:2;"></div>
+          <button onclick="document.getElementById('crm-photo-in').click()" title="Cambiar foto" style="position:absolute;left:74px;bottom:-26px;width:28px;height:28px;border-radius:50%;background:var(--accent);border:3px solid #0d0f0d;color:#000;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:3;"><i class='bx bx-camera'></i></button>
+          <button onclick="crmAdjust('photo')" title="Ajustar foto" style="position:absolute;left:108px;bottom:-26px;width:28px;height:28px;border-radius:50%;background:#1a1a1a;border:3px solid #0d0f0d;color:var(--accent);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:3;"><i class='bx bx-move'></i></button>
+          <input type="file" id="crm-photo-in" accept="image/*" style="display:none;" onchange="crmUploadPhoto(this)">
+        </div>
+        <div style="padding:42px 16px 16px;">
+          <label class="form-label">NOMBRE DEL COMPLEJO</label>
+          <input id="prof-name" class="form-input" placeholder="Ej: Sportivo Cerro" style="font-weight:800;font-size:15px;">
+        </div>
+      </div>
+      <input type="hidden" id="prof-frame" value="cancha-verde">
+      <!-- Info básica -->
+      <div class="chart-card" style="margin-bottom:16px;">
+        <div class="chart-title">Información del Complejo</div>
+        <div style="display:grid;gap:12px;margin-top:12px;">
+          <div><label class="form-label">DESCRIPCIÓN / BIO</label><textarea id="prof-bio" rows="3" class="form-input" style="resize:vertical;" placeholder="Contá de tu complejo, servicios que ofrecés..."></textarea></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div><label class="form-label">TELÉFONO</label><input id="prof-phone" type="tel" class="form-input" placeholder="091234567"></div>
+            <div><label class="form-label">WHATSAPP (con código)</label><input id="prof-wa" type="tel" class="form-input" placeholder="59891234567"></div>
+          </div>
+          <div><label class="form-label">DIRECCIÓN</label><input id="prof-address" type="text" class="form-input" placeholder="Ej: Av. Rivera 1234, Montevideo"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div><label class="form-label">INSTAGRAM</label><input id="prof-ig" type="text" class="form-input" placeholder="@tucomplejo"></div>
+            <div><label class="form-label">SITIO WEB</label><input id="prof-website" type="url" class="form-input" placeholder="https://..."></div>
+          </div>
+          <div><label class="form-label">PRECIOS (texto libre para el perfil)</label><input id="prof-price" type="text" class="form-input" placeholder="Fútbol 5: $800/hora · Fútbol 7: $1200/hora"></div>
+        </div>
+      </div>
+      <!-- Horarios -->
+      <div class="chart-card" style="margin-bottom:16px;">
+        <div class="chart-title">Horarios de Atención</div>
+        <div style="display:grid;gap:8px;margin-top:12px;" id="schedule-grid">
+          <div style="display:grid;grid-template-columns:80px 1fr 1fr;gap:8px;align-items:center;font-size:12px;color:var(--muted);font-weight:700;padding-bottom:4px;border-bottom:1px solid var(--border);">
+            <span>DÍA</span><span>APERTURA</span><span>CIERRE</span>
+          </div>
+        </div>
+      </div>
+      <!-- Amenities -->
+      <div class="chart-card" style="margin-bottom:16px;">
+        <div class="chart-title">Servicios y Comodidades</div>
+        <p style="color:var(--muted);font-size:12px;margin-bottom:12px;">Marcá lo que tiene tu complejo. Aparece en tu perfil público.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;" id="amenities-checks"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div id="modal-court" class="modal"><div class="modal-inner">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><span class="modal-title" id="modal-court-title">Nueva Cancha</span><button onclick="closeModal('modal-court')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&times;</button></div>
+  <div class="form-group"><label class="form-label">Nombre</label><input id="ct-name" type="text" class="form-input" placeholder="Cancha 1, Cancha Principal..."></div>
+  <div class="form-group"><label class="form-label">Tipo</label><select id="ct-type" class="form-input"><option value="futbol">Fútbol</option><option value="futsal">Futsal</option><option value="paddle">Paddle</option><option value="tenis">Tenis</option><option value="basket">Basketball</option></select></div>
+  <div class="form-group"><label class="form-label">Capacidad (jugadores)</label><input id="ct-cap" type="number" class="form-input" value="10" min="2"></div>
+  <div class="form-group"><label class="form-label">Precio por hora ($)</label><input id="ct-price" type="number" class="form-input" value="0" min="0"></div>
+  <div class="form-group"><label class="form-label">Sede / dirección (si tenés varias)</label><input id="ct-sede" type="text" class="form-input" placeholder="Ej: Sede Centro · Av. Italia 1234"></div>
+  <div class="form-group"><label class="form-label">Descripción</label><textarea id="ct-desc" class="form-input" rows="2" placeholder="Pasto sintético, iluminación, vestuarios..."></textarea></div>
+  <div class="form-group"><label class="form-label">Fotos de la cancha (podés subir varias)</label>
+    <div id="ct-photo-prev" style="height:100px;border-radius:12px;border:1px dashed var(--border);background:#0d0d0d;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;cursor:pointer;margin-bottom:8px;" onclick="document.getElementById('ct-photo-in').click()">Tocá para agregar fotos</div>
+    <div id="ct-photos-strip" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>
+    <input type="file" id="ct-photo-in" accept="image/*" multiple style="display:none;" onchange="ctPhotoPick(this)"></div>
+  <button class="btn-sm btn-accent" style="width:100%;padding:11px;" onclick="saveCourt()">Guardar cancha</button>
+</div></div>
+
+<div id="modal-res" class="modal"><div class="modal-inner">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><span class="modal-title">Nueva Reserva</span><button onclick="closeModal('modal-res')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&times;</button></div>
+  <div class="form-group"><label class="form-label">Cliente (nombre)</label><input id="res-client-name" type="text" class="form-input"></div>
+  <div class="form-group"><label class="form-label">Celular del cliente</label><input id="res-client-phone" type="tel" class="form-input" placeholder="099 123 456"></div>
+  <div class="form-group"><label class="form-label">Email del cliente (opcional)</label><input id="res-client-email" type="email" class="form-input"></div>
+  <div class="form-group"><label class="form-label">Cancha</label><select id="res-court" class="form-input"><option value="">Cargando...</option></select></div>
+  <div style="display:flex;gap:8px;">
+    <div class="form-group" style="flex:2;"><label class="form-label">Fecha</label><input id="res-fecha" type="date" class="form-input"></div>
+    <div class="form-group" style="flex:1;"><label class="form-label">Hora</label><input id="res-hora-inicio" type="time" class="form-input"></div>
+    <div class="form-group" style="flex:1;"><label class="form-label">Hasta</label><input id="res-hora-fin" type="time" class="form-input"></div>
+  </div>
+  <div class="form-group"><label class="form-label">Precio ($)</label><input id="res-precio" type="number" class="form-input" value="0"></div>
+  <div class="form-group"><label class="form-label">Notas</label><textarea id="res-notas" class="form-input" rows="2"></textarea></div>
+  <button class="btn-sm btn-accent" style="width:100%;padding:11px;" onclick="saveReservation()">Crear reserva</button>
+</div></div>
+
+<div id="modal-employee" class="modal"><div class="modal-inner">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><span class="modal-title">Agregar Empleado</span><button onclick="closeModal('modal-employee')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&times;</button></div>
+  <div class="form-group"><label class="form-label">Nombre completo</label><input id="emp-name" type="text" class="form-input"></div>
+  <div class="form-group"><label class="form-label">Email</label><input id="emp-email" type="email" class="form-input"></div>
+  <div class="form-group"><label class="form-label">Rol</label><select id="emp-role" class="form-input"><option value="empleado">Empleado</option><option value="encargado">Encargado</option><option value="admin">Admin</option></select></div>
+  <div class="form-group"><label class="form-label">Teléfono</label><input id="emp-phone" type="text" class="form-input"></div>
+  <button class="btn-sm btn-accent" style="width:100%;padding:11px;" onclick="saveEmployee()">Agregar</button>
+</div></div>
+
+<div id="modal-faq" class="modal"><div class="modal-inner">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><span class="modal-title">Nueva pregunta frecuente</span><button onclick="closeModal('modal-faq')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&times;</button></div>
+  <div class="form-group"><label class="form-label">Pregunta</label><input id="faq-q" type="text" class="form-input" placeholder="¿Cuáles son los horarios?"></div>
+  <div class="form-group"><label class="form-label">Respuesta</label><textarea id="faq-a" class="form-input" rows="4" placeholder="Atendemos de Lunes a Domingo..."></textarea></div>
+  <button class="btn-sm btn-accent" style="width:100%;padding:11px;" onclick="saveFaq()">Guardar</button>
+</div></div>
+
+<div id="modal-payment" class="modal"><div class="modal-inner">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><span class="modal-title">Registrar pago de cliente</span><button onclick="closeModal('modal-payment')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&times;</button></div>
+  <div class="form-group"><label class="form-label">Cliente</label><input id="pay-client" type="text" class="form-input"></div>
+  <div class="form-group"><label class="form-label">Concepto</label><input id="pay-concept" type="text" class="form-input" placeholder="Reserva cancha 1, 2hs..."></div>
+  <div class="form-group"><label class="form-label">Monto ($)</label><input id="pay-amount" type="number" class="form-input" min="0"></div>
+  <div class="form-group"><label class="form-label">Método</label><select id="pay-method" class="form-input"><option>transferencia</option><option>mercadopago</option><option>efectivo</option><option>stripe</option></select></div>
+  <button class="btn-sm btn-accent" style="width:100%;padding:11px;" onclick="savePayment()">Registrar</button>
+</div></div>
+
+<script>
+const SUPA_URL='https://dofbxgqzcvfjpnvcvdjb.supabase.co';
+const SUPA_KEY='sb_publishable_gPwLXkMHk3HvFz9nm9hgKA_1D0IJBKA';
+function _crmFetch(i,n){n=n||{};if(n.signal)return fetch(i,n);var c=(typeof AbortController!=='undefined')?new AbortController():null;var t=c?setTimeout(function(){try{c.abort();}catch(e){}},15000):null;if(c)n.signal=c.signal;return fetch(i,n).finally(function(){if(t)clearTimeout(t);});}
+const sb=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'canchero_auth'},global:{fetch:_crmFetch}}); try{window.sb=sb;}catch(e){} try{var _bp=Object.getPrototypeOf(sb.from('users').select('email'));while(_bp&&!Object.prototype.hasOwnProperty.call(_bp,'then'))_bp=Object.getPrototypeOf(_bp);if(_bp&&!_bp.catch)Object.defineProperty(_bp,'catch',{value:function(f){return this.then(undefined,f);},writable:true,configurable:true});}catch(e){}
+let BIZ=null, BIZ_EMAIL='';
+
+// Auth check
+const saved=sessionStorage.getItem('crm_biz');
+if(!saved){window.location.href='crm.html';throw '';}
+BIZ=JSON.parse(saved);
+if(BIZ.account_status!=='activo'&&BIZ.account_status!=='active'){window.location.href='crm.html';throw '';}
+BIZ_EMAIL=BIZ.email;
+document.getElementById('biz-name').textContent=BIZ.name||'Mi Complejo';
+
+// Navigation
+function toggleCrmSidebar(){
+  const sb=document.getElementById('crm-sidebar');
+  const ov=document.getElementById('crm-overlay');
+  if(sb){sb.classList.toggle('open');}
+  if(ov){ov.classList.toggle('open');}
+}
+
+// ── PERFIL PÚBLICO ──
+const DAYS_ES=[['lunes','Lunes'],['martes','Martes'],['miércoles','Miércoles'],['jueves','Jueves'],['viernes','Viernes'],['sábado','Sábado'],['domingo','Domingo']];
+const AMENITIES_LIST=['Estacionamiento','Parrilla','Vestuarios','Iluminación nocturna','WiFi','Tribuna','Bar/Cafetería','Cancha cubierta','Agua caliente','Alquiler de botines'];
+let _bizSchedule={}, _bizFeatures=[];
+
+function selectFrame(el,frameId){
+  document.querySelectorAll('.frame-option-crm').forEach(f=>f.classList.remove('selected'));
+  el.classList.add('selected');
+  const fi=document.getElementById('prof-frame');if(fi)fi.value=frameId;
+}
+
+function initPerfilPage(){
+  // tomar horarios/features desde BIZ ANTES de renderizar (sin recursión)
+  if(BIZ){
+    if(BIZ.schedule&&typeof BIZ.schedule==='object') _bizSchedule=BIZ.schedule;
+    if(Array.isArray(BIZ.features)) _bizFeatures=BIZ.features;
+  }
+  const grid=document.getElementById('schedule-grid');
+  if(grid){
+    grid.innerHTML=''; // limpiar antes de poblar — evitaba filas duplicadas
+    DAYS_ES.forEach(function(d){
+      const row=document.createElement('div');row.style.cssText='display:grid;grid-template-columns:80px 1fr 1fr;gap:8px;align-items:center;';
+      const sched=_bizSchedule[d[0]]||{};
+      row.innerHTML='<span style="font-size:12px;font-weight:700;color:var(--text);">'+d[1]+'</span><input type="time" data-day="'+d[0]+'" data-type="open" value="'+(sched.open||'')+'" class="form-input" style="padding:7px;font-size:12px;"><input type="time" data-day="'+d[0]+'" data-type="close" value="'+(sched.close||'')+'" class="form-input" style="padding:7px;font-size:12px;">';
+      grid.appendChild(row);
+    });
+  }
+  const ac=document.getElementById('amenities-checks');
+  if(ac){
+    ac.innerHTML=AMENITIES_LIST.map(function(a){
+      const ch=_bizFeatures.includes(a);
+      return '<label style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.03);border:1px solid '+(ch?'var(--accent)':'var(--border)')+';border-radius:10px;padding:9px 12px;cursor:pointer;font-size:12px;font-weight:600;" onclick="toggleAmenity(this,\''+a+'\')"><i class=\'bx '+(ch?'bxs-check-circle':'bx-circle')+'\' style="font-size:16px;color:'+(ch?'var(--accent)':'#444')+';flex-shrink:0;"></i>'+a+'</label>';
+    }).join('');
+  }
+  if(BIZ&&BIZ.email){
+    const setV=function(id,v){const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
+    setV('prof-name',BIZ.name);setV('prof-bio',BIZ.bio);setV('prof-phone',BIZ.phone);setV('prof-wa',BIZ.whatsapp);
+    (function(){var ph=document.getElementById('crm-photo');if(ph){if(BIZ.photo){ph.style.backgroundImage="url('"+BIZ.photo+"')";ph.textContent='';}else{ph.textContent=(BIZ.name||'C')[0].toUpperCase();}}var cv=document.getElementById('crm-cover');if(cv&&BIZ.cover_photo){cv.style.background="url('"+BIZ.cover_photo+"') center/cover";}})();
+    setV('prof-address',BIZ.address);setV('prof-ig',BIZ.instagram);setV('prof-website',BIZ.website);setV('prof-price',BIZ.price_info);
+    if(BIZ.frame_style){const fi=document.getElementById('prof-frame');if(fi)fi.value=BIZ.frame_style;}
+  }
+}
+
+function toggleAmenity(el,name){
+  const idx=_bizFeatures.indexOf(name);if(idx>=0)_bizFeatures.splice(idx,1);else _bizFeatures.push(name);
+  const ch=_bizFeatures.includes(name);const icon=el.querySelector('i');
+  if(icon){icon.className='bx '+(ch?'bxs-check-circle':'bx-circle');icon.style.color=ch?'var(--accent)':'#444';}
+  el.style.borderColor=ch?'var(--accent)':'var(--border)';
+}
+
+async function savePerfil(){
+  if(!BIZ||!BIZ.email){toast('Sesión inválida.','error');return;}
+  const schedule={};
+  document.querySelectorAll('#schedule-grid input[data-day]').forEach(function(inp){
+    const day=inp.dataset.day,type=inp.dataset.type;if(!schedule[day])schedule[day]={};if(inp.value)schedule[day][type]=inp.value;
+  });
+  // NO destructivo: solo se incluye un campo si tiene valor. Así, aunque algo
+  // no se haya cargado, guardar nunca borra lo que ya estaba en la DB.
+  const updates={};
+  const val=function(id){const e=document.getElementById(id);return e?e.value.trim():'';};
+  const setU=function(k,v){ if(v) updates[k]=v; };
+  setU('bio',val('prof-bio')); setU('phone',val('prof-phone')); setU('whatsapp',val('prof-wa'));
+  setU('address',val('prof-address')); setU('instagram',val('prof-ig')); setU('website',val('prof-website'));
+  setU('price_info',val('prof-price')); setU('frame_style',val('prof-frame'));
+  if(Object.keys(schedule).length>0) updates.schedule=schedule;
+  if(_bizFeatures.length>0) updates.features=_bizFeatures;
+  const nm=val('prof-name'); if(nm) updates.name=nm;
+  if(Object.keys(updates).length===0){toast('No hay cambios para guardar.','warning');return;}
+  try{
+    const {error}=await sb.from('users').update(updates).eq('email',BIZ.email);if(error)throw error;
+    BIZ=Object.assign(BIZ||{},updates); try{sessionStorage.setItem('crm_biz',JSON.stringify(BIZ));}catch(e){}
+    // Sincronizar TODO en business_requests.payload (de ahí lee la app la identidad)
+    try{ if(window.crmSyncBizPayload) await crmSyncBizPayload(updates); }catch(e){}
+    if(nm){ BIZ.name=nm; sessionStorage.setItem('crm_biz',JSON.stringify(BIZ)); const bn=document.getElementById('biz-name'); if(bn)bn.textContent=nm; }
+    toast('Perfil actualizado.','success');
+  } catch(e){toast('Error: '+e.message,'error');}
+}
+
+// Subida de foto de perfil y portada (storage media → users.photo / cover_photo)
+async function _crmUpload(file,col,prevFn){
+  if(!file)return;
+  try{
+    toast('Subiendo...','info');
+    const path=col+'/'+BIZ.email+'/'+Date.now()+'.'+(file.name.split('.').pop()||'jpg');
+    const up=await sb.storage.from('media').upload(path,file,{upsert:true});
+    if(up.error)throw up.error;
+    const url=sb.storage.from('media').getPublicUrl(path).data.publicUrl;
+    const o={}; o[col]=url;
+    const {error}=await sb.from('users').update(o).eq('email',BIZ.email); if(error)throw error;
+    try{ if(window.crmSyncBizPayload) await crmSyncBizPayload(col==='cover_photo'?{cover:url}:{photo:url}); }catch(e){}
+    BIZ[col]=url; sessionStorage.setItem('crm_biz',JSON.stringify(BIZ));
+    prevFn(url); toast('Listo.','success');
+  }catch(e){toast('Error: '+e.message,'error');}
+}
+function crmUploadPhoto(input){_crmUpload(input.files[0],'photo',function(u){const el=document.getElementById('crm-photo');el.style.backgroundImage="url('"+u+"')";el.textContent='';});}
+function crmUploadCover(input){_crmUpload(input.files[0],'cover_photo',function(u){const el=document.getElementById('crm-cover');el.style.background="url('"+u+"') center/cover";});}
+// Ajustar (zoom / posición) de portada o foto de perfil
+function crmAdjust(type){
+  var el=type==='cover'?document.getElementById('crm-cover'):document.getElementById('crm-photo');
+  if(!el)return;
+  var modal=document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;padding:16px;';
+  modal.innerHTML='<div style="background:#111;border-radius:16px;padding:20px;max-width:400px;width:100%;">'+
+    '<div style="font-size:14px;font-weight:900;margin-bottom:14px;color:var(--accent);">Ajustar '+(type==='cover'?'Portada':'Foto')+'</div>'+
+    '<div id="cadj-prev" style="width:100%;height:'+(type==='cover'?'120px':'120px')+';border-radius:'+(type==='cover'?'10px':'50%')+';width:'+(type==='cover'?'100%':'120px')+';margin:0 auto 14px;background-image:'+(el.style.backgroundImage||'')+';background-size:'+(el.style.backgroundSize||'cover')+';background-position:'+(el.style.backgroundPosition||'center')+';border:1px solid #2a2a2a;background-color:#0d0d0d;"></div>'+
+    '<label style="font-size:11px;color:#888;font-weight:700;">ZOOM</label><input type="range" id="cadj-z" min="100" max="300" value="100" style="width:100%;accent-color:var(--accent);">'+
+    '<label style="font-size:11px;color:#888;font-weight:700;margin-top:8px;display:block;">POSICION X</label><input type="range" id="cadj-x" min="0" max="100" value="50" style="width:100%;accent-color:var(--accent);">'+
+    '<label style="font-size:11px;color:#888;font-weight:700;margin-top:8px;display:block;">POSICION Y</label><input type="range" id="cadj-y" min="0" max="100" value="50" style="width:100%;accent-color:var(--accent);">'+
+    '<div style="display:flex;gap:8px;margin-top:16px;"><button id="cadj-cancel" style="flex:1;background:#1a1a1a;color:#888;border:1px solid #2a2a2a;border-radius:10px;padding:11px;font-weight:700;cursor:pointer;">Cancelar</button><button id="cadj-save" style="flex:1;background:var(--accent);color:#000;border:none;border-radius:10px;padding:11px;font-weight:800;cursor:pointer;">Aplicar</button></div></div>';
+  document.body.appendChild(modal);
+  var prev=modal.querySelector('#cadj-prev'),zR=modal.querySelector('#cadj-z'),xR=modal.querySelector('#cadj-x'),yR=modal.querySelector('#cadj-y');
+  function upd(){prev.style.backgroundSize=zR.value+'%';prev.style.backgroundPosition=xR.value+'% '+yR.value+'%';}
+  zR.oninput=upd;xR.oninput=upd;yR.oninput=upd;
+  modal.querySelector('#cadj-cancel').onclick=function(){modal.remove();};
+  modal.querySelector('#cadj-save').onclick=function(){el.style.backgroundSize=zR.value+'%';el.style.backgroundPosition=xR.value+'% '+yR.value+'%';modal.remove();};
+}
+function showPage(name,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  // Cerrar sidebar en mobile al navegar
+  const sb=document.getElementById('crm-sidebar');
+  const ov=document.getElementById('crm-overlay');
+  if(sb&&sb.classList.contains('open')){sb.classList.remove('open');if(ov)ov.classList.remove('open');}
+
+  document.getElementById('page-'+name)?.classList.add('active');
+  if(el) el.classList.add('active');
+  document.getElementById('page-title').textContent={dashboard:'Dashboard',canchas:'Mis Canchas',reservas:'Reservas',chats:'Mensajes',clientes:'Clientes',caja:'Caja',proveedores:'Proveedores',empleados:'Empleados',perfil:'Mi Perfil'}[name]||name;
+  if(name==='dashboard') loadDashboard();
+  if(name==='canchas') loadCourts();
+  if(name==='reservas'){const d=new Date();document.getElementById('res-date').value=d.toISOString().slice(0,10);_resMonthOffset=0;renderMonthCalendar();loadReservations();renderCalendar();}
+  if(name==='chats') loadCrmChats();
+  if(name==='clientes') loadClients();
+  if(name==='perfil') initPerfilPage();
+  if(name==='pagos') loadPayments();
+  if(name==='empleados') loadEmployees();
+  if(name==='caja') crmCajaLoad();
+  if(name==='proveedores') crmProvLoad();
+  if(name==='perfil') loadPerfil();
+}
+function resPrevDay(){const i=document.getElementById('res-date');const d=new Date(i.value||new Date());d.setDate(d.getDate()-1);i.value=d.toISOString().slice(0,10);loadReservations();renderCalendar();}
+function resNextDay(){const i=document.getElementById('res-date');const d=new Date(i.value||new Date());d.setDate(d.getDate()+1);i.value=d.toISOString().slice(0,10);loadReservations();renderCalendar();}
+function closeModal(id){document.getElementById(id)?.classList.remove('open');}
+function doLogout(){sessionStorage.removeItem('crm_biz');window.location.href='crm.html';}
+function toast(msg,type='success'){const t=document.createElement('div');t.className='toast';t.style.borderColor=type==='error'?'var(--red)':type==='warning'?'var(--orange)':'var(--accent)';t.style.color=type==='error'?'var(--red)':type==='warning'?'var(--orange)':'var(--accent)';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3500);}
+
+// ── DASHBOARD ──
+async function loadDashboard(){
+  const today=new Date().toISOString().slice(0,10);
+  const weekStart=new Date(Date.now()-7*86400000).toISOString().slice(0,10);
+  const [todayRes,weekRes,pendRes,confirmed]=await Promise.all([
+    sb.from('business_reservations').select('id',{count:'exact',head:true}).eq('business_email',BIZ_EMAIL).eq('fecha',today),
+    sb.from('business_reservations').select('id',{count:'exact',head:true}).eq('business_email',BIZ_EMAIL).gte('fecha',weekStart),
+    sb.from('business_reservations').select('id',{count:'exact',head:true}).eq('business_email',BIZ_EMAIL).eq('estado','pendiente'),
+    sb.from('business_reservations').select('precio').eq('business_email',BIZ_EMAIL).eq('estado','confirmado').gte('fecha',new Date().toISOString().slice(0,8)+'01')
+  ]);
+  document.getElementById('kpi-today').textContent=todayRes.count||0;
+  document.getElementById('kpi-week').textContent=weekRes.count||0;
+  document.getElementById('kpi-pending').textContent=pendRes.count||0;
+  const revenue=(confirmed.data||[]).reduce((a,r)=>a+(parseFloat(r.precio)||0),0);
+  document.getElementById('kpi-revenue').textContent='$'+revenue.toFixed(0);
+  // Recent reservations
+  const {data}=await sb.from('business_reservations').select('*').eq('business_email',BIZ_EMAIL).gte('fecha',today).order('fecha').order('hora_inicio').limit(10);
+  const tbody=document.getElementById('dash-reservas');
+  if(!data||!data.length){tbody.innerHTML=`<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--muted);">Sin reservas para hoy</td></tr>`;return;}
+  tbody.innerHTML=data.map(r=>`<tr>
+    <td><strong>${r.client_name||'—'}</strong><br><span style="font-size:11px;color:var(--muted);">${r.client_email||''}</span></td>
+    <td>${r.court_name||'—'}</td>
+    <td>${r.fecha||'—'}</td>
+    <td>${(r.hora_inicio||'').slice(0,5)} - ${(r.hora_fin||'').slice(0,5)}</td>
+    <td style="color:var(--accent);font-weight:700;">$${r.precio||0}</td>
+    <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+      <span class="badge badge-${r.estado==='confirmado'?'confirmed':r.estado==='cancelado'?'cancelled':'pending'}">${r.estado||'pendiente'}</span>
+      ${r.estado==='pendiente'?`<button class="btn-sm btn-success" onclick="updateRes('${r.id}','confirmado')"><i class='bx bx-check'></i></button><button class="btn-sm btn-danger" onclick="updateRes('${r.id}','cancelado')"><i class='bx bx-x'></i></button>`:''}
+      <button class="btn-sm btn-glass" onclick="contactClient('${r.client_email||''}','${(r.client_name||'').replace(/'/g,'')}','')"><i class='bx bx-message-dots'></i></button>
+    </div></td>
+  </tr>`).join('');
+}
+
+// ── CANCHAS ──
+let _courts=[];
+async function loadCourts(){
+  const {data}=await sb.from('business_courts').select('*').eq('business_email',BIZ_EMAIL).order('created_at');
+  _courts=data||[];
+  const list=document.getElementById('courts-list');
+  if(!_courts.length){list.innerHTML=`<div style="padding:40px;text-align:center;color:var(--muted);"><i class='bx bx-football' style="font-size:40px;display:block;margin-bottom:10px;opacity:0.4;"></i>Sin canchas registradas. Agregá tu primera cancha.</div>`;return;}
+  list.innerHTML=_courts.map(c=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;overflow:hidden;">
+    ${c.photo?`<div style="height:120px;background:url('${c.photo}') center/cover;"></div>`:''}
+    <div style="padding:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px;">
+      <div><div style="font-family:var(--font);font-size:15px;font-weight:900;">${c.name}</div><div style="font-size:11px;color:var(--muted);text-transform:capitalize;">${c.type||'fútbol'} · ${c.capacity||10} jug.${c.sede?' · '+c.sede:''}</div></div>
+      <div style="font-family:var(--font);font-size:18px;font-weight:900;color:var(--accent);">$${c.price_per_hour||0}<span style="font-size:10px;color:var(--muted);font-weight:400;">/hora</span></div>
+    </div>
+    ${c.description?`<div style="font-size:12px;color:#888;margin-bottom:8px;">${c.description}</div>`:''}
+    <div style="display:flex;gap:6px;">
+      <button class="btn-sm btn-accent" onclick="crmShareToFeed({kind:'cancha',id:'${c.id}',name:'${(c.name||'').replace(/'/g,'')}',price:'${c.price_per_hour||''}',photo:'${(c.photo||'').replace(/'/g,'')}',detail:'${((c.type||'fútbol')+' · '+(c.capacity||10)+' jug.').replace(/'/g,'')}'})"><i class='bx bx-share-alt'></i> Compartir al feed</button>
+      <button class="btn-sm btn-glass" onclick="editCourt('${c.id}')"><i class='bx bx-edit'></i> Editar</button>
+      <button class="btn-sm btn-glass" onclick="deleteCourt('${c.id}')"><i class='bx bx-trash'></i> Eliminar</button>
+    </div></div>
+  </div>`).join('');
+}
+let _ctPhotoUrl=null, _ctEditId=null, _ctPhotos=[];
+function renderCtPhotos(){
+  const strip=document.getElementById('ct-photos-strip'); if(!strip)return;
+  strip.innerHTML=_ctPhotos.map((u,i)=>'<div style="position:relative;width:60px;height:60px;border-radius:8px;background:url(\''+u+'\') center/cover;border:1px solid var(--border);"><button onclick="_ctRemovePhoto('+i+')" type="button" style="position:absolute;top:-6px;right:-6px;background:var(--red,#e33);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:1;">&times;</button></div>').join('');
+  const pv=document.getElementById('ct-photo-prev');
+  if(pv){ pv.textContent = _ctPhotos.length? ('Tocá para agregar más ('+_ctPhotos.length+')') : 'Tocá para agregar fotos'; }
+}
+function _ctRemovePhoto(i){ _ctPhotos.splice(i,1); _ctPhotoUrl=_ctPhotos[0]||null; renderCtPhotos(); }
+function openCourtModal(){ _ctEditId=null; _ctPhotoUrl=null; _ctPhotos=[]; ['ct-name','ct-cap','ct-price','ct-sede','ct-desc'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=(id==='ct-cap'?'10':id==='ct-price'?'0':'');}); const t=document.getElementById('ct-type'); if(t)t.selectedIndex=0; renderCtPhotos(); const tt=document.getElementById('modal-court-title'); if(tt)tt.textContent='Nueva Cancha'; document.getElementById('modal-court').classList.add('open'); }
+function editCourt(id){
+  const c=_courts.find(x=>String(x.id)===String(id)); if(!c)return;
+  _ctEditId=c.id; _ctPhotoUrl=c.photo||null;
+  try{ _ctPhotos = c.photos ? (typeof c.photos==='string'?JSON.parse(c.photos):c.photos) : (c.photo?[c.photo]:[]); }catch(e){ _ctPhotos = c.photo?[c.photo]:[]; }
+  const setv=function(id,v){const e=document.getElementById(id);if(e)e.value=(v==null?'':v);};
+  setv('ct-name',c.name); setv('ct-cap',c.capacity||10); setv('ct-price',c.price_per_hour||0);
+  setv('ct-sede',c.sede); setv('ct-desc',c.description);
+  const t=document.getElementById('ct-type'); if(t&&c.type){t.value=c.type;}
+  renderCtPhotos();
+  const tt=document.getElementById('modal-court-title'); if(tt)tt.textContent='Editar Cancha';
+  document.getElementById('modal-court').classList.add('open');
+}
+async function ctPhotoPick(input){
+  const files=[...(input.files||[])]; if(!files.length)return;
+  toast('Subiendo fotos...','info');
+  for(const f of files){
+    try{
+      const path='court_photos/'+BIZ_EMAIL+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,7)+'.'+(f.name.split('.').pop()||'jpg');
+      const up=await sb.storage.from('media').upload(path,f,{upsert:true}); if(up.error)throw up.error;
+      _ctPhotos.push(sb.storage.from('media').getPublicUrl(path).data.publicUrl);
+    }catch(e){toast('Error foto: '+e.message,'error');}
+  }
+  _ctPhotoUrl=_ctPhotos[0]||null;
+  input.value='';renderCtPhotos();toast('Fotos listas.','success');
+}
+async function saveCourt(){
+  const name=document.getElementById('ct-name').value.trim();
+  if(!name){toast('Ingresá el nombre de la cancha.','error');return;}
+  const payload={name,
+    type:document.getElementById('ct-type').value,
+    capacity:parseInt(document.getElementById('ct-cap').value)||10,
+    price_per_hour:parseFloat(document.getElementById('ct-price').value)||0,
+    sede:document.getElementById('ct-sede').value.trim()||null,
+    description:document.getElementById('ct-desc').value.trim()||null,
+    photo:_ctPhotos[0]||_ctPhotoUrl||null,
+    photos:_ctPhotos.length?JSON.stringify(_ctPhotos):null};
+  async function _persistCourt(p){
+    if(_ctEditId) return await sb.from('business_courts').update(p).eq('id',_ctEditId);
+    return await sb.from('business_courts').insert(Object.assign({business_email:BIZ_EMAIL},p));
+  }
+  let {error}=await _persistCourt(payload);
+  if(error && /photos/.test(error.message||'')){
+    const {photos,...p2}=payload; ({error}=await _persistCourt(p2));
+  }
+  if(error){toast('Error: '+error.message,'error');return;}
+  closeModal('modal-court');toast(_ctEditId?'Cancha actualizada!':'Cancha creada!');_ctEditId=null;loadCourts();
+}
+async function deleteCourt(id){if(!confirm('¿Eliminar esta cancha?'))return;await sb.from('business_courts').delete().eq('id',id);loadCourts();}
+
+// ── RESERVAS ──
+async function loadReservations(){
+  const fecha=document.getElementById('res-date')?.value;
+  if(!fecha)return;
+  const {data}=await sb.from('business_reservations').select('*').eq('business_email',BIZ_EMAIL).eq('fecha',fecha).order('hora_inicio');
+  const tbody=document.getElementById('res-list');
+  if(!data||!data.length){tbody.innerHTML=`<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--muted);">Sin reservas para este día</td></tr>`;return;}
+  tbody.innerHTML=data.map(r=>{
+    // P3.11 CHECK-IN: desde 1h antes del inicio y hasta 24h después, el complejo
+    // confirma con un tap que la reserva se JUGÓ (registra el ingreso en Caja solo).
+    let checkinBtn='';
+    try{
+      const start=new Date(r.fecha+'T'+(r.hora_inicio||'00:00'));
+      const now=Date.now();
+      const inWindow=now >= (start.getTime()-3600000) && now <= (start.getTime()+24*3600000);
+      if(r.estado!=='cancelado'&&r.estado!=='jugado'&&inWindow){
+        checkinBtn=`<button class="btn-sm btn-accent" onclick="crmResCheckin('${r.id}')" title="Confirmar que se jugó"><i class='bx bx-check-double'></i> Check-in</button>`;
+      }
+    }catch(e){}
+    const badge = r.estado==='jugado' ? '<span class="badge badge-confirmed">JUGADO ✓</span>'
+      : `<span class="badge badge-${r.estado==='confirmado'?'confirmed':r.estado==='cancelado'?'cancelled':'pending'}">${r.estado}</span>`;
+    return `<tr data-rid="${r.id}">
+    <td><strong>${r.client_name||'—'}</strong></td>
+    <td>${r.court_name||'—'}</td>
+    <td>${(r.hora_inicio||'').slice(0,5)} - ${(r.hora_fin||'').slice(0,5)}</td>
+    <td style="color:var(--accent);">${r.precio||0}</td>
+    <td>${badge}</td>
+    <td><div style="display:flex;gap:4px;flex-wrap:wrap;">
+      ${checkinBtn}
+      ${r.estado==='pendiente'?`<button class="btn-sm btn-success" onclick="updateRes('${r.id}','confirmado')">Confirmar</button>`:''}
+      ${r.estado!=='jugado'?`<button class="btn-sm btn-danger" onclick="updateRes('${r.id}','cancelado')">Cancelar</button>`:''}
+      <button class="btn-sm btn-glass" onclick="contactClient('${r.client_email||''}','${(r.client_name||'').replace(/'/g,'')}','')"><i class='bx bx-message-dots'></i> Contactar</button>
+    </div></td>
+  </tr>`}).join('');
+}
+// P3.11: check-in = la reserva se JUGÓ → estado 'jugado' + ingreso automático en Caja
+async function crmResCheckin(id){
+  try{
+    const {data:r}=await sb.from('business_reservations').select('*').eq('id',id).maybeSingle();
+    if(!r){toast('Reserva no encontrada.','error');return;}
+    const {error}=await sb.from('business_reservations').update({estado:'jugado'}).eq('id',id);
+    if(error) throw error;
+    if(parseFloat(r.precio)>0){
+      try{ await sb.from('business_cashflow').insert({business_email:BIZ_EMAIL,type:'ingreso',concept:'Reserva jugada: '+(r.court_name||'cancha')+(r.client_name?(' — '+r.client_name):''),amount:parseFloat(r.precio)||0}); }catch(e){}
+    }
+    toast('Check-in hecho: reserva jugada'+(parseFloat(r.precio)>0?' e ingreso registrado en Caja.':'.'));
+    loadReservations();
+  }catch(e){toast('Error: '+(e.message||''),'error');}
+}
+function openResModal(prefFecha,prefHora){
+  // Populate courts
+  const sel=document.getElementById('res-court');
+  sel.innerHTML=_courts.length?_courts.map(c=>`<option value="${c.id}" data-price="${c.price_per_hour||0}">${c.name}</option>`).join(''):'<option value="">Sin canchas</option>';
+  // Prefill fecha/hora si vienen desde un slot del calendario
+  if(prefFecha){document.getElementById('res-fecha').value=prefFecha;}
+  if(prefHora){
+    const h=parseInt(prefHora.split(':')[0],10);
+    document.getElementById('res-hora-inicio').value=prefHora;
+    document.getElementById('res-hora-fin').value=((h+1)<10?'0':'')+(h+1)+':00';
+  }
+  document.getElementById('modal-res').classList.add('open');
+}
+// Reservar directo desde un slot LIBRE del calendario por hora
+function resNewAt(fecha,hh){ openResModal(fecha,hh); }
+async function saveReservation(){
+  const courtId=document.getElementById('res-court').value;
+  const court=_courts.find(c=>c.id===courtId);
+  const fecha=document.getElementById('res-fecha').value;
+  const horaI=document.getElementById('res-hora-inicio').value;
+  const horaF=document.getElementById('res-hora-fin').value;
+  if(!fecha||!horaI||!horaF){toast('Completá fecha y horario.','error');return;}
+  const {error}=await sb.from('business_reservations').insert({business_email:BIZ_EMAIL,court_id:courtId||null,court_name:court?.name||'',client_name:document.getElementById('res-client-name').value.trim(),client_phone:document.getElementById('res-client-phone').value.trim()||null,client_email:document.getElementById('res-client-email').value.trim()||null,fecha,hora_inicio:horaI,hora_fin:horaF,precio:parseFloat(document.getElementById('res-precio').value)||0,notas:document.getElementById('res-notas').value.trim(),estado:'pendiente'});
+  if(error){toast('Error: '+error.message,'error');return;}
+  closeModal('modal-res');toast('Reserva creada!');loadReservations();loadDashboard();renderMonthCalendar();
+}
+async function updateRes(id,estado){
+  // Traer la reserva para notificar al cliente
+  const {data:r}=await sb.from('business_reservations').select('*').eq('id',id).maybeSingle();
+  const upd={estado};
+  // Si se confirma y no tiene precio, permitir cargarlo
+  if(estado==='confirmado' && r && (!r.precio||r.precio==0)){
+    const p=prompt('Precio de la reserva (dejá vacío si es gratis):', '');
+    if(p!==null && p.trim()!=='') upd.precio=parseFloat(p)||0;
+  }
+  const {error}=await sb.from('business_reservations').update(upd).eq('id',id);
+  if(error){toast('Error: '+error.message,'error');return;}
+  // Avisar al cliente DENTRO de Canchero (mensaje + notificación), con info de pago
+  if(r && r.client_email){
+    try{
+      let payLine='';
+      if(estado==='confirmado'){
+        const {data:br}=await sb.from('business_requests').select('payment_link_mp,payment_link_stripe').eq('email',BIZ_EMAIL).maybeSingle();
+        const link=(br&&(br.payment_link_mp||br.payment_link_stripe))||'';
+        payLine = link
+          ? ' Para abonar podés usar este link de pago: '+link+' — o pagar en efectivo en el lugar.'
+          : ' Podés abonar en efectivo en el lugar o coordinar el pago por acá.';
+      }
+      const txt = estado==='confirmado'
+        ? '¡Tu reserva está confirmada! '+(r.court_name||'Cancha')+' el '+r.fecha+' a las '+(r.hora_inicio||'').slice(0,5)+'.'+(upd.precio?(' Precio: $'+upd.precio+'.'):'')+payLine
+        : (BIZ.name||'El complejo')+' canceló tu reserva del '+r.fecha+' a las '+(r.hora_inicio||'').slice(0,5)+'.';
+      await _sendCancheroMessage(r.client_email, txt);
+      await sb.from('notifications').insert({recipient_email:r.client_email,type:'reserva',actor_email:BIZ.email,actor_name:BIZ.name||'Complejo',message:txt,read:false});
+    }catch(e){}
+  }
+  toast(estado==='confirmado'?'Reserva confirmada. Le avisamos por Canchero.':'Reserva cancelada.', estado==='confirmado'?'success':'warning');
+  loadReservations();loadDashboard();
+}
+// Enviar mensaje interno de Canchero (tabla messages → arma el hilo por trigger)
+async function _sendCancheroMessage(toEmail, text){
+  if(!toEmail) return;
+  try{
+    await sb.from('messages').insert({ sender_email:BIZ.email, sender_name:BIZ.name||'Complejo', recipient_email:toEmail, content:text, read:false, sender_profile:'negocio', recipient_profile:'jugador' });
+  }catch(e){ console.warn('msg interno', e); }
+}
+// Contactar al cliente DENTRO de Canchero (nada de mail/WhatsApp)
+async function contactClient(email,name,phone){
+  if(!email){ toast('Este cliente no tiene cuenta de Canchero para chatear.','warning'); return; }
+  const def='Hola'+(name?(' '+name):'')+', te escribo desde '+(BIZ.name||'el complejo')+' por tu reserva. ¿Querés abonar con link de pago o en efectivo?';
+  const msg=prompt('Mensaje para el cliente (le llega por Canchero):', def);
+  if(msg===null) return;
+  if(!msg.trim()){ toast('Escribí un mensaje.','warning'); return; }
+  await _sendCancheroMessage(email, msg.trim());
+  try{ await sb.from('notifications').insert({recipient_email:email,type:'mensaje',actor_email:BIZ.email,actor_name:BIZ.name||'Complejo',message:(BIZ.name||'El complejo')+' te envió un mensaje.',read:false}); }catch(e){}
+  toast('Mensaje enviado por Canchero.','success');
+}
+
+// ── CALENDARIO MENSUAL ──
+let _resMonthOffset=0;
+function resMonthNav(dir){_resMonthOffset+=dir;renderMonthCalendar();}
+async function renderMonthCalendar(){
+  const grid=document.getElementById('res-month-grid'); if(!grid) return;
+  const label=document.getElementById('res-month-label');
+  const now=new Date(); now.setMonth(now.getMonth()+_resMonthOffset);
+  const y=now.getFullYear(), mo=now.getMonth();
+  const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  if(label) label.textContent=meses[mo]+' '+y;
+  const first=new Date(y,mo,1); const last=new Date(y,mo+1,0);
+  let startDay=(first.getDay()+6)%7;
+  const today=new Date().toISOString().slice(0,10);
+  const fromISO=first.toISOString().slice(0,10);
+  const toISO=last.toISOString().slice(0,10);
+  let reservedDays={};
+  try{
+    const{data}=await sb.from('business_reservations').select('fecha,estado').eq('business_email',BIZ_EMAIL).gte('fecha',fromISO).lte('fecha',toISO);
+    (data||[]).forEach(function(r){if(r.estado!=='cancelado'&&r.estado!=='rechazada'){reservedDays[r.fecha]=(reservedDays[r.fecha]||0)+1;}});
+  }catch(e){}
+  let html='';
+  for(let i=0;i<startDay;i++) html+='<div></div>';
+  for(let d=1;d<=last.getDate();d++){
+    const iso=y+'-'+(mo<9?'0':'')+(mo+1)+'-'+(d<10?'0':'')+d;
+    const cnt=reservedDays[iso]||0;
+    const isToday=iso===today;
+    const bg=cnt>0?'rgba(186,255,0,0.12)':'rgba(255,255,255,0.03)';
+    const border=isToday?'2px solid var(--accent)':'1px solid '+(cnt>0?'rgba(186,255,0,0.3)':'#1e1e1e');
+    html+='<div onclick="resPickDay(\''+iso+'\')" style="padding:8px 4px;text-align:center;border-radius:8px;cursor:pointer;background:'+bg+';border:'+border+';min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;">';
+    html+='<div style="font-size:13px;font-weight:'+(isToday?'900':'600')+';color:'+(isToday?'var(--accent)':'#fff')+';">'+d+'</div>';
+    if(cnt>0) html+='<div style="font-size:9px;color:var(--accent);font-weight:800;margin-top:2px;">'+cnt+' res</div>';
+    html+='</div>';
+  }
+  grid.innerHTML=html;
+}
+function resPickDay(iso){
+  document.getElementById('res-date').value=iso;
+  loadReservations();renderCalendar();
+}
+
+// ── CALENDARIO DE RESERVAS POR HORA ──
+async function renderCalendar(){
+  const cal=document.getElementById('res-calendar'); if(!cal) return;
+  const fecha=document.getElementById('res-date').value;
+  if(!fecha){cal.innerHTML='';return;}
+  cal.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:14px;font-size:12px;"><i class="bx bx-loader-alt bx-spin"></i></div>';
+  // horario del complejo (BIZ.schedule[dia]) o por defecto 8-23
+  const dias=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const dn=dias[new Date(fecha+'T12:00:00').getDay()];
+  const sd=(BIZ.schedule&&BIZ.schedule[dn])||{};
+  const oh=parseInt((sd.open||'08:00').split(':')[0],10)||8;
+  const ch=parseInt((sd.close||'23:00').split(':')[0],10)||23;
+  const [{data:res},{data:courts}]=await Promise.all([
+    sb.from('business_reservations').select('id,court_id,court_name,client_name,hora_inicio,hora_fin,estado,precio').eq('business_email',BIZ_EMAIL).eq('fecha',fecha),
+    sb.from('business_courts').select('id,name').eq('business_email',BIZ_EMAIL)
+  ]);
+  const reservas=res||[]; const canchas=courts||[];
+  // mapa hora→reserva (la primera por hora)
+  const slots={};
+  reservas.forEach(r=>{
+    if((r.estado||'')==='cancelado'||(r.estado||'')==='rechazada')return;
+    const hi=parseInt((r.hora_inicio||'00:00').split(':')[0],10);
+    const hf=parseInt((r.hora_fin||'00:00').split(':')[0],10);
+    for(let h=hi;h<hf;h++){ if(!slots[h]) slots[h]=r; }
+  });
+  let html='';
+  for(let h=oh;h<ch;h++){
+    const hh=(h<10?'0':'')+h+':00';
+    const r=slots[h];
+    if(r){
+      const color=r.estado==='confirmado'?'var(--accent)':r.estado==='pendiente'?'#ffb400':'var(--red)';
+      html+=`<div onclick="document.querySelector('#res-list tr[data-rid=\\'${r.id}\\']')?.scrollIntoView({behavior:'smooth',block:'center'})" style="background:rgba(255,255,255,0.04);border:1px solid ${color};border-left:3px solid ${color};border-radius:10px;padding:10px;cursor:pointer;">
+        <div style="font-size:13px;font-weight:900;color:#fff;">${hh}</div>
+        <div style="font-size:11px;color:#ccc;font-weight:700;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.client_name||'Reserva'}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.court_name||''}</div>
+        <div style="font-size:9px;color:${color};font-weight:900;margin-top:4px;text-transform:uppercase;letter-spacing:.5px;">${r.estado||'pendiente'}</div>
+      </div>`;
+    } else {
+      const _f=document.getElementById('res-date').value;
+      html+=`<div onclick="resNewAt('${_f}','${hh}')" style="background:rgba(0,230,118,0.04);border:1px dashed rgba(0,230,118,0.2);border-radius:10px;padding:10px;cursor:pointer;transition:.15s;" onmouseover="this.style.background='rgba(0,230,118,0.12)'" onmouseout="this.style.background='rgba(0,230,118,0.04)'">
+        <div style="font-size:13px;font-weight:900;color:#888;">${hh}</div>
+        <div style="font-size:10px;color:#00e676;margin-top:4px;text-transform:uppercase;letter-spacing:.5px;"><i class='bx bx-plus'></i> LIBRE</div>
+      </div>`;
+    }
+  }
+  cal.innerHTML=html;
+}
+
+// ── BANDEJA DE CHATS DEL COMPLEJO ──
+let _crmChatActive=null, _crmChatPoll=null;
+async function loadCrmChats(){
+  const list=document.getElementById('crm-chat-list'); if(!list) return;
+  // Traer todos los mensajes donde el complejo es emisor o receptor
+  const [{data:sent},{data:recv}]=await Promise.all([
+    sb.from('messages').select('*').eq('sender_email',BIZ_EMAIL).order('created_at',{ascending:false}).limit(200),
+    sb.from('messages').select('*').eq('recipient_email',BIZ_EMAIL).order('created_at',{ascending:false}).limit(200)
+  ]);
+  const msgs=[...(sent||[]),...(recv||[])].filter(m=>{
+    const raw = (m.sender_email===BIZ_EMAIL) ? m.sender_profile : m.recipient_profile;
+    if (raw) return String(raw)==='negocio' || String(raw).indexOf('biz:')===0;
+    // legacy sin etiqueta: solo si la fila users de esta cuenta ES de negocio
+    return ['club','complejo','tienda','organizacion','profesional','sponsor','cancha'].includes(((window.BIZ&&BIZ.role)||'').toLowerCase());
+  });
+  const convos={};
+  msgs.forEach(m=>{
+    const partner=m.sender_email===BIZ_EMAIL?m.recipient_email:m.sender_email;
+    const partnerName=m.sender_email===BIZ_EMAIL?(m.recipient_name||partner):(m.sender_name||partner);
+    if(!convos[partner]) convos[partner]={email:partner,name:partnerName,lastMsg:'',time:m.created_at,unread:0};
+    if(new Date(m.created_at)>=new Date(convos[partner].time)){
+      convos[partner].time=m.created_at;
+      convos[partner].lastMsg=m.content||(m.media_type==='image'?'Imagen':m.media_type==='audio'?'Audio':'');
+    }
+    if(m.recipient_email===BIZ_EMAIL && !m.read) convos[partner].unread++;
+  });
+  const arr=Object.values(convos).sort((a,b)=>new Date(b.time)-new Date(a.time));
+  // Traer fotos de perfil
+  const emails=arr.map(c=>c.email);
+  if(emails.length){ try{
+    const {data:us}=await sb.from('users').select('email,name,photo,cover_photo').in('email',emails);
+    (us||[]).forEach(u=>{if(convos[u.email]){convos[u.email].photo=u.photo||u.cover_photo||null;if(u.name)convos[u.email].name=u.name;}});
+  }catch(e){} }
+  const totalUnread=arr.reduce((s,c)=>s+(c.unread||0),0);
+  const bg=document.getElementById('crm-chats-badge');
+  if(bg){ if(totalUnread>0){bg.textContent=totalUnread;bg.style.display='inline-block';} else bg.style.display='none'; }
+  if(!arr.length){ list.innerHTML='<div style="padding:30px 16px;text-align:center;color:var(--muted);font-size:12px;"><i class="bx bx-message-dots" style="font-size:32px;display:block;margin-bottom:8px;opacity:.4;"></i>Sin conversaciones todavía.<br><span style="font-size:11px;">Cuando un jugador te escriba por una reserva, aparece acá.</span></div>'; return; }
+  list.innerHTML=arr.map(c=>{
+    const init=(c.name||c.email||'?')[0].toUpperCase();
+    const avatar=c.photo?`<div style="width:42px;height:42px;border-radius:50%;background:url('${c.photo}') center/cover;flex-shrink:0;"></div>`:`<div style="width:42px;height:42px;border-radius:50%;background:var(--accent);color:#000;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${init}</div>`;
+    const eSafe=(c.email||'').replace(/'/g,"\\'");
+    const nSafe=(c.name||'').replace(/'/g,"\\'");
+    return `<div class="crm-chat-item ${_crmChatActive===c.email?'active':''}" onclick="crmOpenChat('${eSafe}','${nSafe}')" style="display:flex;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;align-items:center;${_crmChatActive===c.email?'background:rgba(186,255,0,0.06);':''}">
+      ${avatar}
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:${c.unread>0?'900':'700'};font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${(c.name||c.email).toUpperCase()}</div>
+        <div style="font-size:11px;color:${c.unread>0?'#fff':'var(--muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:${c.unread>0?'700':'400'};margin-top:2px;">${c.lastMsg}</div>
+      </div>
+      ${c.unread>0?`<div style="background:var(--accent);color:#000;border-radius:10px;padding:2px 7px;font-size:10px;font-weight:900;flex-shrink:0;">${c.unread}</div>`:''}
+    </div>`;
+  }).join('');
+}
+function crmCloseChat(){ var g=document.querySelector('.crm-chat-grid'); if(g) g.classList.remove('chat-open'); _crmChatActive=null; if(_crmChatPoll){clearInterval(_crmChatPoll);_crmChatPoll=null;} }
+async function crmOpenChat(email,name){
+  _crmChatActive=email; window._crmChatPartner={email,name};
+  var g=document.querySelector('.crm-chat-grid'); if(g) g.classList.add('chat-open');
+  document.getElementById('crm-chat-header').innerHTML=`<div style="display:flex;align-items:center;gap:8px;"><button class="crm-chat-back" onclick="crmCloseChat()" aria-label="Volver"><i class='bx bx-arrow-back'></i></button><i class='bx bx-user-circle' style="font-size:22px;color:var(--accent);"></i><div><div style="color:#fff;font-weight:900;">${(name||email).toUpperCase()}</div><div style="font-size:11px;color:var(--muted);font-weight:400;">${email}</div></div></div>`;
+  document.getElementById('crm-chat-input-wrap').style.display='flex';
+  // Marcar como leídos los recibidos
+  try{ await sb.from('messages').update({read:true}).eq('sender_email',email).eq('recipient_email',BIZ_EMAIL).eq('read',false); }catch(e){}
+  await _crmLoadMessages();
+  // refresh la lista para sacar el badge
+  loadCrmChats();
+  if(_crmChatPoll) clearInterval(_crmChatPoll);
+  _crmChatPoll=setInterval(_crmLoadMessages, 5000);
+}
+async function _crmLoadMessages(){
+  if(!_crmChatActive) return;
+  const partner=_crmChatActive;
+  const [{data:a},{data:b}]=await Promise.all([
+    sb.from('messages').select('*').eq('sender_email',BIZ_EMAIL).eq('recipient_email',partner).order('created_at'),
+    sb.from('messages').select('*').eq('sender_email',partner).eq('recipient_email',BIZ_EMAIL).order('created_at')
+  ]);
+  const all=[...(a||[]),...(b||[])].filter(m=>{
+    const raw = (m.sender_email===BIZ_EMAIL) ? m.sender_profile : m.recipient_profile;
+    if (raw) return String(raw)==='negocio' || String(raw).indexOf('biz:')===0;
+    return ['club','complejo','tienda','organizacion','profesional','sponsor','cancha'].includes(((window.BIZ&&BIZ.role)||'').toLowerCase());
+  }).sort((x,y)=>new Date(x.created_at)-new Date(y.created_at));
+  const box=document.getElementById('crm-chat-messages');
+  if(!all.length){ box.innerHTML='<div style="text-align:center;color:var(--muted);font-size:12px;padding:20px;">Sin mensajes aún.</div>'; return; }
+  box.innerHTML=all.map(m=>{
+    const mine=m.sender_email===BIZ_EMAIL;
+    const t=new Date(m.created_at).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'});
+    return `<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'};margin-bottom:8px;">
+      <div style="max-width:70%;background:${mine?'var(--accent)':'rgba(255,255,255,0.06)'};color:${mine?'#000':'#fff'};padding:9px 13px;border-radius:14px;font-size:13px;">
+        <div style="white-space:pre-wrap;word-break:break-word;">${(m.content||'').replace(/</g,'&lt;')}</div>
+        <div style="font-size:9px;opacity:.7;margin-top:3px;text-align:right;">${t}</div>
+      </div>
+    </div>`;
+  }).join('');
+  box.scrollTop=box.scrollHeight;
+}
+async function crmSendMsg(){
+  if(!_crmChatActive) return;
+  const inp=document.getElementById('crm-chat-input');
+  const txt=(inp.value||'').trim(); if(!txt) return;
+  inp.value='';
+  try{
+    await sb.from('messages').insert({sender_email:BIZ_EMAIL,sender_name:BIZ.name||'Complejo',recipient_email:_crmChatActive,content:txt,read:false,sender_profile:'negocio',recipient_profile:'jugador'});
+    try{ await sb.from('notifications').insert({recipient_email:_crmChatActive,type:'mensaje',actor_email:BIZ.email,actor_name:BIZ.name||'Complejo',message:(BIZ.name||'El complejo')+': '+txt.slice(0,60),read:false}); }catch(e){}
+    await _crmLoadMessages();
+  }catch(e){ toast('Error enviando: '+e.message,'error'); inp.value=txt; }
+}
+
+// ── CLIENTES ──
+async function loadClients(){
+  const {data}=await sb.from('business_reservations').select('client_name,client_email,precio,created_at').eq('business_email',BIZ_EMAIL).order('created_at',{ascending:false});
+  const map={};
+  (data||[]).forEach(r=>{const k=r.client_email||r.client_name;if(!map[k])map[k]={name:r.client_name,email:r.client_email,count:0,total:0,last:r.created_at};map[k].count++;map[k].total+=(parseFloat(r.precio)||0);});
+  const clients=Object.values(map).sort((a,b)=>b.total-a.total);
+  const tbody=document.getElementById('clients-list');
+  if(!clients.length){tbody.innerHTML=`<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);">Sin clientes aún</td></tr>`;return;}
+  tbody.innerHTML=clients.map(c=>`<tr><td><strong>${c.name||'—'}</strong></td><td style="font-size:11px;color:var(--muted);">${c.email||'—'}</td><td>${c.count}</td><td style="color:var(--accent);font-weight:700;">$${c.total.toFixed(0)}</td><td style="font-size:11px;color:var(--muted);">${c.last?new Date(c.last).toLocaleDateString('es-UY'):'—'}</td></tr>`).join('');
+}
+
+// ── PAGOS ──
+async function loadPayments(){
+  const {data}=await sb.from('business_client_payments').select('*').eq('business_email',BIZ_EMAIL).order('created_at',{ascending:false});
+  const tbody=document.getElementById('payments-list');
+  if(!data||!data.length){tbody.innerHTML=`<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--muted);">Sin pagos registrados</td></tr>`;return;}
+  tbody.innerHTML=data.map(p=>`<tr>
+    <td>${p.client_name||'—'}</td><td>${p.concept||'—'}</td>
+    <td style="color:var(--accent);font-weight:700;">$${p.amount}</td>
+    <td>${p.payment_method||'—'}</td>
+    <td>${p.comprobante_url?`<a href="${p.comprobante_url}" target="_blank" style="color:var(--accent);">Ver</a>`:'—'}</td>
+    <td><span class="badge badge-${p.estado==='confirmado'?'confirmed':'pending'}">${p.estado}</span></td>
+    <td>${p.estado==='pendiente'?`<button class="btn-sm btn-success" onclick="confirmPay('${p.id}')">Confirmar</button>`:''}</td>
+  </tr>`).join('');
+}
+function openPaymentModal(){document.getElementById('modal-payment').classList.add('open');}
+async function savePayment(){
+  const {error}=await sb.from('business_client_payments').insert({business_email:BIZ_EMAIL,client_name:document.getElementById('pay-client').value.trim(),concept:document.getElementById('pay-concept').value.trim(),amount:parseFloat(document.getElementById('pay-amount').value)||0,payment_method:document.getElementById('pay-method').value,estado:'pendiente'});
+  if(error){toast('Error: '+error.message,'error');return;}
+  closeModal('modal-payment');toast('Pago registrado!');loadPayments();
+}
+async function confirmPay(id){await sb.from('business_client_payments').update({estado:'confirmado'}).eq('id',id);toast('Pago confirmado!');loadPayments();}
+async function savePaymentLinks(){
+  const mp=document.getElementById('mp-link-input').value.trim();
+  const stripe=document.getElementById('stripe-link-input').value.trim();
+  await sb.from('business_requests').update({payment_link_mp:mp||null,payment_link_stripe:stripe||null}).eq('email',BIZ_EMAIL);
+  toast('Links guardados!');
+}
+
+// ── EMPLEADOS ──
+async function loadEmployees(){
+  const {data}=await sb.from('business_employees').select('*').eq('business_email',BIZ_EMAIL).order('created_at');
+  const tbody=document.getElementById('emp-list');
+  if(!data||!data.length){tbody.innerHTML=`<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);">Sin empleados registrados</td></tr>`;return;}
+  tbody.innerHTML=data.map(e=>`<tr><td><strong>${e.employee_name}</strong></td><td style="font-size:11px;color:var(--muted);">${e.employee_email||'—'}</td><td style="text-transform:capitalize;">${e.role||'empleado'}</td><td>${e.phone||'—'}</td><td><button class="btn-sm btn-danger" onclick="deleteEmployee('${e.id}')"><i class='bx bx-trash'></i></button></td></tr>`).join('');
+}
+function openEmployeeModal(){document.getElementById('modal-employee').classList.add('open');}
+async function saveEmployee(){
+  const name=document.getElementById('emp-name').value.trim();
+  if(!name){toast('Ingresá el nombre.','error');return;}
+  await sb.from('business_employees').insert({business_email:BIZ_EMAIL,employee_name:name,employee_email:document.getElementById('emp-email').value.trim()||null,role:document.getElementById('emp-role').value,phone:document.getElementById('emp-phone').value.trim()||null});
+  closeModal('modal-employee');toast('Empleado agregado!');loadEmployees();
+}
+async function deleteEmployee(id){await sb.from('business_employees').delete().eq('id',id);loadEmployees();}
+
+// ── FAQ ──
+async function loadFaq(){
+  const {data}=await sb.from('business_chatbot_faq').select('*').eq('business_email',BIZ_EMAIL).order('order_index');
+  const list=document.getElementById('faq-list');
+  if(!data||!data.length){list.innerHTML=`<div style="padding:40px;text-align:center;color:var(--muted);"><i class='bx bx-bot' style="font-size:40px;display:block;margin-bottom:10px;opacity:0.4;"></i>Sin preguntas configuradas. Agregá las consultas más frecuentes de tus clientes.</div>`;return;}
+  list.innerHTML=data.map(f=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">
+    <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;">
+      <div><div style="font-weight:700;color:#fff;margin-bottom:4px;">❓ ${f.question}</div><div style="font-size:12px;color:var(--muted);">${f.answer}</div></div>
+      <button class="btn-sm btn-danger" onclick="deleteFaq('${f.id}')"><i class='bx bx-trash'></i></button>
+    </div>
+  </div>`).join('');
+}
+function openFaqModal(){document.getElementById('modal-faq').classList.add('open');}
+async function saveFaq(){
+  const q=document.getElementById('faq-q').value.trim();
+  const a=document.getElementById('faq-a').value.trim();
+  if(!q||!a){toast('Completá pregunta y respuesta.','error');return;}
+  await sb.from('business_chatbot_faq').insert({business_email:BIZ_EMAIL,question:q,answer:a,order_index:Date.now()});
+  closeModal('modal-faq');toast('Pregunta agregada!');loadFaq();
+}
+async function deleteFaq(id){await sb.from('business_chatbot_faq').delete().eq('id',id);loadFaq();}
+
+// ── PERFIL ──
+async function loadPerfil(){
+  // Leer la fila COMPLETA del negocio y refrescar BIZ (la sesión nueva solo
+  // traía email/name/role → el resto aparecía vacío aunque seguía en la DB).
+  const {data}=await sb.from('users')
+    .select('name,bio,address,phone,whatsapp,instagram,website,price_info,frame_style,schedule,features,photo,cover_photo,sub_status')
+    .eq('email',BIZ_EMAIL).maybeSingle();
+  if(data){
+    BIZ=Object.assign(BIZ||{},data); BIZ.email=BIZ_EMAIL;
+    try{ sessionStorage.setItem('crm_biz',JSON.stringify(BIZ)); }catch(e){}
+    initPerfilPage();
+  }
+}
+
+
+// Init
+loadDashboard();
+loadCourts();
+// Badge de chats sin leer (independiente de la pestaña actual)
+async function _crmUpdateChatsBadge(){
+  try{
+    const {count}=await sb.from('messages').select('id',{count:'exact',head:true}).eq('recipient_email',BIZ_EMAIL).eq('read',false);
+    const bg=document.getElementById('crm-chats-badge');
+    if(bg){ if(count>0){bg.textContent=count;bg.style.display='inline-block';} else bg.style.display='none'; }
+  }catch(e){}
+}
+_crmUpdateChatsBadge();
+setInterval(_crmUpdateChatsBadge, 30000);
+</script>
+  <script src="canchero-crm-ventas.js?v=20260624g"></script>
+<script src="crm-common.js?v=20260717"></script>
+</body>
+</html>

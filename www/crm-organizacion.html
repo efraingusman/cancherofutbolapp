@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canchero · Panel Organización</title>
+<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Inter:wght@400;500;600&display=swap');
+  :root{--accent:#baff00;--bg:#070907;--bg2:#0f110f;--border:#1e201e;--text:#fff;--muted:#666;--red:#ff4444;--orange:#ffb400;--blue:#4fc3f7;--green:#22c55e;--font:'Outfit',sans-serif;}
+  *{margin:0;padding:0;box-sizing:border-box;}html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;}
+  .app{display:flex;height:100vh;overflow:hidden;}
+  .sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
+  .sidebar-brand{padding:20px 16px;border-bottom:1px solid var(--border);}
+  .brand-name{font-family:var(--font);font-size:14px;font-weight:900;color:var(--accent);}
+  .brand-role{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+  .sidebar-section{padding:14px 10px 4px;}
+  .sidebar-title{font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;padding-left:8px;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;transition:.15s;font-size:13px;color:#aaa;font-weight:600;margin-bottom:2px;}
+  .nav-item:hover{background:rgba(255,255,255,0.05);color:#fff;}
+  .nav-item.active{background:rgba(186,255,0,0.08);color:var(--accent);}
+  .nav-item i{font-size:18px;width:22px;flex-shrink:0;}
+  .content{flex:1;overflow-y:auto;}
+  .topbar{height:52px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;position:sticky;top:0;z-index:10;}
+  .topbar-title{font-family:var(--font);font-size:16px;font-weight:900;flex:1;}
+  .page{padding:20px;display:none;}.page.active{display:block;}
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
+  .kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;position:relative;overflow:hidden;}
+  .kpi::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--accent);}
+  .kpi.blue::before{background:var(--blue);}.kpi.orange::before{background:var(--orange);}
+  .kpi-label{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+  .kpi-value{font-family:var(--font);font-size:26px;font-weight:900;line-height:1;}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;}
+  .card-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .card-title{font-family:var(--font);font-size:14px;font-weight:800;}
+  table{width:100%;border-collapse:collapse;}
+  th{padding:9px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
+  td{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:13px;vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .form-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:5px;}
+  .form-input{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none;box-sizing:border-box;}
+  .form-input:focus{border-color:var(--accent);}select.form-input option{background:var(--bg2);}
+  .form-group{margin-bottom:12px;}
+  .btn-sm{padding:10px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:var(--font);min-height:44px;touch-action:manipulation;}
+  .btn-accent{background:var(--accent);color:#000;}.btn-glass{background:rgba(255,255,255,0.05);border:1px solid var(--border);color:#fff;}
+  .btn-danger{background:rgba(255,68,68,0.12);color:var(--red);border:1px solid rgba(255,68,68,0.25);}
+  .btn-success{background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.25);}
+  .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;}
+  .badge-pending{background:rgba(255,180,0,0.15);color:var(--orange);}
+  .badge-confirmed{background:rgba(186,255,0,0.12);color:var(--accent);}
+  .modal{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);padding:16px;}
+  .modal.open{display:flex;}
+  .modal-inner{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:100%;max-width:480px;padding:24px;max-height:90vh;overflow-y:auto;}
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--bg2);border:1px solid var(--accent);color:var(--accent);padding:10px 16px;border-radius:10px;font-size:13px;font-weight:700;z-index:99999;animation:ti .3s ease;}
+  @keyframes ti{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .crm-mobile-topbar{display:none;position:fixed;top:0;left:0;right:0;z-index:300;height:54px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;padding:0 14px;gap:10px;}
+  .crm-mobile-topbar .brand{font-family:var(--font);font-weight:900;color:var(--accent);font-size:15px;flex:1;}
+  .crm-mobile-overlay{display:none;position:fixed;inset:0;z-index:199;background:rgba(0,0,0,0.7);}
+  .crm-mobile-overlay.open{display:block;}
+  @media(max-width:768px){.sidebar{position:fixed;top:0;left:-240px;height:100vh;z-index:200;transition:left .3s ease;width:230px!important;}.sidebar.open{left:0;}.page{padding:12px;padding-top:66px;}.crm-mobile-topbar{display:flex;}.app{flex-direction:column;}}
+  .pos-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .pos-table th{background:var(--bg2);padding:8px 12px;text-align:center;border:1px solid var(--border);font-size:10px;font-weight:700;color:var(--muted);}
+  .pos-table td{padding:8px 12px;border:1px solid var(--border);text-align:center;}
+  .pos-table tr:first-child td{font-weight:700;color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="crm-mobile-topbar" id="crm-mob-bar"><button onclick="toggleCrmSidebar()" style="background:none;border:none;color:#aaa;font-size:24px;cursor:pointer;padding:4px;"><i class='bx bx-menu'></i></button><span class="brand">🏆 Panel Organización</span></div>
+<div class="crm-mobile-overlay" id="crm-overlay" onclick="toggleCrmSidebar()"></div>
+<div class="app">
+  <nav class="sidebar" id="crm-sidebar">
+    <div class="sidebar-brand"><div class="brand-name" id="biz-name">Mi Organización</div><div class="brand-role">🏆 Panel Organización</div></div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Principal</div>
+      <div class="nav-item active" onclick="showPage('dashboard',this)"><i class='bx bx-grid-alt'></i> Dashboard</div>
+      <div class="nav-item" onclick="showPage('torneos',this)"><i class='bx bx-trophy'></i> Torneos</div>
+      <div class="nav-item" onclick="showPage('inscripciones',this)"><i class='bx bx-user-plus'></i> Inscripciones</div>
+      <div class="nav-item" onclick="showPage('posiciones',this)"><i class='bx bx-list-ol'></i> Tabla Posiciones</div>
+      <div class="nav-item" onclick="showPage('comunicaciones',this)"><i class='bx bx-megaphone'></i> Comunicaciones</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Negocio</div>
+      <div class="nav-item" onclick="showPage('pagos',this)"><i class='bx bx-credit-card'></i> Cobros</div>
+      <div class="nav-item" onclick="showPage('chatbot',this)"><i class='bx bx-bot'></i> Chatbot FAQ</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Más</div>
+      <div class="nav-item" onclick="showPage('perfil',this)"><i class='bx bx-edit'></i> Mi Perfil Público</div>
+      <div class="nav-item" onclick="window.location.href='index.html'"><i class='bx bx-globe'></i> Ir a Canchero</div>
+      <div class="nav-item" onclick="doLogout()"><i class='bx bx-log-out'></i> Cerrar sesión</div>
+    </div>
+  </nav>
+  <div class="content">
+    <div class="topbar"><div class="topbar-title" id="page-title">Dashboard</div>
+      <button class="btn-sm btn-accent" onclick="showPage('torneos',null);setTimeout(openTorneoModal,100)"><i class='bx bx-plus'></i> Nuevo torneo</button>
+    </div>
+
+    <div id="page-dashboard" class="page active">
+      <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-label">Torneos activos</div><div class="kpi-value" id="kpi-torneos">—</div></div>
+        <div class="kpi blue"><div class="kpi-label">Inscriptos</div><div class="kpi-value" id="kpi-inscr">—</div></div>
+        <div class="kpi orange"><div class="kpi-label">Pendientes</div><div class="kpi-value" id="kpi-pend">—</div></div>
+        <div class="kpi"><div class="kpi-label">Ingresos</div><div class="kpi-value" id="kpi-rev">$0</div></div>
+      </div>
+      <div class="card"><div class="card-header"><span class="card-title">Torneos activos</span></div>
+        <table><thead><tr><th>Nombre</th><th>Tipo</th><th>Ciudad</th><th>Equipos</th><th>Estado</th></tr></thead><tbody id="dash-torneos"></tbody></table>
+      </div>
+    </div>
+
+    <div id="page-torneos" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Mis Torneos</h2>
+        <button class="btn-sm btn-accent" onclick="openTorneoModal()"><i class='bx bx-plus'></i> Nuevo</button>
+      </div>
+      <div id="torneos-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+
+    <div id="page-inscripciones" class="page">
+      <h2 style="font-family:var(--font);font-size:20px;font-weight:900;margin-bottom:12px;">Inscripciones</h2>
+      <div class="form-group" style="max-width:300px;margin-bottom:16px;">
+        <label class="form-label">Filtrar por torneo</label>
+        <select id="inscr-torneo-sel" class="form-input" onchange="loadInscriptions()"><option value="">Todos</option></select>
+      </div>
+      <div class="card"><table><thead><tr><th>Equipo</th><th>Torneo</th><th>Comprobante</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="inscr-list"></tbody></table></div>
+    </div>
+
+    <div id="page-posiciones" class="page">
+      <h2 style="font-family:var(--font);font-size:20px;font-weight:900;margin-bottom:12px;">Tabla de Posiciones</h2>
+      <div class="form-group" style="max-width:300px;margin-bottom:16px;">
+        <select id="pos-torneo-sel" class="form-input" onchange="loadPosiciones()"><option value="">Seleccioná torneo</option></select>
+      </div>
+      <div id="pos-table-wrap"></div>
+      <div style="margin-top:16px;" id="pos-add-result"></div>
+    </div>
+
+    <div id="page-comunicaciones" class="page">
+      <h2 style="font-family:var(--font);font-size:20px;font-weight:900;margin-bottom:16px;">Comunicaciones</h2>
+      <div class="card" style="padding:16px;margin-bottom:16px;">
+        <div class="card-title" style="margin-bottom:12px;">Enviar comunicado</div>
+        <div class="form-group"><label class="form-label">Para el torneo</label><select id="com-torneo" class="form-input"><option value="">Todos</option></select></div>
+        <div class="form-group"><label class="form-label">Mensaje</label><textarea id="com-msg" class="form-input" rows="4" placeholder="Comunicado oficial para todos los equipos inscriptos..."></textarea></div>
+        <button class="btn-sm btn-accent" onclick="sendComunicado()"><i class='bx bx-send'></i> Enviar</button>
+      </div>
+    </div>
+
+    <div id="page-pagos" class="page">
+      <h2 style="font-family:var(--font);font-size:20px;font-weight:900;margin-bottom:16px;">Cobros</h2>
+      <div class="card" style="padding:16px;">
+        <div class="card-title" style="margin-bottom:12px;">Mis links de pago</div>
+        <div class="form-group"><label class="form-label">MercadoPago</label><input id="mp-input" type="text" class="form-input" placeholder="https://mpago.la/..."></div>
+        <div class="form-group"><label class="form-label">Stripe</label><input id="stripe-input" type="text" class="form-input" placeholder="https://buy.stripe.com/..."></div>
+        <button class="btn-sm btn-accent" onclick="saveLinks()">Guardar</button>
+      </div>
+    </div>
+
+    <div id="page-chatbot" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Chatbot FAQ</h2>
+        <button class="btn-sm btn-accent" onclick="document.getElementById('modal-faq').classList.add('open')"><i class='bx bx-plus'></i> Nueva</button>
+      </div>
+      <div id="faq-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
+    <!-- PERFIL PÚBLICO -->
+    <div id="page-perfil" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <div><h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Mi Perfil Público</h2><p style="color:var(--muted);font-size:12px;">Así te ven los jugadores en Canchero</p></div>
+        <div style="display:flex;gap:8px;"><button class="btn-sm btn-accent" onclick="savePerfilOrg()"><i class='bx bx-save'></i> Guardar</button><button class="btn-sm btn-glass" onclick="window.location.href='index.html'"><i class='bx bx-globe'></i> Ver perfil</button></div>
+      </div>
+      <input type="hidden" id="prof-frame-org" value="">
+      <!-- Info -->
+      <div class="card" style="padding:20px;margin-bottom:16px;">
+        <div style="font-family:var(--font);font-size:13px;font-weight:900;margin-bottom:14px;color:var(--accent);">Información de la Organización</div>
+        <div style="display:grid;gap:12px;">
+          <div><label class="form-label">DESCRIPCIÓN / BIO</label><textarea id="prof-bio-org" rows="3" class="form-input" style="resize:vertical;" placeholder="Describí tu organización, torneos que organizás..."></textarea></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div><label class="form-label">TELÉFONO</label><input id="prof-phone-org" type="tel" class="form-input" placeholder="091234567"></div>
+            <div><label class="form-label">WHATSAPP</label><input id="prof-wa-org" type="tel" class="form-input" placeholder="59891234567"></div>
+          </div>
+          <div><label class="form-label">DIRECCIÓN / SEDE</label><input id="prof-address-org" type="text" class="form-input" placeholder="Sede de la organización"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div><label class="form-label">INSTAGRAM</label><input id="prof-ig-org" type="text" class="form-input" placeholder="@tuorganizacion"></div>
+            <div><label class="form-label">SITIO WEB</label><input id="prof-website-org" type="url" class="form-input" placeholder="https://..."></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div id="modal-torneo" class="modal"><div class="modal-inner">
+  <div style="display:flex;justify-content:space-between;margin-bottom:16px;"><span style="font-family:var(--font);font-size:17px;font-weight:900;">Nuevo Torneo</span><button onclick="document.getElementById('modal-torneo').classList.remove('open')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&times;</button></div>
+  <div class="form-group"><label class="form-label">Nombre</label><input id="t-name" type="text" class="form-input" placeholder="Copa Canchero 2026..."></div>
+  <div class="form-group"><label class="form-label">Tipo</label><select id="t-type" class="form-input"><option value="liga">Liga (todos contra todos)</option><option value="eliminatoria">Eliminatoria (playoffs)</option><option value="copa">Copa (grupos + playoffs)</option></select></div>
+  <div class="form-group"><label class="form-label">Ciudad</label><input id="t-city" type="text" class="form-input"></div>
+  <div style="display:flex;gap:8px;">
+    <div class="form-group" style="flex:1;"><label class="form-label">Inicio</label><input id="t-start" type="date" class="form-input"></div>
+    <div class="form-group" style="flex:1;"><label class="form-label">Fin (estimado)</label><input id="t-end" type="date" class="form-input"></div>
+  </div>
+  <div class="form-group"><label class="form-label">Precio de inscripción ($)</label><input id="t-price" type="number" class="form-input" min="0" value="0"></div>
+  <button class="btn-sm btn-accent" style="width:100%;padding:11px;" onclick="saveTorneo()">Crear torneo</button>
+</div></div>
+
+<div id="modal-faq" class="modal"><div class="modal-inner">
+  <div style="display:flex;justify-content:space-between;margin-bottom:16px;"><span style="font-family:var(--font);font-size:17px;font-weight:900;">Nueva FAQ</span><button onclick="document.getElementById('modal-faq').classList.remove('open')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&times;</button></div>
+  <div class="form-group"><label class="form-label">Pregunta</label><input id="f-q" type="text" class="form-input"></div>
+  <div class="form-group"><label class="form-label">Respuesta</label><textarea id="f-a" class="form-input" rows="3"></textarea></div>
+  <button class="btn-sm btn-accent" style="width:100%;padding:11px;" onclick="saveFaq()">Guardar</button>
+</div></div>
+
+<script>
+const SUPA_URL='https://dofbxgqzcvfjpnvcvdjb.supabase.co';
+const SUPA_KEY='sb_publishable_gPwLXkMHk3HvFz9nm9hgKA_1D0IJBKA';
+const sb=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'canchero_auth'}}); try{window.sb=sb;}catch(e){}
+let BIZ=null,BIZ_EMAIL='',_torneos=[];
+const saved=sessionStorage.getItem('crm_biz');
+if(!saved){window.location.href='crm.html';throw '';}
+BIZ=JSON.parse(saved);
+if(BIZ.account_status!=='activo'&&BIZ.account_status!=='active'){window.location.href='crm.html';throw '';}
+BIZ_EMAIL=BIZ.email;
+document.getElementById('biz-name').textContent=BIZ.name||'Mi Organización';
+
+function toggleCrmSidebar(){const sb=document.getElementById('crm-sidebar');const ov=document.getElementById('crm-overlay');if(sb)sb.classList.toggle('open');if(ov)ov.classList.toggle('open');}
+function showPage(name,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const sb=document.getElementById('crm-sidebar');const ov=document.getElementById('crm-overlay');
+  if(sb&&sb.classList.contains('open')){sb.classList.remove('open');if(ov)ov.classList.remove('open');}
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+name)?.classList.add('active');
+  if(el)el.classList.add('active');
+  const titles={dashboard:'Dashboard',torneos:'Torneos',inscripciones:'Inscripciones',posiciones:'Tabla de Posiciones',comunicaciones:'Comunicaciones',pagos:'Cobros',chatbot:'Chatbot FAQ'};
+  document.getElementById('page-title').textContent=titles[name]||name;
+  if(name==='dashboard')loadDashboard();
+  if(name==='torneos')loadTorneos();
+  if(name==='inscripciones'){loadTorneoSelects();loadInscriptions();}
+  if(name==='posiciones')loadTorneoSelects();
+  if(name==='comunicaciones')loadTorneoSelects();
+  if(name==='chatbot')loadFaq();
+  if(name==='perfil')initPerfilOrg();
+}
+function selFrameOrg(el,frameId){document.querySelectorAll('.frame-option-crm').forEach(f=>f.classList.remove('selected'));el.classList.add('selected');const fi=document.getElementById('prof-frame-org');if(fi)fi.value=frameId;}
+async function initPerfilOrg(){
+  if(!(BIZ&&BIZ.email))return;
+  try{ const{data:fresh}=await sb.from('users').select('*').eq('email',BIZ.email).maybeSingle(); if(fresh){Object.assign(BIZ,fresh);sessionStorage.setItem('crm_biz',JSON.stringify(BIZ));} }catch(e){}
+  const sv=function(id,v){const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
+  sv('prof-bio-org',BIZ.bio);sv('prof-phone-org',BIZ.phone);sv('prof-wa-org',BIZ.whatsapp);
+  sv('prof-address-org',BIZ.address);sv('prof-ig-org',BIZ.instagram);sv('prof-website-org',BIZ.website);
+}
+async function savePerfilOrg(){
+  if(!BIZ||!BIZ.email){toast('Sesión inválida.','error');return;}
+  // Guardado NO destructivo: solo campos con valor
+  const val=function(id){const e=document.getElementById(id);return e&&e.value!=null?e.value.trim():'';};
+  const updates={};
+  const setU=function(k,v){ if(v) updates[k]=v; };
+  setU('bio',val('prof-bio-org')); setU('phone',val('prof-phone-org')); setU('whatsapp',val('prof-wa-org'));
+  setU('address',val('prof-address-org')); setU('instagram',val('prof-ig-org')); setU('website',val('prof-website-org'));
+  if(Object.keys(updates).length===0){toast('Nada para guardar.','warning');return;}
+  try{const{error}=await sb.from('users').update(updates).eq('email',BIZ.email);if(error)throw error;Object.assign(BIZ,updates);sessionStorage.setItem('crm_biz',JSON.stringify(BIZ));toast('Perfil actualizado.','success');}
+  catch(e){toast('Error: '+e.message,'error');}
+}
+function toast(msg,type='success'){const t=document.createElement('div');t.className='toast';t.style.borderColor=type==='error'?'var(--red)':'var(--accent)';t.style.color=type==='error'?'var(--red)':'var(--accent)';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3200);}
+function doLogout(){sessionStorage.removeItem('crm_biz');window.location.href='crm.html';}
+
+async function loadDashboard(){
+  const{data:t}=await sb.from('torneos').select('*').eq('created_by',BIZ_EMAIL).eq('status','activo');
+  _torneos=t||[];
+  document.getElementById('kpi-torneos').textContent=_torneos.length;
+  const{data:i}=await sb.from('match_invites').select('id',{count:'exact',head:true}).in('match_id',_torneos.map(t=>t.id));
+  document.getElementById('kpi-inscr').textContent=i?.count||0;
+  const tbody=document.getElementById('dash-torneos');
+  if(!_torneos.length){tbody.innerHTML=`<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);">Sin torneos activos</td></tr>`;return;}
+  tbody.innerHTML=_torneos.map(t=>`<tr><td><strong>${t.name}</strong></td><td>${t.type||'liga'}</td><td>${t.city||'—'}</td><td>—</td><td><span class="badge badge-confirmed">Activo</span></td></tr>`).join('');
+}
+
+async function loadTorneos(){
+  const{data}=await sb.from('torneos').select('*').eq('created_by',BIZ_EMAIL).order('created_at',{ascending:false});
+  _torneos=data||[];
+  const list=document.getElementById('torneos-list');
+  if(!_torneos.length){list.innerHTML=`<div style="padding:40px;text-align:center;color:var(--muted);"><i class='bx bx-trophy' style="font-size:40px;display:block;margin-bottom:10px;opacity:0.4;"></i>Sin torneos creados.</div>`;return;}
+  list.innerHTML=_torneos.map(t=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+    <div><div style="font-family:var(--font);font-size:15px;font-weight:900;">${t.name}</div><div style="font-size:12px;color:var(--muted);margin-top:3px;">${t.type||'liga'} · ${t.city||'Sin ciudad'} · ${t.start_date||'Sin fecha'}</div></div>
+    <div style="display:flex;gap:6px;">
+      <button class="btn-sm btn-glass" onclick="showPage('posiciones',null)"><i class='bx bx-list-ol'></i> Ver tabla</button>
+      <button class="btn-sm btn-danger" onclick="deleteTorneo('${t.id}')"><i class='bx bx-trash'></i></button>
+    </div>
+  </div>`).join('');
+}
+function openTorneoModal(){document.getElementById('modal-torneo').classList.add('open');}
+async function saveTorneo(){
+  const name=document.getElementById('t-name').value.trim();
+  if(!name){toast('Ingresá el nombre.','error');return;}
+  const{error}=await sb.from('torneos').insert({name,type:document.getElementById('t-type').value,city:document.getElementById('t-city').value.trim(),start_date:document.getElementById('t-start').value||null,created_by:BIZ_EMAIL,status:'activo'});
+  if(error){toast('Error: '+error.message,'error');return;}
+  document.getElementById('modal-torneo').classList.remove('open');toast('Torneo creado!');loadTorneos();loadDashboard();
+}
+async function deleteTorneo(id){if(!confirm('¿Eliminar este torneo?'))return;await sb.from('torneos').delete().eq('id',id);loadTorneos();}
+
+async function loadTorneoSelects(){
+  if(!_torneos.length){const{data}=await sb.from('torneos').select('id,name').eq('created_by',BIZ_EMAIL);_torneos=data||[];}
+  const opts='<option value="">Todos</option>'+_torneos.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+  ['inscr-torneo-sel','pos-torneo-sel','com-torneo'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
+}
+
+async function loadInscriptions(){
+  const tid=document.getElementById('inscr-torneo-sel')?.value;
+  let q=sb.from('business_client_payments').select('*').eq('business_email',BIZ_EMAIL);
+  const{data}=await q.order('created_at',{ascending:false}).limit(50);
+  const tbody=document.getElementById('inscr-list');
+  if(!data||!data.length){tbody.innerHTML=`<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);">Sin inscripciones aún</td></tr>`;return;}
+  tbody.innerHTML=data.map(i=>`<tr>
+    <td><strong>${i.client_name||'—'}</strong></td>
+    <td style="font-size:12px;color:var(--muted);">${i.concept||'—'}</td>
+    <td>${i.comprobante_url?`<a href="${i.comprobante_url}" target="_blank" style="color:var(--accent);">Ver</a>`:'—'}</td>
+    <td><span class="badge badge-${i.estado==='confirmado'?'confirmed':'pending'}">${i.estado}</span></td>
+    <td>${i.estado==='pendiente'?`<button class="btn-sm btn-success" onclick="confirmInscr('${i.id}')">Confirmar</button>`:''}</td>
+  </tr>`).join('');
+}
+async function confirmInscr(id){await sb.from('business_client_payments').update({estado:'confirmado'}).eq('id',id);toast('Inscripción confirmada!');loadInscriptions();}
+
+async function loadPosiciones(){
+  const wrap=document.getElementById('pos-table-wrap');
+  wrap.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);">Seleccioná un torneo para ver la tabla de posiciones.<br><br><small>La tabla se construye automáticamente con los resultados de los partidos del torneo.</small></div>`;
+  // Futuro: calcular posiciones desde match results
+}
+
+async function sendComunicado(){
+  const msg=document.getElementById('com-msg')?.value.trim();
+  if(!msg){toast('Escribí el comunicado.','error');return;}
+  // Crear post oficial del org
+  await sb.from('posts').insert({user_email:BIZ_EMAIL,user_name:BIZ.name||'Organización',content:'📢 COMUNICADO OFICIAL\n\n'+msg,created_at:new Date().toISOString(),expires_at:new Date(Date.now()+48*3600000).toISOString()});
+  document.getElementById('com-msg').value='';
+  toast('Comunicado enviado al feed!');
+}
+
+async function saveLinks(){
+  await sb.from('business_requests').update({payment_link_mp:document.getElementById('mp-input').value.trim()||null,payment_link_stripe:document.getElementById('stripe-input').value.trim()||null}).eq('email',BIZ_EMAIL);
+  toast('Links guardados!');
+}
+
+async function loadFaq(){
+  const{data}=await sb.from('business_chatbot_faq').select('*').eq('business_email',BIZ_EMAIL).order('order_index');
+  const list=document.getElementById('faq-list');
+  if(!data||!data.length){list.innerHTML=`<div style="padding:40px;text-align:center;color:var(--muted);">Sin preguntas configuradas.</div>`;return;}
+  list.innerHTML=data.map(f=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;justify-content:space-between;gap:10px;">
+    <div><div style="font-weight:700;margin-bottom:4px;">❓ ${f.question}</div><div style="font-size:12px;color:var(--muted);">${f.answer}</div></div>
+    <button class="btn-sm btn-danger" onclick="sb.from('business_chatbot_faq').delete().eq('id','${f.id}').then(()=>{toast('FAQ eliminada.');loadFaq();})"><i class='bx bx-trash'></i></button>
+  </div>`).join('');
+}
+async function saveFaq(){
+  const q=document.getElementById('f-q').value.trim(),a=document.getElementById('f-a').value.trim();
+  if(!q||!a){toast('Completá ambos campos.','error');return;}
+  await sb.from('business_chatbot_faq').insert({business_email:BIZ_EMAIL,question:q,answer:a,order_index:Date.now()});
+  document.getElementById('modal-faq').classList.remove('open');toast('FAQ agregada!');loadFaq();
+}
+
+loadDashboard();
+</script>
+  <script src="canchero-crm-ventas.js?v=20260624g"></script>
+</body>
+</html>
