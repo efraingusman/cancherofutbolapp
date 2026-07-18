@@ -398,6 +398,7 @@ window.CancheroMessaging = (function() {
     async function renderConversationList() {
         const list = document.getElementById('msg-chat-list');
         if (!list) return;
+        try { if (window._msgSyncBackBtn) window._msgSyncBackBtn(); } catch(e){}
         const u = getUser();
         _myEmail = u.email;
         _myName = u.name;
@@ -444,7 +445,12 @@ window.CancheroMessaging = (function() {
             const { data: myGroups } = await getSb().from('group_members').select('group_id, role').eq('email', _myEmail);
             const groupIds = (myGroups || []).map(g => g.group_id);
             let groups = [];
-            if (groupIds.length > 0) {
+            // Los GRUPOS también son por identidad. Antes se cargaban solo por email y
+            // aparecían idénticos en fanático, equipo, complejo, tienda y organización:
+            // por eso "el único que distinguía era jugador" (los DM sí se filtraban).
+            // Un chat de PARTIDO es de quien juega → la bandeja del jugador.
+            const _boxGrupos = _chatTag();
+            if (groupIds.length > 0 && _boxGrupos === 'jugador') {
                 const { data: groupData } = await getSb().from('group_chats').select('*').in('id', groupIds);
                 for (const g of (groupData || [])) {
                     // Último mensaje del grupo

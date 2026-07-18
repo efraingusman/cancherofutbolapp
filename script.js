@@ -9701,6 +9701,25 @@ window._isFanOverlayActive = function(){
 // CHATS DEL EQUIPO: la barra inferior del rol EQUIPO es Gestión·Buscar·Inicio·Partido·
 // Perfil (sin CHATS), así que el acceso va por este botón del perfil del club. Se
 // asegura de tener la identidad de equipo activa para abrir la bandeja team:<id>.
+// Volver al perfil del club desde la sección de chats (solo identidad de equipo).
+window._msgVolverAlClub = function() {
+    try {
+        const box = (window._chatTagNow && window._chatTagNow()) || '';
+        const id = String(box).indexOf('team:') === 0 ? String(box).slice(5) : null;
+        if (id && window.viewClubProfile) { window.viewClubProfile(id); return; }
+        if (typeof switchDashboardTab === 'function') switchDashboardTab((window.userData && window.userData.role) || 'jugador', 'perfil', null);
+    } catch(e){}
+};
+// Muestra/oculta ese botón según la identidad activa. Se llama al pintar la bandeja.
+window._msgSyncBackBtn = function() {
+    try {
+        const b = document.getElementById('msg-back-club');
+        if (!b) return;
+        const box = (window._chatTagNow && window._chatTagNow()) || '';
+        b.style.display = (String(box).indexOf('team:') === 0) ? 'inline-flex' : 'none';
+    } catch(e){}
+};
+
 window._openTeamChats = function(clubId) {
     try {
         const ap = localStorage.getItem('canchero_active_profile') || '';
@@ -12749,7 +12768,18 @@ window._openTeamChatScreen = function(clubId, clubName){
 window._buildTeamChatRows = async function(){
     try {
         if (!window._myTeamsCache || !window._myTeamsCache.length) await (window._loadMyTeams ? window._loadMyTeams() : Promise.resolve());
-        const teams = window._myTeamsCache || [];
+        let teams = window._myTeamsCache || [];
+        if (!teams.length) return '';
+        // El chat de la plantilla es del EQUIPO: solo se ve con esa identidad activa.
+        // Antes salía en todas (fanático, complejo, tienda, organización) porque se
+        // listaba por cuenta y no por identidad.
+        const _box = (window._chatTagNow && window._chatTagNow()) || 'jugador';
+        if (String(_box).indexOf('team:') === 0) {
+            const _id = String(_box).slice(5);
+            teams = teams.filter(t => String(t.id) === _id);
+        } else {
+            return '';   // ninguna otra identidad ve los chats de plantilla
+        }
         if (!teams.length) return '';
         return teams.map(function(t){
             const photo = t.logo_url || t.logo || t.shield || t.photo || '';
@@ -16589,7 +16619,29 @@ const social = (() => {
         return `<span style="font-size:9px;background:rgba(186,255,0,0.15);color:var(--accent);padding:1px 6px;border-radius:4px;margin-left:6px;font-weight:700;text-transform:uppercase;">${map[role]}</span>`;
     }
 
+    // ¿El post es de la identidad ACTIVA? No alcanza con el email: una cuenta tiene
+    // varias identidades y, comparando solo el email, desde FANÁTICO se podían fijar,
+    // desfijar y borrar publicaciones hechas como JUGADOR (y viceversa con los negocios).
+    // Los botones de dueño solo salen en la identidad que publicó.
+    window._esMiIdentidad = function(p) {
+        try {
+            const me = window.userData || {};
+            if (!p || !me.email) return false;
+            if ((p.user_email || '').toLowerCase() !== (me.email || '').toLowerCase()) return false;
+            const bizActivo = (window._activeBizId && window._activeBizId()) || null;
+            const postBiz = p.business_id ? String(p.business_id) : null;
+            if (postBiz) return !!bizActivo && String(bizActivo) === postBiz;   // post de negocio
+            if (bizActivo) return false;   // estoy en un negocio, el post no es de negocio
+            const rolPost = (p.user_role || 'jugador');
+            const rolActivo = (window._activeProfileType && window._activeProfileType()) || 'jugador';
+            if (rolActivo === 'fanatico' || rolPost === 'fanatico') return rolPost === rolActivo;
+            if (String(rolActivo).indexOf('team:') === 0 || rolActivo === 'team') return rolPost === 'club';
+            return true;   // jugador ↔ jugador
+        } catch(e){ return false; }
+    };
     function postCardHTML(p, likedByMe, isFollowing, isMe) {
+        // isMe llega como "mismo email"; para las acciones de dueño hace falta la identidad.
+        const _puedeGestionar = window._esMiIdentidad(p);
         const liked = likedByMe;
         const hasMedia = p.media_url && p.media_type !== 'text';
         const isVideo = p.media_type === 'video';
@@ -16617,7 +16669,7 @@ const social = (() => {
               </div>
               <div style="font-size:11px;color:#666;">${timeAgoStr(p.created_at)}</div>
             </div>
-            <div style="display:flex;align-items:center;gap:4px;">${followBtn}${isMe
+            <div style="display:flex;align-items:center;gap:4px;">${followBtn}${_puedeGestionar
                 ? `<button onclick="${p.pinned?'unpinPost':'pinPost'}('${p.id}')" title="${p.pinned?'Desfijar':'Fijar en perfil'}" style="background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;color:${p.pinned?'var(--accent)':'#555'};font-size:18px;line-height:1;"><i class='bx bx-pin'></i></button><button onclick="deleteOwnPost('${p.id}')" title="Eliminar" style="background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;color:#555;font-size:18px;line-height:1;"><i class='bx bx-trash'></i></button>`
                 : `<button onclick="openOtherPostMenu('${p.id}','${(p.user_email||'').replace(/'/g,"\\'")}')" style="background:none;border:none;color:#555;cursor:pointer;font-size:22px;padding:0 4px;line-height:1;">⋯</button>`}</div>
           </div>
@@ -18509,6 +18561,17 @@ window._saveEditPost = async function(postId) {
 
 window.deleteOwnPost = async function(postId) {
     if (!userData) return;
+    // Guarda de identidad: solo la identidad que publicó puede gestionar el post.
+    // (El botón ya se oculta, pero la función también se protege.)
+    try {
+        if (window._esMiIdentidad && window._sb) {
+            const _r = await window._sb.from('posts').select('user_email,user_role,business_id').eq('id', postId).maybeSingle();
+            if (_r && _r.data && !window._esMiIdentidad(_r.data)) {
+                if (window.showToast) showToast('Esa publicación es de otra de tus identidades. Cambiá de rol para gestionarla.', 'warning');
+                return;
+            }
+        }
+    } catch(e){}
     if (!confirm('¿Eliminar esta publicación?')) return;
     // Usar _sbAdmin (service_role) para que el DELETE realmente se aplique en la DB (no solo local)
     const sb = window._sb;
@@ -21518,6 +21581,17 @@ window.isPinnedLocally = function(postId) {
 
 window.pinPost = async function(postId) {
     if (!userData) return;
+    // Guarda de identidad: solo la identidad que publicó puede gestionar el post.
+    // (El botón ya se oculta, pero la función también se protege.)
+    try {
+        if (window._esMiIdentidad && window._sb) {
+            const _r = await window._sb.from('posts').select('user_email,user_role,business_id').eq('id', postId).maybeSingle();
+            if (_r && _r.data && !window._esMiIdentidad(_r.data)) {
+                if (window.showToast) showToast('Esa publicación es de otra de tus identidades. Cambiá de rol para gestionarla.', 'warning');
+                return;
+            }
+        }
+    } catch(e){}
     const pins = _getPinnedPosts();
     if (pins.length >= 20) {
         showToast('Límite: ya tenés 20 publicaciones fijadas. Desfijá alguna primero.', 'warning');
@@ -21537,6 +21611,17 @@ window.pinPost = async function(postId) {
 
 window.unpinPost = async function(postId) {
     if (!userData) return;
+    // Guarda de identidad: solo la identidad que publicó puede gestionar el post.
+    // (El botón ya se oculta, pero la función también se protege.)
+    try {
+        if (window._esMiIdentidad && window._sb) {
+            const _r = await window._sb.from('posts').select('user_email,user_role,business_id').eq('id', postId).maybeSingle();
+            if (_r && _r.data && !window._esMiIdentidad(_r.data)) {
+                if (window.showToast) showToast('Esa publicación es de otra de tus identidades. Cambiá de rol para gestionarla.', 'warning');
+                return;
+            }
+        }
+    } catch(e){}
     const pins = _getPinnedPosts().filter(id => id !== String(postId));
     _savePinnedPosts(pins);
     const sb = window._sb;

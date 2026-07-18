@@ -1198,6 +1198,9 @@
                         <!-- Sidebar: lista de conversaciones -->
                         <div class="msg-sidebar" id="msg-sidebar">
                             <div class="msg-sidebar-header">
+                                <!-- Volver: solo con la identidad de EQUIPO, que llega acá desde
+                                     el perfil del club y no tiene CHATS en su barra inferior. -->
+                                <button id="msg-back-club" onclick="window._msgVolverAlClub&&window._msgVolverAlClub()" title="Volver" style="display:none;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:10px;width:30px;height:30px;cursor:pointer;align-items:center;justify-content:center;margin-right:8px;flex-shrink:0;"><i class='bx bx-left-arrow-alt'></i></button>
                                 <span class="msg-sidebar-title">MENSAJES</span>
                                 <div style="display:flex;gap:4px;">
                                     <button class="msg-icon-btn" onclick="CancheroMessaging.openCreateGroupModal()" title="Nuevo grupo"><i class='bx bx-group'></i></button>
@@ -3891,7 +3894,7 @@
       </div>
     </div>
 
-    <script src="script.js?v=20260717l" charset="utf-8"></script>
+    <script src="script.js?v=20260717m" charset="utf-8"></script>
     <script src="canchero-cloud.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-avatars.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-analytics.js?v=20260714a" charset="utf-8"></script>
@@ -3900,7 +3903,7 @@
     <script src="canchero-app.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-fase3.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-notifications.js?v=20260715a" charset="utf-8"></script>
-    <script src="canchero-messaging.js?v=20260718d" charset="utf-8"></script>
+    <script src="canchero-messaging.js?v=20260718e" charset="utf-8"></script>
     <script src="canchero-live.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-mundial.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-encuesta.js?v=20260714a" charset="utf-8"></script>
