@@ -592,6 +592,24 @@ window.CancheroNotif = (function() {
                 if (typeof switchDashboardTab === 'function') switchDashboardTab('jugador', 'mis-clubes', null);
             } else if (t === 'biz_approved') {
                 if (window._showBizActivation && window.userData) window._showBizActivation(window.userData.email);
+            } else if (t === 'torneo_solicitud' || t === 'torneo_comunicado' || t === 'torneo_pago') {
+                // Torneos: si soy la organización creadora → gestión con la pestaña
+                // Solicitudes abierta (aceptar/rechazar ya); si no → vista pública.
+                (async function(){
+                    var tid2 = n.post_id || n.ref_id || null;
+                    if (!tid2 || !window.CancheroTournaments) return;
+                    try {
+                        var rT = await window._sb.from('tournaments').select('organizer_email').eq('id', tid2).single();
+                        var orgE = rT && rT.data && rT.data.organizer_email;
+                        var meE = ((window.userData && window.userData.email) || '').toLowerCase();
+                        if (t === 'torneo_solicitud' && orgE && orgE.toLowerCase() === meE) {
+                            CancheroTournaments.openTournamentManager(tid2, orgE);
+                            setTimeout(function(){ try { CancheroTournaments._ctmTab('solicitudes', tid2, orgE, document.querySelector('.ctm-tab[data-tab="solicitudes"]')); } catch(e){} }, 800);
+                        } else {
+                            CancheroTournaments.openPublicView(tid2);
+                        }
+                    } catch(e) { try { CancheroTournaments.openPublicView(tid2); } catch(e2){} }
+                })();
             } else if (t === 'game_result') {
                 if (typeof window.openGamesModal === 'function') window.openGamesModal();
             } else if (matchId) {

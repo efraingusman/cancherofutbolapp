@@ -20,6 +20,18 @@ window.escH = window.escH || function(s) {
 window.__bootHash = (window.location.hash || '').toLowerCase();
 const SUPABASE_URL = 'https://dofbxgqzcvfjpnvcvdjb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_gPwLXkMHk3HvFz9nm9hgKA_1D0IJBKA';
+// fetch con TIMEOUT para TODAS las llamadas a Supabase. Sin esto, si el backend no
+// responde (503 / red caída) la petición quedaba colgada para siempre: la UI parecía
+// congelada, los guardados fallaban en silencio y las listas no refrescaban. Ahora
+// aborta a los 15s → la promesa rechaza → el try/catch del código muestra el error.
+window._cancheroFetch = function(input, init){
+    init = init || {};
+    if (init.signal) return fetch(input, init); // respetar un signal ya provisto
+    var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var t = ctrl ? setTimeout(function(){ try { ctrl.abort(); } catch(e){} }, 15000) : null;
+    if (ctrl) init.signal = ctrl.signal;
+    return fetch(input, init).finally(function(){ if (t) clearTimeout(t); });
+};
 let _sb = null;
 try {
     if (window.supabase) {
@@ -29,10 +41,24 @@ try {
                 autoRefreshToken: true,
                 detectSessionInUrl: true,
                 storageKey: 'canchero_auth',
-            }
+            },
+            global: { fetch: window._cancheroFetch }
         });
         window._sb = _sb;           // expuesto globalmente para todos los módulos
         window.supabaseClient = _sb; // alias de compatibilidad
+        // PARCHE CRÍTICO: el builder de PostgREST (supabase-js v2) es "thenable" pero NO
+        // tiene .catch(). En TODO el código hay `sb.from(...).insert(...).catch(...)` que
+        // lanzaba "TypeError: .catch is not a function" de forma SÍNCRONA → cortaba la
+        // operación y la escritura fallaba EN SILENCIO (guardados que "no hacían nada").
+        // Le agregamos .catch al prototipo una sola vez → arregla todos los llamados.
+        try {
+            var _bp = Object.getPrototypeOf(_sb.from('users').select('email'));
+            while (_bp && !Object.prototype.hasOwnProperty.call(_bp, 'then')) _bp = Object.getPrototypeOf(_bp);
+            if (_bp && !_bp.catch) Object.defineProperty(_bp, 'catch', {
+                value: function(onRejected){ return this.then(undefined, onRejected); },
+                writable: true, configurable: true
+            });
+        } catch(e) { console.warn('postgrest .catch patch:', e); }
         // SEGURIDAD (Fase 1): la service key se quitó del cliente.
         // _sbAdmin queda como alias del cliente anon para compatibilidad de todo
         // el código existente; las operaciones privilegiadas van a funciones api/.
@@ -97,9 +123,17 @@ async function _restoreSessionNow() {
             var inv = new URLSearchParams(location.search).get('invite');
             if (inv) {
                 try { localStorage.setItem('pending_invite', inv); } catch(e){}
-                var _openInv = function(){ if (typeof window.viewMatchDetails === 'function') { window.viewMatchDetails(inv); try{ localStorage.removeItem('pending_invite'); }catch(e){} return true; } return false; };
-                // Si ya hay sesión, abrir ya; si no, reintentar unos segundos (tras login)
-                setTimeout(function(){ if(!_openInv()){ var t=0; var iv=setInterval(function(){ t++; if(_openInv()||t>40) clearInterval(iv); }, 1500); } }, 800);
+                // Esperar TAMBIÉN a que la sesión esté restaurada (userData): si se abría
+                // a los 800ms sin sesión, la ficha no renderizaba y la pestaña quedaba en el inicio.
+                var _openInv = function(){
+                    if (typeof window.viewMatchDetails === 'function' && window.userData && window.userData.email) {
+                        window.viewMatchDetails(inv);
+                        try{ localStorage.removeItem('pending_invite'); }catch(e){}
+                        return true;
+                    }
+                    return false;
+                };
+                setTimeout(function(){ if(!_openInv()){ var t=0; var iv=setInterval(function(){ t++; if(_openInv()||t>60) clearInterval(iv); }, 1000); } }, 800);
             }
         } catch(e) {}
         try {
@@ -107,6 +141,15 @@ async function _restoreSessionNow() {
             if (perfilEmail && typeof window.viewUserProfile === 'function') {
                 setTimeout(function(){ try { window.viewUserProfile(perfilEmail, true); } catch(e){} }, 600);
                 return true;
+            }
+        } catch(e) {}
+        // Link al perfil de un EQUIPO/CLUB: /?club=<clubId> → abre su perfil.
+        // (Faltaba: los links de equipo desde el panel de torneos caían en el inicio.)
+        try {
+            var clubRef = new URLSearchParams(location.search).get('club');
+            if (clubRef) {
+                var _openClub = function(){ if (typeof window.viewClubProfile === 'function') { window.viewClubProfile(clubRef); return true; } return false; };
+                setTimeout(function(){ if(!_openClub()){ var tc=0; var ivc=setInterval(function(){ tc++; if(_openClub()||tc>40) clearInterval(ivc); }, 1000); } }, 800);
             }
         } catch(e) {}
         // Link compartido a un POST/REEL/PRODUCTO: /?post=<id> → abre esa publicación
@@ -331,15 +374,58 @@ window.handleGoogleAuth = async function() {
     } catch(e) {
         const msg = e.message || '';
         if (msg.toLowerCase().includes('provider is not enabled') || msg.toLowerCase().includes('unsupported provider')) {
-            showToast('Google login no está activado en Supabase. Mientras tanto, usá email/contraseña.', 'warning');
+            showToast('Google login no está activado en Supabase. Activalo en Authentication → Providers.', 'warning');
         } else {
-            showToast('Error con Google: ' + (msg || 'Intentá con email/contraseña.'), 'error');
+            showToast('Error con Google: ' + (msg || 'Intentá de nuevo.'), 'error');
         }
     }
 };
 
+// ── Rol elegido en el HOME al tocar "ENTRAR" ──────────────────────────────
+// La app abria SIEMPRE como Organizacion aunque el usuario se hubiera registrado
+// como jugador. Ahora manda la eleccion del home; si no hay eleccion, manda el rol
+// primario (el primero que se creo), y recien despues el fallback de negocio.
+window._setLoginIntent = function(role){
+    try { if (role) sessionStorage.setItem('canchero_login_intent', role); } catch(e){}
+};
+window._getLoginIntent = function(){
+    try { return sessionStorage.getItem('canchero_login_intent') || ''; } catch(e){ return ''; }
+};
+window._clearLoginIntent = function(){
+    try { sessionStorage.removeItem('canchero_login_intent'); } catch(e){}
+};
+// Rol PRIMARIO = el primero con el que la cuenta existio. Se sella una sola vez.
+window._primaryRole = function(){
+    try {
+        var p = localStorage.getItem('canchero_primary_role');
+        if (p) return p;
+        var base = window._baseStoredRole ? window._baseStoredRole() : '';
+        if (base) { localStorage.setItem('canchero_primary_role', base); return base; }
+    } catch(e){}
+    return '';
+};
+
 // Navegación post-login centralizada: negocios activos → CRM, resto → jugador/admin
 window._navAfterLogin = function(role, email) {
+    // Si el usuario eligio un rol en el home, esa eleccion gana sobre users.role.
+    try {
+        var _intent = window._getLoginIntent();
+        if (_intent) {
+            if (_intent === 'jugador' || _intent === 'fanatico') {
+                localStorage.setItem('canchero_active_profile', _intent);
+                localStorage.removeItem('canchero_active_team');
+                if (window.userData) { window.userData._activeProfile = _intent; window.userData._postAsClub = false; window.userData._activeClubId = null; }
+                role = _intent;
+            } else if (window._BIZ_ROLES && window._BIZ_ROLES.indexOf(_intent) !== -1) {
+                // Negocio: si ya existe uno de ese rol, activarlo; sino queda 'negocio'.
+                var _mine = (window._myBusinesses || []).filter(function(b){ return b.role === _intent; })[0];
+                localStorage.setItem('canchero_active_profile', _mine ? ('biz:' + _mine.id) : 'negocio');
+                role = _intent;
+            }
+            window._clearLoginIntent();
+        }
+    } catch(e){}
+    try { window._primaryRole(); } catch(e){}
     const _paidRoles = ['club','profesional','organizacion','tienda','sponsor'];
     const u = window.userData || {};
     const _esNegocio = _paidRoles.includes(role) && email !== 'neurovidstudioia@gmail.com';
@@ -410,6 +496,9 @@ window._loadMyBusinesses = async function(){
         if (!sb || !u || !u.email) return window._myBusinesses;
         if (u.email === 'neurovidstudioia@gmail.com') return (window._myBusinesses = []);
         var r = await sb.from('business_requests').select('*').eq('email', u.email).order('created_at', { ascending: true });
+        // Si la consulta FALLA (400/503/red), NO vaciar la lista: el dueño vería "Registrar
+        // mi negocio" como si lo hubiera perdido. Conservar lo ya cargado y salir.
+        if (r && r.error) { console.warn('[_loadMyBusinesses] error, se conserva la lista previa:', r.error.message); return window._myBusinesses; }
         var rows = (r && r.data) || [];
         var seen = {};
         window._myBusinesses = rows
@@ -420,6 +509,9 @@ window._loadMyBusinesses = async function(){
                     id: String(b.id), role: b.role || pl.role || 'tienda', name: b.name || pl.name || 'Mi negocio',
                     photo: b.photo || pl.photo || '', bio: b.bio || pl.bio || '', coverPhoto: b.cover || pl.cover || null,
                     plan: b.plan || pl.plan || 'estandar',
+                    // Encuadre (zoom/x/y) de la foto y la portada del negocio. Sin esto el
+                    // logo se renderiza con el recorte de CARA por defecto (center 25%).
+                    photo_style: pl.photo_style || null, cover_style: pl.cover_style || null,
                     // Datos editables del perfil de negocio (viven en payload).
                     phone: pl.phone || '', whatsapp: pl.whatsapp || '', address: pl.address || '',
                     website: pl.website || '', instagram: pl.instagram || '', price_info: pl.price_info || '',
@@ -473,7 +565,10 @@ window._activeBiz = function(){
     if ((window._BIZ_ROLES.indexOf(r) !== -1) || window._isBizUser) {
         var base = null; try { base = JSON.parse(sessionStorage.getItem('canchero_base_snapshot')||'null'); } catch(e){}
         return { id:'__primary__', role: r, name: (base && base.name) || (window.userData && window.userData.name) || 'Mi negocio',
-                 photo: (base && base.photo) || (window.userData && window.userData.photo) || '', bio:'', coverPhoto:null };
+                 photo: (base && base.photo) || (window.userData && window.userData.photo) || '', bio:'', coverPhoto:null,
+                 // Legacy: users.* ES el negocio → su encuadre es el de la fila users.
+                 photo_style: (base && (base.photo_style || base.photoStyle))
+                              || (window.userData && (window.userData.photo_style || window.userData.photoStyle)) || null };
     }
     return null;
 };
@@ -519,6 +614,18 @@ window._pubBizId = function(){
         return (id && id !== '__primary__') ? String(id) : null;
     }
     return null;
+};
+// Foto + encuadre de la identidad ACTIVA, para los composers y el avatar propio.
+// Lee _activeBiz() en vez de userData porque el overlay de branding puede no haber
+// corrido todavía (_loadMyBusinesses es async) y ahí userData aún es el jugador base.
+// Devuelve el mismo contrato que espera _avatarBgCss(): { photo, photo_style }.
+window._pubAvatar = function(){
+    var u = window.userData || {};
+    try {
+        var b = window._activeBiz && window._activeBiz();
+        if (b) return { photo: b.photo || '', photo_style: b.photo_style || null, name: b.name || u.name || '' };
+    } catch(e){}
+    return { photo: u.photo || '', photo_style: u.photoStyle || u.photo_style || null, name: u.name || '' };
 };
 // Cache de equipos del usuario (clubs con owner_email = mi email)
 window._myTeamsCache = [];
@@ -594,6 +701,13 @@ window._activeProfileType = function(){
     const u = window.userData || {};
     const stored = localStorage.getItem('canchero_active_profile');
     if (stored) return stored;
+    // Sin identidad guardada manda el rol PRIMARIO (con el que se registro la cuenta).
+    // Antes se saltaba directo a 'negocio' y por eso una cuenta registrada como jugador
+    // abria siempre como Organizacion.
+    try {
+        var prim = window._primaryRole && window._primaryRole();
+        if (prim && window._BIZ_ROLES && window._BIZ_ROLES.indexOf(prim) === -1) return window._baseTypeOf(prim);
+    } catch(e){}
     // Cuenta legacy cuyo rol BASE es un negocio: su identidad por defecto es 'negocio'.
     // (Cuentas jugador con negocios agregados arrancan como 'jugador'.)
     if (window._BIZ_ROLES && window._BIZ_ROLES.indexOf(window._baseStoredRole()) !== -1) return 'negocio';
@@ -768,7 +882,9 @@ window._applyActiveProfileOverlay = function(){
         if (b) {
             window.userData.name = b.name || window.userData.name;
             window.userData.photo = b.photo || '';
-            window.userData.photoStyle = null; window.userData.photo_style = null;
+            // Encuadre del NEGOCIO (no el del jugador base, que descuadraba el logo).
+            window.userData.photoStyle = b.photo_style || null;
+            window.userData.photo_style = b.photo_style || null;
             window.userData.bio = (b.bio != null) ? b.bio : '';
             window.userData.coverPhoto = b.coverPhoto || null;
             window.userData.cover_photo = b.coverPhoto || null;
@@ -1376,9 +1492,34 @@ window._doDeleteIdentity = async function(kind, bizId){
     var sheet = document.getElementById('profile-switcher-sheet'); if (sheet) { sheet.remove(); if (window._openProfileSwitcher) window._openProfileSwitcher(); }
 };
 // Píldora centrada en el header (estilo Instagram)
+// ¿Hay que ocultar el switcher de identidad? Sin sesion, o en home/login/registro.
+// (Antes solo se hacia `return` y la pildora quedaba visible en el home deslogueado.)
+window._shouldHideSwitcher = function(){
+    if (!window.userData || !window.userData.email) return true;
+    var PUBLIC = ['home', 'login', 'register', ''];
+    try {
+        // Vista visible real (.view-section con display:block). Es la fuente confiable:
+        // el hash puede quedar viejo tras un deep-link.
+        var secs = document.querySelectorAll('.view-section');
+        for (var i = 0; i < secs.length; i++) {
+            if (secs[i].style.display === 'block') {
+                var id = (secs[i].id || '').replace(/^view-/, '');
+                return PUBLIC.indexOf(id) !== -1;
+            }
+        }
+        var h = (window.location.hash || '').replace(/^#/, '');
+        if (PUBLIC.indexOf(h) !== -1) return true;
+    } catch(e){}
+    return false;
+};
 window._renderProfileSwitcher = function(){
     const nav = document.getElementById('main-nav');
-    if (!nav || !window.userData || !window.userData.email) return;
+    if (!nav) return;
+    if (window._shouldHideSwitcher()) {
+        var _p = document.getElementById('profile-switcher-pill');
+        if (_p) _p.style.display = 'none';
+        return;
+    }
     let pill = document.getElementById('profile-switcher-pill');
     const active = window._activeProfileType();
     let label, icon;
@@ -1616,16 +1757,21 @@ async function showGoogleRoleModal(user) {
             }
         }
     } catch(e) {}
-    // Solo llega acá si es un usuario REALMENTE nuevo
-    const modal = document.getElementById('google-role-modal');
-    if (modal) {
-        modal.style.display = 'flex';
-        // Reset selection
-        modal.querySelectorAll('.type-card').forEach(c => c.classList.remove('active'));
-        const first = modal.querySelector('[data-role="jugador"], .type-card');
-        if (first) first.classList.add('active');
-        googleSelectedRole = 'jugador';
-    }
+    // Usuario REALMENTE nuevo con Google → completar TODO el perfil en el onboarding
+    // (registro obligatorio: rol, nombre, foto, portada, etc.). Antes se mostraba un modal
+    // mínimo que solo pedía el rol; ahora se rellena todo, como pidió el usuario.
+    window.userData = window.userData || {};
+    window.userData.email = user.email;
+    window.userData.name = user.user_metadata?.full_name || (user.email || '').split('@')[0] || '';
+    try { navigate('register'); } catch(e){}
+    setTimeout(function(){
+        try {
+            var n = document.getElementById('reg-name'); if (n && !n.value) n.value = window.userData.name || '';
+            var re = document.getElementById('reg-email'); if (re) re.value = user.email;
+            var gh = document.getElementById('reg-google-hint'); if (gh) gh.textContent = 'Conectado como ' + user.email + ' — completá tu perfil para terminar.';
+            var gb = document.getElementById('reg-google-btn'); if (gb) gb.style.display = 'none';
+        } catch(e){}
+    }, 180);
 }
 
 window.selectGoogleRole = function(role, el) {
@@ -2120,7 +2266,7 @@ window.installApp = window.smartDownload;
 const ROLES_CONFIG = [
     { id:'jugador',     icon:'bx-run',            label:'Jugador',         sub:'Gratis · Acceso inmediato',    color:'#baff00' },
     { id:'fanatico',    icon:'bx-crown',          label:'Fanático',        sub:'Hincha · Creador de contenido · Influencer', color:'#FFD700' },
-    { id:'club',        icon:'bx-cancha',  label:'Complejo',        sub:'Deportivo · Requiere aprobación', color:'#baff00' },
+    { id:'club',        icon:'bx-cancha',  label:'Complejo',        sub:'Deportivo · Gratis', color:'#baff00' },
     { id:'organizacion',icon:'bx-trophy',          label:'Organización',    sub:'Club, liga, escuela...',      color:'#baff00' },
     { id:'tienda',      icon:'bx-store',           label:'Tienda',          sub:'Productos deportivos',        color:'#baff00' },
 ];
@@ -2185,7 +2331,9 @@ window.heroEntrar = async function(tipo) {
 };
 
 // Modal de login directo (email/pass + Google) — más compacto que el de roles
-function _showLoginModal() {
+function _showLoginModal(intentRole) {
+    // Rol elegido en el home: se respeta despues del login (ver _navAfterLogin).
+    try { if (intentRole && window._setLoginIntent) window._setLoginIntent(intentRole); } catch(e){}
     const existing = document.getElementById('quick-login-modal');
     if (existing) existing.remove();
     const modal = document.createElement('div');
@@ -2206,76 +2354,42 @@ function _showLoginModal() {
                 <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.83l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
                 Continuar con Google
             </button>
-            <!-- Divider -->
-            <div style="display:flex;align-items:center;gap:10px;color:#333;font-size:11px;"><div style="flex:1;height:1px;background:#222;"></div>o con correo<div style="flex:1;height:1px;background:#222;"></div></div>
-            <!-- Email -->
-            <input id="qlm-email" type="email" placeholder="Correo electrónico" style="background:#1a1a1a;border:1px solid #2a2a2a;color:#fff;padding:12px 14px;border-radius:12px;font-size:14px;outline:none;width:100%;box-sizing:border-box;" onfocus="this.style.borderColor='#baff00'" onblur="this.style.borderColor='#2a2a2a'">
-            <input id="qlm-pass" type="password" placeholder="Contraseña" style="background:#1a1a1a;border:1px solid #2a2a2a;color:#fff;padding:12px 14px;border-radius:12px;font-size:14px;outline:none;width:100%;box-sizing:border-box;" onfocus="this.style.borderColor='#baff00'" onblur="this.style.borderColor='#2a2a2a'" onkeydown="if(event.key==='Enter')_doQuickLogin()">
-            <button onclick="_doQuickLogin()" style="background:var(--accent);color:#000;border:none;border-radius:12px;padding:13px;font-weight:900;font-size:14px;cursor:pointer;letter-spacing:.5px;width:100%;transition:.15s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">ENTRAR</button>
             <div id="qlm-error" style="display:none;text-align:center;color:#ff6b6b;font-size:12px;padding:4px 0;"></div>
-            <div style="text-align:center;font-size:12px;color:#555;margin-top:4px;">¿No tenés cuenta? <a onclick="document.getElementById('quick-login-modal').remove();navigate('register')" style="color:var(--accent);cursor:pointer;font-weight:700;">Registrarte gratis</a></div>
+            <div style="text-align:center;font-size:12px;color:#555;margin-top:4px;">Si es tu primera vez, la cuenta se crea sola. Gratis.</div>
         </div>
     </div>`;
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
     document.body.appendChild(modal);
-    setTimeout(() => { const el = document.getElementById('qlm-email'); if (el) el.focus(); }, 100);
 }
 window._showLoginModal = _showLoginModal;
 
-window._doQuickLogin = async function() {
-    const email = (document.getElementById('qlm-email')?.value || '').trim();
-    const pass = document.getElementById('qlm-pass')?.value || '';
-    const errEl = document.getElementById('qlm-error');
-    if (!email || !pass) { if (errEl) { errEl.textContent = 'Completá email y contraseña.'; errEl.style.display = 'block'; } return; }
-    const btn = document.querySelector('#quick-login-modal button[onclick="_doQuickLogin()"]');
-    if (btn) { btn.textContent = 'Verificando...'; btn.disabled = true; }
-    const sb = _sb || window._sb;
-    if (!sb) { if (errEl) { errEl.textContent = 'Sin conexión.'; errEl.style.display = 'block'; } return; }
-    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
-    if (error) {
-        if (errEl) { errEl.textContent = 'Email o contraseña incorrectos.'; errEl.style.display = 'block'; }
-        if (btn) { btn.textContent = 'ENTRAR'; btn.disabled = false; }
-        return;
-    }
-    // Buscar usuario en tabla — usar _sbAdmin para bypassar RLS
-    const sbq = sb;
-    let { data: u } = await sbq.from('users').select('*').eq('email', email).maybeSingle();
-    if (!u) {
-        // No hay perfil → crear uno mínimo desde los datos de la sesión auth
-        const authMeta = data?.user?.user_metadata || {};
-        const newProfile = {
-            email: email.toLowerCase(),
-            name: authMeta.name || authMeta.full_name || email.split('@')[0],
-            role: authMeta.role || 'jugador'
-        };
-        const { data: created } = await sbq.from('users').upsert(newProfile, { onConflict: 'email' }).select().maybeSingle();
-        u = created || newProfile;
-    }
-    if (u) {
-        // Normalizar snake_case → camelCase que usa la UI (sino la portada/foto
-        // aparecían vacías tras reloguear aunque seguían en la DB)
-        if (u.cover_photo && !u.coverPhoto) u.coverPhoto = u.cover_photo;
-        if (u.cover_style && !u.coverStyle) u.coverStyle = u.cover_style;
-        if (u.photo_style && !u.photoStyle) u.photoStyle = u.photo_style;
-        window.userData = u;
-        try { localStorage.setItem('canchero_user', JSON.stringify(u)); } catch(e) {}
-        document.getElementById('quick-login-modal')?.remove();
-        if (typeof applyUserData === 'function') applyUserData();
-        window._navAfterLogin(u.role || 'jugador', u.email);
-        // Evaluar logros al login
-        setTimeout(function() { if (typeof window._triggerAchievementsEval === 'function') window._triggerAchievementsEval(); }, 2000);
-    } else {
-        if (errEl) { errEl.textContent = 'Error al cargar perfil. Intentá de nuevo.'; errEl.style.display = 'block'; }
-        if (btn) { btn.textContent = 'ENTRAR'; btn.disabled = false; }
-    }
+// ¿El error de login es por email SIN confirmar? (Supabase exige confirmación).
+window._isEmailNotConfirmed = function(error) {
+    if (!error) return false;
+    var m = (error.message || '').toLowerCase();
+    return error.code === 'email_not_confirmed' || m.indexOf('not confirmed') !== -1 || m.indexOf('no confirmad') !== -1;
 };
+// Reenvía el email de confirmación de cuenta. silent=true evita el toast (cuando ya se
+// muestra el aviso inline en el modal).
+window._resendConfirmation = async function(email, silent) {
+    var sb = window._sb; if (!sb || !email) return;
+    try {
+        await sb.auth.resend({ type: 'signup', email: email });
+        if (!silent && typeof showToast === 'function') showToast('Te reenviamos el email de confirmación a ' + email + '. Revisá tu casilla y spam.', 'info', 4000);
+    } catch(e) { if (!silent && typeof showToast === 'function') showToast('No se pudo reenviar: ' + (e.message||''), 'error'); }
+};
+// _doQuickLogin (login por email+contrasena) eliminado: el ingreso es SOLO con Google.
 
 // Hero "NEGOCIO" button — shows only business roles
 window.openNegocioModal = function() {
     const existing = document.getElementById('negocio-modal');
     if (existing) existing.remove();
-    // Fanático NO es un negocio — solo complejo/organización/tienda
-    const BIZ_ROLES = ROLES_CONFIG.filter(r => r.id !== 'jugador' && r.id !== 'fanatico');
+    // Al entrar como NEGOCIO solo se muestran estos 3 roles (cada uno con su icono):
+    // Complejo (id 'club'), Organización y Tienda. NUNCA jugador, fanático ni equipo/club.
+    const _BIZ_ALLOWED = ['club', 'organizacion', 'tienda'];
+    const BIZ_ROLES = _BIZ_ALLOWED
+        .map(id => ROLES_CONFIG.find(r => r.id === id))
+        .filter(Boolean);
     const modal = document.createElement('div');
     modal.id = 'negocio-modal';
     modal.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeInModal .2s ease;';
@@ -2290,7 +2404,7 @@ window.openNegocioModal = function() {
             </div>
             <div style="padding:16px 24px 24px;display:flex;flex-direction:column;gap:10px;">
                 ${BIZ_ROLES.map(r => `
-                <button onclick="document.getElementById('negocio-modal').remove();_showLoginModal()" style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.03);border:1px solid #1e201e;border-radius:14px;padding:14px 18px;cursor:pointer;color:#fff;text-align:left;width:100%;transition:.15s;" onmouseover="this.style.background='rgba(186,255,0,0.07)';this.style.borderColor='rgba(186,255,0,0.25)';" onmouseout="this.style.background='rgba(255,255,255,0.03)';this.style.borderColor='#1e201e';">
+                <button onclick="document.getElementById('negocio-modal').remove();_showLoginModal('${r.id}')" style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.03);border:1px solid #1e201e;border-radius:14px;padding:14px 18px;cursor:pointer;color:#fff;text-align:left;width:100%;transition:.15s;" onmouseover="this.style.background='rgba(186,255,0,0.07)';this.style.borderColor='rgba(186,255,0,0.25)';" onmouseout="this.style.background='rgba(255,255,255,0.03)';this.style.borderColor='#1e201e';">
                     <div style="width:42px;height:42px;background:rgba(186,255,0,0.1);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                         <i class='bx ${r.icon}' style="font-size:20px;color:#baff00;"></i>
                     </div>
@@ -3415,11 +3529,11 @@ window.setRegRole = function(role, el) {
     const infoMap = {
         jugador: 'Acceso gratuito. Tu perfil es público para toda la comunidad Canchero.',
         fanatico: 'Gratis. Seguí partidos, publicá opiniones, creá contenido y participá de la comunidad.',
-        club: 'Requiere aprobación. Pago mensual con 7 días gratis al ser aprobado.',
-        profesional: 'Árbitros, técnicos, preparadores y más. Requiere aprobación y suscripción.',
-        organizacion: 'Clubes, ligas, escuelas de fútbol. Requiere aprobación y suscripción.',
-        tienda: 'Vendé equipamiento, suplementos y accesorios en el marketplace. Requiere aprobación.',
-        sponsor: 'Mostrá tu marca a toda la comunidad. Requiere aprobación y acuerdo comercial.'
+        club: 'Complejo deportivo. Gratis y con acceso inmediato.',
+        profesional: 'Árbitros, técnicos, preparadores y más. Gratis y con acceso inmediato.',
+        organizacion: 'Clubes, ligas, escuelas de fútbol. Gratis y con acceso inmediato.',
+        tienda: 'Vendé equipamiento, suplementos y accesorios en el marketplace. Gratis y con acceso inmediato.',
+        sponsor: 'Mostrá tu marca a toda la comunidad. Gratis y con acceso inmediato.'
     };
     if (infoEl) infoEl.innerText = infoMap[role] || '';
 
@@ -3479,12 +3593,14 @@ window.changeRegStep = function(n) {
     if (n > 0) {
         if (currentRegStep === 1) {
             const name = document.getElementById('reg-name')?.value?.trim();
-            const email = document.getElementById('reg-email')?.value?.trim();
-            const pass = document.getElementById('reg-pass')?.value?.trim();
-            if (!name || !email || !pass) { showToast('Completá nombre, email y contraseña.', 'warning'); return; }
-            const _emIss = window._emailIssue ? window._emailIssue(email) : null;
-            if (_emIss) { showToast(_emIss, 'warning'); return; }
-            if (pass.length < 6) { showToast('La contraseña debe tener al menos 6 caracteres.', 'warning'); return; }
+            // Registro Google-only: el email viene de la sesión de Google (no de un input).
+            const email = (window.userData && window.userData.email) || document.getElementById('reg-email')?.value?.trim();
+            if (!email) {
+                showToast('Primero conectá tu cuenta de Google.', 'warning');
+                try { window.handleGoogleAuth && window.handleGoogleAuth(); } catch(e){}
+                return;
+            }
+            if (!name) { showToast('Completá tu nombre.', 'warning'); return; }
         }
     }
 
@@ -4214,13 +4330,18 @@ window._emailIssue = function(email){
 
 window.handleRegister = function() {
     const name = document.getElementById('reg-name').value?.trim();
-    const email = document.getElementById('reg-email').value?.trim();
-    const pass = document.getElementById('reg-pass').value?.trim();
-    if (!name || !email || !pass) { alert('Completá nombre, email y contraseña.'); return; }
-    // Validar email real (formato + typos + desechables) para reducir rebotes.
-    const _emIssue = window._emailIssue ? window._emailIssue(email) : null;
-    if (_emIssue) { if (typeof showToast === 'function') showToast(_emIssue, 'warning'); else alert(_emIssue); return; }
-    if (pass.length < 6) { alert('La contraseña debe tener al menos 6 caracteres.'); return; }
+    // Registro SOLO con Google: el email viene de la sesión de Google, no de un input.
+    // Si el usuario no conectó Google todavía, se lo pedimos primero.
+    const email = (window.userData && window.userData.email) || document.getElementById('reg-email')?.value?.trim();
+    if (!email) {
+        if (typeof showToast === 'function') showToast('Primero conectá tu cuenta de Google.', 'warning');
+        try { if (document.getElementById('reg-email')) document.getElementById('reg-email').value = ''; } catch(e){}
+        try { window.handleGoogleAuth && window.handleGoogleAuth(); } catch(e){}
+        return;
+    }
+    if (!name) { if (typeof showToast === 'function') showToast('Completá tu nombre.', 'warning'); else alert('Completá tu nombre.'); return; }
+    // Reflejar el email de Google en el hidden para que doFinalRegister lo tome.
+    try { const _re = document.getElementById('reg-email'); if (_re) _re.value = email; } catch(e){}
 
     // Foto de perfil y portada OBLIGATORIAS para TODOS los roles (jugador, fanático, negocio)
     if (!currentPhotoBase64) { if (typeof showToast === 'function') showToast('Subí una foto de perfil para continuar.', 'warning'); else alert('Subí una foto de perfil para continuar.'); return; }
@@ -4355,7 +4476,16 @@ function doFinalRegister() {
         setTimeout(() => { if (window.openWaitlist) window.openWaitlist(); }, 1200);
     }
 
-    // En paralelo: crear cuenta REAL en Supabase para que el login funcione cross-device
+    // Registro SOLO con Google: el usuario YA está autenticado (sesión Google) → no hay
+    // signUp con contraseña ni confirmación por email (que era la fuente de los problemas).
+    // Persistimos el perfil con un upsert AUTENTICADO. Solo columnas seguras {email,name,role}
+    // (el resto lo sincroniza _postRegisterCloudUpload / el guardado de perfil de la app).
+    if (_sb && email && !pass) {
+        _sb.from('users').upsert({ email: email.toLowerCase(), name: actualName, role: regRole }, { onConflict: 'email' })
+            .then(r => { if (r.error) console.warn('users upsert (registro Google):', r.error.message); })
+            .catch(e => console.warn('users upsert Google:', e && e.message));
+    }
+    // Compat legacy: si por algún flujo viejo llega con contraseña, mantener el signUp.
     if (_sb && email && pass) {
         _sb.auth.signUp({
             email: email,
@@ -4371,7 +4501,7 @@ function doFinalRegister() {
                     document.querySelectorAll('[id$="-modal"]').forEach(m => {
                         if (m.id !== 'quick-login-modal') m.remove();
                     });
-                    if (typeof _showQuickLoginModal === 'function') _showQuickLoginModal();
+                    if (typeof window._showLoginModal === 'function') window._showLoginModal();
                     else if (typeof window.openLoginModal === 'function') window.openLoginModal();
                 }, 800);
                 return;
@@ -4505,8 +4635,12 @@ window.closeGlobalViewer = function(role) {
     const r = role || (userData?.role === 'club' ? 'club' : 'jugador');
     const viewer = document.getElementById(r + '-global-viewer');
     if (viewer) viewer.style.display = 'none';
-    // Volver a la tab anterior o al feed por defecto
-    const prevTab = window._prevDashTab || 'amigos';
+    // Los directorios viven DENTRO de Buscar, pero se abren desde el menú Explorar sin
+    // pasar por switchDashboardTab → _prevDashTab seguía siendo la sección previa
+    // (normalmente 'inicio') y Volver salía de Buscar. Volver siempre a Buscar.
+    const _dirsDeBuscar = ['rankings','fanaticos','jugadores','clubes','complejos','organizaciones','torneos','tienda','servicios','eventos'];
+    let prevTab = window._prevDashTab || 'amigos';
+    if (_dirsDeBuscar.indexOf(window._currentDirType) !== -1) prevTab = 'buscar';
     if (typeof switchDashboardTab === 'function') switchDashboardTab(r, prevTab);
 };
 
@@ -4930,7 +5064,9 @@ window.filterBizItems = function(btn, cat) {
 };
 
 function emptyDirectoryHTML(icon, title, subtitle) {
-    return `<div style="text-align:center; padding:50px 20px;">
+    // Sin el botón Volver, un directorio vacío dejaba al usuario encerrado en el viewer.
+    return `<div><button class="btn-back-icon" aria-label="Volver" onclick="switchDashboardTab((window.userData&&window.userData.role)||'jugador','buscar')"><i class='bx bx-left-arrow-alt'></i></button></div>
+    <div style="text-align:center; padding:50px 20px;">
         <i class='bx ${icon}' style="font-size:52px; color:rgba(186,255,0,0.2); display:block; margin-bottom:15px;"></i>
         <h3 style="font-family:var(--font-display); color:rgba(255,255,255,0.3); font-size:16px; margin-bottom:8px;">${title}</h3>
         <p style="font-size:12px; color:#444; max-width:260px; margin:0 auto; line-height:1.6;">${subtitle}</p>
@@ -4941,10 +5077,10 @@ async function generateRankingHTML() {
     const sb = window._sb;
     if (!sb) return emptyDirectoryHTML('bx-bar-chart-alt-2', 'RANKING', 'Sin conexión.');
     try {
-        const { data } = await sb.from('users').select('email,name,photo,stats,position,city').not('stats', 'is', null).limit(50);
+        const { data } = await sb.from('users').select('email,name,photo,stats,city').not('stats', 'is', null).limit(50);
         if (!data || data.length === 0) return emptyDirectoryHTML('bx-bar-chart-alt-2', 'RANKING', 'Sin datos de ranking aún.');
         const sorted = data.filter(u => u.stats && u.stats.rating).sort((a,b) => (b.stats.rating||0) - (a.stats.rating||0));
-        return `<div style="margin-bottom:16px;"><div style="font-size:16px;font-weight:900;">🏆 Ranking Global</div><div style="font-size:11px;color:#555;">Los mejores jugadores de Canchero</div></div>
+        return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><button class="btn-back-icon" aria-label="Volver" onclick="switchDashboardTab((window.userData&&window.userData.role)||'jugador','buscar')"><i class='bx bx-left-arrow-alt'></i></button><i class='bx bx-trophy' style="font-size:22px;color:var(--accent);"></i><div><div style="font-size:15px;font-weight:900;">Ranking Global</div><div style="font-size:10px;color:#555;">Los mejores jugadores de Canchero</div></div></div>
         <div style="display:flex;flex-direction:column;gap:0;">${sorted.map((u,i) => {
             const emailEsc = (u.email||'').replace(/'/g,"\\'");
             const medalStyle = ['#FFD700','#C0C0C0','#CD7F32'][i] || '#333';
@@ -5012,7 +5148,27 @@ async function generateOrganizacionesHTML(query) {
         if (q) dbq = dbq.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
         if (fc) dbq = dbq.ilike('nat', fc);
         if (fci) dbq = dbq.ilike('city', `%${fci}%`);
-        const { data } = await dbq;
+        let { data } = await dbq;
+        data = data || [];
+        // Multi-identidad: las organizaciones creadas desde el switcher viven en
+        // business_requests (users.role del email suele ser 'jugador') → sin este
+        // bloque el directorio salía siempre vacío.
+        try {
+            let bq = sb.from('business_requests').select('id,email,name,role,payload').in('role', ['organizacion','liga','escuela']).limit(120);
+            if (q) bq = bq.ilike('name', `%${q}%`);
+            const { data: brs } = await bq;
+            if (brs && brs.length) {
+                const have = new Set(data.map(u => (u.email||'').toLowerCase()));
+                brs.forEach(b => {
+                    const em = (b.email||'').toLowerCase();
+                    if (!em || have.has(em)) return;
+                    let pl = b.payload || {}; try { if (typeof pl === 'string') pl = JSON.parse(pl); } catch(e){ pl = {}; }
+                    const cty = pl.city || '';
+                    if (fci && cty.toLowerCase().indexOf(fci.toLowerCase()) === -1) return;
+                    data.push({ email: b.email, name: b.name, photo: pl.photo || pl.logo || '', city: cty, nat: pl.country || '', bio: pl.bio || '', role: b.role, _bizId: String(b.id) });
+                });
+            }
+        } catch(e){ console.warn('dir organizaciones biz:', e); }
         if (!data || data.length === 0) return header + searchBar + emptyDirectoryHTML('bx-buildings', 'SIN ORGANIZACIONES', 'Todavía no hay organizaciones registradas con esos filtros.') + '</div>';
         return header + searchBar + `<div style="display:flex;flex-direction:column;gap:0;">${data.map(o => {
             const name = (o.name || 'Organización');
@@ -5020,7 +5176,8 @@ async function generateOrganizacionesHTML(query) {
             const loc = [o.city, o.nat].filter(Boolean).join(', ') || 'Uruguay';
             const emailSafe = (o.email||'').replace(/'/g,"\\'");
             const hasPhoto = o.photo && !o.photo.includes('ui-avatars');
-            return `<div onclick="window.viewUserProfile('${emailSafe}')" style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid #151515;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#111'" onmouseout="this.style.background='transparent'">
+            const openCall = o._bizId ? `window.viewUserProfile('${emailSafe}', true, { bizId: '${o._bizId}' })` : `window.viewUserProfile('${emailSafe}')`;
+            return `<div onclick="${openCall}" style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid #151515;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#111'" onmouseout="this.style.background='transparent'">
                 <div style="width:46px;height:46px;border-radius:12px;background:${hasPhoto?`#000 center/cover url('${o.photo}')`:'rgba(186,255,0,0.12)'};border:1px solid #2a2a2a;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:900;color:var(--accent);">${hasPhoto?'':init}</div>
                 <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;">${name}</div><div style="font-size:11px;color:#555;">${loc}${o.bio?' · '+o.bio.slice(0,40):''}</div></div>
                 <i class='bx bx-chevron-right' style="color:#333;font-size:18px;"></i>
@@ -5159,7 +5316,21 @@ async function _buildFanListHTML(query, filters) {
     const sb = window._sb; const q = query || ''; const f = filters || {};
     if (!sb) return emptyDirectoryHTML('bx-football', 'SIN CONEXIÓN', '');
     try {
-        let { data } = await sb.from('users').select('email,name,role,linked_profiles,city,department,nat,country').limit(300);
+        // Filtrar por identidad de fanático en el SERVIDOR. Antes traía las primeras 300
+        // filas de `users` (orden arbitrario) y recién después filtraba en memoria, así que
+        // un fanático fuera de esa ventana no aparecía nunca en el directorio.
+        const _sel = 'email,name,role,linked_profiles,city,nat';
+        let data = null;
+        try {
+            const r = await sb.from('users').select(_sel)
+                .or('role.eq.fanatico,linked_profiles->fanatico.not.is.null').limit(500);
+            if (r.error) throw r.error;
+            data = r.data;
+        } catch(e) {
+            // Fallback: si el filtro jsonb no estuviera disponible, traer y filtrar acá.
+            const r2 = await sb.from('users').select(_sel).limit(1000);
+            data = (r2 && r2.data) || [];
+        }
         let fans = (data || []).map(u => {
             let lp = {}; try { lp = typeof u.linked_profiles==='string'?JSON.parse(u.linked_profiles):(u.linked_profiles||{}); } catch(e){}
             const fan = lp.fanatico || (u.role === 'fanatico' ? { name:u.name } : null);
@@ -5314,8 +5485,10 @@ window.viewUserProfile = async function(email, forcePublic, opts) {
     // B4: el overlay arranca DEBAJO de la barra superior de la app (logo/rol/campana/
     // ajustes) y queda por DEBAJO de ella en z-index → el header sigue visible en vez
     // de taparse. El botón de volver de la portada ya no pisa el header ni las acciones.
-    const _navEl = document.getElementById('main-nav');
-    const _navH = (_navEl && _navEl.offsetParent !== null) ? Math.round(_navEl.getBoundingClientRect().height) : 0;
+    // OJO: usar window._navH() (mide el BOTTOM real del header). El header es position:fixed
+    // y para esos elementos offsetParent === null → el cálculo viejo daba 0 y el header
+    // tapaba la portada y el botón de volver (portada cortada / sin volver).
+    const _navH = (window._navH ? window._navH() : 0);
     _vupModal.style.cssText = 'position:fixed;left:0;right:0;bottom:0;top:' + _navH + 'px;z-index:900;background:#0a0a0a;overflow-y:auto;-webkit-overflow-scrolling:touch;';
     _vupModal.innerHTML = `<div class="vup-modal-wrap" style="max-width:1100px;margin:0 auto;min-height:100%;position:relative;padding-bottom:90px;background:#0a0a0a;">` + `<div id="vup-modal-content" style="padding-bottom:20px;"><div style="text-align:center;padding:60px 20px;"><i class='bx bx-loader-alt bx-spin' style="font-size:32px;color:var(--accent);"></i><div style="margin-top:12px;color:#555;font-size:13px;">Cargando perfil...</div></div></div></div>`;
     document.body.appendChild(_vupModal);
@@ -5431,6 +5604,9 @@ window.viewUserProfile = async function(email, forcePublic, opts) {
                     u.bio = _bizPick.bio || _pl.bio || _pl.description || '';
                     var _bcov = _bizPick.cover || _pl.cover || _pl.coverPhoto || _pl.cover_photo || null;
                     u.cover_photo = _bcov; u.coverPhoto = _bcov;
+                    // Encuadre (tamaño/posición) de foto de perfil y portada del negocio.
+                    u.photo_style = _pl.photo_style || null;
+                    u.cover_style = _pl.cover_style || null;
                     // Datos de contacto/negocio: del negocio elegido (payload), no de users.
                     u.phone = _pl.phone || ''; u.whatsapp = _pl.whatsapp || ''; u.address = _pl.address || '';
                     u.website = _pl.website || ''; u.instagram = _pl.instagram || ''; u.price_info = _pl.price_info || '';
@@ -6195,9 +6371,9 @@ window._loadDispModal = async function(scope, btn) {
     const me = window.userData;
     if (!sb || !me) { container.innerHTML = '<div style="padding:20px;color:#888;text-align:center;">Iniciá sesión para ver disponibles.</div>'; return; }
     try {
-        let q = sb.from('users').select('email,name,photo,avatar_url,city,country,pos,position,stats').eq('available', true).neq('email', me.email).limit(120);
+        let q = sb.from('users').select('email,name,photo,city,pos,stats').eq('available', true).neq('email', me.email).limit(120);
         if (scope === 'ciudad' && me.city) q = q.ilike('city', `%${me.city}%`);
-        else if (scope === 'pais' && me.country) q = q.ilike('country', `%${me.country}%`);
+        else if (scope === 'pais' && (me.country||me.nat)) q = q.ilike('nat', `%${me.country||me.nat}%`);
         const { data } = await q;
         window._dispAll = data || [];
         window._dispFilter();
@@ -6321,13 +6497,17 @@ window._bizItemCardHTML = function(p){
     if (!it) return '';
     const esc = s => String(s==null?'':s).replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     const kind = (it.kind||'producto').toLowerCase();
-    const cta = it.cta || (kind==='cancha'||kind==='torneo'||kind==='servicio' ? 'RESERVAR' : 'COMPRAR');
+    // Torneo: NO es "Reservar" — es "Ver torneo" y abre la página pública del torneo,
+    // donde "Gestionar" solo aparece para la organización creadora.
+    const cta = it.cta || (kind==='torneo' ? 'VER TORNEO' : (kind==='cancha'||kind==='servicio' ? 'RESERVAR' : 'COMPRAR'));
     const icon = { producto:'bx-shopping-bag', cancha:'bx-map-alt', torneo:'bx-trophy', servicio:'bx-briefcase' }[kind] || 'bx-shopping-bag';
     const price = it.price ? `<div style="font-size:16px;font-weight:900;color:var(--accent);">$${esc(it.price)}</div>` : '';
     const em = (p.user_email||'').replace(/'/g,"\\'");
     const bid = (p.business_id || it.bizId || '').toString().replace(/'/g,'');
     const iid = String(it.id||'').replace(/'/g,'');
-    const open = `window._openBizItemFromPost('${em}','${bid}','${kind}','${iid}')`;
+    const open = kind==='torneo'
+        ? `window.CancheroTournaments&&CancheroTournaments.openPublicView('${iid}')`
+        : `window._openBizItemFromPost('${em}','${bid}','${kind}','${iid}')`;
     // Con carrusel (media_urls) las fotos se muestran en el carrusel estándar del feed
     const hasCarousel = !!p.media_urls;
     return `<div onclick="${open}" style="cursor:pointer;border:1px solid rgba(186,255,0,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px;background:linear-gradient(160deg,#101510,#0b0b0b);">
@@ -6484,7 +6664,7 @@ window._refreshPostsIdentity = async function(posts){
         if (missing.length || (now - window._idCache.t) > 60000) {
             const [ur, br] = await Promise.all([
                 sb.from('users').select('email,name,photo,photo_style,linked_profiles').in('email', emails),
-                sb.from('business_requests').select('id,email,role,name,photo,payload').in('email', emails)
+                sb.from('business_requests').select('id,email,role,name,payload').in('email', emails)
             ]);
             (ur.data||[]).forEach(u => { window._idCache.users[u.email] = u; });
             (br.data||[]).forEach(b => {
@@ -6570,8 +6750,27 @@ window._uploadMyCover = async function(input, email) {
         if (window.cloudUpload) { const r = await window.cloudUpload(fUp, { folder:'canchero/covers' }); if(!r||!r.url) throw new Error('cloud'); url = r.url; }
         else { const path = 'covers/' + (email || (window.userData && window.userData.email)) + '/' + Date.now() + '.jpg'; const up = await sb.storage.from('media').upload(path, fUp, { upsert: true, contentType: 'image/jpeg' }); if (up.error) throw up.error; url = sb.storage.from('media').getPublicUrl(path).data.publicUrl; }
         const isMe = window.userData && (!email || email === window.userData.email);
-        const bizId = window._activeBizId && window._activeBizId();
-        if (isMe && bizId) {
+        let bizId = window._activeBizId && window._activeBizId();
+        // FIX portada de negocio: si el perfil visible es de un negocio pero la identidad
+        // activa no es 'biz:<id>' (p.ej. organización única), bizId venía null y la portada
+        // se guardaba en users.cover_photo — pero el perfil de negocio LEE payload.cover,
+        // así que "no funcionaba". Buscamos la fila del negocio por email+rol del perfil.
+        if (isMe && !bizId) {
+            try {
+                const prof = document.querySelector('.social-profile[data-biz-role]');
+                const bizRole = prof && prof.getAttribute('data-biz-role');
+                if (bizRole) {
+                    const { data: br } = await sb.from('business_requests').select('id,payload').eq('email', email || window.userData.email).eq('role', bizRole).order('created_at',{ascending:false}).limit(1).maybeSingle();
+                    if (br) {
+                        let pl = br.payload || {}; try { if (typeof pl === 'string') pl = JSON.parse(pl); } catch(e){ pl = {}; }
+                        pl.cover = url;
+                        await sb.from('business_requests').update({ payload: pl }).eq('id', br.id);
+                        bizId = String(br.id);
+                    }
+                }
+            } catch(e){}
+        }
+        if (isMe && bizId && window._saveBizCover && window._activeBizId && window._activeBizId()) {
             // Identidad de negocio activa: guardar donde el perfil de negocio lee (payload.cover)
             await window._saveBizCover(url);
         } else {
@@ -6607,11 +6806,14 @@ window._renderBusinessProfile = async function(opts) {
     var followBtnId = 'biz-follow-' + email.replace(/[^a-z0-9]/gi,'_');
 
     var _bizInitial = (u.name||'?')[0].toUpperCase();
-    var frameHtml = window.bizAvatar
-        ? window.bizAvatar({ logo: u.photo, name: u.name, email: u.email }, 80, { style:'border:3px solid var(--accent);' })
-        : (hasPhoto
-        ? '<div style="width:80px;height:80px;border-radius:50%;overflow:hidden;border:3px solid var(--accent);flex-shrink:0;"><img src="' + u.photo + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML=\'<div style=\\\'width:100%;height:100%;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-weight:900;color:var(--accent);font-size:28px;\\\'>' + _bizInitial + '</div>\'"></div>'
-        : '<div style="width:80px;height:80px;border-radius:50%;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-weight:900;color:var(--accent);font-size:28px;border:3px solid var(--accent);flex-shrink:0;">' + _bizInitial + '</div>');
+    // Avatar del negocio SIN marco decorativo — foto circular limpia que respeta el
+    // encuadre elegido (photo_style: zoom/x/y), igual que los jugadores.
+    var _bps = u.photo_style || {};
+    var _bpsSize = (parseFloat(_bps.zoom)>100) ? (_bps.zoom + '%') : 'cover';
+    var _bpsPos = (50 + (parseInt(_bps.x)||0)) + '% ' + (50 + (parseInt(_bps.y)||0)) + '%';
+    var frameHtml = hasPhoto
+        ? '<div style="width:80px;height:80px;border-radius:50%;overflow:hidden;border:3px solid var(--accent);flex-shrink:0;background:#1a1a1a;background-image:url(\'' + u.photo + '\');background-size:' + _bpsSize + ';background-position:' + _bpsPos + ';"></div>'
+        : '<div style="width:80px;height:80px;border-radius:50%;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-weight:900;color:var(--accent);font-size:28px;border:3px solid var(--accent);flex-shrink:0;">' + _bizInitial + '</div>';
 
     // CTAs
     var waLink = '';
@@ -6643,12 +6845,12 @@ window._renderBusinessProfile = async function(opts) {
         u.facebook ? '<a href="https://facebook.com/' + (u.facebook||'') + '" target="_blank" style="color:#1877F2;font-size:24px;"><i class=\'bx bxl-facebook\'></i></a>' : '',
     ].filter(Boolean).join('');
 
-    // Tabs por rol
+    // Tabs por rol — SOLO ICONOS (el label queda como tooltip/aria).
     var tabMap = {
-        club: [{id:'posts',label:'Publicaciones'},{id:'canchas',label:'Canchas'},{id:'galeria',label:'Fotos'},{id:'info',label:'Info'}],
-        tienda: [{id:'posts',label:'Publicaciones'},{id:'productos',label:'Productos'},{id:'info',label:'Info'}],
-        organizacion: [{id:'posts',label:'Publicaciones'},{id:'eventos',label:'Eventos'},{id:'inscripciones',label:'Inscripciones'},{id:'stats',label:'Stats'},{id:'info',label:'Info'}],
-        profesional: [{id:'posts',label:'Publicaciones'},{id:'servicios',label:'Servicios'},{id:'info',label:'Info'}]
+        club: [{id:'posts',label:'Publicaciones',icon:'bx-news'},{id:'canchas',label:'Canchas',icon:'bx-map-alt'},{id:'galeria',label:'Fotos',icon:'bx-image'},{id:'info',label:'Info',icon:'bx-info-circle'}],
+        tienda: [{id:'posts',label:'Publicaciones',icon:'bx-news'},{id:'productos',label:'Productos',icon:'bx-store'},{id:'info',label:'Info',icon:'bx-info-circle'}],
+        organizacion: [{id:'posts',label:'Publicaciones',icon:'bx-news'},{id:'eventos',label:'Eventos',icon:'bx-trophy'},{id:'inscripciones',label:'Inscripciones',icon:'bx-list-check'},{id:'stats',label:'Stats',icon:'bx-bar-chart-alt-2'},{id:'info',label:'Info',icon:'bx-info-circle'}],
+        profesional: [{id:'posts',label:'Publicaciones',icon:'bx-news'},{id:'servicios',label:'Servicios',icon:'bx-briefcase'},{id:'info',label:'Info',icon:'bx-info-circle'}]
     };
     var tabs = tabMap[role] || tabMap['organizacion'];
 
@@ -6671,7 +6873,10 @@ window._renderBusinessProfile = async function(opts) {
     var infoHtml = chipsInInfo + rrssInInfo + _buildBizInfoTab(u, role, bizData, amenitiesHtml);
 
     var roleLabel = {club:'Complejo Deportivo',tienda:'Tienda Deportiva',organizacion:'Organización',profesional:'Profesional'}[role] || role;
-    var coverBg = u.cover_photo ? 'background-image:url(\'' + u.cover_photo + '\');background-size:cover;background-position:center;' : '';
+    var _bcs = u.cover_style || {};
+    var _bcsSize = (parseFloat(_bcs.zoom)||100) + '%';
+    var _bcsPos = 'center ' + ((_bcs.y!=null?parseInt(_bcs.y):50)) + '%';
+    var coverBg = u.cover_photo ? 'background-image:url(\'' + u.cover_photo + '\');background-size:' + _bcsSize + ';background-position:' + _bcsPos + ';' : '';
     // N1: botón para cambiar la portada del negocio = SOLO ICONO (círculo cámara).
     var coverEditBtn = isMe ? ('<button onclick="document.getElementById(\'biz-cover-input\').click()" aria-label="Cambiar portada" title="Cambiar portada" style="position:absolute;bottom:10px;right:12px;z-index:3;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.25);color:#fff;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer;backdrop-filter:blur(8px);"><i class=\'bx bx-camera\'></i></button>'
         + '<input type="file" id="biz-cover-input" accept="image/*" style="display:none;" onchange="window._uploadMyCover(this,\'' + emailSafe + '\')">') : '';
@@ -6724,7 +6929,7 @@ window._renderBusinessProfile = async function(opts) {
         // chips y RRSS movidos al tab Info para no sobrecargar el header
         ((waLink || chatbotBtn) ? ('<div class="biz-cta-row">' + waLink + chatbotBtn + '</div>') : '') +
         storiesHtml +
-        '<div class="profile-tabs-bar">' + tabs.map(function(t,i){ return '<div class="profile-tab' + (i===0?' active':'') + '" id="biz-tab-' + t.id + '" onclick="window._vupBizTab(\'' + t.id + '\',\'' + emailSafe + '\')">' + t.label + '</div>'; }).join('') + '</div>' +
+        '<div class="profile-tabs-bar" style="display:flex;">' + tabs.map(function(t,i){ return '<div class="profile-tab' + (i===0?' active':'') + '" id="biz-tab-' + t.id + '" title="' + t.label + '" aria-label="' + t.label + '" onclick="window._vupBizTab(\'' + t.id + '\',\'' + emailSafe + '\')" style="flex:1;text-align:center;"><i class=\'bx ' + (t.icon||'bx-circle') + '\' style="font-size:19px;vertical-align:middle;"></i></div>'; }).join('') + '</div>' +
         '<div id="biz-section-posts" class="profile-tab-content">' + postsHtml + '</div>' +
         tabs.filter(function(t){ return t.id !== 'posts'; }).map(function(t){ return '<div id="biz-section-' + t.id + '" class="profile-tab-content" style="display:none;"><div style="text-align:center;padding:40px;color:#555;"><i class=\'bx bx-loader-alt bx-spin\' style="font-size:24px;color:var(--accent);"></i></div></div>'; }).join('') +
         '</div>';
@@ -6816,7 +7021,16 @@ window._vupBizTab = async function(tabId, bizEmail) {
             var real = evs.filter(function(t){ return t.start_date && new Date(t.start_date) < now; });
             var evCard = function(t){
                 var d = t.start_date ? new Date(t.start_date+'T00:00').toLocaleDateString('es-UY',{day:'2-digit',month:'short',year:'numeric'}) : 'Fecha por definir';
-                return '<div class="biz-tournament-item" onclick="window.CancheroTournaments&&window.CancheroTournaments.openPublicView(\''+t.id+'\')" style="cursor:pointer;"><div><div class="biz-tournament-name">'+(t.name||'Evento')+'</div><div class="biz-tournament-meta"><i class=\'bx bx-calendar\'></i> '+d+(t.city?' · '+t.city:'')+'</div></div><span class="biz-tournament-badge">'+(t.format||t.type||'TORNEO').toUpperCase()+'</span></div>';
+                var cov = (t.cover_url||'').replace(/'/g,'');
+                var lg = (t.logo_url||'').replace(/'/g,'');
+                var fmtL = {league:'LIGA',elimination:'ELIMINATORIA',groups:'COPA'}[t.format] || (t.format||t.type||'TORNEO').toUpperCase();
+                return '<div onclick="window.CancheroTournaments&&window.CancheroTournaments.openPublicView(\''+t.id+'\')" style="cursor:pointer;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:16px;overflow:hidden;margin-bottom:10px;">'
+                    + (cov ? '<div style="height:84px;background:#000 center/cover url(\''+cov+'\');"></div>' : '')
+                    + '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;">'
+                    + '<span style="width:42px;height:42px;border-radius:50%;flex-shrink:0;border:2px solid rgba(186,255,0,0.6);background:'+(lg?('#000 center/cover url(\''+lg+'\')'):'rgba(186,255,0,0.12)')+';display:flex;align-items:center;justify-content:center;">'+(lg?'':'<i class=\'bx bx-trophy\' style="color:var(--accent);"></i>')+'</span>'
+                    + '<div style="flex:1;min-width:0;"><div class="biz-tournament-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(t.name||'Evento')+'</div><div class="biz-tournament-meta"><i class=\'bx bx-calendar\'></i> '+d+(t.city?' · '+t.city:'')+'</div></div>'
+                    + '<span class="biz-tournament-badge">'+fmtL+'</span>'
+                    + '</div></div>';
             };
             var html = '<div style="padding:16px;">';
             html += '<div style="font-size:11px;font-weight:900;color:var(--accent);letter-spacing:1px;margin-bottom:8px;">PRÓXIMOS ('+prox.length+')</div>';
@@ -6836,8 +7050,10 @@ window._vupBizTab = async function(tabId, bizEmail) {
             var regs = [];
             try { var rr = await sb.from('tournament_teams').select('*').in('tournament_id', tIds); regs = rr.data || []; } catch(e){}
             if (!regs.length) { section.innerHTML = '<div style="text-align:center;padding:40px;color:#555;"><i class="bx bx-list-check" style="font-size:36px;display:block;margin-bottom:8px;opacity:.3;"></i>Aún no hay inscripciones.</div>'; return; }
+            var _stLbl = {approved:'APROBADO',pending:'PENDIENTE',rejected:'RECHAZADO',eliminated:'ELIMINADO',confirmado:'APROBADO'};
             section.innerHTML = '<div style="padding:16px;">' + regs.map(function(r){
-                return '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #161616;"><div style="width:38px;height:38px;border-radius:10px;background:rgba(186,255,0,0.12);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:900;">'+((r.team_name||r.name||'?')[0]||'?').toUpperCase()+'</div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;">'+(r.team_name||r.name||'Equipo')+'</div><div style="font-size:11px;color:#666;">'+(tName[r.tournament_id]||'Torneo')+'</div></div><span style="font-size:10px;color:'+(r.status==='confirmado'?'#00e676':'#ffb400')+';font-weight:700;">'+((r.status||'pendiente').toUpperCase())+'</span></div>';
+                var lg = (r.logo_url||'').replace(/'/g,'');
+                return '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #161616;"><div style="width:40px;height:40px;border-radius:50%;flex-shrink:0;border:2px solid rgba(186,255,0,0.5);background:'+(lg?('#000 center/cover url(\''+lg+'\')'):'rgba(186,255,0,0.12)')+';display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:900;">'+(lg?'':((r.team_name||r.name||'?')[0]||'?').toUpperCase())+'</div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;">'+(r.team_name||r.name||'Equipo')+'</div><div style="font-size:11px;color:#666;">'+(tName[r.tournament_id]||'Torneo')+'</div></div><span style="font-size:10px;color:'+(r.status==='approved'||r.status==='confirmado'?'var(--accent)':'#ffb400')+';font-weight:700;">'+(_stLbl[r.status]||(r.status||'PENDIENTE').toUpperCase())+'</span></div>';
             }).join('') + '</div>';
         } else if (tabId === 'stats') {
             var _stRows = [];
@@ -7324,39 +7540,54 @@ window._openBizEditModal = async function(email) {
         var d = br && br.data; var pl = (d && d.payload) || {};
         try { if (typeof pl === 'string') pl = JSON.parse(pl); } catch(e){ pl = {}; }
         u = { role: (d && d.role) || (window._trueRole && window._trueRole()) || 'organizacion',
+              name: (d && d.name) || pl.name || '',
               photo: (d && d.photo) || pl.photo || '',
+              cover: (d && d.cover) || pl.cover || pl.cover_photo || '',
+              photo_style: pl.photo_style || null, cover_style: pl.cover_style || null,
               bio: pl.bio||'', phone: pl.phone||'', whatsapp: pl.whatsapp||'', address: pl.address||'',
               website: pl.website||'', instagram: pl.instagram||'', price_info: pl.price_info||'', frame_style: pl.frame_style||null };
     } else {
         var r = await sb.from('users').select('*').eq('email', email).maybeSingle();
         u = r.data || {};
+        u.cover = u.cover_photo || '';
+        u.photo_style = u.photo_style || null;
+        u.cover_style = u.cover_style || null;
     }
     if (!u) return;
     var role = u.role || 'organizacion';
-    var frameOpts = {
-        club: [{id:'cancha-verde',l:'Cancha Verde',fn:_frameCanchaVerde},{id:'cancha-noche',l:'Cancha Noche',fn:_frameCanchaNoche},{id:'estadio',l:'Estadio',fn:_frameEstadio}],
-        tienda: [{id:'bolsa',l:'Bolsa',fn:_frameBolsaCompra},{id:'tienda-deportiva',l:'Deportiva',fn:_frameTiendaDeportiva}],
-        organizacion: [{id:'escudo',l:'Escudo',fn:_frameEscudo},{id:'copa',l:'Copa',fn:_frameCopa}],
-        profesional: [{id:'profesional',l:'Estándar',fn:_frameProfesional},{id:'dt',l:'DT',fn:_frameDT},{id:'arbitro',l:'Árbitro',fn:_frameArbitro},{id:'kine',l:'Kine/Nutr.',fn:_frameKine}]
-    };
-    var opts = frameOpts[role] || frameOpts['organizacion'];
-    var curFrame = u.frame_style || opts[0].id;
-    var fsHtml = '<div class="frame-selector">' + opts.map(function(o){ return '<div class="frame-option' + (curFrame===o.id?' selected':'') + '" onclick="document.querySelectorAll(\'.frame-option\').forEach(f=>f.classList.remove(\'selected\'));this.classList.add(\'selected\');document.getElementById(\'biz-edit-frame\').value=\'' + o.id + '\'"><svg viewBox="0 0 110 110" style="width:48px;height:48px;">' + o.fn() + '</svg><div class="frame-option-label">' + o.l + '</div></div>'; }).join('') + '</div><input type="hidden" id="biz-edit-frame" value="' + curFrame + '">';
+    // Encuadre actual de foto de perfil y portada (mismo formato que jugadores).
+    var _ps = u.photo_style || {}; var _psz = parseFloat(_ps.zoom)||100; var _psx = parseInt(_ps.x)||0; var _psy = parseInt(_ps.y)||0;
+    var _cs = u.cover_style || {}; var _csz = parseFloat(_cs.zoom)||100; var _csy = (_cs.y!=null?parseInt(_cs.y):50);
     var existing = document.getElementById('biz-edit-modal'); if (existing) existing.remove();
     var modal = document.createElement('div'); modal.id='biz-edit-modal';
     modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.9);display:flex;align-items:flex-end;';
     var inp = function(id,type,val,ph){ return '<input id="'+id+'" type="'+type+'" value="'+(val||'').toString().replace(/"/g,'&quot;')+'" placeholder="'+ph+'" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px;font-size:13px;box-sizing:border-box;outline:none;margin-bottom:10px;">'; };
     var lbl = function(t){ return '<label style="font-size:9px;font-weight:700;color:#555;letter-spacing:1px;display:block;margin-bottom:4px;">'+t+'</label>'; };
+    var sld = function(id,min,max,val){ return '<input id="'+id+'" type="range" min="'+min+'" max="'+max+'" value="'+val+'" oninput="window._bizEditPreview&&window._bizEditPreview()" style="width:100%;accent-color:var(--accent);margin-bottom:6px;">'; };
     modal.innerHTML = '<div style="background:#111;border-radius:20px 20px 0 0;width:100%;padding:20px;max-height:92vh;overflow-y:auto;">' +
         '<div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 16px;"></div>' +
-        '<h3 style="font-weight:900;margin-bottom:16px;">✏️ Editar Perfil</h3>' +
-        // FOTO DE PERFIL del negocio (faltaba: no había forma de ponerla y "no quedaba")
+        '<h3 style="font-weight:900;margin-bottom:16px;">Editar Perfil</h3>' +
+        // NOMBRE del negocio (faltaba: no se podía editar)
+        lbl('NOMBRE DEL PERFIL') + inp('biz-edit-name','text',u.name,'Nombre de tu negocio') +
+        // FOTO DE PORTADA + encuadre (tamaño/posición)
+        lbl('FOTO DE PORTADA') +
+        '<div id="biz-edit-cover-prev" style="width:100%;height:96px;border-radius:12px;background:#1a1a1a center/cover;border:1px solid #333;margin-bottom:8px;' + (u.cover?('background-image:url(\''+u.cover+'\');background-size:'+_csz+'%;background-position:center '+_csy+'%;'):'') + '"></div>' +
+        '<button onclick="document.getElementById(\'biz-edit-cover-input\').click()" style="background:rgba(186,255,0,0.1);color:var(--accent);border:1px solid rgba(186,255,0,0.35);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;margin-bottom:8px;">Cambiar portada</button>' +
+        '<input type="file" id="biz-edit-cover-input" accept="image/*" style="display:none;" onchange="(function(i){var f=i.files&&i.files[0];if(!f)return;window._bizEditCoverFile=f;window._bizEditCoverUrl=URL.createObjectURL(f);window._bizEditPreview&&window._bizEditPreview();})(this)">' +
+        '<div style="font-size:9px;color:#555;font-weight:700;letter-spacing:1px;">TAMAÑO</div>' + sld('biz-edit-cz',100,300,_csz) +
+        '<div style="font-size:9px;color:#555;font-weight:700;letter-spacing:1px;">POSICIÓN VERTICAL</div>' + sld('biz-edit-cy',0,100,_csy) +
+        '<div style="height:6px;"></div>' +
+        // FOTO DE PERFIL + encuadre (tamaño/posición)
         lbl('FOTO DE PERFIL') +
-        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">' +
-          '<div id="biz-edit-photo-prev" style="width:56px;height:56px;border-radius:50%;background:#1a1a1a center/cover;flex-shrink:0;border:2px solid #333;"></div>' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">' +
+          '<div id="biz-edit-photo-prev" style="width:64px;height:64px;border-radius:50%;background:#1a1a1a center/cover;flex-shrink:0;border:2px solid var(--accent);"></div>' +
           '<button onclick="document.getElementById(\'biz-edit-photo-input\').click()" style="background:rgba(186,255,0,0.1);color:var(--accent);border:1px solid rgba(186,255,0,0.35);border-radius:10px;padding:9px 14px;font-size:12px;font-weight:800;cursor:pointer;">Cambiar foto</button>' +
-          '<input type="file" id="biz-edit-photo-input" accept="image/*" style="display:none;" onchange="(function(i){var f=i.files&&i.files[0];if(!f)return;window._bizEditPhotoFile=f;var u=URL.createObjectURL(f);var p=document.getElementById(\'biz-edit-photo-prev\');if(p){p.style.backgroundImage=\'url(\'+JSON.stringify(u)+\')\';p.style.backgroundSize=\'cover\';p.style.backgroundPosition=\'center 25%\';}})(this)">' +
+          '<input type="file" id="biz-edit-photo-input" accept="image/*" style="display:none;" onchange="(function(i){var f=i.files&&i.files[0];if(!f)return;window._bizEditPhotoFile=f;window._bizEditPhotoUrl=URL.createObjectURL(f);window._bizEditPreview&&window._bizEditPreview();})(this)">' +
         '</div>' +
+        '<div style="font-size:9px;color:#555;font-weight:700;letter-spacing:1px;">TAMAÑO</div>' + sld('biz-edit-pz',100,300,_psz) +
+        '<div style="font-size:9px;color:#555;font-weight:700;letter-spacing:1px;">POSICIÓN HORIZONTAL</div>' + sld('biz-edit-px',-50,50,_psx) +
+        '<div style="font-size:9px;color:#555;font-weight:700;letter-spacing:1px;">POSICIÓN VERTICAL</div>' + sld('biz-edit-py',-50,50,_psy) +
+        '<div style="height:6px;"></div>' +
         lbl('BIO') + '<textarea id="biz-edit-bio" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px;font-size:13px;box-sizing:border-box;outline:none;resize:vertical;margin-bottom:10px;min-height:60px;">' + (u.bio||'') + '</textarea>' +
         lbl('TELÉFONO') + inp('biz-edit-phone','tel',u.phone,'Ej: 091234567') +
         lbl('WHATSAPP (con código de país)') + inp('biz-edit-wa','tel',u.whatsapp,'Ej: 59891234567') +
@@ -7364,44 +7595,73 @@ window._openBizEditModal = async function(email) {
         lbl('SITIO WEB') + inp('biz-edit-website','url',u.website,'https://...') +
         lbl('INSTAGRAM') + inp('biz-edit-ig','text',u.instagram,'@usuario') +
         lbl('PRECIOS (texto libre)') + inp('biz-edit-price','text',u.price_info,'Ej: Fútbol 5: $800/hora') +
-        lbl('MARCO DE FOTO') + fsHtml +
         '<div style="height:14px;"></div>' +
         '<button onclick="window._saveBizProfile(\'' + email.replace(/'/g,"\\'") + '\')" style="width:100%;background:var(--accent);color:#000;border:none;border-radius:14px;padding:14px;font-weight:900;font-size:14px;cursor:pointer;margin-bottom:10px;">GUARDAR CAMBIOS</button>' +
         '<button onclick="document.getElementById(\'biz-edit-modal\').remove()" style="width:100%;background:transparent;border:1px solid #333;color:#888;border-radius:14px;padding:12px;cursor:pointer;">Cancelar</button></div>';
     modal.onclick = function(e){ if(e.target===modal) modal.remove(); };
+    // Estado limpio de archivos (evita arrastrar una edición anterior).
+    window._bizEditPhotoFile = null; window._bizEditCoverFile = null;
+    window._bizEditPhotoUrl = null; window._bizEditCoverUrl = null;
+    window._bizEditCurPhoto = u.photo || (window.userData && window.userData.photo) || '';
+    window._bizEditCurCover = u.cover || '';
+    // Aplica los sliders (zoom/posición) a los previews EN VIVO.
+    window._bizEditPreview = function(){
+        var g = function(id){ var e=document.getElementById(id); return e?e.value:null; };
+        var pv = document.getElementById('biz-edit-photo-prev');
+        if (pv){
+            var src = window._bizEditPhotoUrl || window._bizEditCurPhoto;
+            var z = parseFloat(g('biz-edit-pz'))||100, x = parseInt(g('biz-edit-px'))||0, y = parseInt(g('biz-edit-py'))||0;
+            pv.style.backgroundImage = src ? ("url('" + src + "')") : 'none';
+            pv.style.backgroundSize = (z>100? z+'%' : 'cover');
+            pv.style.backgroundPosition = (50+x) + '% ' + (50+y) + '%';
+        }
+        var cv = document.getElementById('biz-edit-cover-prev');
+        if (cv){
+            var csrc = window._bizEditCoverUrl || window._bizEditCurCover;
+            var cz = parseFloat(g('biz-edit-cz'))||100, cy = parseInt(g('biz-edit-cy')); if (isNaN(cy)) cy=50;
+            cv.style.backgroundImage = csrc ? ("url('" + csrc + "')") : 'none';
+            cv.style.backgroundSize = cz + '%';
+            cv.style.backgroundPosition = 'center ' + cy + '%';
+        }
+    };
     document.body.appendChild(modal);
-    // Previsualizar la foto ACTUAL con el mismo recorte que usa toda la app
-    try {
-        var _curPhoto = u.photo || (window.userData && window.userData.photo) || '';
-        var _pv = document.getElementById('biz-edit-photo-prev');
-        if (_pv && _curPhoto) { _pv.style.backgroundImage = "url('" + _curPhoto + "')"; _pv.style.backgroundSize = 'cover'; _pv.style.backgroundPosition = 'center 25%'; }
-    } catch(e){}
+    try { window._bizEditPreview(); } catch(e){}
 };
 
 window._saveBizProfile = async function(email) {
     var sb = window._sb; if (!sb) return;
     var _v = function(id){ var e = document.getElementById(id); return (e && e.value.trim()) || ''; };
+    var _n = function(id,d){ var e = document.getElementById(id); var v = e?parseFloat(e.value):NaN; return isNaN(v)?d:v; };
+    var newName = _v('biz-edit-name');
     var fields = {
         bio: _v('biz-edit-bio'), phone: _v('biz-edit-phone'), whatsapp: _v('biz-edit-wa'),
         address: _v('biz-edit-address'), website: _v('biz-edit-website'), instagram: _v('biz-edit-ig'),
         price_info: _v('biz-edit-price'),
-        frame_style: (document.getElementById('biz-edit-frame') && document.getElementById('biz-edit-frame').value) || 'default'
+        photo_style: { zoom: _n('biz-edit-pz',100), x: _n('biz-edit-px',0), y: _n('biz-edit-py',0) },
+        cover_style: { zoom: _n('biz-edit-cz',100), y: _n('biz-edit-cy',50) }
     };
-    // Subir la FOTO nueva del negocio (payload.photo — de ahí lee el perfil/switcher)
+    if (newName) fields.name = newName;
+    // Helper de subida (Cloudinary con fallback a Supabase Storage).
+    var _uploadImg = async function(file, folder){
+        var f = file;
+        if (window._compressImageFile) { try { f = await window._compressImageFile(f, 1280, 0.82); } catch(e){} }
+        if (window.cloudUpload) { var r = await window.cloudUpload(f, { folder: folder }); if (r && r.url) return r.url; }
+        var p = folder.replace('canchero/','') + '/' + email + '/' + Date.now() + '.jpg';
+        var up = await sb.storage.from('media').upload(p, f, { upsert:true, contentType:'image/jpeg' });
+        if (!up.error) return sb.storage.from('media').getPublicUrl(p).data.publicUrl;
+        return null;
+    };
+    // Subir la FOTO de perfil nueva (payload.photo — de ahí lee el perfil/switcher)
     if (window._bizEditPhotoFile) {
-        try {
-            var _pf = window._bizEditPhotoFile;
-            if (window._compressImageFile) { try { _pf = await window._compressImageFile(_pf, 800, 0.8); } catch(e){} }
-            var _purl = null;
-            if (window.cloudUpload) { var _pr = await window.cloudUpload(_pf, { folder:'canchero/biz_profiles' }); if (_pr && _pr.url) _purl = _pr.url; }
-            if (!_purl) {
-                var _pp = 'biz_profiles/' + email + '/' + Date.now() + '.jpg';
-                var _up = await sb.storage.from('media').upload(_pp, _pf, { upsert:true, contentType:'image/jpeg' });
-                if (!_up.error) _purl = sb.storage.from('media').getPublicUrl(_pp).data.publicUrl;
-            }
-            if (_purl) fields.photo = _purl;
-        } catch(e){ console.warn('biz photo upload', e); }
+        try { var _purl = await _uploadImg(window._bizEditPhotoFile, 'canchero/biz_profiles'); if (_purl) fields.photo = _purl; }
+        catch(e){ console.warn('biz photo upload', e); }
         window._bizEditPhotoFile = null;
+    }
+    // Subir la PORTADA nueva (payload.cover — de ahí lee el perfil de negocio)
+    if (window._bizEditCoverFile) {
+        try { var _curl = await _uploadImg(window._bizEditCoverFile, 'canchero/biz_covers'); if (_curl) fields.cover = _curl; }
+        catch(e){ console.warn('biz cover upload', e); }
+        window._bizEditCoverFile = null;
     }
     // MULTI-IDENTIDAD (P0.1): guardar en el NEGOCIO ACTIVO (business_requests), NO en users.
     var bizId = (window._activeBizId && window._activeBizId());
@@ -7412,14 +7672,21 @@ window._saveBizProfile = async function(email) {
             var pl = (row && row.data && row.data.payload) || {};
             try { if (typeof pl === 'string') pl = JSON.parse(pl); } catch(e){ pl = {}; }
             Object.keys(fields).forEach(function(k){ pl[k] = fields[k]; });
-            var r = await sb.from('business_requests').update({ payload: pl }).eq('id', bizId).eq('email', email);
+            // El NOMBRE del negocio vive en la columna business_requests.name (de ahí lo lee
+            // el perfil). Se actualiza aparte del payload.
+            var _upd = { payload: pl };
+            if (newName) _upd.name = newName;
+            var r = await sb.from('business_requests').update(_upd).eq('id', bizId).eq('email', email);
             if (r.error) throw r.error;
             // Reflejar en memoria para que perfil/switcher muestren los cambios ya.
             var mb = (window._myBusinesses || []).filter(function(b){ return String(b.id) === String(bizId); })[0];
-            if (mb) Object.keys(fields).forEach(function(k){ mb[k] = fields[k]; });
+            if (mb) { Object.keys(fields).forEach(function(k){ mb[k] = fields[k]; }); if (fields.cover) mb.coverPhoto = fields.cover; if (newName) mb.name = newName; }
         } else {
-            // Legacy (cuenta cuya base ES el negocio): guardar en users.
-            var r2 = await sb.from('users').update(fields).eq('email', email);
+            // Legacy (cuenta cuya base ES el negocio): guardar en users (mapear cover→cover_photo).
+            var uFields = {};
+            Object.keys(fields).forEach(function(k){ if (k!=='cover') uFields[k] = fields[k]; });
+            if (fields.cover) uFields.cover_photo = fields.cover;
+            var r2 = await sb.from('users').update(uFields).eq('email', email);
             if (r2.error) throw r2.error;
         }
         var _mo = document.getElementById('biz-edit-modal'); if (_mo) _mo.remove();
@@ -7687,7 +7954,7 @@ window.openClubUrgentModal = async function() {
     if (!clubId) { window.showToast && showToast('Abrí primero la gestión del club.','warning'); return; }
     var sb = window._sb;
     var club = {};
-    try { if (sb) { var r = await sb.from('clubs').select('id,name,city,country,nat,logo,logo_url').eq('id', clubId).maybeSingle(); club = (r && r.data) || {}; } } catch(e){}
+    try { if (sb) { var r = await sb.from('clubs').select('id,name,city,nat,logo,logo_url').eq('id', clubId).maybeSingle(); club = (r && r.data) || {}; } } catch(e){}
     var ex = document.getElementById('club-urgent-modal'); if (ex) ex.remove();
     var modal = document.createElement('div'); modal.id = 'club-urgent-modal';
     modal.style.cssText = 'position:fixed;inset:0;z-index:100050;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;padding:16px;';
@@ -8137,6 +8404,13 @@ function applyUserData() {
             window._loadMyBusinesses().then(function(){
                 // Reaplicar overlay por si la identidad activa es un negocio recién cargado.
                 try { window._applyActiveProfileOverlay && window._applyActiveProfileOverlay(); } catch(e){}
+                // CRÍTICO: al abrir DIRECTO como organización, los avatares del composer/feed y el
+                // círculo "Tu momento" ya se pintaron en la primera pasada, cuando _myBusinesses
+                // estaba vacío y userData todavía tenía la foto del JUGADOR. El overlay reaplicado
+                // corrige userData pero no repinta el DOM → hay que repintar acá o la organización
+                // sigue mostrando la foto de jugador. (_bizLoadStarted ya es true → no recarga.)
+                try { if (typeof applyUserData === 'function') applyUserData(); } catch(e){}
+                try { if (window._loadMomentosBlock) window._loadMomentosBlock(); } catch(e){}
             });
         }
     } catch(e){}
@@ -8183,10 +8457,10 @@ function applyUserData() {
                 </div>
             `;
         } else {
+            // Barra superior del home (deslogueado): SOLO el botón Descargar (verde, moderno).
+            // El acceso ENTRAR/REGISTRO va por los botones grandes del hero (Jugador/Fanático/Negocio).
             navActions.innerHTML = `
-                <button id="btn-nav-login" class="btn btn-fs-login" onclick="navigate('login')">ENTRAR</button>
-                <button id="btn-nav-register" class="btn btn-fs-register" onclick="navigate('register')">REGISTRO</button>
-                <button id="btn-download-app" class="btn btn-fs-register" style="background:#baff00; color:black; text-decoration:none; display:inline-flex; align-items:center; gap:3px; border:none; cursor:pointer; font-weight:800;" onclick="smartDownload()"><i class='bx bxl-android' id="download-icon" style="margin:0!important;"></i> <span id="download-label">DESCARGAR</span></button>
+                <button id="btn-download-app" class="btn btn-fs-register" style="background:linear-gradient(135deg,#baff00,#8fd400)!important; color:#000!important; text-decoration:none; display:inline-flex; align-items:center; gap:7px; border:none!important; border-radius:14px!important; cursor:pointer; font-weight:900; letter-spacing:.5px; box-shadow:0 4px 18px rgba(186,255,0,0.4)!important; clip-path:none!important;" onclick="window.cancheroInstall?cancheroInstall():smartDownload()"><i class='bx bx-download' id="download-icon" style="margin:0!important;font-size:18px;color:#000!important;"></i> <span id="download-label" style="color:#000!important;">DESCARGAR</span></button>
             `;
         }
     }
@@ -8510,7 +8784,7 @@ function applyUserData() {
             // Fallback: si la sesión no trae nacionalidad, leerla 1 vez de la DB
             if (!_nat && window._sb && userData.email && !window._natFetched) {
                 window._natFetched = true;
-                window._sb.from('users').select('nat,country').eq('email', userData.email).maybeSingle().then(function(r){
+                window._sb.from('users').select('nat').eq('email', userData.email).maybeSingle().then(function(r){
                     var n = r && r.data && (r.data.nat || r.data.country);
                     if (n) { userData.nat = n; var f2 = document.getElementById('p-display-flag'); if (f2 && window.countryFlag) f2.innerHTML = window.countryFlag(n, 15); }
                 });
@@ -8978,7 +9252,7 @@ async function renderRanking() {
     header.innerHTML = `<th>#</th><th>JUGADOR</th><th>UBICACIÓN</th><th>${label}</th>`;
     try {
         // Incluir TODOS los jugadores (aunque no tengan stats todavía); stats es opcional.
-        const { data: users } = await _sbR.from('users').select('email, name, role, photo, avatar_url, city, country, stats').limit(400);
+        const { data: users } = await _sbR.from('users').select('email, name, role, photo, city, stats').limit(400);
         if (!users || !users.length) {
             tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:40px;color:#666;font-size:13px;">
                 <i class='bx bx-trophy' style="font-size:42px;display:block;margin-bottom:10px;opacity:0.4;"></i>
@@ -10017,6 +10291,9 @@ window.submitMatchReport = function() {
             const mid = window._currentMatchId || window.currentEditingMatchId || null;
             if (sb && mid) {
                 await sb.from('matches').update({ score_a: scoreMy, score_b: scoreOp, mvp: mvpName || null, status: 'finished' }).eq('id', mid);
+                // Si este partido real pertenece a un torneo (Ficha completa), devolver el
+                // resultado al torneo (marcador + tabla de posiciones).
+                try { window.CancheroTournaments && window.CancheroTournaments._syncTournamentFromRealMatch && await window.CancheroTournaments._syncTournamentFromRealMatch(mid); } catch(e){}
             }
             // Si el MVP soy yo, sumar a mis stats
             if (mvpName && window.userData && (mvpName.toLowerCase() === (window.userData.name||'').toLowerCase())) {
@@ -10638,15 +10915,9 @@ window._clubProfileTab = async function(tab, clubId, btn) {
         // OJO: .neq('status','pendiente') excluye también las filas con status NULL
         // (por eso había jugadores que se veían en gestión pero no acá).
         let { data: members } = await sb.from('club_members').select('*').eq('club_id', clubId).or('status.is.null,status.neq.pendiente').order('role');
-        // El dueno del club SIEMPRE aparece como capitan en la plantilla
-        try {
-            const { data: _clubRow } = await sb.from('clubs').select('owner_email').eq('id', clubId).single();
-            if (_clubRow && _clubRow.owner_email && !(members || []).some(mm => (mm.player_email || '').toLowerCase() === _clubRow.owner_email.toLowerCase())) {
-                const { data: _ou } = await sb.from('users').select('name,photo,pos').eq('email', _clubRow.owner_email).limit(1);
-                const ou = (_ou && _ou[0]) || {};
-                members = members || []; members.unshift({ player_email: _clubRow.owner_email, player_name: ou.name || _clubRow.owner_email, position: ou.pos || 'CAP', role: 'capitan', status: 'activo', _isOwner: true });
-            }
-        } catch(e) {}
+        // El club EMPIEZA SIN JUGADORES: no se inyecta al dueño como capitán. La cuenta
+        // que crea el club es la gestión del equipo, no un jugador de la cancha. Los
+        // jugadores se suman únicamente por solicitudes aceptadas (club_members activos).
         members = members || [];
         // Cargar fotos faltantes de los miembros
         try {
@@ -11963,7 +12234,7 @@ window._redeemBizCode = async function(email) {
 window.handleLogin = async function() {
     const emailEl = document.getElementById('login-email');
     const passEl = document.getElementById('login-pass');
-    const email = emailEl?.value?.trim();
+    const email = emailEl?.value?.trim()?.toLowerCase();
     const pass  = passEl?.value?.trim();
     if (!email || !pass) { showToast('Completá email y contraseña.', 'warning'); return; }
 
@@ -11996,11 +12267,12 @@ window.handleLogin = async function() {
                 } catch(e){}
                 const role = dbUser?.role || data.user.user_metadata?.role || 'jugador';
                 const name = dbUser?.name || data.user.user_metadata?.name || email.split('@')[0];
-                const isPaid = ['club','profesional','organizacion','tienda','sponsor'].includes(role);
-                const _subVencida = dbUser && dbUser.sub_paid_until && new Date(dbUser.sub_paid_until) < new Date();
-                if (isPaid && dbUser && (dbUser.sub_status !== 'active' || _subVencida) && dbUser.is_admin !== true) {
-                    window._showBizActivation(email, _subVencida);
-                    return;
+                const _isBizRole = ['club','profesional','organizacion','tienda','sponsor'].includes(role);
+                // TODO GRATIS: negocios, jugadores y fanáticos entran directo. Se elimina la
+                // barrera de aprobación/código/plan que trababa el acceso de negocios. Si la
+                // fila quedó con sub_status pendiente (registro viejo), se normaliza a 'active'.
+                if (_isBizRole && dbUser && dbUser.sub_status !== 'active') {
+                    try { window._sb && window._sb.from('users').update({ sub_status: 'active' }).eq('email', email.toLowerCase()).then(function(){}, function(){}); } catch(e){}
                 }
                 userData = {
                     name, email, role,
@@ -12029,6 +12301,12 @@ window.handleLogin = async function() {
                 applyUserData();
                 try { renderDashboardHome(); } catch(e){}
                 navigate(['jugador','club','admin'].includes(role) ? role : 'jugador');
+                return;
+            }
+            // Email registrado pero SIN confirmar → NO es "contraseña mal": reenviar link.
+            if (error && window._isEmailNotConfirmed && window._isEmailNotConfirmed(error)) {
+                window._resendConfirmation && window._resendConfirmation(email, true);
+                showToast('Te falta confirmar tu email. Te reenviamos el link a ' + email + ' — revisá tu casilla y spam.', 'info', 5000);
                 return;
             }
         } catch(e) { console.warn('Supabase signIn error:', e.message); }
@@ -12104,9 +12382,12 @@ window._sendPassReset = async function(email) {
 
 function showToast(msg, type = 'info') {
     const colors = { info: '#baff00', warning: '#ffb400', error: '#ff4444', success: '#baff00' };
+    // Sin emojis (regla de diseño): limpiamos cualquier emoji del texto del toast.
+    const clean = String(msg == null ? '' : msg).replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}\u{FE0F}]/gu, '').replace(/\s{2,}/g, ' ').trim();
     const t = document.createElement('div');
-    t.style = `position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#111;color:${colors[type]||'#baff00'};border:1px solid ${colors[type]||'#baff00'};padding:12px 20px;border-radius:30px;font-size:12px;font-weight:700;font-family:var(--font-display);z-index:999999;max-width:85vw;text-align:center;box-shadow:0 5px 20px rgba(0,0,0,0.6);animation:fadeIn 0.3s ease;`;
-    t.textContent = msg;
+    // Se ubica bien por ENCIMA de la barra inferior (safe-area) para no quedar tapado ni pisarla.
+    t.style = `position:fixed;bottom:calc(96px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:#0f110f;color:${colors[type]||'#baff00'};border:1px solid ${colors[type]||'#baff00'};padding:12px 20px;border-radius:30px;font-size:12px;font-weight:700;font-family:var(--font-display);z-index:1000000;max-width:88vw;text-align:center;box-shadow:0 8px 28px rgba(0,0,0,0.85);animation:fadeIn 0.3s ease;`;
+    t.textContent = clean;
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 4000);
 }
@@ -12372,7 +12653,7 @@ window._loadVcallMembers = async function() {
         const { data: members } = await sb.from('club_members').select('player_email,role').eq('club_id', clubId);
         if (!members || !members.length) { listEl.innerHTML = '<div style="color:#555;font-size:12px;">Sin miembros en el plantel aún.</div>'; return; }
         const emails = members.map(m=>m.player_email).filter(Boolean);
-        const { data: users } = await sb.from('users').select('email,name,photo,avatar_url').in('email', emails);
+        const { data: users } = await sb.from('users').select('email,name,photo').in('email', emails);
         const uMap = {}; (users||[]).forEach(u => uMap[u.email]=u);
         if (labelEl) labelEl.textContent = `Plantel (${members.length} miembros)`;
         listEl.innerHTML = members.map(m => {
@@ -12597,11 +12878,8 @@ window._syncTacticModalidad = async function() {
         ]);
         if (!club) return;
         let members = members0 || [];
-        // El dueño SIEMPRE como capitán en la cancha
-        const _ownEm = club.owner_email || club.captain_email || null;
-        if (_ownEm && !members.some(mm => (mm.player_email||'').toLowerCase() === _ownEm.toLowerCase())) {
-            members.unshift({ player_email: _ownEm, player_name: _ownEm.split('@')[0], position: 'CAP', role: 'capitan', status: 'activo', _isOwner: true });
-        }
+        // El club EMPIEZA SIN JUGADORES: no se inyecta al dueño. Solo jugadores reales
+        // aceptados (club_members activos) aparecen en la cancha.
 
         // Actualizar roster cache con datos VIVOS de users (nombre/foto/encuadre actualizados,
         // sin cuentas de negocio en la cancha)
@@ -12664,18 +12942,10 @@ window._loadClubPlanilla = async function(clubId) {
         let { data: members, error } = await sb.from('club_members').select('*').eq('club_id', clubId).neq('status','pendiente');
         if (loading) loading.style.display = 'none';
         if (error) throw error;
-        // El dueño del club SIEMPRE figura como capitán (igual que en la cancha del perfil),
-        // con su nombre REAL de jugador (fila users), no el nombre del club.
-        try {
-            const { data: _cRow } = await sb.from('clubs').select('owner_email,captain_email').eq('id', clubId).single();
-            const _ownEm = (_cRow && (_cRow.owner_email || _cRow.captain_email)) || null;
-            if (_ownEm && !(members || []).some(mm => (mm.player_email||'').toLowerCase() === _ownEm.toLowerCase())) {
-                const { data: _ou } = await sb.from('users').select('name,photo,pos').eq('email', _ownEm).limit(1);
-                const ou = (_ou && _ou[0]) || {};
-                members = members || [];
-                members.unshift({ id: null, player_email: _ownEm, player_name: ou.name || _ownEm.split('@')[0], player_photo: ou.photo || null, position: ou.pos || 'CAP', role: 'capitan', status: 'activo', _isOwner: true });
-            }
-        } catch(e){}
+        // El club EMPIEZA SIN JUGADORES: no se inyecta al dueño como capitán. Solo figuran
+        // los jugadores reales aceptados (club_members activos). La cuenta que administra el
+        // club no es un jugador de la planilla.
+        members = members || [];
         if (!members || !members.length) {
             container.innerHTML = `<div style="text-align:center;padding:30px;color:#555;">
                 <i class='bx bx-group' style="font-size:36px;display:block;margin-bottom:10px;opacity:0.3;"></i>
@@ -12826,7 +13096,7 @@ window._searchPlayersToAdd = async function(query, clubId) {
     try {
         // Buscar en users. Select robusto: si falla por columna inexistente, reintentar simple.
         const sbQ = sb;
-        let { data: users, error: usersErr } = await sbQ.from('users').select('email,name,position,pos,photo,avatar_url').or(`name.ilike.%${query}%,email.ilike.%${query}%`).limit(15);
+        let { data: users, error: usersErr } = await sbQ.from('users').select('email,name,pos,photo').or(`name.ilike.%${query}%,email.ilike.%${query}%`).limit(15);
         if (usersErr) {
             const r = await sbQ.from('users').select('email,name,photo').or(`name.ilike.%${query}%,email.ilike.%${query}%`).limit(15);
             users = r.data; usersErr = r.error;
@@ -12993,6 +13263,15 @@ window.openDM = window.openDM || function(email, name) {
 };
 
 // Navegar al perfil propio restaurando el tab activo
+// Tap en el LOGO → INICIO (feed) del rol activo, SIEMPRE. No restaura "última pestaña"
+// (eso abría un menú raro que el usuario no reconocía) ni desloguea si hay sesión local.
+window.goHomeFeed = function() {
+    const u = window.userData || (() => { try { return JSON.parse(localStorage.getItem('canchero_user')); } catch(e) { return null; } })();
+    if (!u || !u.role) { navigate('home'); return; }
+    const role = u.role === 'admin' ? 'admin' : u.role === 'club' ? 'club' : 'jugador';
+    navigate(role);
+    setTimeout(() => { try { if (typeof switchDashboardTab === 'function') switchDashboardTab(role, 'feed', null); } catch(e){} }, 100);
+};
 window.navigateToMyProfile = function() {
     const u = window.userData || (() => { try { return JSON.parse(localStorage.getItem('canchero_user')); } catch(e) { return null; } })();
     if (!u || !u.role) { navigate('home'); return; }
@@ -13954,6 +14233,11 @@ window.openApplicantsModal = async function(matchId) {
 window.renderBuscarPartidos = async function(genderFilter) {
     const list = document.getElementById('partidos-list');
     if (!list) return;
+    // Modo "equipos buscan jugadores": switchPartidosTab pinta su propia lista en
+    // #partidos-list. El auto-render de switchDashboardTab (sin argumentos) NO debe
+    // pisarla (antes ganaba la carrera async y las dos tarjetas mostraban lo mismo).
+    if (window._partidosView === 'buscan' && arguments.length === 0) return;
+    if (arguments.length > 0) window._partidosView = 'todos';
     const sbP = window._sb;
     if (!sbP) {
         list.innerHTML = '<div style="text-align:center;padding:40px;color:#666;"><i class="bx bx-loader-alt bx-spin" style="font-size:28px;display:block;margin-bottom:10px;"></i>Conectando...</div>';
@@ -14050,7 +14334,12 @@ window.renderBuscarPartidos = async function(genderFilter) {
     }
 };
 
-window.viewMatchDetails = async function(matchId) {
+window.viewMatchDetails = async function(matchId, opts) {
+    // opts.forceModal: renderizar SIEMPRE en un modal overlay (no en la pestaña global-viewer).
+    // Lo usa la ficha completa de un partido de TORNEO: así el partido real se muestra ENCIMA
+    // del torneo (z-index alto) y al cerrar volvés al torneo, en vez de que switchDashboardTab
+    // te saque a otra sección del dashboard ("me saca de todo").
+    opts = opts || {};
     // Accessible to all users — espectadores pueden ver sin participar
     const isLoggedIn = !!userData;
     const dashboard = userData && userData.role === 'club' ? 'club' : 'jugador';
@@ -14063,17 +14352,20 @@ window.viewMatchDetails = async function(matchId) {
     let content;
     let useModal = false;
     const tabContent = document.getElementById(`${dashboard}-global-viewer-content`);
-    if (isLoggedIn && tabContent) {
+    if (!opts.forceModal && isLoggedIn && tabContent) {
         if(typeof switchDashboardTab === 'function') switchDashboardTab(dashboard, 'global-viewer');
         content = tabContent;
     } else {
-        // Modal for espectadores / no-login context
+        // Modal for espectadores / no-login context / ficha completa de torneo (forceModal).
         useModal = true;
+        // Sobre el modal del torneo (cmd-modal=100004, cti=100008) para que quede ENCIMA.
+        const _z = opts.forceModal ? 100012 : 9900;
         const overlay = document.createElement('div');
         overlay.id = 'match-detail-modal';
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:9900;background:rgba(0,0,0,0.9);overflow-y:auto;padding:16px;';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:'+_z+';background:rgba(0,0,0,0.9);overflow-y:auto;padding:16px;';
         overlay.innerHTML = '<div id="match-detail-modal-content" style="max-width:600px;margin:0 auto;padding-bottom:40px;"></div>';
-        overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+        // No cerrar al tocar el fondo (el usuario se salía sin querer al tocar abajo). Se
+        // cierra con el botón Volver del propio contenido.
         document.body.appendChild(overlay);
         content = document.getElementById('match-detail-modal-content');
     }
@@ -16375,8 +16667,21 @@ const social = (() => {
                     const isVid = f.type.startsWith('video/');
                     // Comprimir imágenes antes de subir
                     const fileToUp = isVid ? f : await window._compressImageFile(f, 1280, 0.72);
+                    // Subida a Supabase Storage (fallback y ruta sin Cloudinary)
+                    const _uploadToSupabase = async () => {
+                        const ext = isVid ? (f.name.split('.').pop()||'mp4').toLowerCase() : 'jpg';
+                        const ctype = isVid ? (f.type || 'video/mp4') : 'image/jpeg';
+                        const safePath = `posts/${Date.now()}_${Math.random().toString(36).slice(2,6)}.${ext}`;
+                        const { error: upErr } = await getSb().storage.from('media').upload(safePath, fileToUp, { cacheControl: '31536000', upsert: true, contentType: ctype });
+                        if (!upErr) {
+                            const { data: urlData } = getSb().storage.from('media').getPublicUrl(safePath);
+                            _mediaArr.push({ url: urlData.publicUrl, type: isVid ? 'video' : 'image' });
+                        }
+                    };
                     if (window.cloudUpload) {
-                        // Cloudinary (media fuera de Supabase → no consume egress)
+                        // Cloudinary (media fuera de Supabase → no consume egress; ADEMÁS
+                        // transcodifica el video a mp4/H.264 con faststart + genera póster,
+                        // clave para que iOS NO muestre el reel en negro).
                         const r = await window.cloudUpload(fileToUp, { folder:'canchero/posts' });
                         if (r && r.url) {
                             let _u = r.url;
@@ -16385,16 +16690,13 @@ const social = (() => {
                                 _u = window.cloudTrimUrl(_u, window._postMediaTrim.start, window._postMediaTrim.du);
                             }
                             _mediaArr.push({ url: _u, type: isVid ? 'video' : 'image' });
+                        } else {
+                            // Cloudinary falló (video muy grande, red, etc.) → NO perder el
+                            // archivo: guardarlo en Supabase para que el post no quede sin media.
+                            await _uploadToSupabase();
                         }
                     } else {
-                        const ext = isVid ? (f.name.split('.').pop()||'mp4').toLowerCase() : 'jpg';
-                        const ctype = isVid ? f.type : 'image/jpeg';
-                        const safePath = `posts/${Date.now()}_${Math.random().toString(36).slice(2,6)}.${ext}`;
-                        const { error: upErr } = await getSb().storage.from('media').upload(safePath, fileToUp, { cacheControl: '31536000', upsert: true, contentType: ctype });
-                        if (!upErr) {
-                            const { data: urlData } = getSb().storage.from('media').getPublicUrl(safePath);
-                            _mediaArr.push({ url: urlData.publicUrl, type: isVid ? 'video' : 'image' });
-                        }
+                        await _uploadToSupabase();
                     }
                 } catch(e) { console.warn('Upload exception:', e); }
             }
@@ -16625,7 +16927,7 @@ const social = (() => {
         try {
             const cemails = [...new Set(data.map(c=>c.user_email).filter(Boolean))];
             if (cemails.length && getSb()) {
-                const { data: cus } = await getSb().from('users').select('email,photo,avatar_url,photo_style,nat,country').in('email', cemails);
+                const { data: cus } = await getSb().from('users').select('email,photo,photo_style,nat').in('email', cemails);
                 const cuMap = {};
                 (cus||[]).forEach(u => { cuMap[u.email] = u; });
                 data.forEach(c => { const u = cuMap[c.user_email]; if (u) { c._photo = u.photo || u.avatar_url; c._pstyle = u.photo_style || null; c._nat = u.nat || u.country || null; } });
@@ -17264,19 +17566,31 @@ const social = (() => {
         if (!orig) { if (typeof showToast === 'function') showToast('No se pudo cargar el post.', 'error'); return; }
         // Create a repost
         const repostContent = `🔁 Compartido de @${originalUserName || orig.user_name || 'alguien'}:\n\n${orig.content || ''}`;
-        const { error } = await sb.from('posts').insert({
+        // Sellar el repost con la identidad ACTIVA, igual que el composer del feed. Sin
+        // user_role/business_id el perfil del negocio lo descartaba al filtrar por identidad
+        // (todas las identidades comparten email) → se compartía al feed pero NO aparecía
+        // en el perfil de la organización.
+        const _av = (window._pubAvatar && window._pubAvatar()) || {};
+        const _pRole = (window._pubRole && window._pubRole()) || me.role || 'jugador';
+        const _pBizId = (window._pubBizId && window._pubBizId()) || null;
+        // OJO: `posts` NO tiene columnas repost_of ni image_url — insertarlas devolvía
+        // 400 y el repost no se creaba NUNCA (ni en el feed ni en el perfil). El marcador
+        // de repost es original_user_email, que es lo que ya filtran reels//perfil.
+        const _repost = {
             user_email: me.email,
-            user_name: me.name || me.email,
+            user_name: _av.name || me.name || me.email,
+            user_role: _pRole,
+            user_avatar: _av.photo || me.photo || null,
             content: repostContent,
-            image_url: orig.image_url || null,
             media_url: orig.media_url || null,
             media_type: orig.media_type || 'text',
             likes_count: 0,
             comments_count: 0,
-            repost_of: postId,
             original_user_name: orig.user_name || originalUserName || null,
             original_user_email: orig.user_email || null
-        });
+        };
+        if (_pBizId) _repost.business_id = _pBizId;
+        const { error } = await sb.from('posts').insert(_repost);
         if (!error) {
             if (typeof showToast === 'function') showToast('¡Reposteado! Aparece en el feed y en tu perfil.', 'success');
             loadFeed();
@@ -18996,6 +19310,38 @@ window.loadSectionTab = async function(section, searchQuery) {
 
         let { data, error } = await q;
         if (error) throw error;
+        data = data || [];
+
+        // Multi-identidad: los negocios creados desde el switcher viven en business_requests
+        // (users.role del email puede seguir siendo 'jugador') → sin este bloque, esas
+        // organizaciones/tiendas/complejos NO aparecen en Buscar.
+        try {
+            const _bizRoleSet = ['club','complejo','cancha','tienda','store','shop','profesional','organizacion','liga','escuela','sponsor'];
+            const bizRolesWanted = cfg.roles.filter(r => _bizRoleSet.indexOf(r) !== -1);
+            if (bizRolesWanted.length) {
+                let bq = sb.from('business_requests').select('id,email,name,role,payload').in('role', bizRolesWanted).limit(300);
+                if (query) bq = bq.ilike('name', `${query}%`);
+                const { data: brs } = await bq;
+                if (brs && brs.length) {
+                    const have = new Set(data.map(u => (u.email||'').toLowerCase()));
+                    const extraEmails = [...new Set(brs.map(b => (b.email||'').toLowerCase()).filter(e => e && !have.has(e)))];
+                    const uByEmail = {};
+                    if (extraEmails.length) {
+                        const { data: us } = await sb.from('users').select('email,city,nat,country,photo').in('email', extraEmails);
+                        (us||[]).forEach(u => { uByEmail[(u.email||'').toLowerCase()] = u; });
+                    }
+                    brs.forEach(b => {
+                        const em = (b.email||'').toLowerCase();
+                        if (!em || have.has(em)) return; // ya está: el bloque de branding lo expande
+                        let pl = b.payload || {}; try { if (typeof pl === 'string') pl = JSON.parse(pl); } catch(e){ pl = {}; }
+                        const u0 = uByEmail[em] || {};
+                        const cty = pl.city || u0.city || '';
+                        if (cityFilter && cty.toLowerCase().indexOf(cityFilter.toLowerCase()) === -1) return;
+                        data.push({ email: b.email, name: b.name, role: b.role, city: cty, nat: u0.nat || '', country: pl.country || u0.country || '', photo: pl.photo || pl.logo || u0.photo || '', cover_photo: pl.cover || pl.coverPhoto || pl.cover_photo || '', _bizId: String(b.id) });
+                    });
+                }
+            }
+        } catch(e){ console.warn('directorio biz extra:', e); }
 
         // Filtro de PAÍS en memoria (tolerante a country/nat). Antes se ignoraba por
         // completo: elegir "Argentina" devolvía igual los negocios uruguayos.
@@ -19711,7 +20057,7 @@ async function _renderFeedPosts(container, posts) {
                 // Obtener fotos y stories activas en paralelo
                 const now = new Date().toISOString();
                 const [{ data: userPhotos }, { data: activeStories }] = await Promise.all([
-                    sb.from('users').select('email,photo,photo_style,name,nat,country,nationality').in('email', uniqueEmails),
+                    sb.from('users').select('email,photo,photo_style,name,nat').in('email', uniqueEmails),
                     sb.from('stories').select('user_email').gt('expires_at', now).in('user_email', uniqueEmails)
                 ]);
                 // Mapa email → datos del usuario
@@ -20031,7 +20377,7 @@ function buildPostCard(p, isLiked) {
     const _poster = (u) => (String(u||'').indexOf('#t=') === -1 ? (u + '#t=0.1') : u);
     const _mediaItem = (md) => md.type === 'video'
         ? (p.is_reel
-            ? `<div style="position:relative;cursor:pointer;height:${_mh};background:#000;border-radius:12px;overflow:hidden;" onclick="window.openReels&&window.openReels('${p.id}')"><video src="${window._playableVideoUrl?window._playableVideoUrl(md.url):md.url}" ${(window._videoPosterUrl&&window._videoPosterUrl(md.url))?`poster="${window._videoPosterUrl(md.url)}"`:''} muted playsinline webkit-playsinline preload="auto" onloadeddata="try{if(this.currentTime<0.05)this.currentTime=0.06;}catch(e){}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;"></video><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"><span style="width:54px;height:54px;border-radius:50%;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);"><i class='bx bx-play' style="font-size:32px;color:#fff;"></i></span></div><div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.5);color:#fff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;display:flex;align-items:center;gap:4px;"><i class='bx bx-movie-play'></i> REEL</div></div>`
+            ? `<div style="position:relative;cursor:pointer;height:${_mh};background:#000;border-radius:12px;overflow:hidden;" onclick="window.openReels&&window.openReels('${p.id}')"><video src="${window._playableVideoUrl?window._playableVideoUrl(md.url):md.url}" ${(window._videoPosterUrl&&window._videoPosterUrl(md.url))?`poster="${window._videoPosterUrl(md.url)}"`:''} muted playsinline webkit-playsinline preload="metadata" onloadedmetadata="try{if(this.currentTime<0.05)this.currentTime=0.1;}catch(e){}" onloadeddata="try{if(this.currentTime<0.05)this.currentTime=0.1;}catch(e){}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;"></video><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"><span style="width:54px;height:54px;border-radius:50%;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);"><i class='bx bx-play' style="font-size:32px;color:#fff;"></i></span></div><div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.5);color:#fff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;display:flex;align-items:center;gap:4px;"><i class='bx bx-movie-play'></i> REEL</div></div>`
             : `<div style="position:relative;"><video src="${window._playableVideoUrl?window._playableVideoUrl(md.url):md.url}" data-autoplay muted loop playsinline controls style="width:100%;max-height:${_mh};${_vertical?'background:#000;':''}object-fit:${_fit};display:block;" preload="metadata" onplay="if(!this._v){this._v=1;window._registerPostView&&window._registerPostView('${p.id}')}" onended="this._v=0"></video><button onclick="(function(b){var v=b.parentElement.querySelector('video');if(v){v.muted=!v.muted;b.querySelector('i').className=v.muted?'bx bx-volume-mute':'bx bx-volume-full';}})(this)" style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.55);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;"><i class='bx bx-volume-mute' style="font-size:18px;"></i></button></div>`)
         : `<img src="${md.url}" loading="lazy" decoding="async" style="width:100%;max-height:${_mh};object-fit:${_fit};${_vertical?'background:#000;':''}display:block;cursor:zoom-in;" onerror="this.style.display='none'" onclick="window.openLightbox('${md.url.replace(/'/g,"\\'")}')">`;
     // Marca de agua sutil de Canchero (visible en capturas / compartidos, sin molestar)
@@ -20063,11 +20409,13 @@ function buildPostCard(p, isLiked) {
     // Atribución del post original cuando es un repost
     let repostOriginalName = p.original_user_name || null;
     let repostOriginalEmail = p.original_user_email || null;
-    if (!repostOriginalName && p.repost_of && p.content) {
+    // `posts` no tiene columna repost_of: el marcador real de repost es original_user_email.
+    const _isRepost = !!(p.repost_of || p.original_user_email);
+    if (!repostOriginalName && _isRepost && p.content) {
         const m = p.content.match(/🔁 Compartido de @([^:\n]+)/);
         if (m) repostOriginalName = m[1].trim();
     }
-    const repostHeader = (p.repost_of && repostOriginalName)
+    const repostHeader = (_isRepost && repostOriginalName)
         ? `<div style="display:flex;align-items:center;gap:6px;padding:7px 0 9px;font-size:11px;color:#555;border-bottom:1px solid #1a1a1a;margin-bottom:10px;">
              <i class='bx bx-repost' style="font-size:15px;color:var(--accent);flex-shrink:0;"></i>
              <span>Compartido de</span>
@@ -20096,7 +20444,7 @@ function buildPostCard(p, isLiked) {
   <!-- Contenido texto — para reposts limpiar el texto de atribución duplicado -->
   ${(() => {
       let txt = p.content || '';
-      if (p.repost_of) txt = txt.replace(/🔁\s*Compartido\s*de\s*@[^\n]*/gi, '').trim();
+      if (_isRepost) txt = txt.replace(/🔁\s*Compartido\s*de\s*@[^\n]*/gi, '').trim();
       if (!txt) return '';
       const _urg = window._urgentPostHTML ? window._urgentPostHTML(p) : null;
       if (_urg) return _urg;
@@ -20433,7 +20781,7 @@ window.loadInlineComments = async function(postId) {
         try {
             const cem = [...new Set(data.map(c=>c.user_email).filter(Boolean))];
             if (cem.length) {
-                const { data: cus } = await sb.from('users').select('email,photo,avatar_url,photo_style,nat,country').in('email', cem);
+                const { data: cus } = await sb.from('users').select('email,photo,photo_style,nat').in('email', cem);
                 const cmap = {}; (cus||[]).forEach(u => cmap[u.email]=u);
                 data.forEach(c => { const u = cmap[c.user_email]; if (u) { c._photo = (u.photo||u.avatar_url); c._pstyle = u.photo_style||null; c._nat = u.nat||u.country||null; } });
             }
@@ -21162,6 +21510,8 @@ window._reelsState = { items: [], offset: 0, loading: false, done: false, idx: 0
 // el modal (en algunos WebViews el audio seguía sonando al solo remover el nodo).
 window._closeReels = function() {
     var m = document.getElementById('reels-modal');
+    // Restaurar la barra inferior (ruleta) que se ocultó al abrir los reels.
+    try { ['player-bottom-nav','club-bottom-nav'].forEach(function(n){ var el=document.getElementById(n); if(el) el.style.removeProperty('display'); }); } catch(e){}
     try { if (window._reelsIO) { window._reelsIO.disconnect(); window._reelsIO = null; } } catch(e){}
     if (m) {
         m.querySelectorAll('video').forEach(function(v){
@@ -21193,12 +21543,14 @@ window.openReels = async function(startId) {
     modal = document.createElement('div');
     modal.id = 'reels-modal';
     modal.style.cssText = 'position:fixed;inset:0;z-index:10500;background:#000;';
+    // Ocultar la barra inferior (ruleta) mientras se ven reels — no debe verse encima.
+    try { ['player-bottom-nav','club-bottom-nav'].forEach(function(n){ var el=document.getElementById(n); if(el) el.style.setProperty('display','none','important'); }); } catch(e){}
     modal.innerHTML = `
         <div style="position:absolute;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;background:linear-gradient(180deg,rgba(0,0,0,0.6),transparent);">
             <div style="font-weight:900;font-size:18px;color:#fff;">REELS</div>
             <button onclick="window._closeReels()" style="background:rgba(255,255,255,0.12);border:none;color:#fff;width:38px;height:38px;border-radius:50%;font-size:20px;cursor:pointer;"><i class='bx bx-x'></i></button>
         </div>
-        <div id="reels-scroll" style="height:100dvh;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;"></div>`;
+        <div id="reels-scroll" style="height:100vh;height:100dvh;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;"></div>`;
     document.body.appendChild(modal);
     window._reelsState = { items: [], offset: 0, loading: false, done: false, idx: 0 };
     if (typeof window._reelsMuted === 'undefined') window._reelsMuted = true; // primer play debe ser muteado (política autoplay)
@@ -21214,8 +21566,10 @@ window.openReels = async function(startId) {
             if (en.isIntersecting && en.intersectionRatio >= 0.6){
                 // Respetar la pausa manual del usuario (P6.2)
                 if (v.dataset.userpaused === '1') return;
-                // iOS: NO remover/reasignar src (deja el <video> en negro). Solo load()
-                // suave si aún no cargó, y forzar un seek para pintar el primer frame.
+                // VIRTUALIZACIÓN: mantener vivos SOLO el reel visible y sus 2 vecinos.
+                // iOS deja de decodificar video tras acumular demasiados <video> → todos
+                // se ven en NEGRO. Liberamos los lejanos y restauramos los cercanos.
+                try { window._reelsVirtualize && window._reelsVirtualize(en.target); } catch(_e){}
                 try {
                     if (v.readyState < 2) { v.load(); }
                     v.setAttribute('playsinline',''); v.setAttribute('webkit-playsinline','');
@@ -21246,6 +21600,25 @@ window.openReels = async function(startId) {
         sc.querySelectorAll('[data-reel-card]').forEach(c=>{ try{ window._reelsIO.observe(c); }catch(e){} });
         // fallback si las cards no tienen el data-attr: observar hijos directos
         if (!sc.querySelector('[data-reel-card]')) Array.from(sc.children).forEach(c=>{ try{ window._reelsIO.observe(c); }catch(e){} });
+    };
+    // Mantiene cargados SOLO el reel central y sus 2 vecinos; libera el <video> (suelta
+    // el decoder) de los lejanos para no agotar el límite de iOS (que deja todo en negro).
+    window._reelsVirtualize = function(centerEl){
+        try {
+            var cards = Array.prototype.slice.call(sc.querySelectorAll('[data-reel-card]'));
+            var ci = cards.indexOf(centerEl);
+            if (ci < 0) return;
+            cards.forEach(function(c, i){
+                var v = c.querySelector('video'); if (!v) return;
+                if (Math.abs(i - ci) <= 1){
+                    // Cercano: restaurar el src si estaba liberado.
+                    if (!v.getAttribute('src') && v.dataset.vsrc){ v.setAttribute('src', v.dataset.vsrc); try { v.load(); } catch(e){} }
+                } else {
+                    // Lejano: guardar el src y liberar el elemento de video.
+                    if (v.getAttribute('src')){ v.dataset.vsrc = v.getAttribute('src'); try { v.pause(); } catch(e){} v.removeAttribute('src'); try { v.load(); } catch(e){} }
+                }
+            });
+        } catch(e){}
     };
     window._reelsObserveAll();
     // Reproducir el primero ya
@@ -21503,7 +21876,7 @@ window._loadMoreReels = async function() {
         // Enriquecer con info del autor (foto, disponibilidad)
         const emails = [...new Set(data.map(p => p.user_email).filter(Boolean))];
         const uMap = {};
-        try { if (emails.length){ const { data: us } = await sb.from('users').select('email,name,photo,available').in('email', emails); (us||[]).forEach(u => uMap[u.email]=u); } } catch(e){}
+        try { if (emails.length){ const { data: us } = await sb.from('users').select('email,name,photo,photo_style,available').in('email', emails); (us||[]).forEach(u => uMap[u.email]=u); } } catch(e){}
         // Likes míos
         const myEmail = window.userData && window.userData.email;
         const myLikes = new Set();
@@ -21516,12 +21889,15 @@ window._loadMoreReels = async function() {
             const liked = myLikes.has(p.id);
             const card = document.createElement('div');
             card.setAttribute('data-reel-card','1');
-            card.style.cssText = 'height:100dvh;min-height:100%;width:100%;scroll-snap-align:start;scroll-snap-stop:always;position:relative;display:flex;align-items:center;justify-content:center;background:#000;';
+            card.style.cssText = 'height:100vh;height:100dvh;min-height:100vh;width:100%;scroll-snap-align:start;scroll-snap-stop:always;position:relative;display:flex;align-items:center;justify-content:center;background:#000;';
             const init = (p.user_name||'?')[0].toUpperCase();
             const emailSafe = (p.user_email||'').replace(/'/g,"\\'");
             const nameSafe = (p.user_name||'').replace(/'/g,"\\'");
+            // Foto de perfil con el MISMO encuadre que toda la app (photo_style del autor
+            // o recorte de rostro center 25% por defecto) — no torso ni descentrada.
+            const _avCss = (window._avatarBgCss && window._avatarBgCss({ photo: photo, photo_style: u.photo_style })) || (photo ? `background-image:url('${photo}');background-size:cover;background-position:center 25%;` : '');
             const avatarEl = photo
-                ? `<img src="${photo}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;object-position:center 25%;border:2px solid #fff;flex-shrink:0;display:block;" onerror="this.outerHTML='<div style=\\'width:40px;height:40px;border-radius:50%;background:var(--accent);color:#000;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid #fff;\\'>${init}</div>'">`
+                ? `<div style="width:40px;height:40px;border-radius:50%;${_avCss}border:2px solid #fff;flex-shrink:0;"></div>`
                 : `<div style="width:40px;height:40px;border-radius:50%;background:var(--accent);color:#000;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid #fff;">${init}</div>`;
             const isMe = myEmail && p.user_email === myEmail;
             const reelVideoId = 'rv_' + p.id;
@@ -21530,7 +21906,7 @@ window._loadMoreReels = async function() {
             let _reelSrc = window._playableVideoUrl ? window._playableVideoUrl(p.media_url) : p.media_url;
             const _reelPoster = (window._videoPosterUrl && window._videoPosterUrl(p.media_url)) || '';
             card.innerHTML = `
-                <video id="${reelVideoId}" src="${_reelSrc}" ${_reelPoster?`poster="${_reelPoster}"`:''} loop playsinline webkit-playsinline preload="auto" muted style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#000;" onloadeddata="try{if(this.currentTime<0.05)this.currentTime=0.06;}catch(e){}" onplaying="try{var c=this.closest('[data-reel-card]');var i=c&&c.querySelector('.reel-play-affordance');if(i)i.style.display='none';}catch(e){}" onpause="try{if(this.dataset.userpaused!=='1')return;}catch(e){}" onclick="window._reelTogglePause(this)"></video>
+                <video id="${reelVideoId}" src="${_reelSrc}" ${_reelPoster?`poster="${_reelPoster}"`:''} loop playsinline webkit-playsinline preload="metadata" muted style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#000;" onloadedmetadata="try{if(this.currentTime<0.05)this.currentTime=0.1;}catch(e){}" onloadeddata="try{if(this.currentTime<0.05)this.currentTime=0.1;}catch(e){}" onplaying="try{var c=this.closest('[data-reel-card]');var i=c&&c.querySelector('.reel-play-affordance');if(i)i.style.display='none';}catch(e){}" onpause="try{if(this.dataset.userpaused!=='1')return;}catch(e){}" onclick="window._reelTogglePause(this)"></video>
                 <div style="position:absolute;top:calc(58px + env(safe-area-inset-top));left:14px;z-index:6;display:flex;align-items:center;gap:3px;pointer-events:none;opacity:.6;text-shadow:0 1px 3px rgba(0,0,0,0.7);"><i class='bx bxs-been-here' style="font-size:13px;color:#baff00;"></i><span style="font-size:11px;font-weight:900;color:#fff;letter-spacing:.5px;">Canchero</span></div>
                 <div class="reel-pause-icon" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:60px;height:60px;border-radius:50%;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;pointer-events:none;"><i class='bx bx-pause' style="font-size:32px;color:#fff;"></i></div>
                 <div class="reel-play-affordance" onclick="var v=this.closest('[data-reel-card]').querySelector('video');this.style.display='none';if(v){v.muted=false;window._reelsMuted=false;v.play().catch(function(){v.muted=true;v.play().catch(function(){});});}" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:76px;height:76px;border-radius:50%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;cursor:pointer;z-index:7;"><i class='bx bx-play' style="font-size:44px;color:#fff;margin-left:4px;"></i></div>
@@ -21698,7 +22074,7 @@ window._loadFeedReels = async function(more) {
         data.forEach(p => {
             const card = document.createElement('div');
             card.setAttribute('data-reel-card','1');
-            card.style.cssText = 'height:100dvh;min-height:100%;width:100%;scroll-snap-align:start;scroll-snap-stop:always;position:relative;display:flex;align-items:center;justify-content:center;background:#000;';
+            card.style.cssText = 'height:100vh;height:100dvh;min-height:100vh;width:100%;scroll-snap-align:start;scroll-snap-stop:always;position:relative;display:flex;align-items:center;justify-content:center;background:#000;';
             const init = (p.user_name||'?')[0].toUpperCase();
             card.innerHTML = `<video src="${p.media_url}" loop playsinline muted preload="auto" style="width:100%;height:100%;object-fit:contain;cursor:pointer;" onclick="window._reelTogglePause(this)"></video>
                 <div class="reel-pause-icon" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:60px;height:60px;border-radius:50%;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;pointer-events:none;"><i class='bx bx-pause' style="font-size:32px;color:#fff;"></i></div>
@@ -22677,7 +23053,7 @@ window._searchPredRival = async function(q) {
     if (!sb) return;
     results.innerHTML = '<div style="text-align:center;color:#555;"><i class="bx bx-loader-alt bx-spin"></i></div>';
     try {
-        const { data } = await sb.from('users').select('email,name,photo,avatar_url').ilike('name', `%${q}%`).neq('email', userData?.email).limit(5);
+        const { data } = await sb.from('users').select('email,name,photo').ilike('name', `%${q}%`).neq('email', userData?.email).limit(5);
         if (!data?.length) { results.innerHTML = '<div style="text-align:center;color:#555;font-size:11px;padding:10px;">Sin resultados</div>'; return; }
         results.innerHTML = data.map(u => {
             const ph = u.photo || u.avatar_url;
@@ -23418,9 +23794,9 @@ window.loadTorneos = async function() {
             .order('created_at', { ascending: false })
             .limit(50);
 
-        if (pais) query = query.eq('country', pais);
+        /* tournaments no tiene columna country; se filtra por ciudad abajo */
         if (ciudad) query = query.ilike('city', `%${ciudad}%`);
-        if (tipo) query = query.eq('type', tipo);
+        if (tipo) query = query.eq('format', tipo);
 
         const { data, error } = await query;
 
@@ -23921,6 +24297,7 @@ window.setPartidosFilter = async function(filter, btn) {
 // Activar filtro "faltan jugadores" en buscar-partidos
 window.switchPartidosTab = function(tab) {
     if (tab === 'buscan-jugador') {
+        window._partidosView = 'buscan';
         // Abrir el modal centralizado de búsqueda de jugadores disponibles
         // y mostrar partidos con lugares libres
         if (typeof switchDashboardTab === 'function') switchDashboardTab('jugador','buscar-partidos',null);
@@ -25490,6 +25867,10 @@ window.autoCalcLlegada = function() {
     const llegada = `${llegH}:${llegM}`;
     const llegadaEl = document.getElementById('cp-llegada');
     if (llegadaEl) llegadaEl.value = llegada;
+    // El campo VISIBLE del paso de duración (antes tenía el mismo id que el hidden y
+    // getElementById devolvía el oculto → el visible quedaba en --:--).
+    const llegadaView = document.getElementById('cp-llegada-view');
+    if (llegadaView) llegadaView.value = llegada;
     // Mostrar la hora de llegada sugerida al usuario
     const hint = document.getElementById('cp-llegada-hint');
     const txt = document.getElementById('cp-llegada-txt');
@@ -25612,7 +25993,7 @@ window.createOpenMatchAction = async function() {
 
     const sbx = sb;
     try {
-        const { data: match, error } = await sbx.from('matches').insert({
+        let { data: match, error } = await sbx.from('matches').insert({
             name: name, match_type: modality, format: fType, venue: venue, city: ciudad,
             scheduled_at: matchDate.toISOString(), slots_total: slots, slots_taken: 1,
             created_by: user.email, captain_home_email: user.email, modality: modality,
@@ -25701,8 +26082,13 @@ window.createOpenMatchAction = async function() {
         }
 
         if (typeof showToast === 'function') showToast('¡Partido creado! ⚽🎉', 'success');
-        switchDashboardTab('jugador', 'mis-partidos', null);
-        setTimeout(function() { if (typeof loadMisPartidos === 'function') loadMisPartidos('creados'); }, 300);
+        // Abrir la ficha del partido recién creado (confirmación clara de que se creó).
+        if (match && match.id && typeof window.viewMatchDetails === 'function') {
+            setTimeout(function() { try { window.viewMatchDetails(match.id); } catch(e){ switchDashboardTab('jugador', 'mis-partidos', null); } }, 250);
+        } else {
+            switchDashboardTab('jugador', 'mis-partidos', null);
+            setTimeout(function() { if (typeof loadMisPartidos === 'function') loadMisPartidos('creados'); }, 300);
+        }
 
     } catch(e) {
         console.error('createOpenMatchAction error:', e, e && e.message, e && e.details, e && e.hint);
@@ -25984,6 +26370,34 @@ window.initCrearPartidoMap = function() {
             if (ev.key === 'Enter') { ev.preventDefault(); cpMapSearch(this.value); }
         });
     }
+    // Centrar el mapa en la CIUDAD elegida (antes quedaba siempre en Montevideo).
+    var citySel = document.getElementById('cp-ciudad');
+    if (citySel && !citySel._cpCenterBound) {
+        citySel._cpCenterBound = true;
+        citySel.addEventListener('change', function(){ window._cpCenterOnCity(this.value); });
+    }
+    setTimeout(function(){ if (citySel && citySel.value) window._cpCenterOnCity(citySel.value); }, 200);
+};
+
+// Centra el mapa de Crear Partido en la ciudad elegida (geocoding Nominatim, cacheado).
+// NO coloca marcador (eso lo hace el usuario tocando la cancha exacta); solo reposiciona
+// la vista para que arranque en la ciudad correcta.
+window._cpCenterOnCity = async function(city) {
+    var map = window._cpMap;
+    if (!map || !city) return;
+    var pais = (document.getElementById('cp-pais') && document.getElementById('cp-pais').value) || 'Uruguay';
+    var key = (city + '|' + pais).toLowerCase();
+    window._cityCoordsCache = window._cityCoordsCache || {};
+    try {
+        var c = window._cityCoordsCache[key];
+        if (!c) {
+            var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(city + ', ' + pais) + '&format=json&limit=1';
+            var res = await fetch(url).then(function(r){ return r.json(); }).catch(function(){ return []; });
+            if (res && res.length) { c = { lat: parseFloat(res[0].lat), lng: parseFloat(res[0].lon) }; window._cityCoordsCache[key] = c; }
+        }
+        // Solo mover si el usuario todavía no marcó una cancha exacta.
+        if (c && !window._cpMarker) { try { map.setView([c.lat, c.lng], 13); } catch(e){} }
+    } catch(e){}
 };
 
 window.cpMapSearch = async function(query) {
@@ -26448,7 +26862,7 @@ window._openSharedPost = async function(postId) {
                     if (!found && post.media_url) {
                         // Si no se encontró, inyectar el reel target al principio
                         const card = document.createElement('div');
-                        card.style.cssText = 'height:100dvh;min-height:100%;width:100%;scroll-snap-align:start;scroll-snap-stop:always;position:relative;display:flex;align-items:center;justify-content:center;background:#000;';
+                        card.style.cssText = 'height:100vh;height:100dvh;min-height:100vh;width:100%;scroll-snap-align:start;scroll-snap-stop:always;position:relative;display:flex;align-items:center;justify-content:center;background:#000;';
                         const init = (post.user_name||'?')[0].toUpperCase();
                         card.innerHTML = `<video src="${post.media_url}" loop playsinline autoplay muted preload="auto" style="width:100%;height:100%;object-fit:contain;" onclick="this.muted=!this.muted"></video>
                             <div style="position:absolute;left:0;right:60px;bottom:0;padding:16px;background:linear-gradient(0deg,rgba(0,0,0,0.75),transparent);">
@@ -27785,8 +28199,8 @@ window._buscarGlobal = (function(){
       try {
         /* Buscar en perfiles de usuarios */
         const [usersR, clubsR] = await Promise.all([
-          sb.from('profiles').select('email,name,position,avatar_url').ilike('name','%'+q+'%').limit(8),
-          sb.from('clubs').select('id,name,logo_url,ciudad').ilike('name','%'+q+'%').limit(8).catch(()=>({data:[]}))
+          sb.from('users').select('email,name,pos,photo').ilike('name','%'+q+'%').limit(8),
+          sb.from('clubs').select('id,name,logo_url,city').ilike('name','%'+q+'%').limit(8).catch(()=>({data:[]}))
         ]);
         const users = (usersR&&usersR.data)||[];
         const clubs = (clubsR&&clubsR.data)||[];
@@ -27799,9 +28213,9 @@ window._buscarGlobal = (function(){
           html += '<div style="font-size:10px;font-weight:800;color:#555;letter-spacing:.5px;margin-bottom:8px;">JUGADORES</div>';
           html += users.map(u=>`<div onclick="window.openUserProfile&&openUserProfile('${u.email}')" style="display:flex;align-items:center;gap:10px;padding:10px;background:#111;border-radius:12px;margin-bottom:6px;cursor:pointer;">
             <div style="width:38px;height:38px;border-radius:50%;background:#1a1a1a;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--accent);">
-              ${u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;">`:(u.name||'?')[0].toUpperCase()}
+              ${(u.photo||u.avatar_url)?`<img src="${u.photo||u.avatar_url}" style="width:100%;height:100%;object-fit:cover;">`:(u.name||'?')[0].toUpperCase()}
             </div>
-            <div><div style="color:#fff;font-size:13px;font-weight:700;">${u.name||u.email}</div><div style="color:#555;font-size:11px;">${u.position||'Jugador'}</div></div>
+            <div><div style="color:#fff;font-size:13px;font-weight:700;">${u.name||u.email}</div><div style="color:#555;font-size:11px;">${u.pos||u.position||'Jugador'}</div></div>
           </div>`).join('');
         }
         if (clubs.length){
@@ -27810,7 +28224,7 @@ window._buscarGlobal = (function(){
             <div style="width:38px;height:38px;border-radius:50%;background:#1a1a1a;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:18px;">
               ${c.logo_url?`<img src="${c.logo_url}" style="width:100%;height:100%;object-fit:cover;">`:' 🛡️'}
             </div>
-            <div><div style="color:#fff;font-size:13px;font-weight:700;">${c.name}</div><div style="color:#555;font-size:11px;">${c.ciudad||'Club'}</div></div>
+            <div><div style="color:#fff;font-size:13px;font-weight:700;">${c.name}</div><div style="color:#555;font-size:11px;">${c.city||c.ciudad||'Club'}</div></div>
           </div>`).join('');
         }
         res.innerHTML = '<div style="background:#0d0d0d;border:1px solid #1a1a1a;border-radius:14px;padding:12px;">'+html+'</div>';

@@ -34,7 +34,7 @@ const tagSystem = {
     try {
       const { data } = await sb()
         .from('users')
-        .select('email, name, role, avatar_url')
+        .select('email, name, role, photo')
         .or(`name.ilike.%${query}%,email.ilike.%${query}%`)
         .limit(8);
       this._searchCache[key] = data || [];
@@ -373,7 +373,7 @@ const matchRequests = {
         // Posición por defecto = posición natural del jugador (su perfil), no 'DEL' fijo
         let natural = null;
         try {
-          const { data: u } = await sb().from('users').select('pos, position').eq('email', req.user_email).single();
+          const { data: u } = await sb().from('users').select('pos').eq('email', req.user_email).single();
           natural = u && (u.pos || u.position) || null;
         } catch(e2){}
         await sb().from('match_players').upsert([{

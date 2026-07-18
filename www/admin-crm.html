@@ -991,10 +991,10 @@ function renderLine(id,labels,data,color){
 async function loadEstadisticas() {
   try {
     const [usersRes, postsRes, matchesRes, bizRes] = await Promise.all([
-      sb.from('users').select('city,role,created_at,department'),
+      sb.from('users').select('city,role,created_at'),
       sb.from('posts').select('user_email,created_at'),
       sb.from('matches').select('city,created_at'),
-      sb.from('business_requests').select('role,account_status,city')
+      sb.from('business_requests').select('role,account_status')
     ]);
     const users = usersRes.data || [];
     const posts = postsRes.data || [];
@@ -1907,7 +1907,7 @@ async function createAdminTorneo() {
   const city = document.getElementById('ct-city')?.value.trim();
   const start = document.getElementById('ct-start')?.value;
   if (!name) { showToast('Escribí el nombre del torneo.', 'error'); return; }
-  const { error } = await sb.from('torneos').insert({ name, type, city, start_date: start, created_by: ADMIN_EMAIL, status: 'activo' }).catch(() => ({ error: null }));
+  const { error } = await sb.from('tournaments').insert({ name, format: type, city, start_date: start, organizer_email: ADMIN_EMAIL, status: 'registration' }).catch((e) => ({ error: e }));
   showToast(error ? 'Error: ' + error.message : 'Torneo creado.', error ? 'error' : 'success');
 }
 

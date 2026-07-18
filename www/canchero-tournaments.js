@@ -9,6 +9,193 @@ window.CancheroTournaments = (function() {
     function getUser() { return window.userData || null; }
     function toast(msg, type) { if (typeof showToast === 'function') showToast(msg, type || 'success'); }
 
+    const POSICIONES = ['ARQ','DEF','LAT','MED','VOL','ENG','DEL','EXT'];
+    const POS_LABEL = { ARQ:'Arquero', DEF:'Defensor', LAT:'Lateral', MED:'Mediocampista', VOL:'Volante', ENG:'Enganche', DEL:'Delantero', EXT:'Extremo' };
+
+    function _esc(s){ return String(s==null?'':s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+
+    // ISO → valor de <input datetime-local> (YYYY-MM-DDTHH:mm) en hora local.
+    function _toLocalInput(iso){
+        try { const d = new Date(iso); if (isNaN(d)) return ''; const p = n => String(n).padStart(2,'0');
+            return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes()); } catch(e){ return ''; }
+    }
+
+    // Subir imagen al bucket 'media' y devolver la URL pública.
+    async function _uploadImg(file, folder) {
+        const sb = getSb();
+        if (!sb || !file) return null;
+        const path = (folder||'torneos') + '/' + (Date.now()) + '-' + Math.random().toString(36).slice(2,7) + '.jpg';
+        try {
+            const up = await sb.storage.from('media').upload(path, file, { upsert:true, contentType: file.type || 'image/jpeg' });
+            if (up.error) return null;
+            return sb.storage.from('media').getPublicUrl(path).data.publicUrl;
+        } catch(e){ return null; }
+    }
+
+    // Logo del equipo en CÍRCULO con aro verde — igual que en la ficha de Partidos.
+    function _shieldHTML(url, name, size) {
+        size = size || 40;
+        const initials = (name||'?').trim().slice(0,2).toUpperCase();
+        const inner = url
+            ? `<img src="${_esc(url)}" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;" onerror="this.parentNode.innerHTML='<span style=\\'font-size:${Math.round(size*0.32)}px;font-weight:900;color:var(--accent);display:flex;align-items:center;justify-content:center;width:100%;height:100%;\\'>${initials}</span>'">`
+            : `<span style="font-size:${Math.round(size*0.32)}px;font-weight:900;color:var(--accent);display:flex;align-items:center;justify-content:center;width:100%;height:100%;">${initials}</span>`;
+        return `<span style="width:${size}px;height:${size}px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:#0d120d;border:2px solid rgba(186,255,0,0.75);box-shadow:0 0 10px rgba(186,255,0,0.25);overflow:hidden;">${inner}</span>`;
+    }
+
+    // ¿El usuario actual es LA ORGANIZACIÓN creadora, con su identidad de organización activa?
+    // (Multi-identidad: el mismo email puede entrar como jugador/fanático — en esos roles
+    //  NO debe poder gestionar el torneo.)
+    function _isOrgActive(organizerEmail) {
+        const u = getUser();
+        if (!u || !u.email || !organizerEmail) return false;
+        if ((u.email||'').toLowerCase() !== (organizerEmail||'').toLowerCase()) return false;
+        try {
+            const r = String((window._trueRole && window._trueRole()) || u.role || '').toLowerCase();
+            return r === 'organizacion';
+        } catch(e) { return String(u.role||'').toLowerCase() === 'organizacion'; }
+    }
+
+    // Rol activo actual (para reglas como "solo jugador/equipo se inscribe").
+    function _activeRole() {
+        const u = getUser();
+        try { return String((window._trueRole && window._trueRole()) || (u && u.role) || '').toLowerCase(); }
+        catch(e) { return String((u && u.role) || '').toLowerCase(); }
+    }
+
+    // Abrir el perfil REAL de un club/equipo/jugador registrado.
+    // Acepta un email de usuario o 'club:<id>' para equipos de la tabla clubs.
+    // Dentro de la app navega in-place; fuera (CRM/torneo.html) abre el deep-link.
+    function _openProfile(ref) {
+        if (!ref) { toast('No está registrado en Canchero.', 'info'); return; }
+        const s = String(ref);
+        const _closeAll = () => { try { _cmdClose(); document.getElementById('ctm-modal')?.remove(); document.getElementById('ctp-modal')?.remove(); document.getElementById('cti-modal')?.remove(); } catch(e){} };
+        if (s.indexOf('club:') === 0) {
+            const clubId = s.slice(5);
+            if (typeof window.viewClubProfile === 'function') { _closeAll(); window.viewClubProfile(clubId); return; }
+            window.open('index.html?club=' + encodeURIComponent(clubId), '_blank');
+            return;
+        }
+        if (typeof window.viewUserProfile === 'function') { _closeAll(); window.viewUserProfile(s); return; }
+        window.open('index.html?perfil=' + encodeURIComponent(s), '_blank');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // FICHA DE EQUIPO DEL TORNEO
+    // Si el equipo está registrado → su perfil real. Si no → esta ficha con
+    // plantel, estadísticas e info. NUNCA una pestaña en blanco.
+    // ═══════════════════════════════════════════════════════════
+    async function _openTeamInfo(teamId) {
+        const sb = getSb();
+        const { data: team } = await sb.from('tournament_teams').select('*').eq('id', teamId).single();
+        if (!team) { toast('Equipo no encontrado.', 'error'); return; }
+        // Registrado → perfil real
+        if (team.club_email) { _openProfile(team.club_email); return; }
+
+        const { data: players } = await sb.from('tournament_players').select('*').eq('team_id', teamId).order('number');
+        const { data: t } = await sb.from('tournaments').select('name,organizer_email').eq('id', team.tournament_id).single();
+        const isOrg = _isOrgActive(t?.organizer_email);
+        const pj = (team.wins||0)+(team.draws||0)+(team.losses||0);
+        const dg = (team.goals_for||0)-(team.goals_against||0);
+        const stat = (v, l) => `<div style="flex:1;min-width:52px;text-align:center;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:10px 4px;"><div style="font-size:18px;font-weight:900;color:var(--accent);">${v}</div><div style="font-size:9px;color:#777;font-weight:800;letter-spacing:.5px;">${l}</div></div>`;
+
+        const ex = document.getElementById('cti-modal'); if (ex) ex.remove();
+        const modal = document.createElement('div');
+        modal.id = 'cti-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100008;background:#070907;overflow-y:auto;';
+        modal.innerHTML = `
+        <div style="max-width:560px;margin:0 auto;padding:14px 16px calc(60px + env(safe-area-inset-bottom));">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0 14px;position:sticky;top:0;background:rgba(7,9,7,0.9);backdrop-filter:blur(10px);z-index:2;">
+                <button onclick="document.getElementById('cti-modal').remove()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:12px;padding:8px 12px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;"><i class='bx bx-arrow-back'></i> Volver</button>
+                ${isOrg ? `<label style="background:rgba(186,255,0,0.1);color:var(--accent);border:1px solid rgba(186,255,0,0.25);border-radius:12px;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer;"><i class='bx bx-camera'></i> Escudo<input type="file" accept="image/*" style="display:none;" onchange="CancheroTournaments._teamSetLogo('${teamId}',this)"></label>` : ''}
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:18px 16px;backdrop-filter:blur(10px);">
+                ${_shieldHTML(team.logo_url, team.team_name, 72)}
+                <div style="min-width:0;flex:1;">
+                    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;line-height:1.15;">${_esc(team.team_name)}</div>
+                    <div style="font-size:11.5px;color:#888;margin-top:3px;">${_esc(t?.name||'')}${team.group_letter?' · Grupo '+team.group_letter:''}</div>
+                    <div style="font-size:11.5px;color:#666;margin-top:2px;"><i class='bx bx-user' style="color:var(--accent);"></i> ${_esc(team.captain_name||team.captain_email||'Sin capitán')}</div>
+                    <div style="font-size:10px;color:#555;margin-top:6px;">Equipo no registrado en Canchero</div>
+                </div>
+            </div>
+            <div style="display:flex;gap:6px;margin:14px 0;flex-wrap:wrap;">
+                ${stat(team.points||0,'PTS')}${stat(pj,'PJ')}${stat(team.wins||0,'G')}${stat(team.draws||0,'E')}${stat(team.losses||0,'P')}${stat((dg>0?'+':'')+dg,'DG')}
+            </div>
+            <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;">
+                ${stat(team.goals_for||0,'GOLES A FAVOR')}${stat(team.goals_against||0,'EN CONTRA')}
+            </div>
+            <div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:10px;">PLANTEL (${(players||[]).length})</div>
+            ${(players||[]).length ? (players||[]).map(p => `
+                <div onclick="CancheroTournaments._openPlayerInfo('${p.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;margin-bottom:6px;cursor:pointer;">
+                    <span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;background:${p.avatar_url?`#222 center/cover url('${_esc(p.avatar_url)}')`:'rgba(186,255,0,0.1)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--accent);">${p.avatar_url?'':(p.number||'—')}</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;font-size:13px;">${_esc(p.player_name)}</div>
+                        <div style="font-size:10px;color:#666;">${p.position?(POS_LABEL[p.position]||p.position):'Sin posición'}</div>
+                    </div>
+                    <div style="font-size:11px;color:#666;white-space:nowrap;"><i class='bx bx-football'></i>${p.goals||0} · <i class='bx bx-run'></i>${p.assists||0}</div>
+                    <i class='bx bx-chevron-right' style="color:#444;"></i>
+                </div>`).join('') : '<div style="text-align:center;padding:26px;color:#555;font-size:12px;">Este equipo todavía no cargó jugadores.</div>'}
+        </div>`;
+        modal.onclick = e => { if (e.target === modal) modal.remove(); };
+        document.body.appendChild(modal);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // FICHA DE JUGADOR DEL TORNEO (si está registrado → su perfil real)
+    // ═══════════════════════════════════════════════════════════
+    async function _openPlayerInfo(playerId) {
+        const sb = getSb();
+        const { data: p } = await sb.from('tournament_players').select('*,tournament_teams(team_name,logo_url)').eq('id', playerId).single();
+        if (!p) { toast('Jugador no encontrado.', 'error'); return; }
+        if (p.user_email) { _openProfile(p.user_email); return; }
+
+        const { data: t } = await sb.from('tournaments').select('name,organizer_email').eq('id', p.tournament_id).single();
+        const isOrg = _isOrgActive(t?.organizer_email);
+        const susp = (p.suspended_matches||0) > 0;
+        const stat = (v, l) => `<div style="flex:1;min-width:60px;text-align:center;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:12px 4px;"><div style="font-size:20px;font-weight:900;color:var(--accent);">${v}</div><div style="font-size:9px;color:#777;font-weight:800;letter-spacing:.5px;">${l}</div></div>`;
+
+        const ex = document.getElementById('cti-modal'); if (ex) ex.remove();
+        const modal = document.createElement('div');
+        modal.id = 'cti-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100008;background:#070907;overflow-y:auto;';
+        modal.innerHTML = `
+        <div style="max-width:520px;margin:0 auto;padding:14px 16px calc(60px + env(safe-area-inset-bottom));">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0 14px;position:sticky;top:0;background:rgba(7,9,7,0.9);backdrop-filter:blur(10px);z-index:2;">
+                <button onclick="document.getElementById('cti-modal').remove()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:12px;padding:8px 12px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;"><i class='bx bx-arrow-back'></i> Volver</button>
+                ${isOrg ? `<label style="background:rgba(186,255,0,0.1);color:var(--accent);border:1px solid rgba(186,255,0,0.25);border-radius:12px;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer;"><i class='bx bx-camera'></i> Foto<input type="file" accept="image/*" style="display:none;" onchange="CancheroTournaments._playerSetPhoto('${playerId}',this)"></label>` : ''}
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:10px;background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:22px 16px;backdrop-filter:blur(10px);">
+                <span style="width:88px;height:88px;border-radius:50%;border:3px solid rgba(186,255,0,0.7);background:${p.avatar_url?`#111 center/cover url('${_esc(p.avatar_url)}')`:'rgba(186,255,0,0.1)'};display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:var(--accent);box-shadow:0 0 18px rgba(186,255,0,0.2);">${p.avatar_url?'':((p.player_name||'?')[0]||'?').toUpperCase()}</span>
+                <div style="text-align:center;">
+                    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:20px;">${_esc(p.player_name)}${susp?' <span style="font-size:9px;font-weight:900;color:#ff6b6b;background:rgba(255,68,68,0.1);border-radius:6px;padding:2px 7px;vertical-align:3px;">SUSPENDIDO</span>':''}</div>
+                    <div style="font-size:12px;color:#888;margin-top:3px;">${p.number?('#'+p.number+' · '):''}${p.position?(POS_LABEL[p.position]||p.position):'Sin posición'}</div>
+                    <div style="font-size:12px;color:var(--accent);margin-top:4px;display:flex;align-items:center;justify-content:center;gap:7px;">${_shieldHTML(p.tournament_teams?.logo_url, p.tournament_teams?.team_name, 22)} ${_esc(p.tournament_teams?.team_name||'Sin equipo')}</div>
+                    <div style="font-size:10px;color:#555;margin-top:8px;">Jugador no registrado en Canchero</div>
+                </div>
+            </div>
+            <div style="display:flex;gap:6px;margin:14px 0;flex-wrap:wrap;">
+                ${stat(p.goals||0,'GOLES')}${stat(p.assists||0,'ASISTENCIAS')}${stat(p.yellow_cards||0,'AMARILLAS')}${stat(p.red_cards||0,'ROJAS')}
+            </div>
+            <div style="font-size:11.5px;color:#666;text-align:center;padding:10px;">Torneo: ${_esc(t?.name||'—')}</div>
+        </div>`;
+        modal.onclick = e => { if (e.target === modal) modal.remove(); };
+        document.body.appendChild(modal);
+    }
+
+    // Foto del jugador cargada a mano por la organización (los registrados la traen sola).
+    async function _playerSetPhoto(playerId, input) {
+        const f = input.files && input.files[0]; if (!f) return;
+        toast('Subiendo foto...', 'info');
+        const url = await _uploadImg(f, 'torneos/jugadores');
+        if (!url) { toast('No se pudo subir la foto.', 'error'); return; }
+        const sb = getSb();
+        const { error } = await sb.from('tournament_players').update({ avatar_url: url }).eq('id', playerId);
+        if (error) { toast('Error: ' + error.message, 'error'); return; }
+        toast('Foto actualizada.', 'success');
+        _openPlayerInfo(playerId);
+    }
+    window.CancheroTournaments = window.CancheroTournaments || {};
+    window.CancheroTournaments._openProfile = _openProfile;
+
     // ═══════════════════════════════════════════════════════════
     // CREAR TORNEO
     // ═══════════════════════════════════════════════════════════
@@ -98,7 +285,7 @@ window.CancheroTournaments = (function() {
             }).select('id').single();
             if (error) throw error;
             document.getElementById('ct-modal')?.remove();
-            toast('¡Torneo creado! 🏆', 'success');
+            toast('¡Torneo creado!', 'success');
             openTournamentManager(data.id, email);
         } catch(e) {
             toast('Error al crear: ' + (e.message || ''), 'error');
@@ -117,31 +304,72 @@ window.CancheroTournaments = (function() {
 
         const existing = document.getElementById('ctm-modal');
         if (existing) existing.remove();
+        const isOrgMgr = _isOrgActive(organizerEmail);
         const modal = document.createElement('div');
         modal.id = 'ctm-modal';
-        modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.93);overflow-y:auto;';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#070907;overflow-y:auto;';
         modal.innerHTML = `
-        <div style="max-width:700px;margin:0 auto;padding:20px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 0 12px;">
-                <div>
-                    <h2 style="font-family:Outfit,sans-serif;font-weight:900;font-size:18px;margin-bottom:2px;"><i class='bx bx-trophy' style="color:var(--accent);"></i> ${t.name}</h2>
-                    <div style="font-size:11px;color:#555;">${t.city||''} · ${_formatStatus(t.status)} · ${t.format === 'groups' ? 'Grupos + Eliminación' : t.format === 'league' ? 'Liga' : 'Eliminación directa'}</div>
+        <div style="max-width:720px;margin:0 auto;padding:14px 16px calc(120px + env(safe-area-inset-bottom));">
+            <div style="display:flex;align-items:center;gap:12px;padding:6px 0 14px;position:sticky;top:0;background:#070907;z-index:2;">
+                <button onclick="document.getElementById('ctm-modal').remove()" style="background:rgba(255,255,255,0.05);border:1px solid #222;color:#fff;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;flex-shrink:0;"><i class='bx bx-arrow-back'></i> Volver</button>
+                <div style="min-width:0;flex:1;">
+                    <h2 style="font-family:Outfit,sans-serif;font-weight:900;font-size:17px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i class='bx bx-trophy' style="color:var(--accent);"></i> ${_esc(t.name)}</h2>
+                    <div style="font-size:11px;color:#555;">${_esc(t.city||'')} · ${_formatStatus(t.status)} · ${t.format === 'groups' ? 'Grupos + Eliminación' : t.format === 'league' ? 'Liga' : 'Eliminación directa'}</div>
                 </div>
-                <button onclick="document.getElementById('ctm-modal').remove()" style="background:none;border:none;color:#888;font-size:24px;cursor:pointer;">&times;</button>
+                ${isOrgMgr ? `<button onclick="CancheroTournaments._openEditTournament('${tournamentId}')" title="Editar información del torneo" style="background:rgba(186,255,0,0.1);border:1px solid rgba(186,255,0,0.25);color:var(--accent);border-radius:10px;padding:8px 11px;font-size:15px;cursor:pointer;flex-shrink:0;"><i class='bx bx-edit'></i></button>` : ''}
             </div>
-            <!-- Tabs -->
-            <div style="display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px;">
-                <button class="ctm-tab active" onclick="CancheroTournaments._ctmTab('equipos','${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}',this)" style="display:flex;align-items:center;gap:6px;background:rgba(186,255,0,0.12);color:var(--accent);border:1px solid rgba(186,255,0,0.3);border-radius:20px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:.15s;"><i class='bx bx-shield-quarter'></i> Equipos</button>
-                <button class="ctm-tab" onclick="CancheroTournaments._ctmTab('fixture','${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}',this)" style="display:flex;align-items:center;gap:6px;background:transparent;color:#888;border:1px solid #222;border-radius:20px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:.15s;"><i class='bx bx-calendar'></i> Fixture</button>
-                <button class="ctm-tab" onclick="CancheroTournaments._ctmTab('tabla','${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}',this)" style="display:flex;align-items:center;gap:6px;background:transparent;color:#888;border:1px solid #222;border-radius:20px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:.15s;"><i class='bx bx-list-ol'></i> Tabla</button>
-                <button class="ctm-tab" onclick="CancheroTournaments._ctmTab('jugadores','${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}',this)" style="display:flex;align-items:center;gap:6px;background:transparent;color:#888;border:1px solid #222;border-radius:20px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:.15s;"><i class='bx bx-group'></i> Jugadores</button>
-                <button class="ctm-tab" onclick="CancheroTournaments._ctmTab('goleadores','${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}',this)" style="display:flex;align-items:center;gap:6px;background:transparent;color:#888;border:1px solid #222;border-radius:20px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:.15s;"><i class='bx bx-football'></i> Goleadores</button>
+            <!-- Portada + logo del torneo -->
+            <div style="position:relative;border-radius:16px;overflow:hidden;margin-bottom:16px;height:140px;background:${t.cover_url?'#000':'linear-gradient(135deg,#141914,#0b0d0b)'};border:1px solid #1a1a1a;">
+                ${t.cover_url ? `<img src="${_esc(t.cover_url)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">` : `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#2a2a2a;"><i class='bx bx-trophy' style="font-size:44px;"></i></div>`}
+                <div style="position:absolute;left:12px;bottom:10px;display:flex;align-items:center;gap:10px;">
+                    <span style="width:52px;height:52px;border-radius:14px;overflow:hidden;border:2px solid #070907;background:#111 center/cover;${t.logo_url?`background-image:url('${_esc(t.logo_url)}')`:''};display:flex;align-items:center;justify-content:center;">${t.logo_url?'':"<i class='bx bx-trophy' style=\"color:var(--accent);font-size:24px;\"></i>"}</span>
+                </div>
+                ${isOrgMgr ? `<div style="position:absolute;right:10px;bottom:10px;display:flex;gap:6px;">
+                    <label style="background:rgba(0,0,0,0.6);color:#fff;border:1px solid #333;border-radius:8px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;"><i class='bx bx-image'></i> Portada<input type="file" accept="image/*" style="display:none;" onchange="CancheroTournaments._ctmSetImg('${tournamentId}','cover_url',this)"></label>
+                    <label style="background:rgba(0,0,0,0.6);color:#fff;border:1px solid #333;border-radius:8px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;"><i class='bx bx-camera'></i> Logo<input type="file" accept="image/*" style="display:none;" onchange="CancheroTournaments._ctmSetImg('${tournamentId}','logo_url',this)"></label>
+                </div>` : ''}
+            </div>
+            <!-- Tabs: UNA sola línea (icono+texto en PC, solo icono en celular) -->
+            <div class="ctm-tabbar" style="display:flex;flex-wrap:nowrap;gap:5px;margin-bottom:16px;">
+                ${_ctmTabBtn('equipos','bx-shield-quarter','Equipos',tournamentId,organizerEmail,true)}
+                ${_ctmTabBtn('fixture','bx-calendar','Fixture',tournamentId,organizerEmail)}
+                ${_ctmTabBtn('tabla','bx-list-ol','Tabla',tournamentId,organizerEmail)}
+                ${_ctmTabBtn('jugadores','bx-group','Jugadores',tournamentId,organizerEmail)}
+                ${_ctmTabBtn('goleadores','bx-football','Goleadores',tournamentId,organizerEmail)}
+                ${isOrgMgr ? _ctmTabBtn('solicitudes','bx-user-plus','Solicitudes',tournamentId,organizerEmail) : ''}
             </div>
             <div id="ctm-content" style="min-height:300px;"></div>
         </div>`;
         modal.onclick = e => { if (e.target === modal) modal.remove(); };
         document.body.appendChild(modal);
+        _injectTabCss();
+        if (isOrgMgr) _refreshSolicBadge(tournamentId);
         _ctmTab('equipos', tournamentId, organizerEmail, modal.querySelector('.ctm-tab'));
+    }
+
+    // Botón de tab compacto (label se oculta en celular vía CSS inyectado).
+    function _ctmTabBtn(tab, icon, label, tournamentId, organizerEmail, active) {
+        const on = `CancheroTournaments._ctmTab('${tab}','${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}',this)`;
+        return `<button class="ctm-tab${active?' active':''}" data-tab="${tab}" title="${label}" onclick="${on}" style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:5px;background:${active?'rgba(186,255,0,0.12)':'transparent'};color:${active?'var(--accent)':'#888'};border:1px solid ${active?'rgba(186,255,0,0.3)':'#222'};border-radius:14px;padding:9px 4px;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;transition:.15s;position:relative;overflow:visible;"><i class='bx ${icon}' style="font-size:16px;flex-shrink:0;"></i><span class="ctm-tab-label" style="overflow:hidden;text-overflow:ellipsis;">${label}</span><span class="ctm-tab-badge" data-badge="${tab}" style="display:none;position:absolute;top:-5px;right:-2px;background:#ff4444;color:#fff;font-size:9px;font-weight:900;min-width:15px;height:15px;border-radius:8px;padding:0 3px;align-items:center;justify-content:center;line-height:15px;"></span></button>`;
+    }
+
+    // En celular las tabs quedan solo-icono para que entren TODAS en una línea.
+    function _injectTabCss() {
+        if (document.getElementById('ctm-tab-css')) return;
+        const st = document.createElement('style');
+        st.id = 'ctm-tab-css';
+        st.textContent = '@media (max-width:640px){ .ctm-tab .ctm-tab-label{display:none;} .ctm-tabbar .ctm-tab{padding:10px 2px !important;} .ctm-tab i{font-size:19px !important;} }';
+        document.head.appendChild(st);
+    }
+
+    // Contador de solicitudes pendientes en la tab Solicitudes.
+    async function _refreshSolicBadge(tournamentId) {
+        try {
+            const sb = getSb();
+            const { count } = await sb.from('tournament_teams').select('id',{count:'exact',head:true}).eq('tournament_id',tournamentId).eq('status','pending');
+            const el = document.querySelector('.ctm-tab-badge[data-badge="solicitudes"]');
+            if (el) { el.textContent = count || 0; el.style.display = count ? 'inline-flex' : 'none'; }
+        } catch(e){}
     }
 
     window.CancheroTournaments = window.CancheroTournaments || {};
@@ -151,6 +379,21 @@ window.CancheroTournaments = (function() {
         return map[s] || s;
     }
 
+    // Subir/actualizar portada (cover_url) o logo (logo_url) del torneo.
+    async function _ctmSetImg(tournamentId, field, input) {
+        const f = input.files && input.files[0]; if (!f) return;
+        toast('Subiendo imagen...', 'info');
+        const url = await _uploadImg(f, 'torneos');
+        if (!url) { toast('No se pudo subir la imagen.', 'error'); return; }
+        const sb = getSb();
+        const { error } = await sb.from('tournaments').update({ [field]: url }).eq('id', tournamentId);
+        if (error) { toast('Error: ' + error.message, 'error'); return; }
+        toast(field === 'cover_url' ? 'Portada actualizada' : 'Logo actualizado', 'success');
+        const { data: t } = await sb.from('tournaments').select('organizer_email').eq('id', tournamentId).single();
+        openTournamentManager(tournamentId, t?.organizer_email);
+    }
+    window.CancheroTournaments._ctmSetImg = _ctmSetImg;
+
     // ── Gestión de equipos ──────────────────────────────────
     async function _ctmEquipos(tournamentId, organizerEmail) {
         const sb = getSb();
@@ -158,7 +401,10 @@ window.CancheroTournaments = (function() {
         const { data: teams } = await sb.from('tournament_teams').select('*').eq('tournament_id', tournamentId).order('created_at');
         const container = document.getElementById('ctm-content');
         if (!container) return;
-        const isOrg = getUser()?.email === organizerEmail;
+        const isOrg = _isOrgActive(organizerEmail);
+        // Auto-escudo: si el equipo está vinculado a un club registrado y no tiene escudo,
+        // tomar la foto/escudo del perfil del club (y persistirla para fixture/tabla).
+        try { await _healTeamLogos(teams, isOrg); } catch(e){}
         const fee = t?.entry_fee || 0;
         container.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
@@ -167,7 +413,7 @@ window.CancheroTournaments = (function() {
         </div>
         ${(teams||[]).map(team => _renderTeamCard(team, isOrg, t?.payment_link)).join('') || '<div style="text-align:center;padding:40px;color:#555;">Aún no hay equipos inscriptos.</div>'}
         ${!isOrg ? `<div style="margin-top:16px;padding:16px;background:#111;border:1px solid #1e1e1e;border-radius:14px;">
-            <div style="font-weight:900;font-size:14px;margin-bottom:10px;">📋 Inscribir mi equipo</div>
+            <div style="font-weight:900;font-size:14px;margin-bottom:10px;"><i class='bx bx-clipboard'></i> Inscribir mi equipo</div>
             ${fee > 0 ? `<div style="font-size:12px;color:#aaa;margin-bottom:10px;">Precio de inscripción: <strong style="color:var(--accent);">$${fee}</strong>${t?.payment_link ? ` · <a href="${t.payment_link}" target="_blank" style="color:var(--accent);">Pagar aquí</a>` : ''}</div>` : ''}
             <div style="display:flex;gap:8px;">
                 <input id="ctm-team-name" type="text" placeholder="Nombre de tu equipo" style="flex:1;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:9px 12px;font-size:13px;">
@@ -178,29 +424,90 @@ window.CancheroTournaments = (function() {
         ${isOrg && (teams||[]).some(t => t.status === 'approved') ? `<button onclick="CancheroTournaments._generateFixture('${tournamentId}')" style="width:100%;margin-top:10px;background:var(--accent);color:#000;border:none;border-radius:12px;padding:12px;font-weight:900;font-size:14px;cursor:pointer;"><i class='bx bx-shuffle'></i> GENERAR FIXTURE</button>` : ''}`;
     }
 
+    // Completa logo_url de equipos vinculados a un club registrado (busca la foto del
+    // perfil del club, tanto en users como en business_requests.payload).
+    async function _healTeamLogos(teams, persist) {
+        const sb = getSb();
+        const missing = (teams||[]).filter(x => x.club_email && !x.logo_url);
+        if (!missing.length) return;
+        const refs = [...new Set(missing.map(x => (x.club_email||'').toLowerCase()))];
+        const clubIds = refs.filter(r => r.indexOf('club:') === 0).map(r => r.slice(5));
+        const emails = refs.filter(r => r.indexOf('club:') !== 0);
+        const byRef = {};
+        // Equipos reales (tabla clubs)
+        if (clubIds.length) {
+            try {
+                const { data: cs } = await sb.from('clubs').select('id,logo,logo_url').in('id', clubIds);
+                (cs||[]).forEach(c => { const p = c.logo_url || c.logo; if (p) byRef['club:'+String(c.id).toLowerCase()] = p; });
+            } catch(e){}
+        }
+        // Vínculos por email (perfiles / negocios)
+        if (emails.length) {
+            try {
+                const { data: us } = await sb.from('users').select('email,photo,logo_url').in('email', emails);
+                (us||[]).forEach(u => { const p = u.logo_url || u.photo; if (p) byRef[(u.email||'').toLowerCase()] = p; });
+            } catch(e){}
+            try {
+                const { data: brs } = await sb.from('business_requests').select('email,payload').in('email', emails);
+                (brs||[]).forEach(b => {
+                    let pl = b.payload || {}; try { if (typeof pl === 'string') pl = JSON.parse(pl); } catch(e){ pl = {}; }
+                    const p = pl.logo || pl.photo; const em = (b.email||'').toLowerCase();
+                    if (p && !byRef[em]) byRef[em] = p;
+                });
+            } catch(e){}
+        }
+        for (const team of missing) {
+            const p = byRef[(team.club_email||'').toLowerCase()];
+            if (!p) continue;
+            team.logo_url = p; // para este render
+            if (persist) { try { await sb.from('tournament_teams').update({ logo_url: p }).eq('id', team.id); } catch(e){} }
+        }
+    }
+
+    // Subir el escudo de un equipo del torneo (lo ve fixture/tabla/ficha/goleadores).
+    async function _teamSetLogo(teamId, input) {
+        const f = input.files && input.files[0]; if (!f) return;
+        toast('Subiendo escudo...', 'info');
+        const url = await _uploadImg(f, 'torneos/equipos');
+        if (!url) { toast('No se pudo subir el escudo.', 'error'); return; }
+        const sb = getSb();
+        const { data: team, error } = await sb.from('tournament_teams').update({ logo_url: url }).eq('id', teamId).select('tournament_id').single();
+        if (error) { toast('Error: ' + error.message, 'error'); return; }
+        toast('Escudo actualizado', 'success');
+        if (team) {
+            const { data: t } = await sb.from('tournaments').select('organizer_email').eq('id', team.tournament_id).single();
+            _ctmEquipos(team.tournament_id, t?.organizer_email);
+        }
+    }
+
     function _renderTeamCard(team, isOrg, paymentLink) {
         const statusColors = { pending:'#ffaa00', approved:'#00e676', rejected:'#ff4444', eliminated:'#555' };
-        const statusLabels = { pending:'⏳ Pendiente', approved:'✅ Aprobado', rejected:'❌ Rechazado', eliminated:'💀 Eliminado' };
+        const statusLabels = { pending:"<i class='bx bx-time-five'></i> Pendiente", approved:"<i class='bx bx-check'></i> Aprobado", rejected:"<i class='bx bx-x'></i> Rechazado", eliminated:"<i class='bx bx-block'></i> Eliminado" };
         const payColors = { pending:'#ffaa00', paid:'#00e676', waived:'#4fc3f7' };
         const payLabels = { pending:'Sin pago', paid:'Pagado', waived:'Exento' };
         return `<div style="background:#111;border:1px solid #1e1e1e;border-radius:14px;padding:14px 16px;margin-bottom:8px;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-                <div style="flex:1;min-width:0;">
-                    <div style="font-weight:800;font-size:14px;">${team.team_name}</div>
-                    <div style="font-size:11px;color:#666;margin-top:2px;">Capitán: ${team.captain_name||team.captain_email||'—'} · ${team.players_count||0} jugadores</div>
+                <div style="flex:1;min-width:0;display:flex;align-items:flex-start;gap:10px;">
+                    <span onclick="CancheroTournaments._openTeamInfo('${team.id}')" style="cursor:pointer;">${_shieldHTML(team.logo_url, team.team_name, 48)}</span>
+                    <div style="min-width:0;">
+                    <div onclick="CancheroTournaments._openTeamInfo('${team.id}')" style="cursor:pointer;font-weight:800;font-size:14px;">${_esc(team.team_name)} <i class='bx bx-chevron-right' style="font-size:12px;color:var(--accent);"></i></div>
+                    <div style="font-size:11px;color:#666;margin-top:2px;">Capitán: ${_esc(team.captain_name||team.captain_email||'—')} · ${team.players_count||0} jugadores</div>
                     <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
                         <span style="font-size:10px;font-weight:700;color:${statusColors[team.status]||'#888'};background:rgba(255,255,255,0.05);border-radius:6px;padding:2px 8px;">${statusLabels[team.status]||team.status}</span>
                         ${team.payment_status !== 'waived' ? `<span style="font-size:10px;font-weight:700;color:${payColors[team.payment_status]||'#888'};background:rgba(255,255,255,0.05);border-radius:6px;padding:2px 8px;">${payLabels[team.payment_status]||''}</span>` : ''}
+                    </div>
                     </div>
                 </div>
                 ${isOrg ? `<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
                     ${team.status === 'pending' ? `<button onclick="CancheroTournaments._approveTeam('${team.id}','approved')" style="background:rgba(0,230,118,0.12);color:#00e676;border:1px solid rgba(0,230,118,0.3);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;"><i class='bx bx-check'></i> Aprobar</button>
                     <button onclick="CancheroTournaments._approveTeam('${team.id}','rejected')" style="background:rgba(255,68,68,0.08);color:#ff4444;border:1px solid rgba(255,68,68,0.2);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;"><i class='bx bx-x'></i> Rechazar</button>` : ''}
-                    ${team.payment_status === 'pending' ? `<button onclick="CancheroTournaments._markPaid('${team.id}')" style="background:rgba(186,255,0,0.08);color:var(--accent);border:1px solid rgba(186,255,0,0.25);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;">💰 Marcar pagado</button>` : ''}
-                    <button onclick="CancheroTournaments._openTeamPlayers('${team.id}','${team.team_name.replace(/'/g,"\\'")}')" style="background:rgba(255,255,255,0.04);color:#aaa;border:1px solid #222;border-radius:8px;padding:5px 10px;font-size:11px;cursor:pointer;">👥 Jugadores</button>
+                    ${team.payment_status === 'pending' ? `<button onclick="CancheroTournaments._markPaid('${team.id}')" style="background:rgba(186,255,0,0.08);color:var(--accent);border:1px solid rgba(186,255,0,0.25);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;"><i class='bx bx-dollar-circle'></i> Marcar pagado</button>` : ''}
+                    <button onclick="CancheroTournaments._openTeamPlayers('${team.id}','${team.team_name.replace(/'/g,"\\'")}')" style="background:rgba(255,255,255,0.04);color:#aaa;border:1px solid #222;border-radius:8px;padding:5px 10px;font-size:11px;cursor:pointer;"><i class='bx bx-group'></i> Jugadores</button>
+                    <label style="background:rgba(255,255,255,0.04);color:#aaa;border:1px solid #222;border-radius:8px;padding:5px 10px;font-size:11px;cursor:pointer;text-align:center;"><i class='bx bx-camera'></i> Escudo<input type="file" accept="image/*" style="display:none;" onchange="CancheroTournaments._teamSetLogo('${team.id}',this)"></label>
+                    ${team.club_email && String(team.club_email).indexOf('club:') === 0 ? `<button onclick="CancheroTournaments._syncRoster('${team.id}')" title="Vuelve a importar el plantel actual del equipo registrado" style="background:rgba(255,255,255,0.04);color:#aaa;border:1px solid #222;border-radius:8px;padding:5px 10px;font-size:11px;cursor:pointer;"><i class='bx bx-refresh'></i> Sincronizar</button>` : ''}
                 </div>` : ''}
             </div>
-            ${team.payment_proof_url ? `<div style="margin-top:8px;"><a href="${team.payment_proof_url}" target="_blank" style="font-size:11px;color:var(--accent);">📎 Ver comprobante</a></div>` : ''}
+            ${team.payment_proof_url ? `<div style="margin-top:8px;"><a href="${team.payment_proof_url}" target="_blank" style="font-size:11px;color:var(--accent);"><i class='bx bx-paperclip'></i> Ver comprobante</a></div>` : ''}
         </div>`;
     }
 
@@ -208,6 +515,13 @@ window.CancheroTournaments = (function() {
         const sb = getSb();
         const user = getUser();
         if (!sb || !user) { toast('Iniciá sesión.', 'warning'); return; }
+        // Solo JUGADORES o EQUIPOS/CLUBES pueden solicitar unirse a un torneo
+        // (no tiendas/complejos/organizaciones ni otras identidades de negocio).
+        const role = _activeRole();
+        if (['tienda','complejo','organizacion','sponsor','profesional'].indexOf(role) !== -1) {
+            toast('Solo los jugadores o equipos pueden inscribirse. Cambiá a tu identidad de jugador/equipo.', 'warning');
+            return;
+        }
         const name = document.getElementById('ctm-team-name')?.value.trim();
         if (!name) { toast('Ingresá el nombre del equipo.', 'warning'); return; }
         const proofUrl = document.getElementById('ctm-payment-proof')?.value.trim() || null;
@@ -221,27 +535,162 @@ window.CancheroTournaments = (function() {
             payment_proof_url: proofUrl
         });
         if (error) { toast('Error: ' + (error.message||''), 'error'); return; }
-        toast('¡Equipo inscripto! Esperá la aprobación del organizador.', 'success');
+        // Notificar a la organización creadora (le llega en su campana)
+        try {
+            let orgEmail = organizerEmail;
+            let tName = '';
+            const { data: t } = await sb.from('tournaments').select('name,organizer_email').eq('id', tournamentId).single();
+            if (t) { orgEmail = t.organizer_email || orgEmail; tName = t.name || ''; }
+            if (orgEmail) await sb.from('notifications').insert({
+                recipient_email: orgEmail,
+                type: 'torneo_solicitud',
+                actor_name: user.name || user.email,
+                actor_email: user.email,
+                message: `${name} solicitó unirse a tu torneo${tName ? ' ' + tName : ''}. Revisalo en Gestión → Solicitudes.`,
+                post_id: tournamentId,
+                read: false
+            });
+        } catch(e){}
+        toast('¡Solicitud enviada! El organizador la va a revisar.', 'success');
         _ctmEquipos(tournamentId, organizerEmail);
     }
 
+    // Modal para agregar/registrar un equipo (manual o vinculando un club registrado).
     async function _openAddTeam(tournamentId) {
-        const name = prompt('Nombre del equipo:');
-        if (!name) return;
+        window.__ctTeam = { logo_url:null, club_email:null };
+        const ex = document.getElementById('ctat-modal'); if (ex) ex.remove();
+        const modal = document.createElement('div');
+        modal.id = 'ctat-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,0.9);overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:20px;';
+        modal.innerHTML = `
+        <div style="background:#0d0d0d;border:1px solid #222;border-radius:18px;width:100%;max-width:440px;padding:20px;margin-top:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                <h3 style="font-family:Outfit,sans-serif;font-weight:900;font-size:15px;">Agregar equipo</h3>
+                <button onclick="document.getElementById('ctat-modal').remove()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;">&times;</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                <label style="cursor:pointer;position:relative;" title="Escudo del equipo">
+                    <span id="ctat-shield">${_shieldHTML(null,'?',64)}</span>
+                    <input id="ctat-logo" type="file" accept="image/*" style="display:none;" onchange="CancheroTournaments._ctatLogo(this)">
+                    <span style="position:absolute;bottom:-2px;right:-2px;background:var(--accent);color:#000;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:12px;"><i class='bx bx-camera'></i></span>
+                </label>
+                <input id="ctat-name" type="text" placeholder="Nombre del equipo" style="flex:1;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:11px 12px;font-size:14px;">
+            </div>
+            <div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:6px;">¿ES UN CLUB YA REGISTRADO EN CANCHERO?</div>
+            <input id="ctat-search" type="text" placeholder="Buscar club por nombre..." oninput="CancheroTournaments._ctatSearch('${tournamentId}')" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:6px;">
+            <div id="ctat-results" style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px;max-height:180px;overflow-y:auto;"></div>
+            <div style="font-size:10px;color:#666;margin-bottom:12px;">Podés vincular un club registrado (usa su escudo y perfil) o crear uno manual.</div>
+            <button onclick="CancheroTournaments._ctatSave('${tournamentId}')" style="width:100%;background:var(--accent);color:#000;border:none;border-radius:12px;padding:12px;font-weight:900;font-size:14px;cursor:pointer;">Agregar equipo</button>
+        </div>`;
+        modal.onclick = e => { if (e.target === modal) modal.remove(); };
+        document.body.appendChild(modal);
+    }
+    async function _ctatLogo(input) {
+        const f = input.files && input.files[0]; if (!f) return;
+        toast('Subiendo escudo...', 'info');
+        const url = await _uploadImg(f, 'torneos/equipos');
+        if (url) { window.__ctTeam.logo_url = url; const el = document.getElementById('ctat-shield'); if (el) el.innerHTML = _shieldHTML(url, document.getElementById('ctat-name')?.value||'?', 56); }
+    }
+    let _ctatT = null;
+    // Busca EQUIPOS registrados en Canchero (tabla clubs — los equipos que crean los jugadores).
+    async function _ctatSearch(tournamentId) {
+        const term = (document.getElementById('ctat-search')?.value||'').trim();
+        const box = document.getElementById('ctat-results'); if (!box) return;
+        if (term.length < 2) { box.innerHTML = ''; return; }
+        clearTimeout(_ctatT);
+        _ctatT = setTimeout(async () => {
+            const sb = getSb();
+            const { data } = await sb.from('clubs').select('*').ilike('name', '%'+term+'%').limit(8);
+            box.innerHTML = (data||[]).map(c => {
+                const logo = c.logo_url || c.logo || '';
+                const cap = c.captain_email || c.owner_email || '';
+                return `<button onclick="CancheroTournaments._ctatPick('club:${String(c.id)}','${(c.name||'').replace(/'/g,"\\'")}','${(logo||'').replace(/'/g,"\\'")}','${(cap||'').replace(/'/g,"\\'")}')" style="display:flex;align-items:center;gap:10px;background:#141414;border:1px solid #222;border-radius:10px;padding:8px 10px;cursor:pointer;text-align:left;color:#fff;width:100%;">
+                    ${_shieldHTML(logo, c.name, 34)}
+                    <span style="flex:1;min-width:0;font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;">${_esc(c.name||'')}</span>
+                    ${c.city?`<span style="font-size:10px;color:#666;">${_esc(c.city)}</span>`:''}
+                </button>`;
+            }).join('') || '<div style="font-size:11px;color:#555;padding:6px;">Sin equipos registrados con ese nombre.</div>';
+        }, 300);
+    }
+    function _ctatPick(ref, name, logo, captainEmail) {
+        window.__ctTeam.club_email = ref;                      // 'club:<id>' → abre el perfil del equipo
+        window.__ctTeam.captain_email = captainEmail || null;  // capitán real del equipo
+        window.__ctTeam.logo_url = logo || window.__ctTeam.logo_url;
+        const ni = document.getElementById('ctat-name'); if (ni) ni.value = name || '';
+        const sh = document.getElementById('ctat-shield'); if (sh) sh.innerHTML = _shieldHTML(window.__ctTeam.logo_url, name, 64);
+        const box = document.getElementById('ctat-results'); if (box) box.innerHTML = `<div style="font-size:12px;color:var(--accent);padding:4px;"><i class='bx bx-check'></i> Vinculado a ${_esc(name)} — su plantel se importa automáticamente</div>`;
+    }
+    async function _ctatSave(tournamentId) {
         const sb = getSb();
-        const user = getUser();
-        const { error } = await sb.from('tournament_teams').insert({
+        const name = (document.getElementById('ctat-name')?.value||'').trim();
+        if (!name) { toast('Poné el nombre del equipo.', 'warning'); return; }
+        const t = window.__ctTeam || {};
+        const { data: newTeam, error } = await sb.from('tournament_teams').insert({
             tournament_id: tournamentId,
-            team_name: name.trim(),
-            captain_email: user?.email || null,
-            captain_name: user?.name || null,
+            team_name: name,
+            logo_url: t.logo_url || null,
+            club_email: t.club_email || null,
+            captain_email: t.captain_email || getUser()?.email || null,
+            captain_name: name,
             status: 'approved',
             payment_status: 'waived'
-        });
+        }).select('id').single();
         if (error) { toast('Error: ' + (error.message||''), 'error'); return; }
+        // Equipo registrado → importar su plantel automáticamente al torneo
+        if (newTeam && t.club_email && String(t.club_email).indexOf('club:') === 0) {
+            try { await _importClubRoster(String(t.club_email).slice(5), newTeam.id, tournamentId); } catch(e){}
+        }
+        document.getElementById('ctat-modal')?.remove();
         toast('Equipo agregado.', 'success');
-        const { data: t } = await getSb().from('tournaments').select('organizer_email').eq('id', tournamentId).single();
-        _ctmEquipos(tournamentId, t?.organizer_email);
+        const { data: tt } = await sb.from('tournaments').select('organizer_email').eq('id', tournamentId).single();
+        _ctmEquipos(tournamentId, tt?.organizer_email);
+    }
+
+    // Re-sincroniza el plantel de un equipo vinculado (agrega los que faltan).
+    async function _syncRoster(teamId) {
+        const sb = getSb();
+        const { data: team } = await sb.from('tournament_teams').select('tournament_id,club_email').eq('id', teamId).single();
+        if (!team || !team.club_email || String(team.club_email).indexOf('club:') !== 0) { toast('Este equipo no está vinculado a un equipo registrado.', 'info'); return; }
+        const added = await _importClubRoster(String(team.club_email).slice(5), teamId, team.tournament_id);
+        if (!added) toast('El plantel ya está al día.', 'info');
+        const { data: t } = await sb.from('tournaments').select('organizer_email').eq('id', team.tournament_id).single();
+        _ctmEquipos(team.tournament_id, t?.organizer_email);
+    }
+
+    // Importa los jugadores del equipo registrado (club_members + users) al torneo.
+    // Se puede re-correr: solo agrega los que faltan (sync manual con "Sincronizar plantel").
+    async function _importClubRoster(clubId, teamId, tournamentId) {
+        const sb = getSb();
+        const { data: members } = await sb.from('club_members').select('player_email').eq('club_id', clubId).limit(60);
+        const emails = [...new Set((members||[]).map(m => (m.player_email||'').toLowerCase()).filter(Boolean))];
+        if (!emails.length) return 0;
+        const { data: users } = await sb.from('users').select('email,name,photo,position,pos').in('email', emails);
+        const byEmail = {}; (users||[]).forEach(u => byEmail[(u.email||'').toLowerCase()] = u);
+        // No duplicar: jugadores ya cargados en este equipo del torneo
+        const { data: existing } = await sb.from('tournament_players').select('user_email').eq('team_id', teamId);
+        const have = new Set((existing||[]).map(p => (p.user_email||'').toLowerCase()).filter(Boolean));
+        let added = 0;
+        for (const em of emails) {
+            if (have.has(em)) continue;
+            const u = byEmail[em] || {};
+            const pos = String(u.position || u.pos || '').toUpperCase().slice(0,3);
+            try {
+                await sb.from('tournament_players').insert({
+                    tournament_id: tournamentId,
+                    team_id: teamId,
+                    player_name: u.name || em,
+                    position: POSICIONES.indexOf(pos) !== -1 ? pos : null,
+                    user_email: em,
+                    avatar_url: u.photo || null
+                });
+                added++;
+            } catch(e){}
+        }
+        if (added) {
+            try { await sb.from('tournament_teams').update({ players_count: ((await sb.from('tournament_players').select('*',{count:'exact',head:true}).eq('team_id',teamId)).count) }).eq('id', teamId); } catch(e){}
+            toast(added + ' jugadores importados del equipo.', 'success');
+        }
+        return added;
     }
 
     async function _approveTeam(teamId, status) {
@@ -256,11 +705,19 @@ window.CancheroTournaments = (function() {
 
     async function _markPaid(teamId) {
         const sb = getSb();
-        await sb.from('tournament_teams').update({ payment_status: 'paid' }).eq('id', teamId);
+        const { data: team } = await sb.from('tournament_teams').update({ payment_status: 'paid' }).eq('id', teamId).select('*').single();
         toast('Pago registrado ✓', 'success');
-        const { data: team } = await sb.from('tournament_teams').select('tournament_id').eq('id', teamId).single();
         if (team) {
-            const { data: t } = await sb.from('tournaments').select('organizer_email').eq('id', team.tournament_id).single();
+            const { data: t } = await sb.from('tournaments').select('organizer_email,name,entry_fee').eq('id', team.tournament_id).single();
+            // Sumar a la Caja del CRM (con aviso previo) + agradecer al capitán
+            try {
+                const fee = (t && t.entry_fee) || 0;
+                if (fee > 0 && confirm(`¿Registrar el ingreso de $${fee} de ${team.team_name} en la Caja del panel?`)) {
+                    await sb.from('business_cashflow').insert({ business_email: t.organizer_email, type: 'ingreso', concept: 'Inscripción: ' + team.team_name + (t.name ? ' — ' + t.name : ''), amount: fee });
+                    toast('Ingreso registrado en Caja.', 'success');
+                }
+                if (team.captain_email) { try { await sb.from('notifications').insert({ recipient_email: team.captain_email, type: 'torneo_pago', actor_name: (t && t.name) || 'Torneo', actor_email: t?.organizer_email || null, message: `Recibimos el pago de inscripción de ${team.team_name}. ¡Gracias! Nos vemos en la cancha.`, post_id: team.tournament_id, read: false }); } catch(e){} }
+            } catch(e){}
             _ctmEquipos(team.tournament_id, t?.organizer_email);
         }
     }
@@ -269,16 +726,16 @@ window.CancheroTournaments = (function() {
         const sb = getSb();
         const { data: players } = await sb.from('tournament_players').select('*').eq('team_id', teamId).order('number');
         const modal = document.createElement('div');
-        modal.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;padding:20px;';
-        modal.innerHTML = `<div style="background:#0d0d0d;border:1px solid #222;border-radius:18px;width:100%;max-width:420px;max-height:85vh;overflow-y:auto;padding:20px;">
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;padding:20px;';
+        modal.innerHTML = `<div data-team-players="${teamId}" style="background:#0d0d0d;border:1px solid #222;border-radius:18px;width:100%;max-width:420px;max-height:85vh;overflow-y:auto;padding:20px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <h3 style="font-weight:900;font-size:15px;">👥 ${teamName}</h3>
+                <h3 style="font-weight:900;font-size:15px;"><i class='bx bx-shield-quarter' style="color:var(--accent);"></i> ${teamName}</h3>
                 <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;">&times;</button>
             </div>
             ${(players||[]).map(p => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1a1a1a;">
                 <div style="width:28px;height:28px;border-radius:50%;background:rgba(186,255,0,0.1);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--accent);">#${p.number||'—'}</div>
                 <div style="flex:1;"><div style="font-weight:700;font-size:13px;">${p.player_name}</div><div style="font-size:10px;color:#666;">${p.position||'—'}</div></div>
-                <div style="font-size:10px;color:#666;">⚽${p.goals||0} 🎯${p.assists||0}</div>
+                <div style="font-size:10px;color:#666;"><i class='bx bx-football'></i>${p.goals||0} · <i class='bx bx-run'></i>${p.assists||0}</div>
             </div>`).join('') || '<div style="text-align:center;padding:20px;color:#555;">Sin jugadores registrados.</div>'}
             <button onclick="CancheroTournaments._addPlayerToTeam('${teamId}')" style="width:100%;margin-top:12px;background:rgba(186,255,0,0.08);color:var(--accent);border:1px solid rgba(186,255,0,0.25);border-radius:10px;padding:10px;font-weight:700;cursor:pointer;font-size:13px;"><i class='bx bx-user-plus'></i> Agregar jugador</button>
         </div>`;
@@ -286,22 +743,83 @@ window.CancheroTournaments = (function() {
         document.body.appendChild(modal);
     }
 
+    // Modal para agregar jugador (manual o vinculando un jugador registrado → autocompleta).
     async function _addPlayerToTeam(teamId) {
-        const name = prompt('Nombre del jugador:');
-        if (!name) return;
-        const number = prompt('Número de camiseta:') || '';
-        const position = prompt('Posición (DEL, MED, DEF, ARQ):') || '';
+        window.__ctPlayer = { user_email:null, avatar_url:null };
+        const ex = document.getElementById('ctap-modal'); if (ex) ex.remove();
+        const modal = document.createElement('div');
+        modal.id = 'ctap-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100002;background:rgba(0,0,0,0.9);overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:20px;';
+        modal.innerHTML = `
+        <div style="background:#0d0d0d;border:1px solid #222;border-radius:18px;width:100%;max-width:420px;padding:20px;margin-top:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                <h3 style="font-family:Outfit,sans-serif;font-weight:900;font-size:15px;">Agregar jugador</h3>
+                <button onclick="document.getElementById('ctap-modal').remove()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;">&times;</button>
+            </div>
+            <div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:6px;">¿JUGADOR YA REGISTRADO?</div>
+            <input id="ctap-search" type="text" placeholder="Buscar jugador por nombre..." oninput="CancheroTournaments._ctapSearch()" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:6px;">
+            <div id="ctap-results" style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px;max-height:150px;overflow-y:auto;"></div>
+            <div style="border-top:1px solid #1a1a1a;padding-top:12px;">
+                <input id="ctap-name" type="text" placeholder="Nombre del jugador" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:8px;">
+                <div style="display:flex;gap:8px;margin-bottom:12px;">
+                    <input id="ctap-number" type="number" min="1" max="99" placeholder="N°" style="width:70px;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px;font-size:14px;text-align:center;">
+                    <select id="ctap-pos" style="flex:1;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px;font-size:13px;">
+                        <option value="">Posición...</option>
+                        ${POSICIONES.map(p => `<option value="${p}">${p} — ${POS_LABEL[p]}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+            <button onclick="CancheroTournaments._ctapSave('${teamId}')" style="width:100%;background:var(--accent);color:#000;border:none;border-radius:12px;padding:12px;font-weight:900;font-size:14px;cursor:pointer;">Agregar</button>
+        </div>`;
+        modal.onclick = e => { if (e.target === modal) modal.remove(); };
+        document.body.appendChild(modal);
+    }
+    let _ctapT = null;
+    function _ctapSearch() {
+        const term = (document.getElementById('ctap-search')?.value||'').trim();
+        const box = document.getElementById('ctap-results'); if (!box) return;
+        if (term.length < 2) { box.innerHTML = ''; return; }
+        clearTimeout(_ctapT);
+        _ctapT = setTimeout(async () => {
+            const sb = getSb();
+            const { data } = await sb.from('users').select('email,name,photo,position,pos,role')
+                .eq('role','jugador').ilike('name','%'+term+'%').limit(8);
+            box.innerHTML = (data||[]).map(u => `<button onclick="CancheroTournaments._ctapPick('${(u.email||'').replace(/'/g,"\\'")}','${(u.name||'').replace(/'/g,"\\'")}','${(u.photo||'').replace(/'/g,"\\'")}','${(u.position||u.pos||'').replace(/'/g,"\\'")}')" style="display:flex;align-items:center;gap:10px;background:#141414;border:1px solid #222;border-radius:10px;padding:7px 10px;cursor:pointer;text-align:left;color:#fff;">
+                <span style="width:26px;height:26px;border-radius:50%;background:#222 center/cover;${u.photo?`background-image:url('${_esc(u.photo)}')`:''};flex-shrink:0;"></span>
+                <span style="font-size:13px;font-weight:700;">${_esc(u.name||u.email)}</span>
+            </button>`).join('') || '<div style="font-size:11px;color:#555;padding:6px;">Sin jugadores con ese nombre.</div>';
+        }, 300);
+    }
+    function _ctapPick(email, name, photo, pos) {
+        window.__ctPlayer = { user_email: email, avatar_url: photo||null };
+        const ni = document.getElementById('ctap-name'); if (ni) ni.value = name || '';
+        const ps = document.getElementById('ctap-pos'); if (ps && pos) { const up = pos.toUpperCase().slice(0,3); if (POSICIONES.indexOf(up) !== -1) ps.value = up; }
+        const box = document.getElementById('ctap-results'); if (box) box.innerHTML = `<div style="font-size:12px;color:var(--accent);padding:4px;"><i class='bx bx-check'></i> Vinculado a ${_esc(name)} (podés editar)</div>`;
+    }
+    async function _ctapSave(teamId) {
         const sb = getSb();
+        const name = (document.getElementById('ctap-name')?.value||'').trim();
+        if (!name) { toast('Poné el nombre del jugador.', 'warning'); return; }
+        const number = parseInt(document.getElementById('ctap-number')?.value) || null;
+        const position = document.getElementById('ctap-pos')?.value || null;
+        const p = window.__ctPlayer || {};
         const { data: team } = await sb.from('tournament_teams').select('tournament_id').eq('id', teamId).single();
-        await sb.from('tournament_players').insert({
+        const { error } = await sb.from('tournament_players').insert({
             tournament_id: team?.tournament_id,
             team_id: teamId,
-            player_name: name.trim(),
-            number: parseInt(number) || null,
-            position: position.toUpperCase() || null
+            player_name: name,
+            number: number,
+            position: position,
+            user_email: p.user_email || null,
+            avatar_url: p.avatar_url || null
         });
+        if (error) { toast('Error: ' + (error.message||''), 'error'); return; }
         await sb.from('tournament_teams').update({ players_count: ((await sb.from('tournament_players').select('*',{count:'exact',head:true}).eq('team_id',teamId)).count) }).eq('id', teamId);
+        document.getElementById('ctap-modal')?.remove();
         toast('Jugador agregado.', 'success');
+        // refrescar el modal de jugadores del equipo si está abierto
+        const openTeamModal = document.querySelector('[data-team-players="'+teamId+'"]');
+        if (openTeamModal) { openTeamModal.closest('[style*=fixed]')?.remove(); _openTeamPlayers(teamId, ''); }
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -329,14 +847,16 @@ window.CancheroTournaments = (function() {
                 for (const team of groups[gi]) {
                     await sb.from('tournament_teams').update({ group_letter: letter }).eq('id', team.id);
                 }
-                // Round-robin en el grupo
+                // Round-robin en el grupo (+ vuelta si double_round)
                 const groupMatches = _roundRobin(groups[gi], 'groups', 1, letter);
                 matches.push(...groupMatches);
+                if (t.double_round) matches.push(..._reverseMatches(groupMatches, letter));
             }
         } else if (t.format === 'league') {
-            // Todos contra todos
+            // Todos contra todos (+ vuelta si double_round)
             const leagueMatches = _roundRobin(allTeams, 'groups', 1, 'L');
             matches.push(...leagueMatches);
+            if (t.double_round) matches.push(..._reverseMatches(leagueMatches, 'L'));
         } else {
             // Eliminación directa pura
             const elimMatches = _generateElimination(allTeams, _getPhase(allTeams.length));
@@ -352,7 +872,7 @@ window.CancheroTournaments = (function() {
         }
 
         await sb.from('tournaments').update({ status: 'active' }).eq('id', tournamentId);
-        toast(`Fixture generado: ${matches.length} partidos ⚽`, 'success');
+        toast(`Fixture generado: ${matches.length} partidos`, 'success');
         _ctmTab('fixture', tournamentId, t.organizer_email, null);
     }
 
@@ -371,6 +891,11 @@ window.CancheroTournaments = (function() {
             }
         }
         return matches;
+    }
+
+    // Partidos de vuelta: invierte local/visitante y marca round 2.
+    function _reverseMatches(matches, groupLetter) {
+        return matches.map(m => ({ phase: m.phase, round: 2, group_letter: groupLetter, home_team_id: m.away_team_id, away_team_id: m.home_team_id, home_team_name: m.away_team_name, away_team_name: m.home_team_name, status: 'scheduled' }));
     }
 
     function _getPhase(n) {
@@ -400,11 +925,18 @@ window.CancheroTournaments = (function() {
         const { data: matches } = await sb.from('tournament_matches').select('*').eq('tournament_id', tournamentId).order('phase').order('round').order('group_letter');
         const container = document.getElementById('ctm-content');
         if (!container) return;
-        const isOrg = getUser()?.email === organizerEmail;
+        const isOrg = _isOrgActive(organizerEmail);
         if (!matches || !matches.length) {
             container.innerHTML = '<div style="text-align:center;padding:40px;color:#555;">No hay fixture generado aún.<br><span style="font-size:11px;">Primero aprobá los equipos y luego generá el fixture.</span></div>';
             return;
         }
+        // Escudos por equipo (para pintarlos junto a los nombres)
+        let logoById = {};
+        try {
+            const { data: tms } = await sb.from('tournament_teams').select('id,logo_url,club_email').eq('tournament_id', tournamentId);
+            try { await _healTeamLogos(tms, isOrg); } catch(e){}
+            (tms||[]).forEach(x => { if (x.logo_url) logoById[x.id] = x.logo_url; });
+        } catch(e){}
         // Agrupar por fase y grupo
         const grouped = {};
         for (const m of matches) {
@@ -419,63 +951,641 @@ window.CancheroTournaments = (function() {
             const title = `${phaseLabels[phase]||phase}${gl && phase === 'groups' ? ` — Grupo ${gl}` : ''}`;
             return `<div style="margin-bottom:16px;">
                 <div style="font-size:11px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #1a1a1a;">${title.toUpperCase()}</div>
-                ${groupMatches.map(m => _renderMatchRow(m, isOrg, tournamentId)).join('')}
+                ${groupMatches.map(m => _renderMatchRow(m, isOrg, tournamentId, logoById)).join('')}
             </div>`;
         }).join('');
     }
 
-    function _renderMatchRow(m, isOrg, tournamentId) {
+    function _renderMatchRow(m, isOrg, tournamentId, logoById) {
+        logoById = logoById || {};
         const hasResult = m.home_score !== null && m.away_score !== null;
+        const isLive = m.status === 'live';
         const dateStr = m.scheduled_at ? new Date(m.scheduled_at).toLocaleDateString('es-UY', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : 'Por confirmar';
-        return `<div style="background:#111;border:1px solid #1e1e1e;border-radius:12px;padding:12px 14px;margin-bottom:6px;">
+        const hLogo = logoById[m.home_team_id], aLogo = logoById[m.away_team_id];
+        // Toda la fila abre la ficha del partido (org o invitado).
+        return `<div onclick="CancheroTournaments._openMatchDetail('${m.id}')" style="background:#111;border:1px solid ${isLive?'rgba(0,230,118,0.4)':'#1e1e1e'};border-radius:12px;padding:12px 14px;margin-bottom:6px;cursor:pointer;transition:.15s;" onmouseover="this.style.borderColor='rgba(186,255,0,0.3)'" onmouseout="this.style.borderColor='${isLive?'rgba(0,230,118,0.4)':'#1e1e1e'}'">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                <div style="flex:1;min-width:0;text-align:right;font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.home_team_name}</div>
+                <div style="flex:1;min-width:0;display:flex;align-items:center;justify-content:flex-end;gap:6px;font-weight:700;font-size:13px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(m.home_team_name)}</span>${_shieldHTML(hLogo, m.home_team_name, 30)}</div>
                 <div style="flex-shrink:0;text-align:center;min-width:80px;">
                     ${hasResult
                         ? `<div style="font-size:18px;font-weight:900;color:var(--accent);">${m.home_score} — ${m.away_score}</div>`
-                        : `<div style="font-size:10px;color:#555;font-weight:700;">VS</div>`}
-                    <div style="font-size:9px;color:#444;margin-top:2px;">${dateStr}</div>
+                        : (isLive ? `<div style="font-size:11px;font-weight:900;color:#00e676;"><i class='bx bxs-circle' style="font-size:7px;"></i> EN VIVO</div>` : `<div style="font-size:10px;color:#555;font-weight:700;">VS</div>`)}
+                    <div style="font-size:9px;color:#444;margin-top:2px;">${dateStr}${m.venue?" · "+_esc(m.venue):''}</div>
                 </div>
-                <div style="flex:1;min-width:0;text-align:left;font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.away_team_name}</div>
+                <div style="flex:1;min-width:0;display:flex;align-items:center;justify-content:flex-start;gap:6px;font-weight:700;font-size:13px;">${_shieldHTML(aLogo, m.away_team_name, 30)}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(m.away_team_name)}</span></div>
+                <i class='bx bx-chevron-right' style="color:#444;font-size:18px;flex-shrink:0;"></i>
             </div>
-            ${isOrg ? `<div style="margin-top:8px;display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;">
-                <input id="hs-${m.id}" type="number" min="0" max="30" value="${m.home_score??''}" placeholder="Local" style="width:60px;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:8px;padding:5px 8px;font-size:13px;text-align:center;">
-                <span style="color:#555;font-size:14px;">—</span>
-                <input id="as-${m.id}" type="number" min="0" max="30" value="${m.away_score??''}" placeholder="Visit." style="width:60px;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:8px;padding:5px 8px;font-size:13px;text-align:center;">
-                <button onclick="CancheroTournaments._saveResult('${m.id}','${m.tournament_id}','${m.home_team_id}','${m.away_team_id}','${(tournamentId||'').replace(/'/g,"\\'")}' )" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:5px 12px;font-weight:900;font-size:11px;cursor:pointer;">Guardar</button>
+            ${hasResult && (m.events&&m.events.length) ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #1a1a1a;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
+                ${m.events.map(ev => `<span style="font-size:10px;color:#888;background:rgba(255,255,255,0.04);border-radius:6px;padding:2px 7px;">${_evIcon(ev.type)} ${_esc(ev.player_name||'')}</span>`).join('')}
             </div>` : ''}
         </div>`;
     }
 
-    async function _saveResult(matchId, tournamentId, homeTeamId, awayTeamId, tid) {
-        const sb = getSb();
-        const homeScore = parseInt(document.getElementById('hs-' + matchId)?.value);
-        const awayScore = parseInt(document.getElementById('as-' + matchId)?.value);
-        if (isNaN(homeScore) || isNaN(awayScore)) { toast('Ingresá ambos marcadores.', 'warning'); return; }
-        const winnerId = homeScore > awayScore ? homeTeamId : awayScore > homeScore ? awayTeamId : null;
-        await sb.from('tournament_matches').update({ home_score: homeScore, away_score: awayScore, status: 'finished', winner_team_id: winnerId || null }).eq('id', matchId);
-        // Actualizar puntos de los equipos
-        await _updateTeamStats(homeTeamId, homeScore, awayScore);
-        await _updateTeamStats(awayTeamId, awayScore, homeScore);
-        toast('Resultado guardado ✓', 'success');
-        const { data: t } = await sb.from('tournaments').select('organizer_email').eq('id', tid).single();
-        _ctmFixture(tid, t?.organizer_email);
+    // Iconos de evento (sin emojis — regla de diseño). gol/asistencia/amarilla/roja.
+    function _evIcon(type) {
+        if (type === 'gol') return "<i class='bx bx-football'></i>";
+        if (type === 'asistencia') return "<i class='bx bx-run'></i>";
+        if (type === 'amarilla') return "<span style=\"display:inline-block;width:7px;height:10px;background:#ffcc00;border-radius:1px;vertical-align:-1px;\"></span>";
+        if (type === 'roja') return "<span style=\"display:inline-block;width:7px;height:10px;background:#ff3b30;border-radius:1px;vertical-align:-1px;\"></span>";
+        return '';
     }
+    const _EV_COL = { gol:'goals', asistencia:'assists', amarilla:'yellow_cards', roja:'red_cards' };
+    function _evName(type) { return ({ gol:'Gol', asistencia:'Asistencia', amarilla:'Amarilla', roja:'Roja' })[type] || 'Evento'; }
 
-    async function _updateTeamStats(teamId, goalsFor, goalsAgainst) {
+    // Ajusta las estadísticas de un equipo por un resultado. sign=+1 aplica, -1 revierte.
+    async function _applyTeamResult(teamId, gf, ga, sign) {
         const sb = getSb();
         const { data: team } = await sb.from('tournament_teams').select('*').eq('id', teamId).single();
         if (!team) return;
-        const won = goalsFor > goalsAgainst;
-        const drew = goalsFor === goalsAgainst;
+        const won = gf > ga, drew = gf === ga;
         await sb.from('tournament_teams').update({
-            wins: (team.wins||0) + (won ? 1 : 0),
-            draws: (team.draws||0) + (drew ? 1 : 0),
-            losses: (team.losses||0) + (!won && !drew ? 1 : 0),
-            points: (team.points||0) + (won ? 3 : drew ? 1 : 0),
-            goals_for: (team.goals_for||0) + goalsFor,
-            goals_against: (team.goals_against||0) + goalsAgainst
+            wins:         Math.max(0,(team.wins||0)   + sign*(won?1:0)),
+            draws:        Math.max(0,(team.draws||0)  + sign*(drew?1:0)),
+            losses:       Math.max(0,(team.losses||0) + sign*(!won&&!drew?1:0)),
+            points:       Math.max(0,(team.points||0) + sign*(won?3:drew?1:0)),
+            goals_for:    Math.max(0,(team.goals_for||0)     + sign*gf),
+            goals_against:Math.max(0,(team.goals_against||0) + sign*ga)
         }).eq('id', teamId);
+    }
+
+    // Aplica/revierte los eventos de gol/asistencia/tarjeta sobre las estadísticas del jugador.
+    async function _applyEvents(events, sign) {
+        const sb = getSb();
+        // Agrupar por jugador+columna para minimizar updates
+        const delta = {}; // { playerId: { goals:n, assists:n, ... } }
+        (events||[]).forEach(ev => {
+            const col = _EV_COL[ev.type]; if (!col || !ev.player_id) return;
+            delta[ev.player_id] = delta[ev.player_id] || {};
+            delta[ev.player_id][col] = (delta[ev.player_id][col] || 0) + sign;
+        });
+        for (const pid of Object.keys(delta)) {
+            const { data: p } = await sb.from('tournament_players').select('*').eq('id', pid).single();
+            if (!p) continue;
+            const upd = {};
+            for (const col of Object.keys(delta[pid])) upd[col] = Math.max(0, (p[col]||0) + delta[pid][col]);
+            try { await sb.from('tournament_players').update(upd).eq('id', pid); } catch(e) { /* columna faltante → ignorar */ }
+        }
+    }
+
+    // Modal de carga de resultado: marcador + goleadores/asistencias/tarjetas por jugador.
+    async function _openMatchLoad(matchId, tournamentId) {
+        const sb = getSb();
+        const { data: m } = await sb.from('tournament_matches').select('*').eq('id', matchId).single();
+        if (!m) { toast('Partido no encontrado.', 'error'); return; }
+        // Roster con FOTO y POSICIÓN (avatar_url/position) para el selector visual por equipo.
+        const { data: roster } = await sb.from('tournament_players').select('id,player_name,team_id,number,avatar_url,position')
+            .in('team_id', [m.home_team_id, m.away_team_id].filter(Boolean)).order('number');
+        // Logos de los equipos para el encabezado del marcador.
+        const { data: _tteams } = await sb.from('tournament_teams').select('id,team_name,logo_url')
+            .in('id', [m.home_team_id, m.away_team_id].filter(Boolean));
+        const _homeT = (_tteams||[]).find(x => x.id === m.home_team_id) || { team_name: m.home_team_name };
+        const _awayT = (_tteams||[]).find(x => x.id === m.away_team_id) || { team_name: m.away_team_name };
+        // Canchas sugeridas: la sede del torneo + complejos registrados en Canchero
+        let venueOpts = [];
+        try {
+            const { data: tt } = await sb.from('tournaments').select('venue').eq('id', m.tournament_id).single();
+            if (tt && tt.venue) venueOpts.push(tt.venue);
+        } catch(e){}
+        try {
+            const { data: cx } = await sb.from('users').select('name,city').in('role',['complejo','club']).limit(100);
+            (cx||[]).forEach(c => { if (c.name) venueOpts.push(c.name + (c.city ? ' · ' + c.city : '')); });
+        } catch(e){}
+        venueOpts = [...new Set(venueOpts)];
+        window.__cmeEvents = Array.isArray(m.events) ? JSON.parse(JSON.stringify(m.events)) : [];
+        window.__cmeRoster = roster || [];
+        window.__cmeMatch = { home_team_id: m.home_team_id, away_team_id: m.away_team_id, home_team_name: _homeT.team_name || m.home_team_name, away_team_name: _awayT.team_name || m.away_team_name };
+        window.__cmeType = 'gol';
+        // Fecha AUTOMÁTICA: si el partido no tiene fecha, se propone la de ahora (redondeada).
+        const _whenVal = m.scheduled_at ? _toLocalInput(m.scheduled_at) : _toLocalInput(new Date().toISOString());
+        const ex = document.getElementById('cme-modal'); if (ex) ex.remove();
+        const modal = document.createElement('div');
+        modal.id = 'cme-modal';
+        // z-index MAYOR que la ficha del partido (cmd-modal=100004): si no, el modal de
+        // carga quedaba DETRÁS y "aparecía recién al tocar Volver".
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100006;background:rgba(0,0,0,0.92);backdrop-filter:blur(6px);overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:20px;';
+        const hasRoster = (roster||[]).length > 0;
+        // Columna de jugadores de un equipo: chips tappeables con FOTO + número + posición.
+        const _teamCol = (tid, teamObj) => {
+            const ps = (roster||[]).filter(p => p.team_id === tid);
+            return `<div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:8px;">
+                    ${_shieldHTML(teamObj.logo_url, teamObj.team_name, 26)}
+                    <span style="font-size:10px;font-weight:900;color:#aaa;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;">${_esc(teamObj.team_name||'')}</span>
+                </div>
+                ${ps.length ? ps.map(p => `<div onclick="CancheroTournaments._cmeAddPlayer('${p.id}')" style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:6px 8px;margin-bottom:5px;cursor:pointer;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.07)'">
+                    <span style="width:28px;height:28px;border-radius:50%;flex-shrink:0;background:${p.avatar_url?`#222 center/cover url('${_esc(p.avatar_url)}')`:'rgba(186,255,0,0.1)'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:var(--accent);">${p.avatar_url?'':(p.number||'—')}</span>
+                    <span style="flex:1;min-width:0;line-height:1.15;"><span style="display:block;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(p.player_name)}</span>${p.position?`<span style="font-size:9px;color:#666;">${_esc(p.position)}</span>`:''}</span>
+                </div>`).join('') : '<div style="text-align:center;color:#444;font-size:10px;padding:10px 4px;">Sin jugadores</div>'}
+            </div>`;
+        };
+        const typeBtn = (val, label, active) => `<button type="button" data-cme-type="${val}" onclick="CancheroTournaments._cmeSetType('${val}',this)" style="flex:1;background:${active?'var(--accent)':'rgba(255,255,255,0.04)'};color:${active?'#000':'#aaa'};border:1px solid ${active?'var(--accent)':'rgba(255,255,255,0.08)'};border-radius:10px;padding:8px 4px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;">${label}</button>`;
+        modal.innerHTML = `
+        <div style="background:#0d0d0d;border:1px solid #222;border-radius:18px;width:100%;max-width:480px;padding:20px;margin-top:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h3 style="font-family:Outfit,sans-serif;font-weight:900;font-size:16px;">${(m.home_score!=null&&m.away_score!=null)?'Editar resultado':'Cargar resultado'}</h3>
+                <button onclick="document.getElementById('cme-modal').remove()" style="background:rgba(255,255,255,0.05);border:1px solid #222;color:#888;font-size:20px;line-height:1;cursor:pointer;border-radius:10px;width:32px;height:32px;">&times;</button>
+            </div>
+            <!-- Marcador con LOGOS. Se auto-suma desde los goles cargados; editable a mano. -->
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:16px 12px;margin-bottom:14px;">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;">
+                    ${_shieldHTML(_homeT.logo_url, _homeT.team_name, 44)}
+                    <span style="font-size:11px;font-weight:800;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">${_esc(_homeT.team_name||m.home_team_name||'')}</span>
+                </div>
+                <input id="cme-hs" type="number" min="0" max="40" value="${m.home_score??''}" style="width:48px;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:8px 4px;font-size:20px;text-align:center;font-weight:900;">
+                <span style="color:#555;font-weight:900;">—</span>
+                <input id="cme-as" type="number" min="0" max="40" value="${m.away_score??''}" style="width:48px;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:8px 4px;font-size:20px;text-align:center;font-weight:900;">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;">
+                    ${_shieldHTML(_awayT.logo_url, _awayT.team_name, 44)}
+                    <span style="font-size:11px;font-weight:800;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">${_esc(_awayT.team_name||m.away_team_name||'')}</span>
+                </div>
+            </div>
+            <!-- Fecha/hora (automática), cancha y árbitro del partido -->
+            <div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:6px;">DÍA, HORA Y CANCHA</div>
+            <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+                <input id="cme-when" type="datetime-local" value="${_whenVal}" style="flex:1;min-width:150px;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:9px;font-size:12px;">
+            </div>
+            <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;">
+                <input id="cme-venue" type="text" list="cme-venues" placeholder="Cancha / complejo (elegí o escribí)" value="${_esc(m.venue||'')}" style="flex:1;min-width:130px;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:9px;font-size:12px;">
+                <datalist id="cme-venues">${venueOpts.map(v => `<option value="${_esc(v)}"></option>`).join('')}</datalist>
+                <input id="cme-ref" type="text" placeholder="Árbitro" value="${_esc(m.referee||'')}" style="flex:1;min-width:110px;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:9px;font-size:12px;">
+            </div>
+            ${hasRoster ? `
+            <div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:8px;">EVENTOS · tocá un jugador para sumar</div>
+            <div style="display:flex;gap:6px;margin-bottom:10px;">
+                ${typeBtn('gol','Gol',true)}${typeBtn('asistencia','Asist.',false)}${typeBtn('amarilla','Amarilla',false)}${typeBtn('roja','Roja',false)}
+                <input id="cme-min" type="number" min="1" max="130" placeholder="min" style="width:50px;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:8px 4px;font-size:12px;text-align:center;">
+            </div>
+            <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;">
+                ${_teamCol(m.home_team_id, _homeT)}
+                <div style="width:1px;align-self:stretch;background:rgba(255,255,255,0.06);"></div>
+                ${_teamCol(m.away_team_id, _awayT)}
+            </div>
+            <div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:6px;">CARGADOS</div>
+            <div id="cme-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:16px;"></div>`
+            : `<div style="font-size:11px;color:#666;background:#111;border:1px solid #1e1e1e;border-radius:10px;padding:10px 12px;margin-bottom:16px;">Agregá jugadores a los equipos (pestaña Equipos → Jugadores) para registrar goleadores y tarjetas. Igual podés guardar el marcador.</div>`}
+            <button onclick="CancheroTournaments._saveMatchLoad('${matchId}','${(tournamentId||'').replace(/'/g,"\\'")}' )" style="width:100%;background:linear-gradient(135deg,#baff00,#8fd400);color:#000;border:none;border-radius:12px;padding:13px;font-weight:900;font-size:14px;cursor:pointer;box-shadow:0 4px 16px rgba(186,255,0,0.25);">Guardar</button>
+        </div>`;
+        modal.onclick = e => { if (e.target === modal) modal.remove(); };
+        document.body.appendChild(modal);
+        _cmeRenderList();
+    }
+
+    // Auto-suma: el marcador refleja los goles cargados. NO pisa un marcador manual si
+    // todavía no hay ningún gol cargado (así no borra un resultado escrito a mano).
+    function _cmeSyncScore() {
+        const m = window.__cmeMatch || {};
+        const evs = window.__cmeEvents || [];
+        if (!evs.some(e => e.type === 'gol')) return;
+        const g = (tid) => evs.filter(e => e.type === 'gol' && e.team_id === tid).length;
+        const hs = document.getElementById('cme-hs'), as = document.getElementById('cme-as');
+        if (hs) hs.value = g(m.home_team_id);
+        if (as) as.value = g(m.away_team_id);
+    }
+    function _cmeRenderList() {
+        _cmeSyncScore();
+        const el = document.getElementById('cme-list'); if (!el) return;
+        const m = window.__cmeMatch || {};
+        const evs = window.__cmeEvents || [];
+        // Ordenar por minuto (los sin minuto al final) para que se lea como un timeline.
+        const order = evs.map((e,i)=>({e,i})).sort((a,b)=>((a.e.minute==null?9999:a.e.minute)-(b.e.minute==null?9999:b.e.minute))||(a.i-b.i));
+        el.innerHTML = order.length ? order.map(({e:ev,i}) => {
+            const isHome = ev.team_id === m.home_team_id;
+            const teamName = isHome ? (m.home_team_name||'Local') : (m.away_team_name||'Visitante');
+            return `<div style="display:flex;align-items:center;gap:8px;background:#111;border:1px solid #1e1e1e;border-left:3px solid ${isHome?'var(--accent)':'#4a9eff'};border-radius:8px;padding:6px 10px;">
+                <span style="font-size:12px;">${_evIcon(ev.type)}</span>
+                ${ev.minute!=null?`<span style="font-size:10px;color:var(--accent);font-weight:900;min-width:26px;">${ev.minute}'</span>`:''}
+                <span style="flex:1;min-width:0;line-height:1.2;"><span style="display:block;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(ev.player_name||'')}</span><span style="font-size:9px;color:#666;">${_esc(teamName)}</span></span>
+                <button onclick="CancheroTournaments._cmeRemove(${i})" style="background:none;border:none;color:#ff4444;cursor:pointer;font-size:16px;line-height:1;">&times;</button>
+            </div>`;
+        }).join('') : '<div style="font-size:11px;color:#555;text-align:center;padding:4px;">Sin eventos cargados.</div>';
+    }
+    // Selector de tipo de evento (Gol/Asistencia/Amarilla/Roja) para el próximo jugador tappeado.
+    function _cmeSetType(val, btn) {
+        window.__cmeType = val;
+        document.querySelectorAll('[data-cme-type]').forEach(b => {
+            const on = b === btn;
+            b.style.background = on ? 'var(--accent)' : 'rgba(255,255,255,0.04)';
+            b.style.color = on ? '#000' : '#aaa';
+            b.style.borderColor = on ? 'var(--accent)' : 'rgba(255,255,255,0.08)';
+        });
+    }
+    // Tap en un jugador → agrega un evento del tipo activo para ese jugador (queda claro
+    // a QUÉ equipo pertenece porque las columnas están divididas por equipo).
+    function _cmeAddPlayer(pid) {
+        const p = (window.__cmeRoster||[]).find(x => String(x.id) === String(pid));
+        if (!p) return;
+        const mnt = document.getElementById('cme-min');
+        const min = mnt && mnt.value !== '' ? parseInt(mnt.value) : null;
+        window.__cmeEvents = window.__cmeEvents || [];
+        window.__cmeEvents.push({ player_id: pid, player_name: p.player_name, team_id: p.team_id, type: window.__cmeType || 'gol', minute: (isNaN(min)?null:min) });
+        if (mnt) mnt.value = '';
+        _cmeRenderList();
+        try { if (window.showToast) showToast(_evName(window.__cmeType||'gol') + ': ' + p.player_name, 'success', 1200); } catch(e){}
+    }
+    // Compat: el selector viejo por <select> (por si algún flujo aún lo llama).
+    function _cmeAdd() {
+        const psel = document.getElementById('cme-player'), tsel = document.getElementById('cme-type'), mnt = document.getElementById('cme-min');
+        if (!psel || !psel.value) return;
+        const p = (window.__cmeRoster||[]).find(x => String(x.id) === String(psel.value));
+        const min = mnt && mnt.value !== '' ? parseInt(mnt.value) : null;
+        window.__cmeEvents = window.__cmeEvents || [];
+        window.__cmeEvents.push({ player_id: psel.value, player_name: p?p.player_name:'', team_id: p?p.team_id:null, type: (tsel?tsel.value:'gol'), minute: (isNaN(min)?null:min) });
+        if (mnt) mnt.value = '';
+        _cmeRenderList();
+    }
+    function _cmeRemove(i) { (window.__cmeEvents||[]).splice(i, 1); _cmeRenderList(); }
+
+    async function _saveMatchLoad(matchId, tid) {
+        const sb = getSb();
+        const whenRaw = document.getElementById('cme-when')?.value || '';
+        const venue = (document.getElementById('cme-venue')?.value || '').trim() || null;
+        const referee = (document.getElementById('cme-ref')?.value || '').trim() || null;
+        const scheduledAt = whenRaw ? new Date(whenRaw).toISOString() : null;
+        const { data: m } = await sb.from('tournament_matches').select('*').eq('id', matchId).single();
+        if (!m) { toast('Partido no encontrado.', 'error'); return; }
+        const newEvents = window.__cmeEvents || [];
+        // El marcador se AUTO-DERIVA de los goles cargados (un gol = uno al marcador de su
+        // equipo). Si el org además escribió un score manual, ese manda; si no, usamos los goles.
+        const _goals = (tid) => newEvents.filter(e => e.type === 'gol' && e.team_id === tid).length;
+        const hsRaw = document.getElementById('cme-hs')?.value;
+        const asRaw = document.getElementById('cme-as')?.value;
+        const _manualScore = hsRaw !== '' && asRaw !== '' && !isNaN(parseInt(hsRaw)) && !isNaN(parseInt(asRaw));
+        const _hasGoals = newEvents.some(e => e.type === 'gol');
+        const hasScore = _manualScore || _hasGoals;
+        // Campos de agenda (fecha/cancha/árbitro) — siempre se guardan
+        const upd = { scheduled_at: scheduledAt, venue: venue, referee: referee };
+        // Los EVENTOS se guardan SIEMPRE (antes solo entraban si había score → un timeline
+        // cargado sin resultado se perdía y "no cargaba nada").
+        upd.events = newEvents;
+        // Reconciliar SIEMPRE las stats por jugador (goles/asistencias/tarjetas): revertir los
+        // eventos guardados antes y aplicar los nuevos, haya o no marcador. Antes esto vivía
+        // dentro del if(hasScore) y las tarjetas/goleadores no se contaban sin resultado.
+        await _applyEvents(m.events || [], -1);
+        await _applyEvents(newEvents, +1);
+        if (hasScore) {
+            const homeScore = _manualScore ? parseInt(hsRaw) : _goals(m.home_team_id);
+            const awayScore = _manualScore ? parseInt(asRaw) : _goals(m.away_team_id);
+            const winnerId = homeScore > awayScore ? m.home_team_id : awayScore > homeScore ? m.away_team_id : null;
+            // Revertir el resultado de equipo anterior (puntos/PG/PE/PP) para no duplicar
+            if (m.home_score !== null && m.away_score !== null) {
+                await _applyTeamResult(m.home_team_id, m.home_score, m.away_score, -1);
+                await _applyTeamResult(m.away_team_id, m.away_score, m.home_score, -1);
+            }
+            // Aplicar el nuevo resultado de equipo
+            await _applyTeamResult(m.home_team_id, homeScore, awayScore, +1);
+            await _applyTeamResult(m.away_team_id, awayScore, homeScore, +1);
+            upd.home_score = homeScore; upd.away_score = awayScore; upd.status = 'finished'; upd.winner_team_id = winnerId || null;
+        }
+        let { error } = await sb.from('tournament_matches').update(upd).eq('id', matchId);
+        if (error) {
+            // Fallback: sacar columnas que puedan faltar (venue/referee/scheduled_at). Los
+            // eventos y el marcador SÍ se intentan preservar (esas columnas existen).
+            const safe = { events: newEvents };
+            if (hasScore) { safe.home_score = upd.home_score; safe.away_score = upd.away_score; safe.status = 'finished'; safe.winner_team_id = upd.winner_team_id; }
+            await sb.from('tournament_matches').update(safe).eq('id', matchId);
+            toast('Guardado. Corré la migración SQL para día/cancha por partido.', 'warning');
+        } else {
+            toast(hasScore ? 'Resultado guardado' : (newEvents.length ? 'Eventos guardados' : 'Partido programado'), 'success');
+        }
+        document.getElementById('cme-modal')?.remove();
+        const { data: t } = await sb.from('tournaments').select('organizer_email').eq('id', tid).single();
+        _ctmFixture(tid, t?.organizer_email);
+        // Si la ficha del partido está abierta, refrescarla
+        if (document.getElementById('cmd-modal')) _openMatchDetail(matchId);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // FICHA DEL PARTIDO (estilo "Partidos": marcador, cronómetro, timeline)
+    // ═══════════════════════════════════════════════════════════
+    function _cmdClose() {
+        try { clearInterval(window.__cmdCrono); } catch(e){}
+        document.getElementById('cmd-modal')?.remove();
+    }
+
+    // Cambia de panel en la ficha del partido (Resumen / Timeline / Jugadores).
+    function _cmdTab(id, btn) {
+        document.querySelectorAll('.cmd-panel').forEach(p => { p.style.display = 'none'; });
+        const panel = document.getElementById('cmd-panel-' + id);
+        if (panel) panel.style.display = 'block';
+        document.querySelectorAll('.cmd-tab').forEach(b => {
+            const on = b === btn;
+            b.style.background = on ? 'rgba(186,255,0,0.12)' : 'rgba(255,255,255,0.03)';
+            b.style.color = on ? 'var(--accent)' : '#888';
+            b.style.borderColor = on ? 'rgba(186,255,0,0.3)' : 'rgba(255,255,255,0.07)';
+        });
+    }
+    async function _openMatchDetail(matchId) {
+        const sb = getSb();
+        let { data: m } = await sb.from('tournament_matches').select('*').eq('id', matchId).single();
+        if (!m) { toast('Partido no encontrado.', 'error'); return; }
+        // Si tiene Ficha completa vinculada, traer el resultado del partido real al torneo
+        // antes de renderizar (así la tabla/marcador reflejan lo cargado en el partido real).
+        if (m.match_id) {
+            try { await _syncTournamentFromRealMatch(m.match_id); const r = await sb.from('tournament_matches').select('*').eq('id', matchId).single(); if (r.data) m = r.data; } catch(e){}
+        }
+        const { data: t } = await sb.from('tournaments').select('id,name,organizer_email').eq('id', m.tournament_id).single();
+        const isOrg = _isOrgActive(t?.organizer_email);
+        const { data: teams } = await sb.from('tournament_teams').select('id,team_name,logo_url,club_email')
+            .in('id', [m.home_team_id, m.away_team_id].filter(Boolean));
+        const home = (teams||[]).find(x => x.id === m.home_team_id) || { team_name: m.home_team_name };
+        const away = (teams||[]).find(x => x.id === m.away_team_id) || { team_name: m.away_team_name };
+        const hasResult = m.home_score != null && m.away_score != null;
+        const events = Array.isArray(m.events) ? m.events : [];
+        const evSorted = events.map((e,i)=>({e,i}))
+            .sort((a,b)=> ((a.e.minute==null?9999:a.e.minute)-(b.e.minute==null?9999:b.e.minute)) || (a.i-b.i))
+            .map(x=>x.e);
+        const dateStr = m.scheduled_at ? new Date(m.scheduled_at).toLocaleString('es-UY',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : 'Por confirmar';
+        const phaseLabels = { groups:'Fase de Grupos', league:'Liga', r16:'Octavos', quarterfinal:'Cuartos', semifinal:'Semifinal', final:'Final', third_place:'3er puesto' };
+        const isLive = m.status === 'live' && m.kickoff_at;
+        const centerBig = hasResult
+            ? `<div style="font-size:40px;font-weight:900;font-family:Outfit,sans-serif;line-height:1;">${m.home_score}<span style="color:#444;margin:0 8px;">-</span>${m.away_score}</div>`
+            : (isLive ? `<div id="cmd-crono" style="font-size:30px;font-weight:900;color:#00e676;font-family:Outfit,sans-serif;">0'</div>` : `<div style="font-size:22px;font-weight:900;color:#555;">VS</div>`);
+        const statusPill = isLive ? `<span style="font-size:10px;font-weight:900;color:var(--accent);background:rgba(186,255,0,0.1);border:1px solid rgba(186,255,0,0.3);border-radius:20px;padding:4px 14px;letter-spacing:1.5px;"><i class='bx bxs-circle' style="font-size:8px;"></i> EN VIVO</span>`
+            : (hasResult ? `<span style="font-size:10px;font-weight:900;color:#ccc;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:4px 14px;letter-spacing:1.5px;">FINALIZADO</span>`
+            : `<span style="font-size:10px;font-weight:900;color:#888;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:4px 14px;letter-spacing:1.5px;">PRÓXIMO</span>`);
+
+        const teamCol = (tm, side) => `<div style="flex:1;text-align:center;cursor:pointer;" ${tm.id?`onclick="CancheroTournaments._openTeamInfo('${tm.id}')"`:''}>
+            <div style="display:flex;justify-content:center;margin-bottom:8px;">${_shieldHTML(tm.logo_url, tm.team_name, 80)}</div>
+            <div style="font-weight:800;font-size:14px;line-height:1.15;">${_esc(tm.team_name||'')}</div>
+        </div>`;
+
+        const timeline = evSorted.length ? evSorted.map(ev => {
+            const homeSide = ev.team_id === m.home_team_id;
+            const chip = `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:6px 12px;font-size:12px;backdrop-filter:blur(6px);">${ev.minute!=null?`<b style="color:var(--accent);">${ev.minute}'</b>`:''} ${_evIcon(ev.type)} ${_esc(ev.player_name||'')}</span>`;
+            return `<div style="display:flex;${homeSide?'justify-content:flex-start':'justify-content:flex-end'};margin-bottom:6px;">${chip}</div>`;
+        }).join('') : '<div style="text-align:center;color:#555;padding:20px;font-size:12px;">Sin eventos cargados.</div>';
+
+        // Ficha completa (partido real de la sección Partidos): la org la habilita;
+        // los demás la ven cuando ya está vinculada.
+        // Botón "Ficha completa" QUITADO por pedido del usuario: confusía y "sacaba de todo".
+        // La gestión del partido de torneo se hace desde esta misma ficha (Iniciar / Cargar
+        // resultado / tabs). La función _openFullMatch y el sync a torneo quedan en el código
+        // por si se reactivan, pero no hay botón que los dispare.
+        const fullBtn = '';
+        const orgActions = (isOrg || fullBtn) ? `<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+            ${isOrg && !hasResult && !isLive ? `<button onclick="CancheroTournaments._startMatch('${matchId}')" style="flex:1;min-width:130px;background:rgba(255,255,255,0.05);color:#fff;border:1px solid rgba(186,255,0,0.35);border-radius:14px;padding:12px;font-weight:900;font-size:13px;cursor:pointer;backdrop-filter:blur(6px);"><i class='bx bx-play' style="color:var(--accent);"></i> Iniciar partido</button>` : ''}
+            ${fullBtn}
+            ${isOrg ? `<button onclick="CancheroTournaments._openMatchLoad('${matchId}','${(m.tournament_id||'').replace(/'/g,"\\'")}' )" style="flex:1;min-width:130px;background:linear-gradient(135deg,#baff00,#8fd400);color:#000;border:none;border-radius:14px;padding:12px;font-weight:900;font-size:13px;cursor:pointer;box-shadow:0 4px 16px rgba(186,255,0,0.3);"><i class='bx bx-edit'></i> ${hasResult?'Editar resultado':'Cargar resultado'}</button>` : ''}
+        </div>` : '';
+
+        // Plantel de ambos equipos (tab Jugadores)
+        let roster = [];
+        try { const { data: rp } = await sb.from('tournament_players').select('*').in('team_id', [m.home_team_id, m.away_team_id].filter(Boolean)).order('number'); roster = rp || []; } catch(e){}
+        // Cancha con posiciones: el local ocupa la mitad de arriba, el visitante la de abajo.
+        const _posLine = (pos)=>{ const p=(pos||'').toLowerCase();
+            if(/arq|gk|portero|golero|arquero/.test(p)) return 0;
+            if(/def|lat|zag|cb|rb|lb|central|marca/.test(p)) return 1;
+            if(/del|fwd|dc|punta|ext|wing|atacante|delantero|9/.test(p)) return 3;
+            return 2; };
+        const _pitchDot = (p, accent)=>`<div onclick="CancheroTournaments._openPlayerInfo('${p.id}')" style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;width:52px;">
+            <span style="width:30px;height:30px;border-radius:50%;flex-shrink:0;background:${p.avatar_url?`#0a0a0a center/cover url('${_esc(p.avatar_url)}')`:accent};border:2px solid ${accent};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#000;box-shadow:0 2px 8px rgba(0,0,0,0.5);">${p.avatar_url?'':(p.number||'')}</span>
+            <span style="font-size:8.5px;font-weight:800;color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52px;">${_esc((p.player_name||'').split(' ')[0])}</span>
+        </div>`;
+        const _teamRows = (teamId, isHome, accent)=>{
+            const ps = roster.filter(p=>p.team_id===teamId);
+            const byLine = [0,1,2,3].map(L=>ps.filter(p=>_posLine(p.position)===L));
+            const rows = byLine.map((line)=>`<div style="display:flex;justify-content:space-evenly;align-items:center;flex:1;padding:0 6px;">${line.map(p=>_pitchDot(p,accent)).join('')}</div>`);
+            // Local: arquero arriba (fila 0 primero). Visitante: espejado (arquero abajo).
+            return (isHome?rows:rows.slice().reverse()).join('');
+        };
+        const pitchHTML = `<div style="position:relative;background:repeating-linear-gradient(0deg,#0c2413 0px,#0c2413 30px,#0a1f10 30px,#0a1f10 60px);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:10px 6px;margin-bottom:14px;overflow:hidden;">
+            <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(255,255,255,0.18);"></div>
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;border:2px solid rgba(255,255,255,0.16);border-radius:50%;"></div>
+            <div style="position:relative;display:flex;flex-direction:column;min-height:150px;">${_teamRows(m.home_team_id,true,'var(--accent)')}</div>
+            <div style="position:relative;display:flex;flex-direction:column;min-height:150px;">${_teamRows(m.away_team_id,false,'#4a9eff')}</div>
+        </div>`;
+        const rosterCol = (teamId, teamName) => {
+            const ps = roster.filter(p => p.team_id === teamId);
+            return `<div style="flex:1;min-width:0;">
+                <div style="font-size:10px;font-weight:900;color:#666;letter-spacing:1px;margin-bottom:8px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(teamName||'').toUpperCase()}</div>
+                ${ps.length ? ps.map(p => `<div onclick="CancheroTournaments._openPlayerInfo('${p.id}')" style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:7px 10px;margin-bottom:5px;cursor:pointer;">
+                    <span style="width:26px;height:26px;border-radius:50%;flex-shrink:0;background:${p.avatar_url?`#222 center/cover url('${_esc(p.avatar_url)}')`:'rgba(186,255,0,0.1)'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:var(--accent);">${p.avatar_url?'':(p.number||'—')}</span>
+                    <span style="flex:1;min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(p.player_name)}</span>
+                    <span style="font-size:9px;color:#666;">${p.position||''}</span>
+                </div>`).join('') : '<div style="text-align:center;color:#444;font-size:11px;padding:14px 4px;">Sin jugadores</div>'}
+            </div>`;
+        };
+
+        // Estadísticas del partido desde los eventos (para el Resumen)
+        const cnt = (teamId, type) => evSorted.filter(ev => ev.team_id === teamId && ev.type === type).length;
+        const statRow = (label, icon, hv, av) => `<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;margin-bottom:6px;">
+            <span style="width:28px;text-align:center;font-size:14px;font-weight:900;color:${hv>av?'var(--accent)':'#ccc'};">${hv}</span>
+            <span style="flex:1;text-align:center;font-size:11px;color:#888;display:flex;align-items:center;justify-content:center;gap:6px;">${icon} ${label}</span>
+            <span style="width:28px;text-align:center;font-size:14px;font-weight:900;color:${av>hv?'var(--accent)':'#ccc'};">${av}</span>
+        </div>`;
+        const resumenStats = statRow('Goles', _evIcon('gol'), cnt(m.home_team_id,'gol'), cnt(m.away_team_id,'gol'))
+            + statRow('Asistencias', _evIcon('asistencia'), cnt(m.home_team_id,'asistencia'), cnt(m.away_team_id,'asistencia'))
+            + statRow('Amarillas', _evIcon('amarilla'), cnt(m.home_team_id,'amarilla'), cnt(m.away_team_id,'amarilla'))
+            + statRow('Rojas', _evIcon('roja'), cnt(m.home_team_id,'roja'), cnt(m.away_team_id,'roja'));
+
+        const tabBtn = (id, icon, label, active) => `<button class="cmd-tab" data-panel="${id}" onclick="CancheroTournaments._cmdTab('${id}',this)" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:${active?'rgba(186,255,0,0.12)':'rgba(255,255,255,0.03)'};color:${active?'var(--accent)':'#888'};border:1px solid ${active?'rgba(186,255,0,0.3)':'rgba(255,255,255,0.07)'};border-radius:14px;padding:9px 4px;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap;backdrop-filter:blur(6px);"><i class='bx ${icon}' style="font-size:15px;"></i><span class="ctm-tab-label">${label}</span></button>`;
+
+        const ex = document.getElementById('cmd-modal'); if (ex) _cmdClose();
+        const modal = document.createElement('div');
+        modal.id = 'cmd-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100004;background:#070907;overflow-y:auto;';
+        modal.innerHTML = `
+        <div style="max-width:560px;margin:0 auto;padding:14px 16px calc(60px + env(safe-area-inset-bottom));">
+            <div style="display:flex;align-items:center;padding:6px 0 14px;position:sticky;top:0;background:rgba(7,9,7,0.9);backdrop-filter:blur(10px);z-index:2;">
+                <div style="flex:1;display:flex;justify-content:flex-start;">
+                    <button onclick="CancheroTournaments._cmdClose()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:12px;padding:8px 12px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;backdrop-filter:blur(6px);"><i class='bx bx-arrow-back'></i> Volver</button>
+                </div>
+                <div style="flex:0 0 auto;text-align:center;">${statusPill}</div>
+                <div style="flex:1;display:flex;justify-content:flex-end;">
+                    <button onclick="CancheroTournaments._matchShare('${matchId}','${(m.tournament_id||'').replace(/'/g,"\\'")}' )" style="background:rgba(186,255,0,0.1);color:var(--accent);border:1px solid rgba(186,255,0,0.25);border-radius:12px;padding:8px 12px;font-size:13px;font-weight:800;cursor:pointer;backdrop-filter:blur(6px);"><i class='bx bx-share-alt'></i></button>
+                </div>
+            </div>
+            <div style="font-size:11px;color:#666;text-align:center;margin-bottom:12px;">${phaseLabels[m.phase]||''}${m.group_letter&&m.phase==='groups'?' · Grupo '+m.group_letter:''}</div>
+            <!-- Hero glass -->
+            <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:22px 14px;backdrop-filter:blur(10px);box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);">
+                ${teamCol(home,'home')}
+                <div style="flex-shrink:0;text-align:center;min-width:90px;">${centerBig}${!hasResult&&!isLive&&m.scheduled_at?`<div style="font-size:11px;color:#888;margin-top:4px;">${new Date(m.scheduled_at).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}</div>`:''}</div>
+                ${teamCol(away,'away')}
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:12px 0;font-size:11.5px;color:#999;">
+                <span ${isOrg?`onclick="CancheroTournaments._openMatchLoad('${matchId}','${(m.tournament_id||'').replace(/'/g,"\\'")}' )" style="cursor:pointer;background:rgba(186,255,0,0.06);border:1px solid rgba(186,255,0,0.28);border-radius:20px;padding:5px 12px;color:var(--accent);"`:`style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:20px;padding:5px 12px;"`}><i class='bx bx-calendar' style="color:var(--accent);"></i> ${dateStr}${isOrg?` <i class='bx bx-pencil' style="font-size:11px;opacity:.8;"></i>`:''}</span>
+                ${m.venue?`<span style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:20px;padding:5px 12px;"><i class='bx bx-map' style="color:var(--accent);"></i> ${_esc(m.venue)}</span>`:''}
+                ${m.referee?`<span style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:20px;padding:5px 12px;"><i class='bx bx-user-voice' style="color:var(--accent);"></i> ${_esc(m.referee)}</span>`:''}
+            </div>
+            ${orgActions}
+            <!-- Tabs de la ficha -->
+            <div style="display:flex;gap:6px;margin:16px 0 12px;">
+                ${tabBtn('resumen','bx-info-circle','Resumen',true)}
+                ${tabBtn('timeline','bx-time-five','Timeline',false)}
+                ${tabBtn('jugadores','bx-group','Jugadores',false)}
+            </div>
+            <div id="cmd-panel-resumen" class="cmd-panel">${resumenStats}</div>
+            <div id="cmd-panel-timeline" class="cmd-panel" style="display:none;">${timeline}</div>
+            <div id="cmd-panel-jugadores" class="cmd-panel" style="display:none;">
+                <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;font-size:11px;font-weight:800;"><span style="color:var(--accent);"><i class='bx bxs-circle' style="font-size:8px;"></i> ${_esc(home.team_name||'Local')}</span><span style="color:#555;">vs</span><span style="color:#4a9eff;"><i class='bx bxs-circle' style="font-size:8px;"></i> ${_esc(away.team_name||'Visitante')}</span></div>
+                ${pitchHTML}
+                <div style="display:flex;gap:10px;align-items:flex-start;">${rosterCol(m.home_team_id, home.team_name)}${rosterCol(m.away_team_id, away.team_name)}</div>
+            </div>
+        </div>`;
+        // NO cerrar al tocar el fondo: el usuario tocaba "bastante abajo" y se salía de la
+        // gestión sin querer. Se sale solo con "Volver" o la barra inferior.
+        document.body.appendChild(modal);
+        _injectTabCss();
+        // Cronómetro en vivo
+        if (isLive) {
+            const tick = () => {
+                const el = document.getElementById('cmd-crono'); if (!el) { clearInterval(window.__cmdCrono); return; }
+                const mins = Math.max(0, Math.min(130, Math.floor((Date.now() - new Date(m.kickoff_at).getTime())/60000)));
+                el.textContent = mins + "'";
+            };
+            tick();
+            try { clearInterval(window.__cmdCrono); } catch(e){}
+            window.__cmdCrono = setInterval(tick, 15000);
+        }
+    }
+
+    async function _startMatch(matchId) {
+        const sb = getSb();
+        const { error } = await sb.from('tournament_matches').update({ status: 'live', kickoff_at: new Date().toISOString() }).eq('id', matchId);
+        if (error) { toast('Error: ' + error.message, 'error'); return; }
+        toast('¡Partido en vivo!', 'success');
+        _openMatchDetail(matchId);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // FICHA COMPLETA — vincula el partido del torneo con un partido REAL de la
+    // sección Partidos (hereda chat, momentos, estadísticas, timeline en vivo).
+    // ═══════════════════════════════════════════════════════════
+    function _gotoRealMatch(realMatchId) {
+        if (typeof window.viewMatchDetails === 'function') {
+            // NO cerramos el modal del torneo: abrimos el partido real ENCIMA (forceModal, z alto)
+            // para que quede DENTRO del torneo y al cerrarlo volvás a la ficha del torneo. Antes
+            // llamábamos viewMatchDetails sin forceModal → switchDashboardTab te sacaba a otra
+            // sección del dashboard ("me saca de todo").
+            window.viewMatchDetails(realMatchId, { forceModal: true });
+            return;
+        }
+        // Fuera de la app (CRM / torneo.html): abrir por deep-link
+        window.open('index.html?invite=' + encodeURIComponent(realMatchId), '_blank');
+    }
+    async function _openFullMatch(tournamentMatchId) {
+        const sb = getSb();
+        const { data: tm } = await sb.from('tournament_matches').select('*').eq('id', tournamentMatchId).single();
+        if (!tm) { toast('Partido no encontrado.', 'error'); return; }
+        if (tm.match_id) { _gotoRealMatch(tm.match_id); return; }
+        const { data: t } = await sb.from('tournaments').select('*').eq('id', tm.tournament_id).single();
+        if (!_isOrgActive(t?.organizer_email)) { toast('La organización todavía no habilitó la ficha completa de este partido.', 'info'); return; }
+        // Crear el partido real (mismo formato que "crear partido" de la app)
+        const nuevo = {
+            name: `${tm.home_team_name} vs ${tm.away_team_name} — ${t.name}`,
+            created_by: getUser().email,
+            venue: tm.venue || t.venue || null,
+            city: t.city || null,
+            country: t.country || null,
+            home_club_name: tm.home_team_name,
+            away_club_name: tm.away_team_name,
+            scheduled_at: tm.scheduled_at || null,
+            is_open: false,
+            status: 'proximo'
+        };
+        const { data: created, error } = await sb.from('matches').insert(nuevo).select('id').single();
+        if (error) { toast('No se pudo crear la ficha: ' + error.message, 'error'); return; }
+        try { await sb.from('tournament_matches').update({ match_id: created.id }).eq('id', tournamentMatchId); }
+        catch(e){ /* si falta la columna match_id, la ficha igual queda creada */ }
+        // Poblar la ficha con los planteles del torneo: así Timeline/Jugadores/Estadísticas
+        // funcionan IGUAL que en un partido común (Gol/Asistencia/Cambio por jugador).
+        try {
+            const { data: roster } = await sb.from('tournament_players').select('player_name,user_email,position,number,team_id')
+                .in('team_id', [tm.home_team_id, tm.away_team_id].filter(Boolean)).limit(60);
+            for (const p of (roster||[])) {
+                const side = p.team_id === tm.home_team_id ? 'home' : 'away';
+                const row = {
+                    match_id: created.id,
+                    player_email: p.user_email || ('torneo+' + (p.number||'x') + '-' + side + '@canchero.local'),
+                    player_name: p.player_name,
+                    team: side,
+                    position: p.position || null,
+                    is_sub: false,
+                    status: 'confirmado'
+                };
+                try { await sb.from('match_players').upsert([row], { onConflict: 'match_id,player_email' }); } catch(e){}
+            }
+        } catch(e){}
+        toast('Ficha completa habilitada.', 'success');
+        _gotoRealMatch(created.id);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // EDITAR INFORMACIÓN DEL TORNEO (siempre disponible para la org)
+    // ═══════════════════════════════════════════════════════════
+    async function _openEditTournament(tournamentId) {
+        const sb = getSb();
+        const { data: t } = await sb.from('tournaments').select('*').eq('id', tournamentId).single();
+        if (!t) { toast('Torneo no encontrado.', 'error'); return; }
+        if (!_isOrgActive(t.organizer_email)) { toast('Solo la organización creadora puede editar.', 'warning'); return; }
+        const ex = document.getElementById('cte-modal'); if (ex) ex.remove();
+        const inp = (id, label, val, type, ph) => `<div style="margin-bottom:10px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">${label}</label><input id="${id}" type="${type||'text'}" value="${_esc(val==null?'':val)}" placeholder="${ph||''}" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;box-sizing:border-box;"></div>`;
+        const modal = document.createElement('div');
+        modal.id = 'cte-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100007;background:rgba(0,0,0,0.92);backdrop-filter:blur(6px);overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:20px;';
+        modal.innerHTML = `
+        <div style="background:#0d0d0d;border:1px solid #222;border-radius:18px;width:100%;max-width:460px;padding:20px;margin-top:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                <h3 style="font-family:Outfit,sans-serif;font-weight:900;font-size:15px;">Editar torneo</h3>
+                <button onclick="document.getElementById('cte-modal').remove()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;">&times;</button>
+            </div>
+            ${inp('cte-name','NOMBRE',t.name)}
+            <div style="margin-bottom:10px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">DESCRIPCIÓN / AVISOS</label><textarea id="cte-desc" rows="2" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;box-sizing:border-box;resize:vertical;">${_esc(t.description||'')}</textarea></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                ${inp('cte-city','CIUDAD',t.city)}
+                ${inp('cte-venue','CANCHA / SEDE',t.venue)}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                ${inp('cte-start','INICIO',t.start_date,'date')}
+                ${inp('cte-end','FIN',t.end_date,'date')}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                ${inp('cte-fee','INSCRIPCIÓN ($)',t.entry_fee,'number')}
+                ${inp('cte-prize','PREMIOS',t.prize_pool,'text','Trofeo + $...')}
+            </div>
+            ${inp('cte-paylink','LINK DE PAGO',t.payment_link,'url','https://mpago.la/...')}
+            <div style="margin-bottom:12px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">REGLAMENTO</label><textarea id="cte-rules" rows="3" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;box-sizing:border-box;resize:vertical;">${_esc(t.rules||'')}</textarea></div>
+            <button onclick="CancheroTournaments._saveEditTournament('${tournamentId}')" style="width:100%;background:var(--accent);color:#000;border:none;border-radius:12px;padding:12px;font-weight:900;font-size:14px;cursor:pointer;">Guardar cambios</button>
+        </div>`;
+        modal.onclick = e => { if (e.target === modal) modal.remove(); };
+        document.body.appendChild(modal);
+    }
+    async function _saveEditTournament(tournamentId) {
+        const sb = getSb();
+        const v = id => document.getElementById(id)?.value ?? '';
+        const upd = {
+            name: v('cte-name').trim() || undefined,
+            description: v('cte-desc').trim() || null,
+            city: v('cte-city').trim() || null,
+            venue: v('cte-venue').trim() || null,
+            start_date: v('cte-start') || null,
+            end_date: v('cte-end') || null,
+            entry_fee: parseFloat(v('cte-fee')) || 0,
+            prize_pool: v('cte-prize').trim() || null,
+            payment_link: v('cte-paylink').trim() || null,
+            rules: v('cte-rules').trim() || null
+        };
+        if (!upd.name) { toast('El nombre no puede quedar vacío.', 'warning'); return; }
+        const { error } = await sb.from('tournaments').update(upd).eq('id', tournamentId);
+        if (error) { toast('Error: ' + error.message, 'error'); return; }
+        document.getElementById('cte-modal')?.remove();
+        toast('Torneo actualizado.', 'success');
+        const { data: t } = await sb.from('tournaments').select('organizer_email').eq('id', tournamentId).single();
+        document.getElementById('ctm-modal')?.remove();
+        openTournamentManager(tournamentId, t?.organizer_email);
+    }
+
+    async function _matchShare(matchId, tournamentId) {
+        const sb = getSb();
+        const { data: m } = await sb.from('tournament_matches').select('home_team_name,away_team_name,home_score,away_score').eq('id', matchId).single();
+        const score = (m && m.home_score != null) ? ` ${m.home_score}-${m.away_score}` : '';
+        const txt = m ? `${m.home_team_name}${score} ${m.away_team_name}` : 'Partido';
+        const url = (location.origin || 'https://canchero-app.vercel.app') + '/torneo.html?id=' + tournamentId;
+        try {
+            if (navigator.share) { await navigator.share({ title: txt + ' · Canchero', text: txt, url }); return; }
+        } catch(e){ return; }
+        try { await navigator.clipboard.writeText(txt + ' — ' + url); toast('Link copiado'); }
+        catch(e){ toast(url); }
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -502,6 +1612,26 @@ window.CancheroTournaments = (function() {
         }
     }
 
+    // Render de la tabla de posiciones en CUALQUIER contenedor (p.ej. la sección
+    // "Tabla de Posiciones" del CRM) — muestra a todos los equipos aunque tengan 0 puntos.
+    async function renderStandingsInto(tournamentId, el) {
+        if (!el) return;
+        const sb = getSb();
+        el.innerHTML = '<div style="text-align:center;padding:24px;color:#555;"><i class="bx bx-loader-alt bx-spin" style="font-size:22px;"></i></div>';
+        const { data: teams } = await sb.from('tournament_teams').select('*').eq('tournament_id', tournamentId).in('status', ['approved','eliminated']).order('points', { ascending: false });
+        if (!teams || !teams.length) { el.innerHTML = '<div style="text-align:center;padding:28px;color:#555;">Sin equipos aprobados todavía.</div>'; return; }
+        try { await _healTeamLogos(teams, false); } catch(e){}
+        const hasGroups = teams.some(t => t.group_letter);
+        if (hasGroups) {
+            const groups = {};
+            teams.forEach(t => { const g = t.group_letter || 'L'; if (!groups[g]) groups[g] = []; groups[g].push(t); });
+            el.innerHTML = Object.entries(groups).map(([letter, groupTeams]) =>
+                `<div style="margin-bottom:18px;"><div style="font-size:11px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:8px;">GRUPO ${letter}</div>${_renderStandingsTable(groupTeams)}</div>`).join('');
+        } else {
+            el.innerHTML = _renderStandingsTable(teams);
+        }
+    }
+
     function _renderStandingsTable(teams) {
         const sorted = [...teams].sort((a,b) => (b.points-a.points) || ((b.goals_for-b.goals_against)-(a.goals_for-a.goals_against)) || (b.goals_for-a.goals_for));
         return `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -521,18 +1651,22 @@ window.CancheroTournaments = (function() {
                 ${sorted.map((t, i) => {
                     const pj = (t.wins||0)+(t.draws||0)+(t.losses||0);
                     const dg = (t.goals_for||0)-(t.goals_against||0);
-                    const rowStyle = i < 2 ? 'background:rgba(186,255,0,0.04);' : '';
-                    return `<tr style="${rowStyle}border-bottom:1px solid #111;">
-                        <td style="padding:8px 8px;color:${i<2?'var(--accent)':'#555'};font-weight:900;">${i+1}</td>
-                        <td style="padding:8px 8px;font-weight:700;">${t.team_name}</td>
-                        <td style="padding:8px 5px;text-align:center;color:#888;">${pj}</td>
-                        <td style="padding:8px 5px;text-align:center;color:#00e676;">${t.wins||0}</td>
-                        <td style="padding:8px 5px;text-align:center;color:#ffaa00;">${t.draws||0}</td>
-                        <td style="padding:8px 5px;text-align:center;color:#ff4444;">${t.losses||0}</td>
-                        <td style="padding:8px 5px;text-align:center;">${t.goals_for||0}</td>
-                        <td style="padding:8px 5px;text-align:center;">${t.goals_against||0}</td>
-                        <td style="padding:8px 5px;text-align:center;color:${dg>0?'#00e676':dg<0?'#ff4444':'#888'};">${dg>0?'+':''}${dg}</td>
-                        <td style="padding:8px 6px;text-align:center;font-weight:900;color:var(--accent);font-size:14px;">${t.points||0}</td>
+                    // Liquid glass: sin colores mezclados — solo acento verde y neutros.
+                    const top = i === 0;
+                    const rowStyle = top ? 'background:rgba(186,255,0,0.06);' : (i < 2 ? 'background:rgba(255,255,255,0.025);' : '');
+                    const clickable = 'cursor:pointer;';
+                    const onclick = `onclick="CancheroTournaments._openTeamInfo('${t.id}')"`;
+                    return `<tr ${onclick} style="${rowStyle}${clickable}border-bottom:1px solid rgba(255,255,255,0.05);">
+                        <td style="padding:9px 8px;font-weight:900;"><span style="display:inline-flex;width:22px;height:22px;border-radius:8px;align-items:center;justify-content:center;font-size:11px;${top?'background:var(--accent);color:#000;':'background:rgba(255,255,255,0.05);color:#888;border:1px solid rgba(255,255,255,0.08);'}">${i+1}</span></td>
+                        <td style="padding:9px 8px;font-weight:700;"><span style="display:inline-flex;align-items:center;gap:9px;">${_shieldHTML(t.logo_url, t.team_name, 32)}<span style="overflow:hidden;text-overflow:ellipsis;">${_esc(t.team_name)}</span></span></td>
+                        <td style="padding:9px 5px;text-align:center;color:#888;">${pj}</td>
+                        <td style="padding:9px 5px;text-align:center;color:#ccc;">${t.wins||0}</td>
+                        <td style="padding:9px 5px;text-align:center;color:#888;">${t.draws||0}</td>
+                        <td style="padding:9px 5px;text-align:center;color:#888;">${t.losses||0}</td>
+                        <td style="padding:9px 5px;text-align:center;color:#888;">${t.goals_for||0}</td>
+                        <td style="padding:9px 5px;text-align:center;color:#888;">${t.goals_against||0}</td>
+                        <td style="padding:9px 5px;text-align:center;color:${dg>0?'var(--accent)':'#888'};font-weight:${dg>0?'800':'400'};">${dg>0?'+':''}${dg}</td>
+                        <td style="padding:9px 6px;text-align:center;font-weight:900;color:var(--accent);font-size:14px;">${t.points||0}</td>
                     </tr>`;
                 }).join('')}
             </tbody>
@@ -542,23 +1676,54 @@ window.CancheroTournaments = (function() {
     // ═══════════════════════════════════════════════════════════
     // JUGADORES DEL TORNEO
     // ═══════════════════════════════════════════════════════════
-    async function _ctmJugadores(tournamentId) {
+    async function _ctmJugadores(tournamentId, organizerEmail) {
         const sb = getSb();
         const { data: players } = await sb.from('tournament_players').select('*,tournament_teams(team_name)').eq('tournament_id', tournamentId).order('player_name');
         const container = document.getElementById('ctm-content');
         if (!container) return;
+        const isOrg = _isOrgActive(organizerEmail);
         if (!players || !players.length) { container.innerHTML = '<div style="text-align:center;padding:40px;color:#555;">Sin jugadores registrados aún.</div>'; return; }
         container.innerHTML = `<div style="font-size:11px;color:#555;margin-bottom:10px;">${players.length} jugadores en el torneo</div>
         <div style="display:grid;gap:6px;">
-            ${players.map(p => `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#111;border:1px solid #1e1e1e;border-radius:10px;">
-                <div style="width:30px;height:30px;border-radius:50%;background:rgba(186,255,0,0.1);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--accent);flex-shrink:0;">${p.number||'—'}</div>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-weight:700;font-size:13px;">${p.player_name}</div>
-                    <div style="font-size:10px;color:#666;">${p.tournament_teams?.team_name||'—'} · ${p.position||'—'}</div>
+            ${players.map(p => { const susp = (p.suspended_matches||0) > 0; return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid ${susp?'rgba(255,68,68,0.3)':'rgba(255,255,255,0.06)'};border-radius:12px;">
+                <div onclick="CancheroTournaments._openPlayerInfo('${p.id}')" style="width:34px;height:34px;border-radius:50%;flex-shrink:0;background:${p.avatar_url?`#222 center/cover url('${_esc(p.avatar_url)}')`:'rgba(186,255,0,0.1)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--accent);cursor:pointer;">${p.avatar_url?'':(p.number||'—')}</div>
+                <div onclick="CancheroTournaments._openPlayerInfo('${p.id}')" style="flex:1;min-width:0;cursor:pointer;">
+                    <div style="font-weight:700;font-size:13px;">${_esc(p.player_name)} <i class='bx bx-chevron-right' style="font-size:11px;color:var(--accent);"></i>${susp?" <span style='font-size:9px;font-weight:900;color:#ff6b6b;background:rgba(255,68,68,0.1);border-radius:6px;padding:1px 6px;vertical-align:1px;'>SUSPENDIDO</span>":''}</div>
+                    <div style="font-size:10px;color:#666;">${_esc(p.tournament_teams?.team_name||'—')} · ${p.position?(POS_LABEL[p.position]||p.position):'—'}</div>
                 </div>
-                <div style="font-size:11px;color:#666;white-space:nowrap;">⚽${p.goals||0} 🎯${p.assists||0} 🟨${p.yellow_cards||0}</div>
-            </div>`).join('')}
+                <div style="font-size:11px;color:#666;white-space:nowrap;"><i class='bx bx-football'></i>${p.goals||0} · <i class='bx bx-run'></i>${p.assists||0} · <span style="display:inline-block;width:8px;height:11px;background:#ffcc00;border-radius:1px;vertical-align:-1px;"></span>${p.yellow_cards||0}</div>
+                ${isOrg ? `<div style="display:flex;gap:4px;flex-shrink:0;">
+                    <button onclick="CancheroTournaments._toggleSuspend('${p.id}','${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}' )" title="${susp?'Quitar suspensión':'Suspender'}" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:${susp?'#ff6b6b':'#888'};border-radius:8px;padding:6px 8px;font-size:13px;cursor:pointer;"><i class='bx bx-block'></i></button>
+                    <button onclick="CancheroTournaments._deletePlayer('${p.id}','${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}' )" title="Eliminar del torneo" style="background:rgba(255,68,68,0.08);border:1px solid rgba(255,68,68,0.2);color:#ff4444;border-radius:8px;padding:6px 8px;font-size:13px;cursor:pointer;"><i class='bx bx-trash'></i></button>
+                </div>` : ''}
+            </div>`; }).join('')}
         </div>`;
+    }
+
+    // Suspender / quitar suspensión de un jugador del torneo.
+    async function _toggleSuspend(playerId, tournamentId, organizerEmail) {
+        const sb = getSb();
+        const { data: p } = await sb.from('tournament_players').select('suspended_matches,player_name').eq('id', playerId).single();
+        if (!p) return;
+        const now = (p.suspended_matches||0) > 0 ? 0 : 1;
+        const { error } = await sb.from('tournament_players').update({ suspended_matches: now }).eq('id', playerId);
+        if (error) { toast('Error: ' + error.message, 'error'); return; }
+        toast(now ? `${p.player_name} suspendido.` : `Suspensión quitada a ${p.player_name}.`, now ? 'warning' : 'success');
+        _ctmJugadores(tournamentId, organizerEmail);
+    }
+
+    // Eliminar un jugador del torneo (org o el propio club vía Jugadores del equipo).
+    async function _deletePlayer(playerId, tournamentId, organizerEmail) {
+        if (!confirm('¿Eliminar este jugador del torneo?')) return;
+        const sb = getSb();
+        const { data: p } = await sb.from('tournament_players').select('team_id').eq('id', playerId).single();
+        const { error } = await sb.from('tournament_players').delete().eq('id', playerId);
+        if (error) { toast('Error: ' + error.message, 'error'); return; }
+        if (p && p.team_id) {
+            try { await sb.from('tournament_teams').update({ players_count: ((await sb.from('tournament_players').select('*',{count:'exact',head:true}).eq('team_id',p.team_id)).count) }).eq('id', p.team_id); } catch(e){}
+        }
+        toast('Jugador eliminado del torneo.', 'success');
+        _ctmJugadores(tournamentId, organizerEmail);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -577,19 +1742,19 @@ window.CancheroTournaments = (function() {
                 <th style="text-align:left;padding:6px 8px;">#</th>
                 <th style="text-align:left;padding:6px 8px;">JUGADOR</th>
                 <th style="text-align:left;padding:6px 8px;">EQUIPO</th>
-                <th style="padding:6px 6px;text-align:center;">⚽</th>
-                <th style="padding:6px 6px;text-align:center;">🎯</th>
-                <th style="padding:6px 6px;text-align:center;">🟨</th>
+                <th style="padding:6px 6px;text-align:center;" title="Goles"><i class='bx bx-football'></i></th>
+                <th style="padding:6px 6px;text-align:center;" title="Asistencias"><i class='bx bx-run'></i></th>
+                <th style="padding:6px 6px;text-align:center;" title="Amarillas"><span style="display:inline-block;width:8px;height:11px;background:#ffcc00;border-radius:1px;"></span></th>
             </tr></thead>
             <tbody>
-                ${topGoals.map((p,i) => `<tr style="border-bottom:1px solid #111;">
-                    <td style="padding:8px 8px;color:${i<3?'var(--accent)':'#555'};font-weight:900;">${i+1}</td>
-                    <td style="padding:8px 8px;font-weight:700;">${p.player_name}</td>
-                    <td style="padding:8px 8px;color:#666;">${p.tournament_teams?.team_name||'—'}</td>
+                ${topGoals.map((p,i) => { const top3 = i < 3; return `<tr onclick="CancheroTournaments._openPlayerInfo('${p.id}')" style="border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;">
+                    <td style="padding:9px 8px;font-weight:900;"><span style="display:inline-flex;width:22px;height:22px;border-radius:8px;align-items:center;justify-content:center;font-size:11px;${top3?'background:var(--accent);color:#000;':'background:rgba(255,255,255,0.05);color:#888;border:1px solid rgba(255,255,255,0.08);'}">${i+1}</span></td>
+                    <td style="padding:9px 8px;font-weight:700;"><span style="display:inline-flex;align-items:center;gap:8px;"><span style="width:26px;height:26px;border-radius:50%;flex-shrink:0;background:${p.avatar_url?`#222 center/cover url('${_esc(p.avatar_url)}')`:'rgba(186,255,0,0.1)'};"></span>${_esc(p.player_name)}</span></td>
+                    <td style="padding:8px 8px;color:#666;">${_esc(p.tournament_teams?.team_name||'—')}</td>
                     <td style="padding:8px 6px;text-align:center;font-weight:700;color:var(--accent);">${p.goals||0}</td>
                     <td style="padding:8px 6px;text-align:center;">${p.assists||0}</td>
                     <td style="padding:8px 6px;text-align:center;color:#ffaa00;">${p.yellow_cards||0}</td>
-                </tr>`).join('')}
+                </tr>`; }).join('')}
             </tbody>
         </table>`}`;
     }
@@ -607,8 +1772,75 @@ window.CancheroTournaments = (function() {
         if (tab === 'equipos') await _ctmEquipos(tournamentId, organizerEmail);
         else if (tab === 'fixture') await _ctmFixture(tournamentId, organizerEmail);
         else if (tab === 'tabla') await _ctmTabla(tournamentId, organizerEmail);
-        else if (tab === 'jugadores') await _ctmJugadores(tournamentId);
+        else if (tab === 'jugadores') await _ctmJugadores(tournamentId, organizerEmail);
         else if (tab === 'goleadores') await _ctmGoleadores(tournamentId);
+        else if (tab === 'solicitudes') await _ctmSolicitudes(tournamentId, organizerEmail);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // SOLICITUDES DE PARTICIPACIÓN (equipos pendientes)
+    // ═══════════════════════════════════════════════════════════
+    async function _ctmSolicitudes(tournamentId, organizerEmail) {
+        const sb = getSb();
+        const { data: teams } = await sb.from('tournament_teams').select('*').eq('tournament_id', tournamentId).eq('status','pending').order('created_at');
+        const container = document.getElementById('ctm-content');
+        if (!container) return;
+        if (!teams || !teams.length) {
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:#555;"><i class="bx bx-user-plus" style="font-size:36px;color:#222;display:block;margin-bottom:10px;"></i>Sin solicitudes pendientes.<br><span style="font-size:11px;">Cuando un equipo pida unirse al torneo, aparece acá.</span></div>';
+            return;
+        }
+        container.innerHTML = teams.map(team => `
+        <div style="background:#111;border:1px solid #1e1e1e;border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            ${_shieldHTML(team.logo_url, team.team_name, 46)}
+            <div style="flex:1;min-width:140px;">
+                <div style="font-weight:800;font-size:14px;">${_esc(team.team_name)}</div>
+                <div style="font-size:11px;color:#666;margin-top:2px;">Capitán: ${_esc(team.captain_name||team.captain_email||'—')}${team.payment_proof_url?` · <a href="${_esc(team.payment_proof_url)}" target="_blank" style="color:var(--accent);">comprobante</a>`:''}</div>
+            </div>
+            <div style="display:flex;gap:6px;">
+                <button onclick="CancheroTournaments._solicAction('${team.id}','approved','${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}' )" style="background:rgba(0,230,118,0.12);color:#00e676;border:1px solid rgba(0,230,118,0.3);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;"><i class='bx bx-check'></i> Aceptar</button>
+                <button onclick="CancheroTournaments._solicAction('${team.id}','rejected','${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}' )" style="background:rgba(255,68,68,0.08);color:#ff4444;border:1px solid rgba(255,68,68,0.2);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;"><i class='bx bx-x'></i> Rechazar</button>
+            </div>
+        </div>`).join('');
+    }
+
+    async function _solicAction(teamId, status, tournamentId, organizerEmail) {
+        const sb = getSb();
+        const { data: team } = await sb.from('tournament_teams').update({ status }).eq('id', teamId).select('*').single();
+        toast(status === 'approved' ? 'Equipo aceptado en el torneo.' : 'Solicitud rechazada.', status === 'approved' ? 'success' : 'warning');
+        // Inscripción paga → ofrecer registrar el ingreso en la Caja del CRM (con aviso previo)
+        if (status === 'approved' && team) {
+            try {
+                const { data: tf } = await sb.from('tournaments').select('name,entry_fee').eq('id', tournamentId).single();
+                const fee = (tf && tf.entry_fee) || 0;
+                if (fee > 0 && team.payment_status !== 'paid' && team.payment_status !== 'waived') {
+                    if (confirm(`El torneo tiene inscripción de $${fee}. ¿Registrar el ingreso de ${team.team_name} en Caja y marcarlo como PAGADO?\n(Cancelar = queda pendiente de pago)`)) {
+                        await sb.from('business_cashflow').insert({ business_email: organizerEmail, type: 'ingreso', concept: 'Inscripción: ' + team.team_name + (tf && tf.name ? ' — ' + tf.name : ''), amount: fee });
+                        await sb.from('tournament_teams').update({ payment_status: 'paid' }).eq('id', teamId);
+                        if (team.captain_email) { try { await sb.from('notifications').insert({ recipient_email: team.captain_email, type: 'torneo_pago', actor_name: (tf && tf.name) || 'Torneo', actor_email: organizerEmail, message: `Recibimos el pago de inscripción de ${team.team_name}. ¡Gracias! Nos vemos en la cancha.`, post_id: tournamentId, read: false }); } catch(e){} }
+                        toast('Ingreso registrado en Caja.', 'success');
+                    }
+                }
+            } catch(e){}
+        }
+        // Avisar al capitán del equipo
+        try {
+            if (team && team.captain_email) {
+                const { data: t } = await sb.from('tournaments').select('name').eq('id', tournamentId).single();
+                await sb.from('notifications').insert({
+                    recipient_email: team.captain_email,
+                    type: 'torneo_solicitud',
+                    actor_name: (t && t.name) || 'Torneo',
+                    actor_email: organizerEmail || null,
+                    message: status === 'approved'
+                        ? `Tu equipo ${team.team_name} fue ACEPTADO en ${t?t.name:'el torneo'}`
+                        : `Tu equipo ${team.team_name} fue rechazado en ${t?t.name:'el torneo'}`,
+                    post_id: tournamentId,
+                    read: false
+                });
+            }
+        } catch(e){}
+        _refreshSolicBadge(tournamentId);
+        _ctmSolicitudes(tournamentId, organizerEmail);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -618,15 +1850,15 @@ window.CancheroTournaments = (function() {
         const sb = getSb();
         const { data: t } = await sb.from('tournaments').select('*').eq('id', tournamentId).single();
         if (!t) { toast('Torneo no encontrado.', 'error'); return; }
-        const isOrg = getUser()?.email === t.organizer_email;
+        const isOrg = _isOrgActive(t.organizer_email);
         const existing = document.getElementById('ctp-modal');
         if (existing) existing.remove();
         const modal = document.createElement('div');
         modal.id = 'ctp-modal';
-        modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.95);overflow-y:auto;';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#070907;overflow-y:auto;';
         const statusColors = { draft:'#555', registration:'#ffaa00', active:'#00e676', finished:'#4fc3f7', cancelled:'#ff4444' };
         modal.innerHTML = `
-        <div style="max-width:680px;margin:0 auto;padding:20px;">
+        <div style="max-width:680px;margin:0 auto;padding:20px 20px calc(120px + env(safe-area-inset-bottom));">
             <!-- Header del torneo -->
             <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 0 8px;">
                 <button onclick="document.getElementById('ctp-modal').remove()" style="background:none;border:none;color:#888;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;"><i class='bx bx-arrow-back'></i> Volver</button>
@@ -646,14 +1878,14 @@ window.CancheroTournaments = (function() {
                 </div>
                 ${t.description ? `<p style="font-size:13px;color:#aaa;line-height:1.6;margin-bottom:12px;">${t.description}</p>` : ''}
             </div>
-            <!-- Tabs públicas -->
-            <div style="display:flex;gap:4px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none;">
-                <button class="ctp-tab active" onclick="CancheroTournaments._ctpTab('tabla','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:rgba(186,255,0,0.12);color:var(--accent);border:1px solid rgba(186,255,0,0.3);border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">📊 Tabla</button>
-                <button class="ctp-tab" onclick="CancheroTournaments._ctpTab('fixture','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:transparent;color:#666;border:1px solid #222;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">📅 Fixture</button>
-                <button class="ctp-tab" onclick="CancheroTournaments._ctpTab('equipos','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:transparent;color:#666;border:1px solid #222;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">⚽ Equipos</button>
-                <button class="ctp-tab" onclick="CancheroTournaments._ctpTab('goleadores','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:transparent;color:#666;border:1px solid #222;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">⚽ Goleadores</button>
-                <button class="ctp-tab" onclick="CancheroTournaments._ctpTab('jugadores','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:transparent;color:#666;border:1px solid #222;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">👥 Jugadores</button>
-                ${t.status === 'registration' && !isOrg ? `<button class="ctp-tab" onclick="CancheroTournaments._ctpTab('inscribir','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:rgba(186,255,0,0.05);color:var(--accent);border:1px solid rgba(186,255,0,0.2);border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">✍️ Inscribirme</button>` : ''}
+            <!-- Tabs públicas (envuelven para verse todas) -->
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">
+                <button class="ctp-tab active" onclick="CancheroTournaments._ctpTab('tabla','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:rgba(186,255,0,0.12);color:var(--accent);border:1px solid rgba(186,255,0,0.3);border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;"><i class='bx bx-list-ol'></i> Tabla</button>
+                <button class="ctp-tab" onclick="CancheroTournaments._ctpTab('fixture','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:transparent;color:#666;border:1px solid #222;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;"><i class='bx bx-calendar'></i> Fixture</button>
+                <button class="ctp-tab" onclick="CancheroTournaments._ctpTab('equipos','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:transparent;color:#666;border:1px solid #222;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;"><i class='bx bx-shield-quarter'></i> Equipos</button>
+                <button class="ctp-tab" onclick="CancheroTournaments._ctpTab('goleadores','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:transparent;color:#666;border:1px solid #222;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;"><i class='bx bx-football'></i> Goleadores</button>
+                <button class="ctp-tab" onclick="CancheroTournaments._ctpTab('jugadores','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:transparent;color:#666;border:1px solid #222;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;"><i class='bx bx-group'></i> Jugadores</button>
+                ${t.status === 'registration' && !isOrg ? `<button class="ctp-tab" onclick="CancheroTournaments._ctpTab('inscribir','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:rgba(186,255,0,0.05);color:var(--accent);border:1px solid rgba(186,255,0,0.2);border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;"><i class='bx bx-edit'></i> Inscribirme</button>` : ''}
             </div>
             <div id="ctp-content" style="min-height:200px;"></div>
             ${t.rules ? `<div style="margin-top:16px;padding:14px;background:#111;border:1px solid #1e1e1e;border-radius:12px;"><div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:8px;">REGLAMENTO</div><p style="font-size:12px;color:#888;line-height:1.6;white-space:pre-wrap;">${t.rules}</p></div>` : ''}
@@ -681,7 +1913,7 @@ window.CancheroTournaments = (function() {
         else if (tab === 'equipos') await _ctmEquipos(tournamentId, organizerEmail);
         else if (tab === 'jugadores') await _ctmJugadores(tournamentId);
         else if (tab === 'goleadores') await _ctmGoleadores(tournamentId);
-        else if (tab === 'inscribir') { tempEl.innerHTML = `<div style="padding:16px;background:#111;border:1px solid #1e1e1e;border-radius:14px;"><div style="font-weight:900;font-size:14px;margin-bottom:10px;">📋 Inscribir mi equipo</div><div style="display:flex;gap:8px;"><input id="ctm-team-name" type="text" placeholder="Nombre de tu equipo" style="flex:1;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:9px 12px;font-size:13px;"><button onclick="CancheroTournaments._inscribeTeam('${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}' )" style="background:var(--accent);color:#000;border:none;border-radius:10px;padding:9px 16px;font-weight:900;font-size:13px;cursor:pointer;">Inscribir</button></div></div>`; }
+        else if (tab === 'inscribir') { tempEl.innerHTML = `<div style="padding:16px;background:#111;border:1px solid #1e1e1e;border-radius:14px;"><div style="font-weight:900;font-size:14px;margin-bottom:10px;"><i class='bx bx-clipboard'></i> Inscribir mi equipo</div><div style="display:flex;gap:8px;"><input id="ctm-team-name" type="text" placeholder="Nombre de tu equipo" style="flex:1;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:9px 12px;font-size:13px;"><button onclick="CancheroTournaments._inscribeTeam('${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}' )" style="background:var(--accent);color:#000;border:none;border-radius:10px;padding:9px 16px;font-weight:900;font-size:13px;cursor:pointer;">Inscribir</button></div></div>`; }
         if (ctpContent) ctpContent.innerHTML = tempEl.innerHTML;
         tempEl.remove();
     }
@@ -693,7 +1925,7 @@ window.CancheroTournaments = (function() {
         const sb = getSb();
         if (!container) return;
         const { data: torneos } = await sb.from('tournaments').select('*').eq('organizer_email', organizerEmail).order('created_at', {ascending:false});
-        const isOwner = getUser()?.email === organizerEmail;
+        const isOwner = _isOrgActive(organizerEmail);
         container.innerHTML = (torneos && torneos.length ? torneos.map(t => {
             const statusColors = { draft:'#555', registration:'#ffaa00', active:'#00e676', finished:'#4fc3f7', cancelled:'#ff4444' };
             return `<div onclick="CancheroTournaments.openPublicView('${t.id}')" style="background:rgba(255,255,255,0.02);border:1px solid #1e1e1e;border-radius:14px;padding:14px 16px;margin-bottom:8px;cursor:pointer;transition:.15s;" onmouseover="this.style.background='rgba(186,255,0,0.04)'" onmouseout="this.style.background='rgba(255,255,255,0.02)'">
@@ -714,13 +1946,50 @@ window.CancheroTournaments = (function() {
     }
 
     // ═══════════════════════════════════════════════════════════
+    // RESULTADO DEL PARTIDO REAL → TORNEO
+    // Cuando un partido REAL (Ficha completa) vinculado a un tournament_match se finaliza
+    // con marcador, lo copiamos al torneo y re-aplicamos la tabla de posiciones. Así el
+    // resultado "vuelve" al torneo sin recargarlo a mano. Idempotente (revierte lo anterior).
+    // ═══════════════════════════════════════════════════════════
+    async function _syncTournamentFromRealMatch(matchId) {
+        try {
+            const sb = getSb(); if (!sb || !matchId) return;
+            const { data: tm } = await sb.from('tournament_matches').select('*').eq('match_id', matchId).maybeSingle();
+            if (!tm) return; // el partido real no pertenece a ningún torneo
+            const { data: rm } = await sb.from('matches').select('score_a,score_b,mvp,status').eq('id', matchId).maybeSingle();
+            if (!rm || rm.score_a == null || rm.score_b == null) return; // todavía sin resultado
+            const homeScore = parseInt(rm.score_a), awayScore = parseInt(rm.score_b);
+            if (isNaN(homeScore) || isNaN(awayScore)) return;
+            // No re-aplicar si ya está sincronizado con el mismo marcador.
+            if (tm.home_score === homeScore && tm.away_score === awayScore && tm.status === 'finished') return;
+            // Revertir el resultado anterior del torneo (si había) para no duplicar puntos.
+            if (tm.home_score != null && tm.away_score != null) {
+                await _applyTeamResult(tm.home_team_id, tm.home_score, tm.away_score, -1);
+                await _applyTeamResult(tm.away_team_id, tm.away_score, tm.home_score, -1);
+            }
+            await _applyTeamResult(tm.home_team_id, homeScore, awayScore, +1);
+            await _applyTeamResult(tm.away_team_id, awayScore, homeScore, +1);
+            const winnerId = homeScore > awayScore ? tm.home_team_id : awayScore > homeScore ? tm.away_team_id : null;
+            await sb.from('tournament_matches').update({ home_score: homeScore, away_score: awayScore, status: 'finished', winner_team_id: winnerId || null }).eq('id', tm.id);
+            try { if (window.showToast) showToast('Resultado sincronizado con el torneo.', 'success', 2000); } catch(e){}
+        } catch(e) { console.warn('_syncTournamentFromRealMatch:', e && e.message); }
+    }
+
+    // ═══════════════════════════════════════════════════════════
     // EXPORTS PÚBLICOS
     // ═══════════════════════════════════════════════════════════
     return {
         openCreateTournament,
+        _syncTournamentFromRealMatch,
         openTournamentManager,
         openPublicView,
         renderOrgTournaments,
+        renderStandingsInto,
+        _openFullMatch,
+        _openEditTournament,
+        _saveEditTournament,
+        _toggleSuspend,
+        _deletePlayer,
         _ctmTab,
         _ctpTab,
         _submitCreate,
@@ -731,6 +2000,31 @@ window.CancheroTournaments = (function() {
         _openTeamPlayers,
         _addPlayerToTeam,
         _generateFixture,
-        _saveResult,
+        _openMatchLoad,
+        _cmeAdd,
+        _cmeAddPlayer,
+        _cmeSetType,
+        _cmeRemove,
+        _saveMatchLoad,
+        _openMatchDetail,
+        _cmdClose,
+        _cmdTab,
+        _startMatch,
+        _matchShare,
+        _openProfile,
+        _openTeamInfo,
+        _openPlayerInfo,
+        _playerSetPhoto,
+        _ctmSetImg,
+        _teamSetLogo,
+        _syncRoster,
+        _solicAction,
+        _ctatLogo,
+        _ctatSearch,
+        _ctatPick,
+        _ctatSave,
+        _ctapSearch,
+        _ctapPick,
+        _ctapSave,
     };
 })();

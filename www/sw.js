@@ -1,4 +1,4 @@
-const CACHE_NAME = 'canchero-v296';
+const CACHE_NAME = 'canchero-v327';
 const RUNTIME_CACHE = 'canchero-runtime'; // persistente entre deploys (media/JS/CSS cacheados)
 const assets = [
   './',
@@ -25,6 +25,7 @@ const assets = [
   './canchero-once-ideal.js',
   './canchero-adivina.js',
   './canchero-impostor.js',
+  './canchero-higher-lower.js',
   './canchero-momentos.js',
   './canchero-momentos-editor.js',
   './canchero-match-feed.js',
@@ -49,6 +50,13 @@ self.addEventListener('activate', event => {
     // imágenes en cada deploy → mantiene bajo el egress de Supabase).
     const keys = await caches.keys();
     await Promise.all(keys.filter(k => k !== CACHE_NAME && k !== RUNTIME_CACHE).map(k => caches.delete(k)));
+    // Purga de video ya cacheado por versiones viejas del SW (esos entries rompían la
+    // reproducción en iOS → reels en negro). Se borran para que el video vaya siempre a red.
+    try {
+      const rc = await caches.open(RUNTIME_CACHE);
+      const reqs = await rc.keys();
+      await Promise.all(reqs.filter(r => /\.(mp4|webm|mov|m4v|m3u8)(\?|$)/i.test(new URL(r.url).pathname)).map(r => rc.delete(r)));
+    } catch(e){}
     await self.clients.claim();
     // NOTA: ya NO forzamos c.navigate() de todas las ventanas. Ese reload en caliente
     // provocaba parpadeos/pantalla negra en el PWA al activarse un SW nuevo. Como el
@@ -62,6 +70,16 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   const sameOrigin = url.origin === self.location.origin;
+
+  // ⚠️ VIDEO: NO interceptar NUNCA. iOS/Safari reproduce video con Range requests
+  // (bytes=...). Si el Service Worker responde (aunque sea con un fetch limpio, y peor
+  // aún desde caché), WebKit rompe el streaming y el reel queda EN NEGRO. La única forma
+  // confiable es NO llamar a respondWith → el navegador va directo a la red con Range OK.
+  // (En Android/Chrome funcionaba igual cacheado; en iPhone no, por eso se veían negros.)
+  if (event.request.headers.has('range')) return;
+  const isVideoReq = event.request.destination === 'video' ||
+                     /\.(mp4|webm|mov|m4v|m3u8)(\?|$)/i.test(url.pathname);
+  if (isVideoReq) return;
 
   // 1) HTML / raíz: network-first SIN store, para detectar nuevas versiones (build).
   const isHtml = sameOrigin && (url.pathname.endsWith('.html') || url.pathname === '/');

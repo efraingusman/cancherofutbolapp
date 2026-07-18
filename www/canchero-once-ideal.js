@@ -452,29 +452,37 @@ function _legendMatches(eq, sel, posLabel){
     .filter(L => (L.eq||[]).indexOf(eq) !== -1 && L.nat === sel && L.pos === g && !_onceAlreadyPlaced(L.n))
     .map(L => ({ strPlayer: L.n, strNationality: NAT_EN[L.nat]||L.nat, strPosition: '', strCutout: '', _legend: true }));
 }
+// fetch con timeout: en un A12/conexión lenta un fetch colgado congelaba el juego
+// (el spin hace varias llamadas en serie). Con AbortController cortamos a los 4s y
+// caemos al catálogo de leyendas / texto libre en vez de trabar el turno.
+function _tsdbFetch(url, ms){
+  ms = ms || 4000;
+  var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var t = setTimeout(function(){ try { ctrl && ctrl.abort(); } catch(e){} }, ms);
+  return fetch(url, ctrl ? { signal: ctrl.signal } : undefined)
+    .then(function(r){ return r.json(); })
+    .finally(function(){ clearTimeout(t); });
+}
 async function _tsdbPlayers(query, byName){
   const key = (byName?'p:':'t:')+query;
-  if (_tsdbCache[key]) return _tsdbCache[key];
+  if (_tsdbCache[key] !== undefined) return _tsdbCache[key];
   try {
     let list = [];
     if (byName) {
-      const r = await fetch(TSDB + '/searchplayers.php?p=' + encodeURIComponent(query));
-      const j = await r.json();
+      const j = await _tsdbFetch(TSDB + '/searchplayers.php?p=' + encodeURIComponent(query));
       list = ((j && j.player)||[]).filter(pl => (pl.strSport||'Soccer')==='Soccer');
     } else {
       // Plantel por equipo (la búsqueda ?t= está paga): searchteams → lookup_all_players
-      const rt = await fetch(TSDB + '/searchteams.php?t=' + encodeURIComponent(query));
-      const jt = await rt.json();
+      const jt = await _tsdbFetch(TSDB + '/searchteams.php?t=' + encodeURIComponent(query));
       const team = ((jt && jt.teams)||[]).filter(t => (t.strSport||'')==='Soccer')[0];
       if (team && team.idTeam) {
-        const rp = await fetch(TSDB + '/lookup_all_players.php?id=' + team.idTeam);
-        const jp = await rp.json();
+        const jp = await _tsdbFetch(TSDB + '/lookup_all_players.php?id=' + team.idTeam);
         list = ((jp && jp.player)||[]).filter(pl => (pl.strSport||'Soccer')==='Soccer');
       }
     }
-    _tsdbCache[key] = list;
+    _tsdbCache[key] = list; // cachear también [] para no reintentar equipos sin datos
     return list;
-  } catch(e){ return null; } // null = API caída (fallback a texto libre)
+  } catch(e){ return null; } // null = API caída/timeout (fallback a texto libre)
 }
 function _oncePlayerChip(pl){
   const nm = (pl.strPlayer||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');

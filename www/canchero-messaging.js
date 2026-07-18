@@ -304,7 +304,6 @@ window.CancheroMessaging = (function() {
             let msgs = [...(sentMsgs || []), ...(recvMsgs || [])];
             // P0.5: cada identidad su bandeja — filtrar por la etiqueta de identidad
             msgs = msgs.filter(m => _msgTag(m, m.sender_email === _myEmail) === _chatTag());
-            console.log('[MSG] renderConversationList _myEmail=', _myEmail, 'tag=', _chatTag(), 'msgs=', msgs.length);
 
             // Agrupar por conversación
             const convos = {};
@@ -358,7 +357,7 @@ window.CancheroMessaging = (function() {
                     let us = null;
                     try { const r = await getSb().rpc('get_users_info', { p_emails: dmEmails }); if (!r.error) us = r.data; } catch(e){}
                     // Fallback al query directo (si la RPC no existe o no devuelve)
-                    if (!us || !us.length) { const r2 = await getSb().from('users').select('email,photo,avatar_url,cover_photo,name,role,photo_style').in('email', dmEmails); us = r2.data; }
+                    if (!us || !us.length) { const r2 = await getSb().from('users').select('email,photo,cover_photo,name,role,photo_style').in('email', dmEmails); us = r2.data; }
                     const _bizRoles = ['club','complejo','tienda','profesional','organizacion','sponsor'];
                     const _bizEmails = [];
                     (us || []).forEach(u => {
@@ -660,7 +659,7 @@ window.CancheroMessaging = (function() {
             }
 
             if (!msgs.length) {
-                el.innerHTML = '<div style="text-align:center;color:#555;font-size:12px;padding:30px;">Sin mensajes aún. ¡Rompé el hielo!</div>';
+                el.innerHTML = '<div id="msg-empty-state" style="text-align:center;color:#555;font-size:12px;padding:30px;">Sin mensajes aún. ¡Rompé el hielo!</div>';
                 return;
             }
 
@@ -842,6 +841,11 @@ window.CancheroMessaging = (function() {
 
                     const el = document.getElementById('msg-thread-messages');
                     if (el) {
+                        // Anti-duplicado: el emisor ya pintó su propio mensaje al enviarlo
+                        // (render optimista con el id real). En grupos, realtime devuelve ese
+                        // mismo mensaje → sin este guard aparecía DOS veces. Dedupe por id.
+                        if (m.id && document.getElementById('msg-' + m.id)) return;
+                        var _es0 = document.getElementById('msg-empty-state'); if (_es0) _es0.remove();
                         el.insertAdjacentHTML('beforeend', _renderMessageHtml(m));
                         el.scrollTop = el.scrollHeight;
                     }
@@ -919,6 +923,7 @@ window.CancheroMessaging = (function() {
                     // Mostrar mensaje de grupo inmediatamente para el emisor
                     const el = document.getElementById('msg-thread-messages');
                     if (el) {
+                        const _es1 = document.getElementById('msg-empty-state'); if (_es1) _es1.remove();
                         const m = insertedGroupMsg || {
                             id: `tmp_${Date.now()}`,
                             group_id: groupId,
@@ -984,6 +989,7 @@ window.CancheroMessaging = (function() {
                     // Mostrar el mensaje enviado inmediatamente para el emisor
                     const el = document.getElementById('msg-thread-messages');
                     if (el) {
+                        const _es2 = document.getElementById('msg-empty-state'); if (_es2) _es2.remove();
                         const m = insertedMsg || {
                             id: `tmp_${Date.now()}`,
                             sender_email: _myEmail,

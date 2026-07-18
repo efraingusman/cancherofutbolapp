@@ -134,9 +134,10 @@ window.CancheroAchievements = (function() {
             }
 
             if (newAchievements.length > 0) {
+                // El builder de PostgREST es thenable pero NO tiene .catch → usar .then(ok,err).
                 await sb.from('player_achievements').insert(
                     newAchievements.map(a => ({ player_email: userData.email, achievement_id: a.id }))
-                ).catch(() => {});
+                ).then(function(){}, function(){});
 
                 for (const ach of newAchievements) {
                     // Notificación in-app

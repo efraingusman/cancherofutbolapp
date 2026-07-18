@@ -86,7 +86,7 @@
     </script>
     <script>
         // Versión del build — si cambia, forzar registro nuevo del SW + reload una vez.
-        var CANCHERO_BUILD = '20260709b';
+        var CANCHERO_BUILD = '20260714a';
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js?b=' + CANCHERO_BUILD).then(function(reg){
                 // Buscar actualización YA y cada 3 min (las PWA a veces no chequean solas
@@ -104,12 +104,21 @@
                         }
                     });
                 });
-                // Cuando el nuevo SW toma control, recargar 1 sola vez para tomar el código nuevo
+                // Cuando el nuevo SW toma control, tomamos el código nuevo SOLO cuando el
+                // usuario deja la app en segundo plano (patrón estándar de PWA). NUNCA se
+                // recarga en medio del uso: nada de reloads al cambiar de rol, al navegar,
+                // ni por un timer. Eso causaba "recarga por partes", demoras al abrir/cambiar
+                // de rol y cortes en reels. Así la app se siente fluida y la próxima vez que
+                // se abre ya está actualizada.
                 var _swReloaded = false;
+                function _cancheroApplyUpdate(){
+                    if (_swReloaded) return;
+                    if (document.visibilityState === 'hidden') { _swReloaded = true; try { window.location.reload(); } catch(e){} }
+                }
                 navigator.serviceWorker.addEventListener('controllerchange', function(){
                     if (_swReloaded) return;
-                    _swReloaded = true;
-                    window.location.reload();
+                    document.addEventListener('visibilitychange', _cancheroApplyUpdate);
+                    window.addEventListener('pagehide', _cancheroApplyUpdate);
                 });
             }).catch(function(){});
         }
@@ -125,7 +134,7 @@
         } catch(e) {}
     </script>
 
-    <link rel="stylesheet" href="style.css?v=20260711c">
+    <link rel="stylesheet" href="style.css?v=20260717g">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -180,7 +189,7 @@
     </script>
     <nav class="navbar fs-style" id="main-nav">
         <div class="nav-left">
-            <div class="nav-brand" onclick="if(typeof window.navigateToMyProfile==='function'){window.navigateToMyProfile();}else{navigate('home');}" style="cursor:pointer;"><img src="logo-oficial.png" onerror="this.src='logo.png'" style="height: 54px; object-fit: contain;"></div>
+            <div class="nav-brand" onclick="if(typeof window.goHomeFeed==='function'){window.goHomeFeed();}else{navigate('home');}" style="cursor:pointer;"><img src="logo-oficial.png" onerror="this.src='logo.png'" style="height: 54px; object-fit: contain;"></div>
             <ul class="nav-menu">
                 <li id="nav-mi-panel" style="display:none;"><a href="#" class="nav-link" onclick="navigatePanel()">MI PANEL</a></li>
                 <li class="nav-directory"><a href="#" class="nav-link" onclick="openDirectorioModal('complejos')">COMPLEJOS</a></li>
@@ -191,9 +200,9 @@
             </ul>
         </div>
         <div class="nav-actions">
-            <button id="btn-nav-login" class="btn btn-fs-login" style="background:transparent;color:var(--accent);border:1.5px solid rgba(186,255,0,0.55);border-radius:12px;font-weight:900;letter-spacing:.5px;" onclick="openEntrarModal()">ENTRAR</button>
-            <button id="btn-nav-register" class="btn btn-fs-register" style="background:linear-gradient(135deg,#baff00,#8fd400);color:#000;border:none;border-radius:12px;font-weight:900;letter-spacing:.5px;box-shadow:0 2px 14px rgba(186,255,0,0.25);" onclick="openRegistrarseModal()">REGISTRO</button>
-            <button id="btn-download-app" class="btn btn-fs-register" style="background:linear-gradient(135deg,#baff00,#8fd400);color:#000;display:inline-flex;align-items:center;gap:6px;border:none;border-radius:12px;cursor:pointer;font-weight:900;letter-spacing:.5px;box-shadow:0 2px 14px rgba(186,255,0,0.3);" onclick="window.cancheroInstall?cancheroInstall():smartDownload()"><i class='bx bx-download' id="download-icon" style="margin:0!important;font-size:17px;"></i> <span id="download-label">INSTALAR</span></button>
+            <!-- Barra superior del home: SOLO el botón Descargar (verde, moderno). ENTRAR/REGISTRO
+                 se accede desde los botones grandes del hero (Jugador/Fanático/Negocio). -->
+            <button id="btn-download-app" class="btn btn-fs-register" style="background:linear-gradient(135deg,#baff00,#8fd400)!important;color:#000!important;display:inline-flex;align-items:center;gap:7px;border:none!important;border-radius:14px!important;cursor:pointer;font-weight:900;letter-spacing:.5px;box-shadow:0 4px 18px rgba(186,255,0,0.4)!important;clip-path:none!important;transition:transform .15s ease,box-shadow .15s ease;" onclick="window.cancheroInstall?cancheroInstall():smartDownload()"><i class='bx bx-download' id="download-icon" style="margin:0!important;font-size:18px;color:#000!important;"></i> <span id="download-label" style="color:#000!important;">DESCARGAR</span></button>
             <!-- Campana de notificaciones — pegada al hamburger, visible cuando el usuario está logueado -->
             <div id="notif-bell-wrap" style="display:none; align-items:center; margin-right:2px;">
                 <button onclick="window.CancheroNotif && CancheroNotif.togglePanel()"
@@ -218,7 +227,7 @@
                 <div class="hero-cta-wrap">
                     <div class="fs-side-actions" style="gap:14px;">
                         <!-- JUGADOR -->
-                        <button id="hero-btn-jugador" class="btn-fs-action" onclick="window._showLoginModal&&window._showLoginModal()" style="border:none;cursor:pointer;text-align:left;">
+                        <button id="hero-btn-jugador" class="btn-fs-action" onclick="window._showLoginModal&&window._showLoginModal('jugador')" style="border:none;cursor:pointer;text-align:left;">
                             <i class='bx bx-run'></i>
                             <div class="fs-btn-text">
                                 <div class="fs-btn-subtitle">ENTRÁ COMO</div>
@@ -226,7 +235,7 @@
                             </div>
                         </button>
                         <!-- FANÁTICO -->
-                        <button id="hero-btn-fanatico" class="btn-fs-action" onclick="window._showLoginModal&&window._showLoginModal()" style="border:none;cursor:pointer;text-align:left;">
+                        <button id="hero-btn-fanatico" class="btn-fs-action" onclick="window._showLoginModal&&window._showLoginModal('fanatico')" style="border:none;cursor:pointer;text-align:left;">
                             <i class='bx bx-football'></i>
                             <div class="fs-btn-text">
                                 <div class="fs-btn-subtitle">ENTRÁ COMO</div>
@@ -234,11 +243,12 @@
                             </div>
                         </button>
                         <!-- NEGOCIO -->
-                        <button id="hero-btn-negocio" class="btn-fs-action" style="border:none;cursor:pointer;text-align:left;">
+                        <button id="hero-btn-negocio" class="btn-fs-action" onclick="window.openNegocioModal&&window.openNegocioModal()" style="border:none;cursor:pointer;text-align:left;">
                             <i class='bx bx-buildings'></i>
                             <div class="fs-btn-text">
                                 <div class="fs-btn-subtitle">ACCEDÉ COMO</div>
                                 <div class="fs-btn-title">NEGOCIO</div>
+                                <div class="fs-btn-roles">Tienda · Complejo · Organización</div>
                             </div>
                         </button>
                     </div>
@@ -288,19 +298,8 @@
                     <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
                     CONTINUAR CON GOOGLE
                 </button>
-
-                <div class="auth-divider">O CON EMAIL</div>
-
-                <div class="form-group">
-                    <label class="form-label">CORREO ELECTRÓNICO</label>
-                    <input type="email" class="form-control fs-input" id="login-email" placeholder="ejemplo@canchero.com">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">CONTRASEÑA</label>
-                    <input type="password" class="form-control fs-input" id="login-pass" placeholder="••••••••">
-                </div>
-                <button class="btn-fs-login" style="width: 100%; margin-top: 20px;" onclick="handleLogin()">ENTRAR</button>
-                <p style="text-align: center; margin-top: 15px; font-size: 12px;">¿No tienes cuenta? <a href="#" onclick="navigate('register')">REGÍSTRATE AQUÍ</a></p>
+                <p style="text-align:center;margin-top:16px;font-size:12px;color:#888;">Entrá con tu cuenta de Google. Es rápido y seguro.</p>
+                <p style="text-align: center; margin-top: 15px; font-size: 12px;">¿No tienes cuenta? <a href="#" onclick="navigate('register')">REGISTRATE CON GOOGLE</a></p>
             </div>
         </div>
     </section>
@@ -317,12 +316,12 @@
                 
                 <!-- STEP 1: ACCOUNT -->
                 <div class="reg-step active" id="reg-step-1">
-                    <!-- Google quick register -->
-                    <button class="btn-google" onclick="handleGoogleAuth()" style="margin-bottom:16px;">
+                    <!-- Google register (única vía). El email lo provee Google. -->
+                    <button class="btn-google" id="reg-google-btn" onclick="handleGoogleAuth()" style="margin-bottom:10px;">
                         <svg viewBox="0 0 24 24" style="width:18px;height:18px;"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
                         REGISTRARSE CON GOOGLE
                     </button>
-                    <div class="auth-divider">O CON EMAIL</div>
+                    <p id="reg-google-hint" style="text-align:center;font-size:11px;color:#888;margin:0 0 16px;">Primero conectá tu cuenta de Google; después completás tu perfil (todo obligatorio).</p>
 
                     <div class="form-group" style="margin-bottom: 20px;">
                         <label class="form-label">¿CÓMO VAS A USAR CANCHERO?</label>
@@ -340,17 +339,17 @@
                             <div class="type-card" onclick="setRegRole('club', this)" data-role="club">
                                 <i class='bx bx-building-house'></i>
                                 <span class="type-label">Complejo</span>
-                                <span class="type-sublabel">Pago</span>
+                                <span class="type-sublabel">Gratis</span>
                             </div>
                             <div class="type-card" onclick="setRegRole('organizacion', this)" data-role="organizacion">
                                 <i class='bx bx-shield'></i>
                                 <span class="type-label">Organización</span>
-                                <span class="type-sublabel">Pago</span>
+                                <span class="type-sublabel">Gratis</span>
                             </div>
                             <div class="type-card" onclick="setRegRole('tienda', this)" data-role="tienda">
                                 <i class='bx bx-store'></i>
                                 <span class="type-label">Tienda</span>
-                                <span class="type-sublabel">Pago</span>
+                                <span class="type-sublabel">Gratis</span>
                             </div>
                             <div class="type-card" onclick="window.openSponsorSurvey&&window.openSponsorSurvey()">
                                 <i class='bx bx-dollar-circle'></i>
@@ -388,14 +387,9 @@
                             <div class="prof-type-btn" onclick="setRegOrgType('eventos', this)"><i class='bx bx-calendar-event'></i> Organiz. Eventos</div>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">CORREO ELECTRÓNICO</label>
-                        <input type="email" class="form-control fs-input" id="reg-email" placeholder="email@ejemplo.com">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">CONTRASEÑA</label>
-                        <input type="password" class="form-control fs-input" id="reg-pass" placeholder="••••••••">
-                    </div>
+                    <!-- Email y contraseña eliminados: el registro es solo con Google (el email lo
+                         provee Google). Se deja un hidden para compatibilidad con el código viejo. -->
+                    <input type="hidden" id="reg-email">
                     <div class="form-group">
                         <label class="form-label">APODO <span style="color:#555;font-weight:400;font-size:10px;">(OPCIONAL)</span></label>
                         <input type="text" class="form-control fs-input" id="reg-nickname" placeholder="Ej: El Pillo, Tornado, etc.">
@@ -1234,7 +1228,7 @@
                                 <div style="color:#fff;font-size:13px;font-weight:800;">Mis Partidos</div>
                                 <div style="color:#555;font-size:11px;margin-top:3px;">Tus partidos agendados</div>
                             </button>
-                            <button onclick="window._setPartidosNavActive&&window._setPartidosNavActive();switchDashboardTab('jugador','buscar-partidos',null)" style="background:#111;border:1px solid #1e1e1e;border-radius:16px;padding:20px 14px;text-align:left;cursor:pointer;transition:.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='#1e1e1e'">
+                            <button onclick="window._partidosView='todos';window._setPartidosNavActive&&window._setPartidosNavActive();switchDashboardTab('jugador','buscar-partidos',null)" style="background:#111;border:1px solid #1e1e1e;border-radius:16px;padding:20px 14px;text-align:left;cursor:pointer;transition:.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='#1e1e1e'">
                                 <i class='bx bx-list-ul' style="font-size:28px;color:var(--accent);display:block;margin-bottom:8px;"></i>
                                 <div style="color:#fff;font-size:13px;font-weight:800;">Unirme a un partido</div>
                                 <div style="color:#555;font-size:11px;margin-top:3px;">Partidos abiertos con lugar</div>
@@ -1244,7 +1238,7 @@
                                 <div style="color:#fff;font-size:13px;font-weight:800;">Crear Partido</div>
                                 <div style="color:#555;font-size:11px;margin-top:3px;">Organizá un partido</div>
                             </button>
-                            <button onclick="window._setPartidosNavActive&&window._setPartidosNavActive();switchDashboardTab('jugador','buscar-partidos',null);setTimeout(()=>window.switchPartidosTab&&window.switchPartidosTab('buscan-jugador'),300)" style="background:#111;border:1px solid #1e1e1e;border-radius:16px;padding:20px 14px;text-align:left;cursor:pointer;transition:.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='#1e1e1e'">
+                            <button onclick="window._partidosView='buscan';window._setPartidosNavActive&&window._setPartidosNavActive();switchDashboardTab('jugador','buscar-partidos',null);setTimeout(()=>window.switchPartidosTab&&window.switchPartidosTab('buscan-jugador'),300)" style="background:#111;border:1px solid #1e1e1e;border-radius:16px;padding:20px 14px;text-align:left;cursor:pointer;transition:.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='#1e1e1e'">
                                 <i class='bx bx-user-plus' style="font-size:28px;color:var(--accent);display:block;margin-bottom:8px;"></i>
                                 <div style="color:#fff;font-size:13px;font-weight:800;">Equipos buscan jugadores</div>
                                 <div style="color:#555;font-size:11px;margin-top:3px;">Te necesitan para completar</div>
@@ -1832,7 +1826,7 @@
                             </div>
                             <div class="form-group" style="flex:1;">
                                 <label class="form-label">HORA DE LLEGADA (automática)</label>
-                                <input type="time" class="form-control" id="cp-llegada" readonly placeholder="15 min antes del inicio" style="opacity:0.7;cursor:not-allowed;">
+                                <input type="time" class="form-control" id="cp-llegada-view" readonly placeholder="15 min antes del inicio" style="opacity:0.7;cursor:not-allowed;">
                                 <div style="font-size:10px;color:#666;margin-top:3px;">Se calcula sola: 15 min antes del inicio.</div>
                             </div>
                         </div>
@@ -3639,11 +3633,7 @@
                 <p>Queda estrictamente prohibido publicar contenido sexual, violento, de acoso, discriminatorio o que viole las leyes vigentes. Canchero se reserva el derecho de eliminar cuentas sin previo aviso ante el incumplimiento de estas reglas.</p>
 
                 <h3>3. CUENTAS DE NEGOCIOS</h3>
-                <p>Los complejos, tiendas, organizaciones y profesionales deben pasar por un proceso de aprobación manual. El acceso al CRM requiere el pago de una suscripción mensual. Los primeros 7 días son gratuitos tras la aprobación.</p>
-
-                <h3>4. PAGOS Y SUSCRIPCIONES</h3>
-                <p>El acceso de cuentas de negocio es por aprobación: enviás tu solicitud y, una vez aprobada, recibís un código de activación. Las condiciones de pago se informan al momento de la aprobación. Podés cancelar en cualquier momento.</p>
-                <p>No realizamos reembolsos por períodos parciales ya pagados, salvo en casos excepcionales a criterio de Canchero.</p>
+                <p>Las cuentas de negocio (complejos, tiendas, organizaciones y profesionales), al igual que las de jugadores y fanáticos, son <strong style="color:var(--accent);">gratuitas</strong> y de acceso inmediato: te registrás y entrás al instante, sin aprobación manual, sin códigos y sin pagos.</p>
 
                 <h3>5. CONTENIDO DEL USUARIO</h3>
                 <p>Sos responsable de todo el contenido que publicás (fotos, videos, textos). Al publicar, otorgás a Canchero una licencia no exclusiva para usar dicho contenido en la plataforma.</p>
@@ -3775,17 +3765,17 @@
                     <div class="type-card" onclick="selectGoogleRole('club', this)">
                         <i class='bx bx-building-house'></i>
                         <span class="type-label">Complejo</span>
-                        <span class="type-sublabel">Pago</span>
+                        <span class="type-sublabel">Gratis</span>
                     </div>
                     <div class="type-card" onclick="selectGoogleRole('organizacion', this)">
                         <i class='bx bx-shield'></i>
                         <span class="type-label">Organización</span>
-                        <span class="type-sublabel">Pago</span>
+                        <span class="type-sublabel">Gratis</span>
                     </div>
                     <div class="type-card" onclick="selectGoogleRole('tienda', this)">
                         <i class='bx bx-store'></i>
                         <span class="type-label">Tienda</span>
-                        <span class="type-sublabel">Pago</span>
+                        <span class="type-sublabel">Gratis</span>
                     </div>
                     <div class="type-card" onclick="window.openSponsorSurvey&&window.openSponsorSurvey()">
                         <i class='bx bx-dollar-circle'></i>
@@ -3901,48 +3891,49 @@
       </div>
     </div>
 
-    <script src="script.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-cloud.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-avatars.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-analytics.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-plus.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-features.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-app.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-fase3.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-notifications.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-messaging.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-live.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-mundial.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-encuesta.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-achievements.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-tournaments.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-formations.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-match-players.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-match-pitch.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-match-dashboard.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-polls.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-geo.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-live-v2.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-debates.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-games-core.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-games.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-once-ideal.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-adivina.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-impostor.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-video-trim.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-momentos.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-momentos-editor.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-match-feed.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-fixes-v3.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-pred-v2.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-match-v2.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-player-actions.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-news.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-comunidades.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-gamification.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-player-card.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-social.js?v=20260711c" charset="utf-8"></script>
-    <script src="canchero-ui-v2.js?v=20260711c" charset="utf-8"></script>
+    <script src="script.js?v=20260717g" charset="utf-8"></script>
+    <script src="canchero-cloud.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-avatars.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-analytics.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-plus.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-features.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-app.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-fase3.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-notifications.js?v=20260715a" charset="utf-8"></script>
+    <script src="canchero-messaging.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-live.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-mundial.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-encuesta.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-achievements.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-tournaments.js?v=20260717d" charset="utf-8"></script>
+    <script src="canchero-formations.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-match-players.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-match-pitch.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-match-dashboard.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-polls.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-geo.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-live-v2.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-debates.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-games-core.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-games.js?v=20260717" charset="utf-8"></script>
+    <script src="canchero-once-ideal.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-adivina.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-impostor.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-higher-lower.js?v=20260717e" charset="utf-8"></script>
+    <script src="canchero-video-trim.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-momentos.js?v=20260717a" charset="utf-8"></script>
+    <script src="canchero-momentos-editor.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-match-feed.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-fixes-v3.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-pred-v2.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-match-v2.js?v=20260717b" charset="utf-8"></script>
+    <script src="canchero-player-actions.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-news.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-comunidades.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-gamification.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-player-card.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-social.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-ui-v2.js?v=20260714a" charset="utf-8"></script>
     <script>
     (function() {
         function showView(viewId) {
@@ -3953,6 +3944,8 @@
                 window.location.hash = viewId;
                 window.scrollTo(0,0);
                 if(typeof window.navigate==='function') { try { window.navigate(viewId); } catch(e){} }
+                // El switcher de identidad no va en home/login/registro ni sin sesion.
+                try { window._renderProfileSwitcher && window._renderProfileSwitcher(); } catch(e){}
             } catch(e){ console.error('showView error:',e); }
         }
 
@@ -4018,7 +4011,12 @@
         wireBtn('hero-btn-jugador', function(e){
             e.preventDefault();
             // "ENTRAR" = SOLO abrir el login (sin navegar a vistas protegidas). El registro tiene su propio botón.
-            if (typeof window._showLoginModal === 'function') window._showLoginModal();
+            // Se pasa el rol para que la app abra con la identidad elegida acá.
+            if (typeof window._showLoginModal === 'function') window._showLoginModal('jugador');
+        });
+        wireBtn('hero-btn-fanatico', function(e){
+            e.preventDefault();
+            if (typeof window._showLoginModal === 'function') window._showLoginModal('fanatico');
         });
         wireBtn('hero-btn-negocio', function(e){ e.preventDefault(); openNegocioInline(); });
         wireBtn('hero-btn-sponsor', function(e){ e.preventDefault(); openSponsorSurvey(); });

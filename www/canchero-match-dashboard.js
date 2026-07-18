@@ -725,7 +725,7 @@ window.MatchDashboard = window.MatchDashboard || {};
         if (!sb || !m) return;
         _setContent('<div style="text-align:center;padding:30px;color:#555;"><i class="bx bx-loader-alt bx-spin" style="font-size:24px;"></i></div>');
         // Cargar confirmaciones
-        var confRes = await sb.from('match_confirmations').select('*').eq('match_id', m.id).catch(function(){ return {data:[]}; });
+        var confRes = await sb.from('match_confirmations').select('*').eq('match_id', m.id).then(undefined, function(){ return {data:[]}; });
         var confs = (confRes && confRes.data) || [];
         var confMap = {};
         confs.forEach(function(c){ confMap[c.player_email] = c.status; });
@@ -733,7 +733,7 @@ window.MatchDashboard = window.MatchDashboard || {};
         var emails = _players.map(function(p){ return p.player_email; });
         var usersData = {};
         if (emails.length) {
-            var uRes = await sb.from('users').select('email,name,photo').in('email', emails).catch(function(){return {data:[]};});
+            var uRes = await sb.from('users').select('email,name,photo').in('email', emails).then(undefined, function(){return {data:[]};});
             (uRes.data||[]).forEach(function(u){ usersData[u.email] = u; });
         }
         var isMine = m.created_by === myEmail || m.captain_home_email === myEmail;
@@ -783,7 +783,7 @@ window.MatchDashboard = window.MatchDashboard || {};
         await sb.from('match_confirmations').upsert(
             { match_id: matchId, player_email: email, status: status },
             { onConflict: 'match_id,player_email' }
-        ).catch(function(){});
+        ).then(undefined, function(){});
         if(typeof showToast==='function') showToast(status === 'confirmado' ? 'Confirmaste que VAS!' : 'Marcaste que no vas.', 'success');
         _renderPlantilla();
     };
@@ -795,10 +795,10 @@ window.MatchDashboard = window.MatchDashboard || {};
         var me = window.userData;
         if (!sb || !me) return;
         var city = m.city || me.city || 'tu ciudad';
-        var { data: avail } = await sb.from('users').select('email').eq('isAvailable', true).eq('city', city).limit(50).catch(function(){ return {data:[]}; });
+        var { data: avail } = await sb.from('users').select('email').eq('isAvailable', true).eq('city', city).limit(50).then(undefined, function(){ return {data:[]}; });
         if (avail && avail.length) {
             var inserts = avail.map(function(u){ return { user_email: u.email, type: 'need_player', content: 'Se necesita jugador en ' + (m.name||'un partido') + ' en ' + city }; });
-            await sb.from('notifications').insert(inserts).catch(function(){});
+            await sb.from('notifications').insert(inserts).then(undefined, function(){});
         }
         if(typeof showToast==='function') showToast('Notificacion enviada a jugadores disponibles en ' + city, 'success');
     };
@@ -842,7 +842,7 @@ window.MatchDashboard = window.MatchDashboard || {};
         var sb = _getSb();
         var m = _currentMatch;
         if (!sb || !m) return;
-        await sb.from('matches').update({ formation: formation }).eq('id', m.id).catch(function(){});
+        await sb.from('matches').update({ formation: formation }).eq('id', m.id).then(undefined, function(){});
         _currentMatch.formation = formation;
         _renderFormacion();
     };
@@ -896,10 +896,10 @@ window.MatchDashboard = window.MatchDashboard || {};
         if (!me) return;
         // Buscar o crear group_chat del partido
         var name = (team === 'home' ? 'Mi equipo — ' : 'Todos — ') + (matchName || 'Partido');
-        var res = await sb.from('group_chats').select('*').eq('match_id', matchId).eq('name', name).maybeSingle().catch(function(){return {data:null};});
+        var res = await sb.from('group_chats').select('*').eq('match_id', matchId).eq('name', name).maybeSingle().then(undefined, function(){return {data:null};});
         var group = res.data;
         if (!group) {
-            var ins = await sb.from('group_chats').insert({ name: name, created_by: me.email, match_id: matchId }).select().single().catch(function(){return {data:null};});
+            var ins = await sb.from('group_chats').insert({ name: name, created_by: me.email, match_id: matchId }).select().single().then(undefined, function(){return {data:null};});
             group = ins.data;
         }
         if (group && window.CancheroMessaging) {
@@ -913,7 +913,7 @@ window.MatchDashboard = window.MatchDashboard || {};
         var sb = _getSb();
         if (!sb || !m) return;
         _setContent('<div style="text-align:center;padding:30px;color:#555;"><i class="bx bx-loader-alt bx-spin" style="font-size:24px;"></i></div>');
-        var res = await sb.from('match_costs').select('*').eq('match_id', m.id).maybeSingle().catch(function(){return {data:null};});
+        var res = await sb.from('match_costs').select('*').eq('match_id', m.id).maybeSingle().then(undefined, function(){return {data:null};});
         var costs = res ? res.data : null;
         var cancha = costs ? costs.cancha_price : 0;
         var extra  = costs ? costs.extra_costs  : 0;
@@ -968,7 +968,7 @@ window.MatchDashboard = window.MatchDashboard || {};
         await sb.from('match_costs').upsert(
             { match_id: matchId, cancha_price: cancha, extra_costs: extra, notes: notes },
             { onConflict: 'match_id' }
-        ).catch(function(){});
+        ).then(undefined, function(){});
         if(typeof showToast==='function') showToast('Costos guardados!', 'success');
     };
 
@@ -983,7 +983,7 @@ window.MatchDashboard = window.MatchDashboard || {};
 
         _setContent('<div style="text-align:center;padding:30px;color:#555;"><i class="bx bx-loader-alt bx-spin" style="font-size:24px;"></i></div>');
 
-        var betRes = await sb.from('match_bets').select('*').eq('match_id', m.id).maybeSingle().catch(function(){return {data:null};});
+        var betRes = await sb.from('match_bets').select('*').eq('match_id', m.id).maybeSingle().then(undefined, function(){return {data:null};});
         var bet = betRes.data;
 
         var html = '<div style="background:#111;border:1px solid #1e1e1e;border-radius:16px;padding:20px;margin-bottom:12px;">';
@@ -1043,13 +1043,13 @@ window.MatchDashboard = window.MatchDashboard || {};
         var team = myPlayer ? (myPlayer.team || 'home') : 'home';
         var payload = { match_id: matchId, proposer_email: myEmail, proposer_team: team, bet_text: text.trim(), status:'proposed', edits_count:0, approvals_json: JSON.stringify([myEmail]) };
         // Sin upsert/onConflict (la tabla puede no tener UNIQUE en match_id): buscar y actualizar o insertar
-        var existing = await sb.from('match_bets').select('id').eq('match_id', matchId).maybeSingle().catch(function(){ return { data: null }; });
+        var existing = await sb.from('match_bets').select('id').eq('match_id', matchId).maybeSingle().then(undefined, function(){ return { data: null }; });
         var betErr;
         if (existing && existing.data && existing.data.id) {
-            var u1 = await sb.from('match_bets').update(payload).eq('id', existing.data.id).catch(function(e){ return { error: e }; });
+            var u1 = await sb.from('match_bets').update(payload).eq('id', existing.data.id).then(undefined, function(e){ return { error: e }; });
             betErr = u1 && u1.error;
         } else {
-            var i1 = await sb.from('match_bets').insert(payload).catch(function(e){ return { error: e }; });
+            var i1 = await sb.from('match_bets').insert(payload).then(undefined, function(e){ return { error: e }; });
             betErr = i1 && i1.error;
         }
         if (betErr) { if (typeof showToast==='function') showToast('Error al proponer apuesta', 'error'); return; }
@@ -1060,13 +1060,13 @@ window.MatchDashboard = window.MatchDashboard || {};
     window.MatchDashboard._approveBet = async function(matchId, betId) {
         var sb = _getSb(); var myEmail = _getEmail();
         if (!sb || !myEmail) return;
-        var res = await sb.from('match_bets').select('approvals_json,status').eq('id', betId).single().catch(function(){return {data:null};});
+        var res = await sb.from('match_bets').select('approvals_json,status').eq('id', betId).single().then(undefined, function(){return {data:null};});
         if (!res.data) return;
         var approvals = res.data.approvals_json ? JSON.parse(res.data.approvals_json) : [];
         if (approvals.includes(myEmail)) { showToast&&showToast('Ya aprobaste esta apuesta','info'); return; }
         approvals.push(myEmail);
         var newStatus = approvals.length >= _players.length ? 'accepted' : res.data.status;
-        await sb.from('match_bets').update({ approvals_json: JSON.stringify(approvals), status: newStatus }).eq('id', betId).catch(function(){});
+        await sb.from('match_bets').update({ approvals_json: JSON.stringify(approvals), status: newStatus }).eq('id', betId).then(undefined, function(){});
         if (newStatus === 'accepted' && typeof showToast==='function') showToast('🏆 Apuesta aceptada por todos!', 'success');
         else if (typeof showToast==='function') showToast('Aprobaste la apuesta ✅', 'success');
         switchTab('apuesta');
@@ -1076,10 +1076,10 @@ window.MatchDashboard = window.MatchDashboard || {};
         var sb = _getSb();
         var counter = (document.getElementById('mdb-counter-text')||{}).value || '';
         if (!sb || !counter.trim()) return;
-        var res = await sb.from('match_bets').select('edits_count').eq('id', betId).single().catch(function(){return{data:null};});
+        var res = await sb.from('match_bets').select('edits_count').eq('id', betId).single().then(undefined, function(){return{data:null};});
         var edits = (res.data && res.data.edits_count)||0;
         if (edits >= 4) { showToast&&showToast('Máximo de contraofertas alcanzado','error'); return; }
-        await sb.from('match_bets').update({ counter_text: counter.trim(), status:'countered', edits_count: edits+1, approvals_json: '[]' }).eq('id', betId).catch(function(){});
+        await sb.from('match_bets').update({ counter_text: counter.trim(), status:'countered', edits_count: edits+1, approvals_json: '[]' }).eq('id', betId).then(undefined, function(){});
         showToast&&showToast('Contraoferta enviada', 'success');
         switchTab('apuesta');
     };
@@ -1087,7 +1087,7 @@ window.MatchDashboard = window.MatchDashboard || {};
     window.MatchDashboard._rejectBet = async function(matchId, betId) {
         var sb = _getSb();
         if (!sb) return;
-        await sb.from('match_bets').update({ status:'rejected' }).eq('id', betId).catch(function(){});
+        await sb.from('match_bets').update({ status:'rejected' }).eq('id', betId).then(undefined, function(){});
         showToast&&showToast('Apuesta rechazada', 'info');
         switchTab('apuesta');
     };
@@ -1115,7 +1115,7 @@ window.MatchDashboard = window.MatchDashboard || {};
         if (!sb) return;
         var rulesEl = document.getElementById('mdb-rules');
         var rules = rulesEl ? rulesEl.value.trim() : '';
-        await sb.from('matches').update({ rules: rules }).eq('id', matchId).catch(function(){});
+        await sb.from('matches').update({ rules: rules }).eq('id', matchId).then(undefined, function(){});
         if (_currentMatch) _currentMatch.rules = rules;
         if(typeof showToast==='function') showToast('Reglas guardadas!', 'success');
     };
@@ -1245,7 +1245,7 @@ window.MatchDashboard._addGoal = async function(team) {
     var el = document.getElementById('live-' + team + '-score');
     if (el) el.textContent = newVal;
     var sb = window._sb;
-    if (sb && m.id) { var upd = {}; upd[field] = newVal; await sb.from('matches').update(upd).eq('id', m.id).catch(function(){}); }
+    if (sb && m.id) { var upd = {}; upd[field] = newVal; await sb.from('matches').update(upd).eq('id', m.id).then(undefined, function(){}); }
 };
 window.MatchDashboard._removeGoal = async function(team) {
     var m = window.MatchDashboard._currentMatch || {};
@@ -1255,7 +1255,7 @@ window.MatchDashboard._removeGoal = async function(team) {
     var el = document.getElementById('live-' + team + '-score');
     if (el) el.textContent = newVal;
     var sb = window._sb;
-    if (sb && m.id) { var upd = {}; upd[field] = newVal; await sb.from('matches').update(upd).eq('id', m.id).catch(function(){}); }
+    if (sb && m.id) { var upd = {}; upd[field] = newVal; await sb.from('matches').update(upd).eq('id', m.id).then(undefined, function(){}); }
 };
 
 window.MatchDashboard._currentMatch = null;
@@ -1297,15 +1297,15 @@ window.MatchDashboard._saveGoalEvent = async function(scorerEmail, assistEmail) 
     if (!sb || !m.id) return;
     var min = Math.floor(_liveSeconds / 60);
     try {
-        await sb.from('match_events').insert({ match_id: m.id, type: 'goal', minute: min, player_email: scorerEmail, assist_email: assistEmail||null, team: 'home', created_at: new Date().toISOString() }).catch(function(){});
+        await sb.from('match_events').insert({ match_id: m.id, type: 'goal', minute: min, player_email: scorerEmail, assist_email: assistEmail||null, team: 'home', created_at: new Date().toISOString() }).then(undefined, function(){});
         // Actualizar stats del goleador
         if (scorerEmail) {
             var { data: u } = await sb.from('users').select('stats').eq('email', scorerEmail).maybeSingle();
-            if (u) { var st = u.stats||{}; st.goals = (st.goals||0)+1; await sb.from('users').update({stats:st}).eq('email', scorerEmail).catch(function(){}); }
+            if (u) { var st = u.stats||{}; st.goals = (st.goals||0)+1; await sb.from('users').update({stats:st}).eq('email', scorerEmail).then(undefined, function(){}); }
         }
         if (assistEmail) {
             var { data: ua } = await sb.from('users').select('stats').eq('email', assistEmail).maybeSingle();
-            if (ua) { var sta = ua.stats||{}; sta.assists = (sta.assists||0)+1; await sb.from('users').update({stats:sta}).eq('email', assistEmail).catch(function(){}); }
+            if (ua) { var sta = ua.stats||{}; sta.assists = (sta.assists||0)+1; await sb.from('users').update({stats:sta}).eq('email', assistEmail).then(undefined, function(){}); }
         }
         if(typeof showToast==='function') showToast('⚽ Gol registrado!','success');
     } catch(e) {}
@@ -1316,7 +1316,7 @@ window.MatchDashboard._endMatch = async function() {
     var m = window._currentMdbMatch || {};
     var sb = window._sb;
     if (sb && m.id) {
-        await sb.from('matches').update({ status: 'finalizado' }).eq('id', m.id).catch(function(){});
+        await sb.from('matches').update({ status: 'finalizado' }).eq('id', m.id).then(undefined, function(){});
     }
     clearInterval(_liveTimer); _liveRunning = false;
     if(typeof showToast==='function') showToast('Partido finalizado. Podés cargar MVP y estadísticas.','success');

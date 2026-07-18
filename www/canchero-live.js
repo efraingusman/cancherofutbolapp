@@ -300,7 +300,7 @@ async function startLive() {
             .filter(p => p.email)
             .map(p => ({ stream_id: _streamId, user_email: p.email, user_name: p.name, accepted: null }));
         if (pinnedRecords.length > 0) {
-            await sb().from('profile_pinned_lives').insert(pinnedRecords).catch(() => {});
+            await sb().from('profile_pinned_lives').insert(pinnedRecords).then(undefined, () => {});
         }
     }
     // El broadcaster acepta automáticamente
@@ -309,7 +309,7 @@ async function startLive() {
         user_email: window.userData.email,
         user_name: window.userData.name || window.userData.email,
         accepted: true
-    }, { onConflict: 'stream_id,user_email' }).catch(() => {});
+    }, { onConflict: 'stream_id,user_email' }).then(undefined, () => {});
 
     if (typeof showToast === 'function') showToast('¡Directo iniciado! Estás en vivo.', 'success');
 }
@@ -334,7 +334,7 @@ async function startCamera() {
 
     _stream = stream;
     const vid = document.getElementById('live-broadcast-video');
-    if (vid) { vid.srcObject = stream; vid.play().catch(()=>{}); }
+    if (vid) { vid.srcObject = stream; vid.play().then(undefined, ()=>{}); }
 
     startRecording();
 }
@@ -395,7 +395,7 @@ async function uploadChunk() {
     });
 
     if (!error) {
-        await sb().from('live_streams').update({ chunk_count: _chunkIndex }).eq('id', _streamId).catch(()=>{});
+        await sb().from('live_streams').update({ chunk_count: _chunkIndex }).eq('id', _streamId).then(undefined, ()=>{});
     }
 }
 
@@ -435,7 +435,7 @@ function endLive() {
         sb().from('live_streams').update({
             status: 'ended',
             ended_at: new Date().toISOString()
-        }).eq('id', _streamId).catch(()=>{});
+        }).eq('id', _streamId).then(undefined, ()=>{});
     }
 
     _isLive = false;
@@ -533,7 +533,7 @@ async function saveMatchRecording(name) {
         status: 'ended',
         ended_at: new Date().toISOString(),
         expires_at: expiresAt
-    }).eq('id', _streamId).catch(()=>{});
+    }).eq('id', _streamId).then(undefined, ()=>{});
     const modal = document.getElementById('live-save-modal');
     if (modal) modal.style.display = 'none';
     if (typeof showToast === 'function') showToast('¡Directo guardado! Disponible por 12 horas.', 'success');
@@ -569,14 +569,14 @@ async function syncScoreToSupabase() {
     await sb().from('live_streams').update({
         score_home: _scoreHome,
         score_away: _scoreAway
-    }).eq('id', _streamId).catch(()=>{});
+    }).eq('id', _streamId).then(undefined, ()=>{});
 
     if (_realtimeChannel) {
         _realtimeChannel.send({
             type: 'broadcast',
             event: 'score_update',
             payload: { home: _scoreHome, away: _scoreAway }
-        }).catch(()=>{});
+        }).then(undefined, ()=>{});
     }
 }
 
@@ -641,14 +641,14 @@ async function registerEvent(eventType, player) {
         player_email: player.email,
         minute: _matchMinute,
         team: 'home'
-    }).catch(()=>{});
+    }).then(undefined, ()=>{});
 
     if (_realtimeChannel) {
         _realtimeChannel.send({
             type: 'broadcast',
             event: 'match_event',
             payload: { type: eventType, player: player.name, minute: _matchMinute }
-        }).catch(()=>{});
+        }).then(undefined, ()=>{});
     }
 }
 
@@ -715,16 +715,16 @@ async function confirmSubstitution(playerOut, playerIn) {
         player_name: `${playerIn.name} ↔ ${playerOut.name}`,
         minute: _matchMinute,
         team: 'home'
-    }).catch(()=>{});
+    }).then(undefined, ()=>{});
 
-    await sb().from('live_streams').update({ lineup: _currentLineup }).eq('id', _streamId).catch(()=>{});
+    await sb().from('live_streams').update({ lineup: _currentLineup }).eq('id', _streamId).then(undefined, ()=>{});
 
     if (_realtimeChannel) {
         _realtimeChannel.send({
             type: 'broadcast',
             event: 'match_event',
             payload: { type: 'substitution', player: `${playerIn.name} por ${playerOut.name}`, minute: _matchMinute }
-        }).catch(()=>{});
+        }).then(undefined, ()=>{});
     }
 }
 
@@ -741,7 +741,7 @@ function openBroadcasterUI(title) {
 
     // Intentar lock landscape
     if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock('landscape').catch(() => {});
+        screen.orientation.lock('landscape').then(undefined, () => {});
     }
 
     // Toggle controls al tocar pantalla
@@ -812,7 +812,7 @@ async function joinLiveStream(streamId) {
     _viewChannel.subscribe();
 
     // Incrementar viewer_count
-    sb().from('live_streams').update({ viewer_count: (stream.viewer_count || 0) + 1 }).eq('id', streamId).catch(()=>{});
+    sb().from('live_streams').update({ viewer_count: (stream.viewer_count || 0) + 1 }).eq('id', streamId).then(undefined, ()=>{});
 
     // Cargar contenido existente
     loadViewerComments(streamId);
@@ -855,7 +855,7 @@ async function startViewerChunkPlayback(streamId, totalChunks) {
                     const buf = await blob.arrayBuffer();
                     _sourceBuffer.appendBuffer(buf);
                     _viewChunkNext++;
-                    if (vid.paused) vid.play().catch(()=>{});
+                    if (vid.paused) vid.play().then(undefined, ()=>{});
                 }
             } catch(e) {}
             _viewFetchTimer = setTimeout(fetchNextChunk, 6000);
@@ -896,7 +896,7 @@ async function sendViewerComment() {
         user_email: window.userData.email,
         user_name: window.userData.name || window.userData.email,
         content
-    }).catch(()=>{});
+    }).then(undefined, ()=>{});
 }
 
 async function toggleViewerLike() {
@@ -907,10 +907,10 @@ async function toggleViewerLike() {
     const { data: existing } = await sb().from('live_stream_reactions')
         .select('id').eq('stream_id', _viewStreamId).eq('user_email', window.userData.email).maybeSingle();
     if (existing) {
-        await sb().from('live_stream_reactions').delete().eq('id', existing.id).catch(()=>{});
+        await sb().from('live_stream_reactions').delete().eq('id', existing.id).then(undefined, ()=>{});
         if (typeof showToast === 'function') showToast('Like quitado', 'info');
     } else {
-        await sb().from('live_stream_reactions').insert({ stream_id: _viewStreamId, user_email: window.userData.email }).catch(()=>{});
+        await sb().from('live_stream_reactions').insert({ stream_id: _viewStreamId, user_email: window.userData.email }).then(undefined, ()=>{});
         if (typeof showToast === 'function') showToast('❤️ Le diste like al directo', 'success');
     }
     loadLikeCount(_viewStreamId);
@@ -948,7 +948,7 @@ async function submitViewerPrediction() {
         user_name: window.userData.name || window.userData.email,
         predicted_home: h,
         predicted_away: a
-    }, { onConflict: 'stream_id,user_email' }).catch(()=>{});
+    }, { onConflict: 'stream_id,user_email' }).then(undefined, ()=>{});
     if (typeof showToast === 'function') showToast('¡Predicción enviada!', 'success');
     loadViewerPredictions(_viewStreamId);
     const form = document.getElementById('viewer-predict-form');
@@ -979,11 +979,11 @@ function shareStream() {
     if (!id) return;
     const url = `https://canchero-app.vercel.app/?live=${id}`;
     if (navigator.share) {
-        navigator.share({ title: 'Partido en Vivo — Canchero', url }).catch(()=>{});
+        navigator.share({ title: 'Partido en Vivo — Canchero', url }).then(undefined, ()=>{});
     } else if (navigator.clipboard) {
         navigator.clipboard.writeText(url).then(() => {
             if (typeof showToast === 'function') showToast('Enlace copiado!', 'success');
-        }).catch(()=>{});
+        }).then(undefined, ()=>{});
     }
 }
 
@@ -1155,7 +1155,7 @@ async function respondToPinnedLive(streamId, accepted) {
         .update({ accepted })
         .eq('stream_id', streamId)
         .eq('user_email', window.userData.email)
-        .catch(()=>{});
+        .then(undefined, ()=>{});
     if (typeof showToast === 'function') showToast(accepted ? 'Partido fijado en tu perfil ✅' : 'Partido rechazado', accepted ? 'success' : 'info');
     loadPinnedLiveNotifications();
 }

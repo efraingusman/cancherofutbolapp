@@ -29,6 +29,7 @@ const GAMES = [
   { id:'adivina', name:'Adivina el Jugador', emoji:'🕵️', desc:'¿Quién es? Adiviná por las pistas. Duelo de conocimiento.', badges:['Jugable','Solo / Presencial'], type:'native' },
   { id:'impostor', name:'Impostor Futbolero', emoji:'🎭', desc:'Encontrá al impostor. Mínimo 4 jugadores (presencial).', badges:['Beta','Presencial'], type:'native' },
   { id:'once-ideal', name:'11 Ideal', emoji:'📋', desc:'Armá tu once ideal y compará.', badges:['Beta','Presencial'], type:'native' },
+  { id:'higher-lower', name:'Más o Menos', emoji:'📈', desc:'¿Fichaje más caro? ¿Más títulos? Adiviná entre dos cracks.', badges:['Jugable','Online'], type:'native' },
 ];
 
 /* Portadas con FOTO por juego (img/games/) */
@@ -51,7 +52,10 @@ const GAME_ART = {
   'tiros-libres': _coverImg('tiros-libres.jpg'),
   'adivina': _coverImg('adivina.jpg'),
   'impostor': _coverImg('impostor.jpg'),
-  'once-ideal': _coverImg('once-ideal.jpg')
+  'once-ideal': _coverImg('once-ideal.jpg'),
+  // Portada diseñada (gradiente + icono, estilo de los demás juegos). Si dejás una foto en
+  // img/games/higher-lower.jpg se usa esa; si no existe, queda la portada diseñada.
+  'higher-lower': `<div style="width:100%;height:100%;position:relative;">${_cover('linear-gradient(135deg,#0f3443,#123a1e)','bx-trending-up','MÁS O MENOS','FÚTBOL')}<img src="img/games/higher-lower.jpg" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" onerror="this.remove()"></div>`
 };
 
 const EMBED_URLS = {
@@ -82,7 +86,7 @@ window._renderGamesHub = function(container){
         <div style="position:relative;aspect-ratio:16/9;overflow:hidden;">${GAME_ART[g.id]||''}
           <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent 55%,rgba(0,0,0,0.55));"></div>
           <div style="position:absolute;bottom:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(186,255,0,0.92);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,0.5);"><i class='bx bx-play' style="color:#000;font-size:19px;margin-left:1px;"></i></div>
-          ${(g.id==='adivina'||g.id==='once-ideal') ? `<button onclick="event.stopPropagation();window.CGCore&&CGCore.openRanking('${g.id}')" title="Ranking" style="position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,0.55);border:1px solid rgba(255,215,0,0.5);display:flex;align-items:center;justify-content:center;cursor:pointer;"><i class='bx bx-trophy' style="color:#FFD700;font-size:14px;"></i></button>` : ''}
+          ${(g.id==='adivina'||g.id==='once-ideal'||g.id==='higher-lower') ? `<button onclick="event.stopPropagation();window.CGCore&&CGCore.openRanking('${g.id}')" title="Ranking" style="position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,0.55);border:1px solid rgba(255,215,0,0.5);display:flex;align-items:center;justify-content:center;cursor:pointer;"><i class='bx bx-trophy' style="color:#FFD700;font-size:14px;"></i></button>` : ''}
         </div>
         <div style="padding:11px 12px 12px;display:flex;flex-direction:column;gap:5px;flex:1;">
           <div style="font-weight:900;font-size:13.5px;color:#fff;line-height:1.2;">${g.name}</div>
@@ -132,6 +136,8 @@ window._launchCancheroGame = function(id){
     // usar la versión con ruletas + cancha (canchero-once-ideal.js), no la local básica
     if (window._onceStart && window._onceStart !== _onceStart) window._onceStart();
     else _onceStart();
+  } else if (id==='higher-lower'){
+    if (window._higherLowerStart){ document.getElementById('games-hub')?.remove(); window._higherLowerStart(); }
   }
 };
 
@@ -141,10 +147,20 @@ function _embedGame(id, name){
   // Pantalla completa real: ocultar la barra inferior para que no corte el juego
   ['player-bottom-nav','club-bottom-nav'].forEach(n=>document.getElementById(n)?.style.setProperty('display','none','important'));
   p.style.cssText='position:fixed;left:0;right:0;bottom:0;top:'+_cgTop()+';z-index:9950;background:#000;display:flex;flex-direction:column;';
+  var _url = EMBED_URLS[id]||'';
   p.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 8px) 12px 8px;background:#0a0a0a;flex-shrink:0;">
       <button onclick="window._cgCloseEmbed()" style="background:rgba(255,255,255,0.08);border:none;border-radius:50%;width:36px;height:36px;color:#fff;font-size:18px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button>
-      <div style="font-weight:800;color:#fff;font-size:14px;">${name}</div></div>
-    <iframe src="${EMBED_URLS[id]||''}" allow="autoplay; fullscreen" allowfullscreen style="flex:1;width:100%;border:0;background:#000;padding-bottom:env(safe-area-inset-bottom,0px);"></iframe>`;
+      <div style="font-weight:800;color:#fff;font-size:14px;flex:1;">${name}</div>
+      <button onclick="window.open('${_url}','_blank')" title="Abrir en pantalla completa" style="background:rgba(186,255,0,0.12);border:1px solid var(--accent);border-radius:10px;padding:7px 12px;color:var(--accent);font-size:12px;font-weight:800;cursor:pointer;"><i class='bx bx-link-external'></i></button></div>
+    <div id="cg-embed-wrap" style="position:relative;flex:1;">
+      <div id="cg-embed-loading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#000;color:#888;z-index:2;text-align:center;padding:24px;">
+        <i class='bx bx-loader-alt bx-spin' style="font-size:40px;color:var(--accent);"></i>
+        <div style="font-size:13px;">Cargando el juego…</div>
+        <div style="font-size:11px;color:#666;max-width:280px;">Es un juego clásico (Flash) que puede tardar unos segundos. Si no carga, abrilo en pantalla completa.</div>
+        <button onclick="window.open('${_url}','_blank')" style="background:var(--accent);color:#000;border:none;border-radius:12px;padding:11px 18px;font-weight:900;font-size:13px;cursor:pointer;"><i class='bx bx-link-external'></i> ABRIR EN PANTALLA COMPLETA</button>
+      </div>
+      <iframe src="${_url}" allow="autoplay; fullscreen" allowfullscreen onload="var l=document.getElementById('cg-embed-loading');if(l)setTimeout(function(){l.style.display='none';},1200);" style="width:100%;height:100%;border:0;background:#000;padding-bottom:env(safe-area-inset-bottom,0px);"></iframe>
+    </div>`;
   document.body.appendChild(p);
 }
 window._cgCloseEmbed = function(){
