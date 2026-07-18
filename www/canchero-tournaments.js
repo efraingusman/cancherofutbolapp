@@ -65,17 +65,34 @@ window.CancheroTournaments = (function() {
     // Abrir el perfil REAL de un club/equipo/jugador registrado.
     // Acepta un email de usuario o 'club:<id>' para equipos de la tabla clubs.
     // Dentro de la app navega in-place; fuera (CRM/torneo.html) abre el deep-link.
+    // Abre el perfil ENCIMA del torneo, sin cerrarlo: al volver seguís donde estabas.
+    // Antes se cerraban todos los modales del torneo (_closeAll) y "te sacaba del torneo".
+    // El overlay del perfil vive en z-index 900, muy por debajo de la ficha (100004) y
+    // de las fichas de equipo/jugador (100008): hay que elevarlo cuando viene de acá.
+    function _liftProfileOverlay() {
+        let intentos = 0;
+        const subir = () => {
+            const ov = document.getElementById('vup-modal-overlay');
+            if (ov) {
+                ov.style.zIndex = '100011';   // debajo del match-detail forzado (100012)
+                ov.style.top = '0px';         // arriba de todo: el header del torneo no aplica
+                return true;
+            }
+            return false;
+        };
+        if (subir()) return;
+        const iv = setInterval(() => { if (subir() || ++intentos > 20) clearInterval(iv); }, 60);
+    }
     function _openProfile(ref) {
         if (!ref) { toast('No está registrado en Canchero.', 'info'); return; }
         const s = String(ref);
-        const _closeAll = () => { try { _cmdClose(); document.getElementById('ctm-modal')?.remove(); document.getElementById('ctp-modal')?.remove(); document.getElementById('cti-modal')?.remove(); } catch(e){} };
         if (s.indexOf('club:') === 0) {
             const clubId = s.slice(5);
-            if (typeof window.viewClubProfile === 'function') { _closeAll(); window.viewClubProfile(clubId); return; }
+            if (typeof window.viewClubProfile === 'function') { window.viewClubProfile(clubId); _liftProfileOverlay(); return; }
             window.open('index.html?club=' + encodeURIComponent(clubId), '_blank');
             return;
         }
-        if (typeof window.viewUserProfile === 'function') { _closeAll(); window.viewUserProfile(s); return; }
+        if (typeof window.viewUserProfile === 'function') { window.viewUserProfile(s); _liftProfileOverlay(); return; }
         window.open('index.html?perfil=' + encodeURIComponent(s), '_blank');
     }
 
@@ -161,7 +178,10 @@ window.CancheroTournaments = (function() {
         <div style="max-width:520px;margin:0 auto;padding:14px 16px calc(60px + env(safe-area-inset-bottom));">
             <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0 14px;position:sticky;top:0;background:rgba(7,9,7,0.9);backdrop-filter:blur(10px);z-index:2;">
                 <button onclick="document.getElementById('cti-modal').remove()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:12px;padding:8px 12px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;"><i class='bx bx-arrow-back'></i> Volver</button>
-                ${isOrg ? `<label style="background:rgba(186,255,0,0.1);color:var(--accent);border:1px solid rgba(186,255,0,0.25);border-radius:12px;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer;"><i class='bx bx-camera'></i> Foto<input type="file" accept="image/*" style="display:none;" onchange="CancheroTournaments._playerSetPhoto('${playerId}',this)"></label>` : ''}
+                ${isOrg ? `<div style="display:flex;gap:6px;">
+                    <label style="background:rgba(255,255,255,0.05);color:#aaa;border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer;"><i class='bx bx-camera'></i><input type="file" accept="image/*" style="display:none;" onchange="CancheroTournaments._playerSetPhoto('${playerId}',this)"></label>
+                    <button onclick="CancheroTournaments._openEditPlayer('${playerId}','${_esc(p.team_id||'')}','')" style="background:rgba(186,255,0,0.1);color:var(--accent);border:1px solid rgba(186,255,0,0.25);border-radius:12px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;"><i class='bx bx-edit'></i> Editar todo</button>
+                </div>` : ''}
             </div>
             <div style="display:flex;flex-direction:column;align-items:center;gap:10px;background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:22px 16px;backdrop-filter:blur(10px);">
                 <span style="width:88px;height:88px;border-radius:50%;border:3px solid rgba(186,255,0,0.7);background:${p.avatar_url?`#111 center/cover url('${_esc(p.avatar_url)}')`:'rgba(186,255,0,0.1)'};display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:var(--accent);box-shadow:0 0 18px rgba(186,255,0,0.2);">${p.avatar_url?'':((p.player_name||'?')[0]||'?').toUpperCase()}</span>
@@ -895,7 +915,8 @@ window.CancheroTournaments = (function() {
                     ${POSICIONES.map(x => `<option value="${x}"${p.position === x ? ' selected' : ''}>${x} — ${POS_LABEL[x]}</option>`).join('')}
                 </select>
             </div>
-            <input id="ctep-email" type="email" placeholder="Email del jugador (opcional)" value="${_esc(p.player_email||p.user_email||'')}" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:14px;box-sizing:border-box;">
+            <input id="ctep-email" type="email" placeholder="Email del jugador (opcional)" value="${_esc(p.player_email||p.user_email||'')}" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:8px;box-sizing:border-box;">
+            <input id="ctep-nat" type="text" placeholder="País (ej: Uruguay) — para la banderita" value="${_esc(p.nationality||'')}" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:14px;box-sizing:border-box;">
 
             <div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:6px;">ESTADÍSTICAS</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
@@ -942,6 +963,7 @@ window.CancheroTournaments = (function() {
             number: _num('ctep-number'),
             position: _val('ctep-pos'),
             player_email: _val('ctep-email'),
+            nationality: _val('ctep-nat'),   // _safeUpdate la saca si la columna no existe
             goals: _num('ctep-goals', 0),
             assists: _num('ctep-assists', 0),
             yellow_cards: _num('ctep-yellow', 0),
@@ -1541,6 +1563,7 @@ window.CancheroTournaments = (function() {
 
     // Cambia de panel en la ficha del partido (Resumen / Timeline / Jugadores).
     function _cmdTab(id, btn) {
+        window.__cmdTabActivo = id;   // para volver al MISMO tab tras recargar la ficha
         document.querySelectorAll('.cmd-panel').forEach(p => { p.style.display = 'none'; });
         const panel = document.getElementById('cmd-panel-' + id);
         if (panel) panel.style.display = 'block';
@@ -1619,15 +1642,32 @@ window.CancheroTournaments = (function() {
         // Plantel de ambos equipos (tab Jugadores)
         let roster = [];
         try { const { data: rp } = await sb.from('tournament_players').select('*').in('team_id', [m.home_team_id, m.away_team_id].filter(Boolean)).order('number'); roster = rp || []; } catch(e){}
+        // País para la banderita: propio (nationality, si ya existe la columna) o el del
+        // perfil registrado (users.nat) cuando el jugador está vinculado.
+        try {
+            const _mails = [...new Set(roster.map(p => (p.user_email||'').toLowerCase()).filter(Boolean))];
+            if (_mails.length) {
+                const { data: _us } = await sb.from('users').select('email,nat').in('email', _mails);
+                const _byMail = {}; (_us||[]).forEach(u => { _byMail[(u.email||'').toLowerCase()] = u.nat; });
+                roster.forEach(p => { if (!p.nationality) p.nationality = _byMail[(p.user_email||'').toLowerCase()] || null; });
+            }
+        } catch(e){}
+        // Bandera + posición al lado del nombre (helper global de canchero-avatars.js).
+        const _flag = (p, size) => { try { return (window.countryFlag && p.nationality) ? window.countryFlag(p.nationality, size||11) : ''; } catch(e){ return ''; } };
+        const _posTag = (p) => p.position ? `<span style="font-size:8.5px;font-weight:900;color:#000;background:var(--accent);border-radius:4px;padding:1px 4px;margin-left:4px;vertical-align:1px;">${_esc(p.position)}</span>` : '';
         // Cancha con posiciones: el local ocupa la mitad de arriba, el visitante la de abajo.
         const _posLine = (pos)=>{ const p=(pos||'').toLowerCase();
             if(/arq|gk|portero|golero|arquero/.test(p)) return 0;
             if(/def|lat|zag|cb|rb|lb|central|marca/.test(p)) return 1;
             if(/del|fwd|dc|punta|ext|wing|atacante|delantero|9/.test(p)) return 3;
             return 2; };
-        const _pitchDot = (p, accent)=>`<div onclick="CancheroTournaments._openPlayerInfo('${p.id}')" style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;width:52px;">
+        const _pitchDot = (p, accent)=>`<div onclick="CancheroTournaments._openPlayerInfo('${p.id}')" style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;width:58px;">
             <span style="width:30px;height:30px;border-radius:50%;flex-shrink:0;background:${p.avatar_url?`#0a0a0a center/cover url('${_esc(p.avatar_url)}')`:accent};border:2px solid ${accent};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#000;box-shadow:0 2px 8px rgba(0,0,0,0.5);">${p.avatar_url?'':(p.number||'')}</span>
-            <span style="font-size:8.5px;font-weight:800;color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52px;">${_esc((p.player_name||'').split(' ')[0])}</span>
+            <span style="display:flex;align-items:center;gap:3px;max-width:58px;">
+                ${_flag(p, 8)}
+                <span style="font-size:8.5px;font-weight:800;color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc((p.player_name||'').split(' ')[0])}</span>
+            </span>
+            ${p.position?`<span style="font-size:7.5px;font-weight:900;color:#000;background:${accent};border-radius:4px;padding:0 4px;">${_esc(p.position)}</span>`:''}
         </div>`;
         const _teamRows = (teamId, isHome, accent)=>{
             const ps = roster.filter(p=>p.team_id===teamId);
@@ -1636,11 +1676,31 @@ window.CancheroTournaments = (function() {
             // Local: arquero arriba (fila 0 primero). Visitante: espejado (arquero abajo).
             return (isHome?rows:rows.slice().reverse()).join('');
         };
-        const pitchHTML = `<div style="position:relative;background:repeating-linear-gradient(0deg,#0c2413 0px,#0c2413 30px,#0a1f10 30px,#0a1f10 60px);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:10px 6px;margin-bottom:14px;overflow:hidden;">
-            <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(255,255,255,0.18);"></div>
-            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;border:2px solid rgba(255,255,255,0.16);border-radius:50%;"></div>
-            <div style="position:relative;display:flex;flex-direction:column;min-height:150px;">${_teamRows(m.home_team_id,true,'var(--accent)')}</div>
-            <div style="position:relative;display:flex;flex-direction:column;min-height:150px;">${_teamRows(m.away_team_id,false,'#4a9eff')}</div>
+        // Cancha COMPLETA: antes solo se dibujaba la línea de mitad y el círculo, así que
+        // "se veía solo el medio del campo". Ahora lleva perímetro, áreas grandes y chicas,
+        // arcos, puntos de penal y semicírculos.
+        const _lin = 'rgba(255,255,255,0.20)';
+        const pitchHTML = `<div style="position:relative;background:repeating-linear-gradient(0deg,#0c2413 0px,#0c2413 30px,#0a1f10 30px,#0a1f10 60px);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:26px 10px;margin-bottom:14px;overflow:hidden;">
+            <!-- perímetro -->
+            <div style="position:absolute;inset:10px;border:2px solid ${_lin};border-radius:4px;pointer-events:none;"></div>
+            <!-- línea de mitad + círculo central + punto -->
+            <div style="position:absolute;top:50%;left:10px;right:10px;height:2px;background:${_lin};pointer-events:none;"></div>
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:76px;height:76px;border:2px solid ${_lin};border-radius:50%;pointer-events:none;"></div>
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:5px;height:5px;background:${_lin};border-radius:50%;pointer-events:none;"></div>
+            <!-- ARCO LOCAL (arriba): área grande, área chica, arco, penal, semicírculo -->
+            <div style="position:absolute;top:10px;left:50%;transform:translateX(-50%);width:56%;height:62px;border:2px solid ${_lin};border-top:none;border-radius:0 0 4px 4px;pointer-events:none;"></div>
+            <div style="position:absolute;top:10px;left:50%;transform:translateX(-50%);width:28%;height:28px;border:2px solid ${_lin};border-top:none;border-radius:0 0 3px 3px;pointer-events:none;"></div>
+            <div style="position:absolute;top:4px;left:50%;transform:translateX(-50%);width:16%;height:7px;border:2px solid ${_lin};border-top:none;pointer-events:none;"></div>
+            <div style="position:absolute;top:52px;left:50%;transform:translateX(-50%);width:4px;height:4px;background:${_lin};border-radius:50%;pointer-events:none;"></div>
+            <div style="position:absolute;top:56px;left:50%;transform:translateX(-50%);width:52px;height:26px;border:2px solid ${_lin};border-top:none;border-radius:0 0 26px 26px;pointer-events:none;"></div>
+            <!-- ARCO VISITANTE (abajo) -->
+            <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:56%;height:62px;border:2px solid ${_lin};border-bottom:none;border-radius:4px 4px 0 0;pointer-events:none;"></div>
+            <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:28%;height:28px;border:2px solid ${_lin};border-bottom:none;border-radius:3px 3px 0 0;pointer-events:none;"></div>
+            <div style="position:absolute;bottom:4px;left:50%;transform:translateX(-50%);width:16%;height:7px;border:2px solid ${_lin};border-bottom:none;pointer-events:none;"></div>
+            <div style="position:absolute;bottom:52px;left:50%;transform:translateX(-50%);width:4px;height:4px;background:${_lin};border-radius:50%;pointer-events:none;"></div>
+            <div style="position:absolute;bottom:56px;left:50%;transform:translateX(-50%);width:52px;height:26px;border:2px solid ${_lin};border-bottom:none;border-radius:26px 26px 0 0;pointer-events:none;"></div>
+            <div style="position:relative;display:flex;flex-direction:column;min-height:170px;">${_teamRows(m.home_team_id,true,'var(--accent)')}</div>
+            <div style="position:relative;display:flex;flex-direction:column;min-height:170px;">${_teamRows(m.away_team_id,false,'#4a9eff')}</div>
         </div>`;
         const rosterCol = (teamId, teamName) => {
             const ps = roster.filter(p => p.team_id === teamId);
@@ -1648,8 +1708,8 @@ window.CancheroTournaments = (function() {
                 <div style="font-size:10px;font-weight:900;color:#666;letter-spacing:1px;margin-bottom:8px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(teamName||'').toUpperCase()}</div>
                 ${ps.length ? ps.map(p => `<div onclick="CancheroTournaments._openPlayerInfo('${p.id}')" style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:7px 10px;margin-bottom:5px;cursor:pointer;">
                     <span style="width:26px;height:26px;border-radius:50%;flex-shrink:0;background:${p.avatar_url?`#222 center/cover url('${_esc(p.avatar_url)}')`:'rgba(186,255,0,0.1)'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:var(--accent);">${p.avatar_url?'':(p.number||'—')}</span>
-                    <span style="flex:1;min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(p.player_name)}</span>
-                    <span style="font-size:9px;color:#666;">${p.position||''}</span>
+                    <span style="flex:1;min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;">${_flag(p,10)}<span style="overflow:hidden;text-overflow:ellipsis;">${_esc(p.player_name)}</span></span>
+                    ${_posTag(p)}
                 </div>`).join('') : '<div style="text-align:center;color:#444;font-size:11px;padding:14px 4px;">Sin jugadores</div>'}
             </div>`;
         };
@@ -1716,6 +1776,14 @@ window.CancheroTournaments = (function() {
         // gestión sin querer. Se sale solo con "Volver" o la barra inferior.
         document.body.appendChild(modal);
         _injectTabCss();
+        // Volver al tab en el que estabas: cargar un evento recarga la ficha y te
+        // devolvía a Resumen, sacándote de EN VIVO en cada toque.
+        try {
+            const _t = window.__cmdTabActivo;
+            if (_t && document.getElementById('cmd-panel-' + _t)) {
+                _cmdTab(_t, document.querySelector('.cmd-tab[data-panel="' + _t + '"]'));
+            }
+        } catch(e){}
         // Cronómetro del tab EN VIVO: corre segundo a segundo mientras el partido esté en juego.
         try { clearInterval(window.__ctLiveInt); } catch(e){}
         window.__ctLiveInt = null;
@@ -1802,7 +1870,12 @@ window.CancheroTournaments = (function() {
                 const dur = parseInt(document.getElementById('cmd-live-dur')?.value, 10) || 90;
                 ev = { type:'inicio', at: ahora, minute: 0, duration: dur };
                 campos = { status:'live', kickoff_at: ahora };
-            } else if (est === 'terminado') { toast('El partido ya terminó.', 'info'); return; }
+            } else if (est === 'terminado') {
+                // Reabrir: si terminaste por error (o hay alargue) se puede volver a arrancar.
+                if (!confirm('El partido está finalizado. ¿Reabrirlo y seguir contando?')) return;
+                ev = { type:'reanudar', at: ahora, minute: min };
+                campos = { status:'live' };
+            }
             else ev = { type:'reanudar', at: ahora, minute: min };
         } else if (accion === 'medio') {
             if (est !== 'corriendo') { toast('El cronómetro no está corriendo.', 'warning'); return; }
@@ -1933,10 +2006,13 @@ window.CancheroTournaments = (function() {
         const lm = _liveMinute(events);
         const dur = _liveDuracion(events);
         const terminado = est === 'terminado';
-        const labelToggle = est === 'corriendo' ? 'Pausar' : (est === 'sin_empezar' ? 'Iniciar' : 'Reanudar');
-        const iconToggle  = est === 'corriendo' ? 'bx-pause' : 'bx-play';
+        const labelToggle = est === 'corriendo' ? 'Pausar'
+            : (est === 'sin_empezar' ? 'Iniciar' : (terminado ? 'Reabrir' : 'Reanudar'));
+        const iconToggle  = est === 'corriendo' ? 'bx-pause' : (terminado ? 'bx-revision' : 'bx-play');
         const estLabel = { sin_empezar:'Sin empezar', corriendo:'En juego', pausado:'Pausado', entretiempo:'Entretiempo', terminado:'Finalizado' }[est];
-        const btn = (accion, icon, label, extra) => `<button onclick="CancheroTournaments._liveChrono('${matchId}','${accion}')" ${terminado&&accion!=='fin'?'disabled':''} style="flex:1;background:${extra||'rgba(255,255,255,0.05)'};color:#fff;border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:11px 6px;font-weight:800;font-size:12px;cursor:${terminado&&accion!=='fin'?'not-allowed':'pointer'};opacity:${terminado&&accion!=='fin'?'0.4':'1'};display:flex;align-items:center;justify-content:center;gap:5px;"><i class='bx ${icon}'></i> ${label}</button>`;
+        // Con el partido terminado, 'toggle' sigue activo (es "Reabrir"); ½ tiempo y Fin no.
+        const _off = (accion) => terminado && accion !== 'toggle';
+        const btn = (accion, icon, label, extra) => `<button onclick="CancheroTournaments._liveChrono('${matchId}','${accion}')" ${_off(accion)?'disabled':''} style="flex:1;background:${extra||'rgba(255,255,255,0.05)'};color:#fff;border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:11px 6px;font-weight:800;font-size:12px;cursor:${_off(accion)?'not-allowed':'pointer'};opacity:${_off(accion)?'0.4':'1'};display:flex;align-items:center;justify-content:center;gap:5px;"><i class='bx ${icon}'></i> ${label}</button>`;
         const evBtn = (tipo, icon, label, color) => `<button onclick="CancheroTournaments._liveEvent('${matchId}','${tipo}')" ${est==='sin_empezar'||terminado?'disabled':''} style="flex:1;min-width:calc(33% - 6px);background:rgba(255,255,255,0.04);color:${color||'#fff'};border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:12px 6px;font-weight:800;font-size:12px;cursor:${est==='sin_empezar'||terminado?'not-allowed':'pointer'};opacity:${est==='sin_empezar'||terminado?'0.4':'1'};display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="font-size:17px;line-height:1;">${icon}</span>${label}</button>`;
 
         return `

@@ -71,6 +71,9 @@ window._sessionRestored = false;
 async function _restoreSessionNow() {
     if (window._sessionRestored) return;
     window._sessionRestored = true;
+    // La elección del home manda también por acá: con Google OAuth el restore y
+    // onAuthStateChange compiten, y si ganaba el restore se ignoraba el rol elegido.
+    try { if (window._applyLoginIntent) window._applyLoginIntent(); } catch(e){}
     const sb = _sb || window._sb;
 
     function _applyRestoredUser(u) {
@@ -385,14 +388,37 @@ window.handleGoogleAuth = async function() {
 // La app abria SIEMPRE como Organizacion aunque el usuario se hubiera registrado
 // como jugador. Ahora manda la eleccion del home; si no hay eleccion, manda el rol
 // primario (el primero que se creo), y recien despues el fallback de negocio.
+// localStorage y NO sessionStorage: el login con Google hace un REDIRECT completo de
+// página (a accounts.google.com y vuelta) y la elección del home se perdía en el camino,
+// así que al volver mandaba users.role y la app abría como Organización.
 window._setLoginIntent = function(role){
-    try { if (role) sessionStorage.setItem('canchero_login_intent', role); } catch(e){}
+    try { if (role) localStorage.setItem('canchero_login_intent', role); } catch(e){}
 };
 window._getLoginIntent = function(){
-    try { return sessionStorage.getItem('canchero_login_intent') || ''; } catch(e){ return ''; }
+    try { return localStorage.getItem('canchero_login_intent') || ''; } catch(e){ return ''; }
 };
 window._clearLoginIntent = function(){
-    try { sessionStorage.removeItem('canchero_login_intent'); } catch(e){}
+    try { localStorage.removeItem('canchero_login_intent'); sessionStorage.removeItem('canchero_login_intent'); } catch(e){}
+};
+// Aplica la elección del home a la identidad activa. Devuelve el rol resultante o ''.
+// Se llama desde _navAfterLogin Y desde el restore de sesión: con OAuth vuelven por
+// caminos distintos y hay una carrera entre ambos.
+window._applyLoginIntent = function(){
+    var it = window._getLoginIntent();
+    if (!it) return '';
+    try {
+        if (it === 'jugador' || it === 'fanatico') {
+            localStorage.setItem('canchero_active_profile', it);
+            localStorage.removeItem('canchero_active_team');
+            if (window.userData) { window.userData._activeProfile = it; window.userData._postAsClub = false; window.userData._activeClubId = null; }
+        } else if (window._BIZ_ROLES && window._BIZ_ROLES.indexOf(it) !== -1) {
+            var mine = (window._myBusinesses || []).filter(function(b){ return b.role === it; })[0];
+            localStorage.setItem('canchero_active_profile', mine ? ('biz:' + mine.id) : 'negocio');
+            if (window.userData) window.userData._activeProfile = mine ? ('biz:' + mine.id) : 'negocio';
+        } else return '';
+    } catch(e){ return ''; }
+    window._clearLoginIntent();
+    return it;
 };
 // Rol PRIMARIO = el primero con el que la cuenta existio. Se sella una sola vez.
 window._primaryRole = function(){
@@ -408,23 +434,7 @@ window._primaryRole = function(){
 // Navegación post-login centralizada: negocios activos → CRM, resto → jugador/admin
 window._navAfterLogin = function(role, email) {
     // Si el usuario eligio un rol en el home, esa eleccion gana sobre users.role.
-    try {
-        var _intent = window._getLoginIntent();
-        if (_intent) {
-            if (_intent === 'jugador' || _intent === 'fanatico') {
-                localStorage.setItem('canchero_active_profile', _intent);
-                localStorage.removeItem('canchero_active_team');
-                if (window.userData) { window.userData._activeProfile = _intent; window.userData._postAsClub = false; window.userData._activeClubId = null; }
-                role = _intent;
-            } else if (window._BIZ_ROLES && window._BIZ_ROLES.indexOf(_intent) !== -1) {
-                // Negocio: si ya existe uno de ese rol, activarlo; sino queda 'negocio'.
-                var _mine = (window._myBusinesses || []).filter(function(b){ return b.role === _intent; })[0];
-                localStorage.setItem('canchero_active_profile', _mine ? ('biz:' + _mine.id) : 'negocio');
-                role = _intent;
-            }
-            window._clearLoginIntent();
-        }
-    } catch(e){}
+    try { var _it = window._applyLoginIntent(); if (_it) role = _it; } catch(e){}
     try { window._primaryRole(); } catch(e){}
     const _paidRoles = ['club','profesional','organizacion','tienda','sponsor'];
     const u = window.userData || {};
@@ -1499,19 +1509,30 @@ window._doDeleteIdentity = async function(kind, bizId){
 // ¿Hay que ocultar el switcher de identidad? Sin sesion, o en home/login/registro.
 // (Antes solo se hacia `return` y la pildora quedaba visible en el home deslogueado.)
 window._shouldHideSwitcher = function(){
-    if (!window.userData || !window.userData.email) return true;
-    var PUBLIC = ['home', 'login', 'register', ''];
+    var u = window.userData || (typeof userData !== 'undefined' ? userData : null);
+    if (!u || !u.email) return true;
+    // Se oculta SOLO con certeza de estar en una vista pública. Antes '' (hash vacío o
+    // ninguna vista con display inline) contaba como pública y el switcher desaparecía
+    // dentro de la app: había que tocar el logo para que volviera.
+    var PUBLIC = ['home', 'login', 'register'];
     try {
-        // Vista visible real (.view-section con display:block). Es la fuente confiable:
-        // el hash puede quedar viejo tras un deep-link.
         var secs = document.querySelectorAll('.view-section');
+        var visibles = [];
         for (var i = 0; i < secs.length; i++) {
-            if (secs[i].style.display === 'block') {
-                var id = (secs[i].id || '').replace(/^view-/, '');
-                return PUBLIC.indexOf(id) !== -1;
-            }
+            if (secs[i].style.display === 'block') visibles.push((secs[i].id || '').replace(/^view-/, ''));
         }
-        var h = (window.location.hash || '').replace(/^#/, '');
+        if (visibles.length) {
+            // Si hay alguna vista de app visible, el switcher va (durante el arranque
+            // 'home' puede quedar en block junto con la vista real).
+            for (var j = 0; j < visibles.length; j++) {
+                if (PUBLIC.indexOf(visibles[j]) === -1) return false;
+            }
+            return true;   // todas las visibles son públicas
+        }
+    } catch(e){}
+    // Sin señal en el DOM: solo el hash explícitamente público oculta.
+    try {
+        var h = (window.location.hash || '').replace(/^#/, '').split('?')[0];
         if (PUBLIC.indexOf(h) !== -1) return true;
     } catch(e){}
     return false;
@@ -3051,6 +3072,11 @@ window.navigate = function(viewId) {
 
     const targetView = document.getElementById(`view-${viewId}`);
     if (targetView) targetView.style.display = 'block';
+
+    // Reevaluar el switcher de identidad en CADA cambio de vista (se oculta solo en
+    // home/login/registro). Antes el hook estaba únicamente en showView, que no cubre
+    // navigate() y dejaba la píldora en un estado viejo.
+    try { if (window._renderProfileSwitcher) window._renderProfileSwitcher(); } catch(e){}
 
     // Mobile Bottom Nav & Hamburger visibility based on Auth
     const playerBottomNav = document.getElementById('player-bottom-nav');

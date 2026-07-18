@@ -38,11 +38,23 @@ window.CancheroMessaging = (function() {
     // La bandeja es de la identidad ACTIVA y de ninguna otra. Antes TODOS los negocios
     // colapsaban a 'negocio': con Tienda + Organización compartían la misma bandeja y
     // los chats "se abrían como si fueras otro". Ahora cada negocio es 'biz:<id>'.
+    // Bandeja EXACTA de la identidad activa. Una identidad = una bandeja:
+    // jugador · fanatico · team:<id> (cada equipo la suya) · biz:<id> (cada negocio la suya).
     function _chatTag() {
         try {
             const t = (window._activeProfileType && window._activeProfileType()) || 'jugador';
             if (t === 'fanatico') return 'fanatico';
             if (String(t).indexOf('biz:') === 0) return t;              // negocio concreto
+            if (String(t).indexOf('team:') === 0) return t;
+            if (t === 'team') {
+                // El equipo tiene bandeja PROPIA (antes compartía la de jugador).
+                try {
+                    let id = (window.userData && window.userData._activeClubId) || null;
+                    if (!id) { const s = JSON.parse(localStorage.getItem('canchero_active_team') || 'null'); id = s && s.id; }
+                    if (id) return 'team:' + id;
+                } catch(e){}
+                return 'jugador';
+            }
             if (t === 'negocio') {                                       // legacy: resolver a su id
                 try {
                     const id = window._activeBizId && window._activeBizId();
@@ -50,8 +62,18 @@ window.CancheroMessaging = (function() {
                 } catch(e){}
                 return 'negocio';
             }
-            return 'jugador'; // el EQUIPO chatea con la bandeja de jugador (tiene su chat propio en CHATS)
+            return 'jugador';
         } catch(e){ return 'jugador'; }
+    }
+    // Id del negocio PRIMARIO (el primero de la cuenta). Los mensajes viejos sellados
+    // 'negocio' sin id son suyos: hay que dejarlos en UNA sola bandeja, si no todos
+    // los negocios seguían viendo lo mismo.
+    function _primaryBizTag() {
+        try {
+            const l = window._myBusinesses || [];
+            if (l.length) return 'biz:' + l[0].id;
+        } catch(e){}
+        return 'negocio';
     }
     // Etiqueta de un mensaje respecto de MÍ. Se devuelve CRUDA (sin colapsar los biz:<id>),
     // porque colapsar era justamente lo que mezclaba las bandejas.
@@ -68,16 +90,15 @@ window.CancheroMessaging = (function() {
             return _BIZ_ROLES_MSG.indexOf(prim) !== -1 ? 'negocio' : 'jugador';
         } catch(e){ return 'jugador'; }
     }
-    // ¿El mensaje pertenece a la bandeja abierta? Tolerante con el historial:
-    // un mensaje viejo sellado 'negocio' (sin id) se sigue viendo desde cualquier
-    // negocio, para no esconder conversaciones que hoy sí se ven.
+    // ¿El mensaje pertenece a la bandeja abierta? ESTRICTO: cada identidad ve lo suyo.
+    // Única concesión al historial: los mensajes viejos sellados 'negocio' (sin id) se
+    // muestran en el negocio PRIMARIO — así no se pierden, pero tampoco aparecen
+    // duplicados en todos los negocios (que era el motivo de que "siguieran mal").
     function _tagMatch(msgTag, boxTag) {
         if (msgTag === boxTag) return true;
-        const msgBiz = String(msgTag).indexOf('biz:') === 0 || msgTag === 'negocio';
-        const boxBiz = String(boxTag).indexOf('biz:') === 0 || boxTag === 'negocio';
-        if (!msgBiz || !boxBiz) return false;
-        // Solo el legacy sin id es comodín; dos negocios con id distinto NO se mezclan.
-        return msgTag === 'negocio' || boxTag === 'negocio';
+        if (msgTag === 'negocio') return boxTag === _primaryBizTag();
+        if (boxTag === 'negocio') return msgTag === _primaryBizTag();
+        return false;
     }
     // Expuestos para que el badge global (script.js) cuente solo lo de la identidad activa.
     window._chatTagNow = _chatTag;
