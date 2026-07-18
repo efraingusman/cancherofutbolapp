@@ -1534,6 +1534,8 @@ window.CancheroTournaments = (function() {
     // ═══════════════════════════════════════════════════════════
     function _cmdClose() {
         try { clearInterval(window.__cmdCrono); } catch(e){}
+        try { clearInterval(window.__ctLiveInt); } catch(e){}
+        window.__ctLiveInt = null; window.__ctLiveSale = null;
         document.getElementById('cmd-modal')?.remove();
     }
 
@@ -1584,9 +1586,20 @@ window.CancheroTournaments = (function() {
             <div style="font-weight:800;font-size:14px;line-height:1.15;">${_esc(tm.team_name||'')}</div>
         </div>`;
 
+        // Hitos del cronómetro: van centrados, como separadores del partido.
+        const _CTRL_LABEL = { inicio:'Arranca el partido', medio_tiempo:'Entretiempo', reanudar:'Se reanuda', pausa:'Pausa', fin:'Final del partido' };
         const timeline = evSorted.length ? evSorted.map(ev => {
+            if (_isCtrl(ev.type)) {
+                return `<div style="display:flex;justify-content:center;margin:10px 0;">
+                    <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:20px;padding:5px 14px;font-size:11px;color:#888;font-weight:800;letter-spacing:.5px;">
+                        <i class='bx bx-flag' style="color:var(--accent);"></i>${_CTRL_LABEL[ev.type]||ev.type}${ev.minute?` · ${ev.minute}'`:''}</span></div>`;
+            }
             const homeSide = ev.team_id === m.home_team_id;
-            const chip = `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:6px 12px;font-size:12px;backdrop-filter:blur(6px);">${ev.minute!=null?`<b style="color:var(--accent);">${ev.minute}'</b>`:''} ${_evIcon(ev.type)} ${_esc(ev.player_name||'')}</span>`;
+            const texto = ev.type === 'cambio'
+                ? `<span style="color:#00e676;">${_esc(ev.in_name||'')}</span> <span style="color:#666;">por</span> <span style="color:#ff8888;">${_esc(ev.out_name||'')}</span>`
+                : _esc(ev.player_name||'');
+            const icono = ev.type === 'cambio' ? "<i class='bx bx-transfer'></i>" : _evIcon(ev.type);
+            const chip = `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:6px 12px;font-size:12px;backdrop-filter:blur(6px);">${ev.minute!=null?`<b style="color:var(--accent);">${ev.minute}'</b>`:''} ${icono} ${texto}</span>`;
             return `<div style="display:flex;${homeSide?'justify-content:flex-start':'justify-content:flex-end'};margin-bottom:6px;">${chip}</div>`;
         }).join('') : '<div style="text-align:center;color:#555;padding:20px;font-size:12px;">Sin eventos cargados.</div>';
 
@@ -1685,10 +1698,12 @@ window.CancheroTournaments = (function() {
             ${orgActions}
             <!-- Tabs de la ficha -->
             <div style="display:flex;gap:6px;margin:16px 0 12px;">
+                ${isOrg ? tabBtn('envivo','bx-broadcast','En vivo',false) : ''}
                 ${tabBtn('resumen','bx-info-circle','Resumen',true)}
                 ${tabBtn('timeline','bx-time-five','Timeline',false)}
                 ${tabBtn('jugadores','bx-group','Jugadores',false)}
             </div>
+            ${isOrg ? `<div id="cmd-panel-envivo" class="cmd-panel" style="display:none;">${_livePanel(matchId, m)}</div>` : ''}
             <div id="cmd-panel-resumen" class="cmd-panel">${resumenStats}</div>
             <div id="cmd-panel-timeline" class="cmd-panel" style="display:none;">${timeline}</div>
             <div id="cmd-panel-jugadores" class="cmd-panel" style="display:none;">
@@ -1701,6 +1716,13 @@ window.CancheroTournaments = (function() {
         // gestión sin querer. Se sale solo con "Volver" o la barra inferior.
         document.body.appendChild(modal);
         _injectTabCss();
+        // Cronómetro del tab EN VIVO: corre segundo a segundo mientras el partido esté en juego.
+        try { clearInterval(window.__ctLiveInt); } catch(e){}
+        window.__ctLiveInt = null;
+        window.__ctLiveEvents = Array.isArray(m.events) ? m.events : [];
+        if (isOrg && _liveMinute(window.__ctLiveEvents).corriendo) {
+            window.__ctLiveInt = setInterval(_liveTick, 1000);
+        }
         // Cronómetro en vivo
         if (isLive) {
             const tick = () => {
@@ -1714,9 +1736,256 @@ window.CancheroTournaments = (function() {
         }
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // GESTIÓN EN VIVO — dentro de la ficha del torneo (P1)
+    // Cronómetro real (iniciar · pausa · ½ tiempo · fin) + gol/asistencia/
+    // tarjeta/cambio por jugador. Todo se guarda en tournament_matches.events
+    // (jsonb que YA existe) como eventos de control, así no hace falta migrar.
+    // ═══════════════════════════════════════════════════════════
+    const _CTRL = ['inicio','pausa','reanudar','medio_tiempo','fin'];
+    function _isCtrl(t){ return _CTRL.indexOf(t) !== -1; }
+
+    // Minuto corrido = suma de los tramos jugados. El cronómetro no puede
+    // derivarse solo de kickoff_at porque hay pausas y entretiempo.
+    function _liveMinute(events) {
+        const ctrl = (events||[]).filter(e => _isCtrl(e.type) && e.at)
+            .sort((a,b) => new Date(a.at) - new Date(b.at));
+        let ms = 0, abierto = null;
+        for (const e of ctrl) {
+            const t = new Date(e.at).getTime();
+            if (e.type === 'inicio' || e.type === 'reanudar') { if (abierto == null) abierto = t; }
+            else if (abierto != null) { ms += t - abierto; abierto = null; }
+        }
+        if (abierto != null) ms += Date.now() - abierto;
+        return { minute: Math.floor(ms/60000), seconds: Math.floor(ms/1000), corriendo: abierto != null };
+    }
+    function _liveEstado(events) {
+        const ctrl = (events||[]).filter(e => _isCtrl(e.type) && e.at)
+            .sort((a,b) => new Date(a.at) - new Date(b.at));
+        if (!ctrl.length) return 'sin_empezar';
+        const u = ctrl[ctrl.length-1].type;
+        if (u === 'fin') return 'terminado';
+        if (u === 'medio_tiempo') return 'entretiempo';
+        if (u === 'pausa') return 'pausado';
+        return 'corriendo';
+    }
+    function _liveDuracion(events) {
+        const ini = (events||[]).filter(e => e.type === 'inicio')[0];
+        return (ini && ini.duration) || 90;
+    }
+    function _mmss(seg){ const m = Math.floor(seg/60), s = seg%60; return m + "'" + (s<10?'0':'') + s + '"'; }
+
+    // Agrega eventos al partido sin pisar lo que otro haya cargado en el medio:
+    // relee events, concatena y guarda.
+    async function _liveAppend(matchId, nuevos, extraFields) {
+        const sb = getSb();
+        const { data: m } = await sb.from('tournament_matches').select('events,home_score,away_score').eq('id', matchId).single();
+        const events = (Array.isArray(m?.events) ? m.events : []).concat(nuevos);
+        const upd = Object.assign({ events }, extraFields || {});
+        const { error } = await sb.from('tournament_matches').update(upd).eq('id', matchId);
+        if (error) { toast('Error: ' + error.message, 'error'); return null; }
+        return { events, m };
+    }
+
+    async function _liveChrono(matchId, accion) {
+        const sb = getSb();
+        const { data: m } = await sb.from('tournament_matches').select('events,status').eq('id', matchId).single();
+        const events = Array.isArray(m?.events) ? m.events : [];
+        const est = _liveEstado(events);
+        const min = _liveMinute(events).minute;
+        const ahora = new Date().toISOString();
+        let ev = null, campos = null;
+
+        if (accion === 'toggle') {
+            if (est === 'corriendo') ev = { type:'pausa', at: ahora, minute: min };
+            else if (est === 'sin_empezar') {
+                const dur = parseInt(document.getElementById('cmd-live-dur')?.value, 10) || 90;
+                ev = { type:'inicio', at: ahora, minute: 0, duration: dur };
+                campos = { status:'live', kickoff_at: ahora };
+            } else if (est === 'terminado') { toast('El partido ya terminó.', 'info'); return; }
+            else ev = { type:'reanudar', at: ahora, minute: min };
+        } else if (accion === 'medio') {
+            if (est !== 'corriendo') { toast('El cronómetro no está corriendo.', 'warning'); return; }
+            ev = { type:'medio_tiempo', at: ahora, minute: min };
+        } else if (accion === 'fin') {
+            if (est === 'sin_empezar') { toast('El partido no arrancó.', 'warning'); return; }
+            if (est === 'terminado') { toast('El partido ya terminó.', 'info'); return; }
+            if (!confirm('¿Terminar el partido? Se cierra el cronómetro y queda el resultado actual.')) return;
+            ev = { type:'fin', at: ahora, minute: min };
+            campos = { status:'finished' };
+        }
+        if (!ev) return;
+        const r = await _liveAppend(matchId, [ev], campos);
+        if (!r) return;
+        const labels = { inicio:'¡Arrancó el partido!', pausa:'Cronómetro pausado.', reanudar:'Cronómetro reanudado.', medio_tiempo:'Entretiempo.', fin:'Partido finalizado.' };
+        toast(labels[ev.type] || 'Listo.', 'success');
+        _openMatchDetail(matchId);
+    }
+
+    // Selector de jugador para cargar un evento en vivo.
+    async function _liveEvent(matchId, tipo) {
+        const sb = getSb();
+        const { data: m } = await sb.from('tournament_matches').select('*').eq('id', matchId).single();
+        if (!m) return;
+        const { data: roster } = await sb.from('tournament_players').select('*')
+            .in('team_id', [m.home_team_id, m.away_team_id].filter(Boolean)).order('number');
+        const min = _liveMinute(Array.isArray(m.events) ? m.events : []).minute;
+        const titulos = { gol:'¿Quién hizo el gol?', asistencia:'¿Quién dio la asistencia?', amarilla:'¿Quién vio la amarilla?', roja:'¿Quién vio la roja?', cambio:'¿Quién SALE?' };
+        const ex = document.getElementById('cmdlive-modal'); if (ex) ex.remove();
+        const modal = document.createElement('div');
+        modal.id = 'cmdlive-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100009;background:rgba(0,0,0,0.93);overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:20px;';
+        const col = (teamId, teamName, accent) => {
+            const ps = (roster||[]).filter(p => p.team_id === teamId);
+            return `<div style="flex:1;min-width:0;">
+                <div style="font-size:11px;font-weight:900;color:${accent};margin-bottom:8px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(teamName||'')}</div>
+                ${ps.map(p => `<button onclick="CancheroTournaments._liveSave('${matchId}','${tipo}','${p.id}')" style="display:flex;align-items:center;gap:8px;width:100%;background:#141414;border:1px solid #222;border-radius:10px;padding:8px 10px;margin-bottom:6px;cursor:pointer;color:#fff;text-align:left;">
+                    <span style="width:26px;height:26px;border-radius:50%;flex-shrink:0;${p.avatar_url?`background:#222 url('${_esc(p.avatar_url)}') center/cover;`:`background:rgba(186,255,0,0.12);`}display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:var(--accent);">${p.avatar_url?'':(p.number||'')}</span>
+                    <span style="font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(p.player_name)}</span>
+                </button>`).join('') || '<div style="font-size:11px;color:#555;text-align:center;padding:10px;">Sin plantel cargado.</div>'}
+            </div>`;
+        };
+        modal.innerHTML = `
+        <div style="background:#0d0d0d;border:1px solid #222;border-radius:18px;width:100%;max-width:520px;padding:20px;margin-top:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <h3 style="font-family:Outfit,sans-serif;font-weight:900;font-size:15px;">${_evIcon(tipo)} ${titulos[tipo]||'Elegí el jugador'}</h3>
+                <button onclick="document.getElementById('cmdlive-modal').remove()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;">&times;</button>
+            </div>
+            <div style="font-size:11px;color:var(--accent);margin-bottom:14px;font-weight:800;">Minuto ${min}'</div>
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+                ${col(m.home_team_id, m.home_team_name, 'var(--accent)')}
+                ${col(m.away_team_id, m.away_team_name, '#4a9eff')}
+            </div>
+        </div>`;
+        modal.onclick = e => { if (e.target === modal) modal.remove(); };
+        document.body.appendChild(modal);
+    }
+
+    // Guarda el evento elegido. Un gol además mueve el marcador.
+    async function _liveSave(matchId, tipo, playerId) {
+        const sb = getSb();
+        const { data: p } = await sb.from('tournament_players').select('*').eq('id', playerId).single();
+        if (!p) { toast('Jugador no encontrado.', 'error'); return; }
+        const { data: m } = await sb.from('tournament_matches').select('*').eq('id', matchId).single();
+        const events = Array.isArray(m?.events) ? m.events : [];
+        const min = _liveMinute(events).minute;
+
+        // Un cambio necesita el jugador que ENTRA: segundo paso.
+        if (tipo === 'cambio' && !window.__ctLiveSale) {
+            window.__ctLiveSale = { id: p.id, name: p.player_name, team_id: p.team_id };
+            const cont = document.querySelector('#cmdlive-modal h3');
+            if (cont) cont.innerHTML = `${_evIcon('cambio')} Sale ${_esc(p.player_name)} — ¿quién ENTRA?`;
+            return;
+        }
+
+        const ev = { type: tipo, at: new Date().toISOString(), minute: min,
+                     player_id: p.id, player_name: p.player_name, team_id: p.team_id };
+        if (tipo === 'cambio' && window.__ctLiveSale) {
+            ev.out_id = window.__ctLiveSale.id; ev.out_name = window.__ctLiveSale.name;
+            ev.in_id = p.id; ev.in_name = p.player_name;
+            window.__ctLiveSale = null;
+        }
+
+        // Marcador: el gol suma al equipo del goleador.
+        let campos = null;
+        if (tipo === 'gol') {
+            const esLocal = String(p.team_id) === String(m.home_team_id);
+            campos = esLocal ? { home_score: (m.home_score||0) + 1 }
+                             : { away_score: (m.away_score||0) + 1 };
+        }
+        const r = await _liveAppend(matchId, [ev], campos);
+        if (!r) return;
+        // Estadística acumulada del jugador (goles/asistencias/tarjetas).
+        if (_EV_COL[tipo]) { try { await _applyEvents([ev], 1); } catch(e){} }
+        document.getElementById('cmdlive-modal')?.remove();
+        const nombres = { gol:'Gol', asistencia:'Asistencia', amarilla:'Amarilla', roja:'Roja', cambio:'Cambio' };
+        toast((nombres[tipo]||'Evento') + ' de ' + p.player_name + " (" + min + "')", 'success');
+        _openMatchDetail(matchId);
+    }
+
+    // Deshacer el último evento cargado (con su efecto en marcador y estadísticas).
+    async function _liveUndo(matchId) {
+        const sb = getSb();
+        const { data: m } = await sb.from('tournament_matches').select('*').eq('id', matchId).single();
+        const events = Array.isArray(m?.events) ? m.events : [];
+        const idx = (() => { for (let i = events.length-1; i >= 0; i--) if (!_isCtrl(events[i].type)) return i; return -1; })();
+        if (idx === -1) { toast('No hay eventos para deshacer.', 'info'); return; }
+        const ev = events[idx];
+        if (!confirm('¿Deshacer "' + (ev.player_name||'') + '" (' + ev.type + ", " + (ev.minute||0) + "')?")) return;
+        const restantes = events.slice(0, idx).concat(events.slice(idx+1));
+        let campos = { events: restantes };
+        if (ev.type === 'gol') {
+            const esLocal = String(ev.team_id) === String(m.home_team_id);
+            if (esLocal) campos.home_score = Math.max(0, (m.home_score||0) - 1);
+            else campos.away_score = Math.max(0, (m.away_score||0) - 1);
+        }
+        const { error } = await sb.from('tournament_matches').update(campos).eq('id', matchId);
+        if (error) { toast('Error: ' + error.message, 'error'); return; }
+        if (_EV_COL[ev.type]) { try { await _applyEvents([ev], -1); } catch(e){} }
+        toast('Evento deshecho.', 'success');
+        _openMatchDetail(matchId);
+    }
+
+    // Panel del tab EN VIVO (solo lo ve la organización).
+    function _livePanel(matchId, m) {
+        const events = Array.isArray(m.events) ? m.events : [];
+        const est = _liveEstado(events);
+        const lm = _liveMinute(events);
+        const dur = _liveDuracion(events);
+        const terminado = est === 'terminado';
+        const labelToggle = est === 'corriendo' ? 'Pausar' : (est === 'sin_empezar' ? 'Iniciar' : 'Reanudar');
+        const iconToggle  = est === 'corriendo' ? 'bx-pause' : 'bx-play';
+        const estLabel = { sin_empezar:'Sin empezar', corriendo:'En juego', pausado:'Pausado', entretiempo:'Entretiempo', terminado:'Finalizado' }[est];
+        const btn = (accion, icon, label, extra) => `<button onclick="CancheroTournaments._liveChrono('${matchId}','${accion}')" ${terminado&&accion!=='fin'?'disabled':''} style="flex:1;background:${extra||'rgba(255,255,255,0.05)'};color:#fff;border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:11px 6px;font-weight:800;font-size:12px;cursor:${terminado&&accion!=='fin'?'not-allowed':'pointer'};opacity:${terminado&&accion!=='fin'?'0.4':'1'};display:flex;align-items:center;justify-content:center;gap:5px;"><i class='bx ${icon}'></i> ${label}</button>`;
+        const evBtn = (tipo, icon, label, color) => `<button onclick="CancheroTournaments._liveEvent('${matchId}','${tipo}')" ${est==='sin_empezar'||terminado?'disabled':''} style="flex:1;min-width:calc(33% - 6px);background:rgba(255,255,255,0.04);color:${color||'#fff'};border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:12px 6px;font-weight:800;font-size:12px;cursor:${est==='sin_empezar'||terminado?'not-allowed':'pointer'};opacity:${est==='sin_empezar'||terminado?'0.4':'1'};display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="font-size:17px;line-height:1;">${icon}</span>${label}</button>`;
+
+        return `
+        <div style="background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:18px 16px;backdrop-filter:blur(10px);margin-bottom:12px;text-align:center;">
+            <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:${est==='corriendo'?'#00e676':'#888'};margin-bottom:6px;">${estLabel.toUpperCase()}</div>
+            <div id="cmd-live-crono" data-matchid="${matchId}" style="font-size:44px;font-weight:900;font-family:Outfit,sans-serif;color:#fff;line-height:1;letter-spacing:1px;">${_mmss(lm.seconds)}</div>
+            <div style="font-size:11px;color:#666;margin-top:4px;">de ${dur}' reglamentarios</div>
+            ${est === 'sin_empezar' ? `<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;">
+                <span style="font-size:11px;color:#888;">Duración</span>
+                <input id="cmd-live-dur" type="number" min="10" max="130" value="${dur}" style="width:74px;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:8px;font-size:13px;text-align:center;">
+                <span style="font-size:11px;color:#888;">min</span>
+            </div>` : ''}
+            <div style="display:flex;gap:8px;margin-top:14px;">
+                ${btn('toggle', iconToggle, labelToggle, est==='corriendo'?'rgba(255,170,0,0.12)':'rgba(0,230,118,0.12)')}
+                ${btn('medio', 'bx-time', '½ tiempo')}
+                ${btn('fin', 'bx-stop', 'Fin', 'rgba(255,68,68,0.12)')}
+            </div>
+        </div>
+        <div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:8px;">CARGAR EVENTO</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+            ${evBtn('gol', _evIcon('gol'), 'Gol')}
+            ${evBtn('asistencia', _evIcon('asistencia'), 'Asistencia')}
+            ${evBtn('cambio', "<i class='bx bx-transfer'></i>", 'Cambio')}
+            ${evBtn('amarilla', _evIcon('amarilla'), 'Amarilla', '#ffcc00')}
+            ${evBtn('roja', _evIcon('roja'), 'Roja', '#ff3b30')}
+            <button onclick="CancheroTournaments._liveUndo('${matchId}')" style="flex:1;min-width:calc(33% - 6px);background:rgba(255,255,255,0.04);color:#888;border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:12px 6px;font-weight:800;font-size:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="font-size:17px;line-height:1;"><i class='bx bx-undo'></i></span>Deshacer</button>
+        </div>
+        <div style="font-size:10.5px;color:#555;line-height:1.5;">Los goles mueven el marcador y suman a las estadísticas del jugador y del torneo. "Deshacer" revierte el último evento con su efecto.</div>`;
+    }
+
+    // Tick del cronómetro del tab EN VIVO (segundo a segundo, solo si corre).
+    function _liveTick() {
+        const el = document.getElementById('cmd-live-crono');
+        if (!el) { try { clearInterval(window.__ctLiveInt); } catch(e){} window.__ctLiveInt = null; return; }
+        if (!window.__ctLiveEvents) return;
+        const lm = _liveMinute(window.__ctLiveEvents);
+        if (!lm.corriendo) return;
+        el.textContent = _mmss(lm.seconds);
+    }
+
     async function _startMatch(matchId) {
         const sb = getSb();
-        const { error } = await sb.from('tournament_matches').update({ status: 'live', kickoff_at: new Date().toISOString() }).eq('id', matchId);
+        const ahora = new Date().toISOString();
+        // Sella también el evento 'inicio': es lo que arranca el cronómetro del tab EN VIVO.
+        // Sin esto el partido quedaba "live" pero el cronómetro decía "sin empezar".
+        const { data: m } = await sb.from('tournament_matches').select('events').eq('id', matchId).single();
+        const events = Array.isArray(m?.events) ? m.events : [];
+        if (!events.some(e => e.type === 'inicio')) events.push({ type:'inicio', at: ahora, minute: 0, duration: 90 });
+        const { error } = await sb.from('tournament_matches').update({ status: 'live', kickoff_at: ahora, events }).eq('id', matchId);
         if (error) { toast('Error: ' + error.message, 'error'); return; }
         toast('¡Partido en vivo!', 'success');
         _openMatchDetail(matchId);
@@ -2290,6 +2559,10 @@ window.CancheroTournaments = (function() {
         _cmeRemove,
         _saveMatchLoad,
         _openMatchDetail,
+        _liveChrono,
+        _liveEvent,
+        _liveSave,
+        _liveUndo,
         _cmdClose,
         _cmdTab,
         _startMatch,
