@@ -4826,8 +4826,10 @@ window._dirBizList = async function(roles, q, f) {
                            city: pl.city || '', nat: pl.country || '', bio: pl.bio || '',
                            role: b.role, _bizId: String(b.id) };
             if (q && norm(item.name).indexOf(norm(q)) === -1) return;
-            if (f.country && norm(item.nat).indexOf(norm(f.country)) === -1) return;
-            if (f.city && norm(item.city).indexOf(norm(f.city)) === -1) return;
+            // Un negocio SIN país/ciudad declarados no se descarta: la mayoría no los
+            // declara y el filtro (que arranca en "Uruguay") los ocultaba a todos.
+            if (f.country && norm(item.nat) && norm(item.nat).indexOf(norm(f.country)) === -1) return;
+            if (f.city && norm(item.city) && norm(item.city).indexOf(norm(f.city)) === -1) return;
             out.push(item);
         });
     } catch(e){ console.warn('_dirBizList business_requests:', e); }
@@ -5185,9 +5187,27 @@ window.filterBizItems = function(btn, cat) {
     });
 };
 
+// Deja UN solo botón de volver por vista: el del header manda y el que agrega
+// emptyDirectoryHTML (para no dejar al usuario encerrado) se borra si ya hay otro.
+window._dedupeBackButtons = function() {
+    try {
+        document.querySelectorAll('[id$="-global-viewer-content"], #buscar-content, .dashboard-tab-content').forEach(function(cont){
+            if (!cont || cont.offsetParent === null) return;
+            const todos = cont.querySelectorAll('.btn-back-icon');
+            if (todos.length < 2) return;
+            cont.querySelectorAll('.btn-back-icon[data-empty-back="1"]').forEach(function(b){
+                if (cont.querySelectorAll('.btn-back-icon').length > 1) b.remove();
+            });
+        });
+    } catch(e){}
+};
+
 function emptyDirectoryHTML(icon, title, subtitle) {
     // Sin el botón Volver, un directorio vacío dejaba al usuario encerrado en el viewer.
-    return `<div><button class="btn-back-icon" aria-label="Volver" onclick="switchDashboardTab((window.userData&&window.userData.role)||'jugador','buscar')"><i class='bx bx-left-arrow-alt'></i></button></div>
+    // PERO la mayoría de los directorios ya traen su propio Volver en el header: ahí
+    // quedaban DOS (se veía en Buscar fanáticos). Este se borra solo si ya hay otro.
+    setTimeout(function(){ try { window._dedupeBackButtons && window._dedupeBackButtons(); } catch(e){} }, 0);
+    return `<div><button class="btn-back-icon" data-empty-back="1" aria-label="Volver" onclick="switchDashboardTab((window.userData&&window.userData.role)||'jugador','buscar')"><i class='bx bx-left-arrow-alt'></i></button></div>
     <div style="text-align:center; padding:50px 20px;">
         <i class='bx ${icon}' style="font-size:52px; color:rgba(186,255,0,0.2); display:block; margin-bottom:15px;"></i>
         <h3 style="font-family:var(--font-display); color:rgba(255,255,255,0.3); font-size:16px; margin-bottom:8px;">${title}</h3>
@@ -19666,9 +19686,19 @@ window.loadSectionTab = async function(section, searchQuery) {
 
         // Filtro de PAÍS en memoria (tolerante a country/nat). Antes se ignoraba por
         // completo: elegir "Argentina" devolvía igual los negocios uruguayos.
+        // El selector arranca en "Uruguay" y los negocios de business_requests NO declaran
+        // país (payload sin country, y su fila de users tampoco): el filtro los descartaba
+        // a TODOS y los directorios salían vacíos aunque hubiera negocios registrados.
+        // Ahora: si el registro no declara país, se muestra igual; solo se descarta el que
+        // declara OTRO país distinto al elegido.
         if (countryFilter) {
             const cf = countryFilter.toString().toLowerCase().trim();
-            data = (data || []).filter(u => [u.country, u.nat, u.nationality, u.pais].some(c => (c||'').toString().toLowerCase().includes(cf)));
+            data = (data || []).filter(u => {
+                const declarados = [u.country, u.nat, u.nationality, u.pais]
+                    .map(c => (c || '').toString().toLowerCase().trim()).filter(Boolean);
+                if (!declarados.length) return true;                       // sin país declarado → se muestra
+                return declarados.some(c => c.includes(cf) || cf.includes(c));
+            });
         }
 
         if (!data || data.length === 0) {
