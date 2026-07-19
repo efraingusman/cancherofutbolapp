@@ -118,9 +118,9 @@ window.CancheroTournaments = (function() {
         const ex = document.getElementById('cti-modal'); if (ex) ex.remove();
         const modal = document.createElement('div');
         modal.id = 'cti-modal';
-        modal.style.cssText = 'position:fixed;inset:0;z-index:100008;background:#070907;overflow-y:auto;';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100008;background:#070907;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;' ; modal.classList.add('ct-noscrollbar'); _injectTabCss();
         modal.innerHTML = `
-        <div style="max-width:560px;margin:0 auto;padding:14px 16px calc(60px + env(safe-area-inset-bottom));">
+        <div style="max-width:560px;margin:0 auto;padding:14px 16px calc(130px + env(safe-area-inset-bottom));">
             <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0 14px;position:sticky;top:0;background:rgba(7,9,7,0.9);backdrop-filter:blur(10px);z-index:2;">
                 <button onclick="document.getElementById('cti-modal').remove()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:12px;padding:8px 12px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;"><i class='bx bx-arrow-back'></i> Volver</button>
                 ${isOrg ? `<label style="background:rgba(186,255,0,0.1);color:var(--accent);border:1px solid rgba(186,255,0,0.25);border-radius:12px;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer;"><i class='bx bx-camera'></i> Escudo<input type="file" accept="image/*" style="display:none;" onchange="CancheroTournaments._teamSetLogo('${teamId}',this)"></label>` : ''}
@@ -173,14 +173,14 @@ window.CancheroTournaments = (function() {
         const ex = document.getElementById('cti-modal'); if (ex) ex.remove();
         const modal = document.createElement('div');
         modal.id = 'cti-modal';
-        modal.style.cssText = 'position:fixed;inset:0;z-index:100008;background:#070907;overflow-y:auto;';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100008;background:#070907;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;' ; modal.classList.add('ct-noscrollbar'); _injectTabCss();
         modal.innerHTML = `
-        <div style="max-width:520px;margin:0 auto;padding:14px 16px calc(60px + env(safe-area-inset-bottom));">
+        <div style="max-width:520px;margin:0 auto;padding:14px 16px calc(130px + env(safe-area-inset-bottom));">
             <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0 14px;position:sticky;top:0;background:rgba(7,9,7,0.9);backdrop-filter:blur(10px);z-index:2;">
                 <button onclick="document.getElementById('cti-modal').remove()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:12px;padding:8px 12px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;"><i class='bx bx-arrow-back'></i> Volver</button>
                 ${isOrg ? `<div style="display:flex;gap:6px;">
                     <label style="background:rgba(255,255,255,0.05);color:#aaa;border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer;"><i class='bx bx-camera'></i><input type="file" accept="image/*" style="display:none;" onchange="CancheroTournaments._playerSetPhoto('${playerId}',this)"></label>
-                    <button onclick="CancheroTournaments._openEditPlayer('${playerId}','${_esc(p.team_id||'')}','')" style="background:rgba(186,255,0,0.1);color:var(--accent);border:1px solid rgba(186,255,0,0.25);border-radius:12px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;"><i class='bx bx-edit'></i> Editar todo</button>
+                    <button onclick="CancheroTournaments._openEditPlayer('${playerId}','${_esc(p.team_id||'')}','')" style="background:rgba(186,255,0,0.1);color:var(--accent);border:1px solid rgba(186,255,0,0.25);border-radius:12px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;"><i class='bx bx-edit'></i> Editar perfil</button>
                 </div>` : ''}
             </div>
             <div style="display:flex;flex-direction:column;align-items:center;gap:10px;background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:22px 16px;backdrop-filter:blur(10px);">
@@ -327,7 +327,7 @@ window.CancheroTournaments = (function() {
         const isOrgMgr = _isOrgActive(organizerEmail);
         const modal = document.createElement('div');
         modal.id = 'ctm-modal';
-        modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#070907;overflow-y:auto;';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#070907;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;' ; modal.classList.add('ct-noscrollbar'); _injectTabCss();
         modal.innerHTML = `
         <div style="max-width:720px;margin:0 auto;padding:14px 16px calc(120px + env(safe-area-inset-bottom));">
             <div style="display:flex;align-items:center;gap:12px;padding:6px 0 14px;position:sticky;top:0;background:#070907;z-index:2;">
@@ -378,7 +378,14 @@ window.CancheroTournaments = (function() {
         if (document.getElementById('ctm-tab-css')) return;
         const st = document.createElement('style');
         st.id = 'ctm-tab-css';
-        st.textContent = '@media (max-width:640px){ .ctm-tab .ctm-tab-label{display:none;} .ctm-tabbar .ctm-tab{padding:10px 2px !important;} .ctm-tab i{font-size:19px !important;} }';
+        st.textContent = '@media (max-width:640px){ .ctm-tab .ctm-tab-label{display:none;} .ctm-tabbar .ctm-tab{padding:10px 2px !important;} .ctm-tab i{font-size:19px !important;} }'
+            // Sin barra de scroll a la derecha en las pantallas del torneo (se sigue
+            // pudiendo scrollear; solo se oculta la barra, que se veía fea y estrecha).
+            + ' .ct-noscrollbar::-webkit-scrollbar{width:0;height:0;display:none;}'
+            + ' .ct-noscrollbar{scrollbar-width:none;-ms-overflow-style:none;}'
+            // Colchón inferior: la barra de opciones tapaba el último botón de cada
+            // pantalla del torneo. Se aplica al contenido de todos los modales.
+            + ' .ct-noscrollbar > div{padding-bottom:calc(130px + env(safe-area-inset-bottom)) !important;}';
         document.head.appendChild(st);
     }
 
@@ -889,7 +896,7 @@ window.CancheroTournaments = (function() {
         const ex = document.getElementById('ctep-modal'); if (ex) ex.remove();
         const modal = document.createElement('div');
         modal.id = 'ctep-modal';
-        modal.style.cssText = 'position:fixed;inset:0;z-index:100003;background:rgba(0,0,0,0.92);overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:20px;';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100010;background:rgba(0,0,0,0.92);overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:20px;';
         const av = p.avatar_url ? `background-image:url('${_esc(p.avatar_url)}');background-size:cover;background-position:center;` : '';
         modal.innerHTML = `
         <div style="background:#0d0d0d;border:1px solid #222;border-radius:18px;width:100%;max-width:420px;padding:20px;margin-top:20px;">
@@ -1012,7 +1019,7 @@ window.CancheroTournaments = (function() {
         const ex = document.getElementById('ctet-modal'); if (ex) ex.remove();
         const modal = document.createElement('div');
         modal.id = 'ctet-modal';
-        modal.style.cssText = 'position:fixed;inset:0;z-index:100003;background:rgba(0,0,0,0.92);overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:20px;';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100010;background:rgba(0,0,0,0.92);overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:20px;';
         const lg = t.logo_url ? `background-image:url('${_esc(t.logo_url)}');background-size:cover;background-position:center;` : '';
         const dateVal = v => { try { return v ? String(v).slice(0, 10) : ''; } catch(e){ return ''; } };
         modal.innerHTML = `
@@ -1731,9 +1738,9 @@ window.CancheroTournaments = (function() {
         const ex = document.getElementById('cmd-modal'); if (ex) _cmdClose();
         const modal = document.createElement('div');
         modal.id = 'cmd-modal';
-        modal.style.cssText = 'position:fixed;inset:0;z-index:100004;background:#070907;overflow-y:auto;';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100004;background:#070907;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;' ; modal.classList.add('ct-noscrollbar'); _injectTabCss();
         modal.innerHTML = `
-        <div style="max-width:560px;margin:0 auto;padding:14px 16px calc(60px + env(safe-area-inset-bottom));">
+        <div style="max-width:560px;margin:0 auto;padding:14px 16px calc(130px + env(safe-area-inset-bottom));">
             <div style="display:flex;align-items:center;padding:6px 0 14px;position:sticky;top:0;background:rgba(7,9,7,0.9);backdrop-filter:blur(10px);z-index:2;">
                 <div style="flex:1;display:flex;justify-content:flex-start;">
                     <button onclick="CancheroTournaments._cmdClose()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:12px;padding:8px 12px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;backdrop-filter:blur(6px);"><i class='bx bx-arrow-back'></i> Volver</button>
@@ -1886,6 +1893,19 @@ window.CancheroTournaments = (function() {
             if (!confirm('¿Terminar el partido? Se cierra el cronómetro y queda el resultado actual.')) return;
             ev = { type:'fin', at: ahora, minute: min };
             campos = { status:'finished' };
+        } else if (accion === 'reiniciar') {
+            // Volver el cronómetro a CERO: se quitan los hitos de tiempo (inicio, pausas,
+            // entretiempo, fin) y el partido queda listo para arrancar de nuevo. Los goles
+            // y tarjetas YA cargados se conservan: se borran con "Deshacer" si hace falta.
+            if (est === 'sin_empezar') { toast('El cronómetro ya está en cero.', 'info'); return; }
+            if (!confirm('¿Reiniciar el cronómetro a cero?\n\nEl tiempo vuelve a 0 y el partido queda listo para arrancar de nuevo. Los goles y tarjetas cargados NO se borran.')) return;
+            const _limpios = events.filter(e => !_isCtrl(e.type));
+            const { error: _e } = await sb.from('tournament_matches')
+                .update({ events: _limpios, status: 'scheduled', kickoff_at: null }).eq('id', matchId);
+            if (_e) { toast('Error: ' + _e.message, 'error'); return; }
+            toast('Cronómetro reiniciado.', 'success');
+            _openMatchDetail(matchId);
+            return;
         }
         if (!ev) return;
         const r = await _liveAppend(matchId, [ev], campos);
@@ -2030,6 +2050,7 @@ window.CancheroTournaments = (function() {
                 ${btn('medio', 'bx-time', '½ tiempo')}
                 ${btn('fin', 'bx-stop', 'Fin', 'rgba(255,68,68,0.12)')}
             </div>
+            ${est !== 'sin_empezar' ? `<button onclick="CancheroTournaments._liveChrono('${matchId}','reiniciar')" style="width:100%;margin-top:8px;background:rgba(255,255,255,0.04);color:#888;border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:9px;font-weight:800;font-size:11.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;"><i class='bx bx-reset'></i> Reiniciar cronómetro a cero</button>` : ''}
         </div>
         <div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:8px;">CARGAR EVENTO</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
@@ -2475,7 +2496,7 @@ window.CancheroTournaments = (function() {
         if (existing) existing.remove();
         const modal = document.createElement('div');
         modal.id = 'ctp-modal';
-        modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#070907;overflow-y:auto;';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#070907;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;' ; modal.classList.add('ct-noscrollbar'); _injectTabCss();
         const statusColors = { draft:'#555', registration:'#ffaa00', active:'#00e676', finished:'#4fc3f7', cancelled:'#ff4444' };
         modal.innerHTML = `
         <div style="max-width:680px;margin:0 auto;padding:20px 20px calc(120px + env(safe-area-inset-bottom));">
