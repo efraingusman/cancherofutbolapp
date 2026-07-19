@@ -148,7 +148,8 @@ window.CancheroMessaging = (function() {
         console.log('[DIAG CHATS]', resumen, info);
         return resumen;
     };
-    try { if (/[?&]diagchats=1/.test(location.search)) setTimeout(() => window._diagChats(), 2500); } catch(e){}
+    // Sin auto-apertura: el panel de diagnóstico solo se abre a mano desde la consola
+    // (_diagChats()). Antes se abría con ?diagchats=1 y quedaba saltando en cada carga.
 
     // Al CAMBIAR de identidad hay que tirar el cache y repintar: si no, la bandeja
     // y el badge seguían mostrando los del rol anterior ("me abre los chats como si

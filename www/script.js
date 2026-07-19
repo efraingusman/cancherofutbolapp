@@ -5739,6 +5739,12 @@ window.viewUserProfile = async function(email, forcePublic, opts) {
                 if (_bizPick) {
                     var _pl = _bizPick.payload || {}; try { if (typeof _pl === 'string') _pl = JSON.parse(_pl); } catch(e){ _pl = {}; }
                     if (_bizPick.name) u.name = _bizPick.name;
+                    // EL ROL TAMBIÉN ES DEL NEGOCIO ELEGIDO. Se sobrescribían nombre, foto y
+                    // bio pero NO el rol, así que el perfil heredaba users.role: con una fila
+                    // users que quedó en 'tienda', TODOS los negocios de esa cuenta se abrían
+                    // como "Tienda Deportiva" con grilla de productos, fuese complejo u
+                    // organización. El rol define título, CTA y pestañas del perfil.
+                    if (_bizPick.role) u.role = _bizPick.role;
                     var _bph = _bizPick.photo || _pl.photo || _pl.logo || null;
                     if (_bph) u.photo = _bph;
                     // Bio/portada del NEGOCIO elegido — NO heredar las de la fila users (que son
@@ -6935,7 +6941,13 @@ window._renderBusinessProfile = async function(opts) {
     var content = opts.content, dashboard = opts.dashboard, sb = opts.sb;
     var realCommentCounts = opts.realCommentCounts || {};
 
+    // El perfil usa 'club' como clave para los complejos; sin normalizar, un negocio
+    // con role='complejo' no matcheaba en roleLabel/roleCta/tabMap y caia al default de
+    // organizacion. Liga/escuela son variantes de organizacion; store/shop, de tienda.
     var role = u.role || 'organizacion';
+    if (role === 'complejo' || role === 'cancha') role = 'club';
+    else if (role === 'liga' || role === 'escuela' || role === 'eventos') role = 'organizacion';
+    else if (role === 'store' || role === 'shop') role = 'tienda';
     var subType = u.sub_type || (bizData && bizData.sub_type) || '';
     var email = u.email;
     var emailSafe = email.replace(/'/g, "\\'");
@@ -7766,7 +7778,13 @@ window._openBizEditModal = async function(email) {
         u.cover_style = u.cover_style || null;
     }
     if (!u) return;
+    // El perfil usa 'club' como clave para los complejos; sin normalizar, un negocio
+    // con role='complejo' no matcheaba en roleLabel/roleCta/tabMap y caia al default de
+    // organizacion. Liga/escuela son variantes de organizacion; store/shop, de tienda.
     var role = u.role || 'organizacion';
+    if (role === 'complejo' || role === 'cancha') role = 'club';
+    else if (role === 'liga' || role === 'escuela' || role === 'eventos') role = 'organizacion';
+    else if (role === 'store' || role === 'shop') role = 'tienda';
     // Encuadre actual de foto de perfil y portada (mismo formato que jugadores).
     var _ps = u.photo_style || {}; var _psz = parseFloat(_ps.zoom)||100; var _psx = parseInt(_ps.x)||0; var _psy = parseInt(_ps.y)||0;
     var _cs = u.cover_style || {}; var _csz = parseFloat(_cs.zoom)||100; var _csy = (_cs.y!=null?parseInt(_cs.y):50);
