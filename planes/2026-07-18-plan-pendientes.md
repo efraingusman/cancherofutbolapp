@@ -9,7 +9,12 @@ EXISTE antes de insertarla.
 
 ---
 
-## P0 — FIXTURE (lo que más traba hoy)
+## P0 — FIXTURE — HECHO (deploy v348, 2026-07-20)
+
+Todo P0 está implementado. Falta correr `sql/2026-07-20-fixture-p0.sql` en Supabase:
+sin esa migración el código funciona igual (reintenta sin las columnas nuevas), pero no
+hay numeración de fechas ni avance automático del ganador en el bracket.
+
 
 **Diagnóstico:** el motor YA soporta más de lo que se puede elegir.
 `tournaments` ya tiene las columnas `format`, `double_round`, `prize_pool`, `complex_email`,
@@ -23,22 +28,22 @@ formato se elige únicamente al CREAR el torneo, no al editarlo. Con 3 equipos e
 `format='elimination'` sale 1 solo partido — que es exactamente lo reportado.
 
 ### P0.1 Exponer las opciones que ya existen
-- [ ] Checkbox **Ida y vuelta** (`double_round`) en crear Y editar torneo.
-- [ ] Poder **cambiar el formato** desde editar torneo (hoy solo al crear).
-- [ ] Al generar fixture, **modal de confirmación** que muestre: formato, ida/vuelta,
+- [x] Checkbox **Ida y vuelta** (`double_round`) en crear Y editar torneo.
+- [x] Poder **cambiar el formato** desde editar torneo (hoy solo al crear).
+- [x] Al generar fixture, **modal de confirmación** que muestre: formato, ida/vuelta,
       cantidad de equipos y **cuántos partidos van a salir**, antes de crear nada.
 
 ### P0.2 Completar el motor
-- [ ] **Eliminación directa** con bracket real (hoy `elimination` cae al `else` genérico).
-- [ ] **Tamaño de grupo configurable** (hoy fijo en 4).
-- [ ] **Número de fechas** y **descansos** (equipo libre) cuando son impares.
-- [ ] **Editar un cruce** a mano después de generado.
-- [ ] **Regenerar** fixture pisando el anterior (con aviso de que se pierden resultados).
+- [x] **Eliminación directa** con bracket real (hoy `elimination` cae al `else` genérico).
+- [x] **Tamaño de grupo configurable** (hoy fijo en 4).
+- [x] **Número de fechas** y **descansos** (equipo libre) cuando son impares.
+- [x] **Editar un cruce** a mano después de generado.
+- [x] **Regenerar** fixture pisando el anterior (con aviso de que se pierden resultados).
 
 ### P0.3 Tipo de fútbol
-- [ ] Campo **fútbol 5 / 7 / 11** en el torneo (NO existe columna → migración
+- [x] Campo **fútbol 5 / 7 / 11** en el torneo (NO existe columna → migración
       `alter table tournaments add column if not exists match_format text`).
-- [ ] Que ajuste el default de jugadores por equipo y la cancha en la ficha.
+- [x] Que ajuste el default de jugadores por equipo y la cancha en la ficha.
 
 ---
 
