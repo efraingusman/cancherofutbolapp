@@ -8646,6 +8646,9 @@ function applyUserData() {
     } catch(e){}
     // Actualizar racha diaria (una sola vez por sesión)
     try { if (userData && userData.email) window._updateDailyStreak(); } catch(e) {}
+    // Si el perfil real llegó DESPUÉS de pintar el círculo "Tu momento" (que se dibuja
+    // apenas hay sesión, con el userData provisorio del login), repintarlo ahora.
+    try { if (window._momRepintarSiCambio) window._momRepintarSiCambio(); } catch(e){}
     // Normalizar: la BD usa photo_style (snake) pero el render lee photoStyle (camel).
     // Sin esto, al recargar desde Supabase se pierde el encuadre de la foto y se recorta distinto.
     if (userData) {

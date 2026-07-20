@@ -104,6 +104,22 @@ async function _momCleanup(){
   if (window._momCleanupDone) return; window._momCleanupDone = true;
   try { await sb().from('momentos').delete().lt('expires_at', new Date().toISOString()); } catch(e){}
 }
+// Repinta el círculo "Tu momento" solo si la identidad visible cambió respecto de lo
+// último pintado. El bloque se dibuja apenas hay sesión, cuando userData puede ser aún
+// el provisorio del login (sin foto y con el email como nombre): sin esto quedaba la
+// inicial del email en vez de la foto de perfil.
+window._momRepintarSiCambio = function(){
+    try {
+        const a = (window._pubAvatar && window._pubAvatar()) || window.userData || {};
+        const ud = window.userData || {};
+        const firma = ((a.photo || ud.photo || '') + '|' + (a.name || ud.name || ''));
+        if (window.__momFirma !== undefined && firma !== window.__momFirma && firma !== '|') {
+            window.__momFirma = firma;
+            if (window._loadMomentosBlock) window._loadMomentosBlock();
+        }
+    } catch(e){}
+};
+
 window._loadMomentosBlock = async function(){
   _momCleanup();
   const block = document.getElementById('feed-momentos-block');
@@ -154,7 +170,20 @@ window._loadMomentosBlock = async function(){
     if (cat === 'Mi Día') {
       // Identidad ACTIVA (organización/tienda/… o jugador), no la fila users: entrando
       // como negocio salía la foto del jugador y con el encuadre de cara del jugador.
-      const u = (window._pubAvatar && window._pubAvatar()) || window.userData || {};
+      let u = (window._pubAvatar && window._pubAvatar()) || window.userData || {};
+      // El bloque se pinta apenas hay sesión, cuando userData todavía puede ser el
+      // provisorio del login (name = parte local del email, sin foto): salía la inicial
+      // del EMAIL ("J" de joelviettro) en vez de la foto. Se completa con las otras
+      // fuentes disponibles antes de decidir que no hay foto.
+      if (!u.photo || !u.name) {
+        const ud = window.userData || {};
+        let ls = {}; try { ls = JSON.parse(localStorage.getItem('canchero_user') || '{}') || {}; } catch(e){}
+        u = {
+          photo: u.photo || ud.photo || ls.photo || '',
+          photo_style: u.photo_style || u.photoStyle || ud.photoStyle || ud.photo_style || ls.photo_style || null,
+          name: u.name || ud.name || ls.name || ''
+        };
+      }
       // Foto de perfil bien encuadrada: si la identidad definió encuadre (photo_style)
       // se respeta; si no, se usa el recorte de CARA centrado arriba para que no salga
       // el torso ni quede corrida en el círculo chico del feed.
@@ -167,7 +196,12 @@ window._loadMomentosBlock = async function(){
         // antes usaba el recorte g_face de Cloudinary y se veía distinta que en el feed.
         avatarCss = "background-image:url('" + u.photo + "');background-size:cover;background-position:center 25%;";
       }
-      const myInit = (u.name || '?')[0] ? (u.name || '?')[0].toUpperCase() : '?';
+      // Firma de lo que se está pintando: si después llega el perfil real (foto/nombre
+      // definitivos), _momRepintarSiCambio() lo detecta y vuelve a pintar el círculo.
+      try { window.__momFirma = (u.photo || '') + '|' + (u.name || ''); } catch(e){}
+      // Si el "nombre" es en realidad el email (o su parte local), no sirve como inicial.
+      const _nomOk = (u.name && String(u.name).indexOf('@') === -1) ? u.name : '';
+      const myInit = (_nomOk || '?')[0] ? (_nomOk || '?')[0].toUpperCase() : '?';
       /* Primer círculo: SIEMPRE para SUBIR (tap = crear). El "+" es un punto
          glass flotante sin bordes. Los momentos de "Mi Día" se ven en su
          propio círculo "Momento" al lado. */
