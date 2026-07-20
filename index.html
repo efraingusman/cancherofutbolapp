@@ -45,9 +45,9 @@
     })();
     </script>
     <!-- OpenGraph por defecto (preview al compartir el link en WhatsApp/IG) -->
-    <meta name="description" content="Canchero — la red social de los futboleros. Partidos, clubes, rankings, debates y el Mundial. Sumate gratis.">
+    <meta name="description" content="Canchero — la red social de los futboleros. Partidos, clubes, torneos, rankings y debates. Sumate gratis.">
     <meta property="og:title" content="Canchero — la red social de los futboleros">
-    <meta property="og:description" content="Partidos, clubes, rankings, debates y el Mundial. Sumate gratis.">
+    <meta property="og:description" content="Partidos, clubes, torneos, rankings y debates. Sumate gratis.">
     <meta property="og:type" content="website">
     <meta property="og:image" content="https://canchero-app.vercel.app/og-black.jpg?v=4">
     <meta property="og:image:secure_url" content="https://canchero-app.vercel.app/og-black.jpg?v=4">
@@ -613,8 +613,6 @@
                     </ul>
                     <li class="menu-item" onclick="openTorneosModal()"><i class='bx bx-trophy'></i> Torneos y Ligas</li>
                     <li class="menu-item" onclick="switchDashboardTab('jugador', 'ranking', this)"><i class='bx bx-bar-chart-alt-2'></i> Ranking Global</li>
-                    
-                    <li class="menu-item" onclick="switchDashboardTab('jugador', 'en-vivo', this)" style="color:var(--accent);"><i class='bx bxs-trophy'></i> Mundial</li>
                     <li class="menu-item" onclick="launchGame('tiros-libres')"><i class='bx bx-football'></i> Juego</li>
                     <li class="menu-item" onclick="deleteAccount()" style="font-size:11px; opacity:0.5;"><i class='bx bx-trash'></i> Eliminar Cuenta</li>
                 </ul>
@@ -1316,10 +1314,7 @@
                                 <i class='bx bx-joystick'></i>
                                 <div class="bc-t">Juegos</div><div class="bc-s">Jugá y competí</div>
                             </button>
-                            <button onclick="switchDashboardTab('jugador','en-vivo',null)" class="buscar-card" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='#1e1e1e'">
-                                <span class="bx mundial-ico" style="display:inline-block;width:26px;height:26px;background:var(--accent);-webkit-mask:url('img/mundial-logo.png') center/contain no-repeat;mask:url('img/mundial-logo.png') center/contain no-repeat;margin-bottom:8px;"></span>
-                                <div class="bc-t">Mundial</div><div class="bc-s">Fixture y goleadores</div>
-                            </button>
+                            <!-- Tarjeta MUNDIAL retirada: la competencia termino -->
                             <button onclick="window.CancheroComunidades&&window.CancheroComunidades.open()" class="buscar-card" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='#1e1e1e'">
                                 <i class='bx bx-group'></i>
                                 <div class="bc-t">Comunidades</div><div class="bc-s">Hinchadas</div>
@@ -2950,10 +2945,7 @@
             <div onclick="openGamesModal(); toggleMobileMenu()" style="display:flex;align-items:center;gap:14px;padding:18px 0;border-bottom:1px solid #1a1a1a;cursor:pointer;font-size:17px;font-weight:700;">
                 <i class='bx bx-joystick' style="color:var(--accent);font-size:24px;width:26px;"></i> JUEGOS
             </div>
-            <!-- EN VIVO -->
-            <div onclick="switchDashboardTab('jugador','en-vivo',null); toggleMobileMenu()" style="display:flex;align-items:center;gap:14px;padding:18px 0;border-bottom:1px solid #1a1a1a;cursor:pointer;font-size:17px;font-weight:700;color:var(--accent);">
-                <i class='bx bxs-trophy' style="font-size:24px;width:26px;"></i> MUNDIAL
-            </div>
+            <!-- Item MUNDIAL retirado: la competencia termino -->
 
             <!-- PANEL ADMIN — solo visible para el admin -->
             <div id="mobile-menu-admin" onclick="window.open('admin-crm.html','_blank'); toggleMobileMenu();" style="display:none;align-items:center;gap:14px;padding:18px 0;border-bottom:1px solid #1a1a1a;cursor:pointer;font-size:17px;font-weight:700;color:#FFD600;margin-top:6px;">
@@ -3505,7 +3497,6 @@
                 <div class="menu-item" onclick="switchDashboardTab('jugador', 'buscar-partidos', this); toggleMobileMoreMenu()"><i class='bx bx-list-ul'></i> Unirme a un partido</div>
                 <div class="menu-item" onclick="switchDashboardTab('jugador', 'buscar-clubes', this); toggleMobileMoreMenu()"><i class='bx bx-search'></i> Buscar Equipos</div>
                 <div class="menu-item" onclick="switchDashboardTab('jugador', 'ranking', this); toggleMobileMoreMenu()"><i class='bx bx-trophy'></i> Ranking</div>
-                <div class="menu-item" onclick="switchDashboardTab('jugador', 'en-vivo', this); toggleMobileMoreMenu()"><i class='bx bxs-trophy'></i> Mundial</div>
                 <div class="menu-item" onclick="switchDashboardTab('jugador', 'mensajes', this); toggleMobileMoreMenu()"><i class='bx bx-message-dots'></i> Chats</div>
                 <div class="menu-item" onclick="openGlobalDirectory('eventos'); toggleMobileMoreMenu()"><i class='bx bx-calendar-event'></i> Eventos</div>
                 <div class="menu-item" onclick="switchDashboardTab('jugador', 'recomendar', this); toggleMobileMoreMenu()"><i class='bx bx-gift'></i> Puntos</div>
@@ -3905,7 +3896,10 @@
     <script src="canchero-notifications.js?v=20260715a" charset="utf-8"></script>
     <script src="canchero-messaging.js?v=20260718f" charset="utf-8"></script>
     <script src="canchero-live.js?v=20260714a" charset="utf-8"></script>
-    <script src="canchero-mundial.js?v=20260714a" charset="utf-8"></script>
+    <!-- Seccion MUNDIAL retirada (2026-07-18): la competencia termino. El modulo queda
+         en el repo (canchero-mundial.js) para reactivarlo descomentando esta linea y
+         los accesos del buscador y el menu.
+    <script src="canchero-mundial.js?v=20260714a" charset="utf-8"></script> -->
     <script src="canchero-encuesta.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-achievements.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-tournaments.js?v=20260717k" charset="utf-8"></script>
@@ -3932,7 +3926,7 @@
     <script src="canchero-match-v2.js?v=20260717b" charset="utf-8"></script>
     <script src="canchero-player-actions.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-news.js?v=20260714a" charset="utf-8"></script>
-    <script src="canchero-comunidades.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-comunidades.js?v=20260718a" charset="utf-8"></script>
     <script src="canchero-gamification.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-player-card.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-social.js?v=20260714a" charset="utf-8"></script>

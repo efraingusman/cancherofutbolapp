@@ -19,7 +19,10 @@ C.open = async function(){
   if (v) v.remove();
   v = document.createElement('div');
   v.id = 'comunidades-view';
-  v.style.cssText = 'position:fixed;inset:0;z-index:20050;background:#0a0a0a;overflow-y:auto;-webkit-overflow-scrolling:touch;';
+  // El overlay arranca DEBAJO del header (logo, campana, cambio de rol, ajustes):
+  // con inset:0 lo tapaba y al entrar a Comunidades desaparecia la barra de arriba.
+  var _nhC = (window._navH ? window._navH() : 0);
+  v.style.cssText = 'position:fixed;left:0;right:0;bottom:0;top:' + _nhC + 'px;z-index:900;background:#0a0a0a;overflow-y:auto;-webkit-overflow-scrolling:touch;';
   // FANÁTICO: Comunidades es una sección propia de su barra inferior → SIN botón volver
   const _isFan = !!(window._activeProfileType && window._activeProfileType() === 'fanatico');
   const bar = _isFan
@@ -114,7 +117,10 @@ C.openCommunity = async function(id){
   let v = document.getElementById('comunidad-detail'); if (v) v.remove();
   v = document.createElement('div');
   v.id = 'comunidad-detail';
-  v.style.cssText = 'position:fixed;inset:0;z-index:20060;background:#0a0a0a;overflow-y:auto;-webkit-overflow-scrolling:touch;';
+  // El overlay arranca DEBAJO del header (logo, campana, cambio de rol, ajustes):
+  // con inset:0 lo tapaba y al entrar a Comunidades desaparecia la barra de arriba.
+  var _nhC = (window._navH ? window._navH() : 0);
+  v.style.cssText = 'position:fixed;left:0;right:0;bottom:0;top:' + _nhC + 'px;z-index:901;background:#0a0a0a;overflow-y:auto;-webkit-overflow-scrolling:touch;';
   v.innerHTML = `<div style="text-align:center;padding:60px;color:#555;"><i class='bx bx-loader-alt bx-spin' style="font-size:26px;color:var(--accent);"></i></div>`;
   document.body.appendChild(v);
   try {
