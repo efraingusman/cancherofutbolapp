@@ -1476,7 +1476,12 @@ window.CancheroTournaments = (function() {
         const m = window.__cmeMatch || {};
         const evs = window.__cmeEvents || [];
         // Ordenar por minuto (los sin minuto al final) para que se lea como un timeline.
-        const order = evs.map((e,i)=>({e,i})).sort((a,b)=>((a.e.minute==null?9999:a.e.minute)-(b.e.minute==null?9999:b.e.minute))||(a.i-b.i));
+        // Se excluyen los eventos de CONTROL del cronómetro (inicio/pausa/½ tiempo/fin):
+        // no son de un jugador y aparecían como filas vacías con una X para borrar.
+        // Se conserva el índice REAL del array para que _cmeRemove siga siendo correcto.
+        const order = evs.map((e,i)=>({e,i}))
+            .filter(x => !_isCtrl(x.e.type))
+            .sort((a,b)=>((a.e.minute==null?9999:a.e.minute)-(b.e.minute==null?9999:b.e.minute))||(a.i-b.i));
         el.innerHTML = order.length ? order.map(({e:ev,i}) => {
             const isHome = ev.team_id === m.home_team_id;
             const teamName = isHome ? (m.home_team_name||'Local') : (m.away_team_name||'Visitante');
@@ -1669,6 +1674,7 @@ window.CancheroTournaments = (function() {
             ${isOrg && !hasResult && !isLive ? `<button onclick="CancheroTournaments._startMatch('${matchId}')" style="flex:1;min-width:130px;background:rgba(255,255,255,0.05);color:#fff;border:1px solid rgba(186,255,0,0.35);border-radius:14px;padding:12px;font-weight:900;font-size:13px;cursor:pointer;backdrop-filter:blur(6px);"><i class='bx bx-play' style="color:var(--accent);"></i> Iniciar partido</button>` : ''}
             ${fullBtn}
             ${isOrg ? `<button onclick="CancheroTournaments._openMatchLoad('${matchId}','${(m.tournament_id||'').replace(/'/g,"\\'")}' )" style="flex:1;min-width:130px;background:linear-gradient(135deg,#baff00,#8fd400);color:#000;border:none;border-radius:14px;padding:12px;font-weight:900;font-size:13px;cursor:pointer;box-shadow:0 4px 16px rgba(186,255,0,0.3);"><i class='bx bx-edit'></i> ${hasResult?'Editar resultado':'Cargar resultado'}</button>` : ''}
+            ${isOrg ? `<button onclick="CancheroTournaments._deleteTournamentMatch('${matchId}')" title="Eliminar partido del fixture" style="flex:0 0 auto;background:rgba(255,68,68,0.08);color:#ff4444;border:1px solid rgba(255,68,68,0.25);border-radius:14px;padding:12px 16px;font-weight:900;font-size:13px;cursor:pointer;"><i class='bx bx-trash'></i></button>` : ''}
         </div>` : '';
 
         // Plantel de ambos equipos (tab Jugadores)
@@ -1946,6 +1952,38 @@ window.CancheroTournaments = (function() {
         const labels = { inicio:'¡Arrancó el partido!', pausa:'Cronómetro pausado.', reanudar:'Cronómetro reanudado.', medio_tiempo:'Entretiempo.', fin:'Partido finalizado.' };
         toast(labels[ev.type] || 'Listo.', 'success');
         _openMatchDetail(matchId);
+    }
+
+    // Elimina un partido del fixture revirtiendo TODO lo que aporto: las estadisticas
+    // de los jugadores (goles/asistencias/tarjetas) y los puntos del resultado en la
+    // tabla de posiciones. Sin esto, borrar dejaba la tabla inflada.
+    async function _deleteTournamentMatch(matchId) {
+        const sb = getSb();
+        const { data: m } = await sb.from('tournament_matches').select('*').eq('id', matchId).single();
+        if (!m) { toast('Partido no encontrado.', 'error'); return; }
+        const rotulo = `${m.home_team_name || 'Local'} vs ${m.away_team_name || 'Visitante'}`;
+        const tieneResultado = m.home_score != null && m.away_score != null;
+        if (!confirm('¿Eliminar el partido ' + rotulo + ' del fixture?\n\n' +
+            (tieneResultado ? 'Se descuentan los puntos de la tabla y las estadísticas de los jugadores.\n\n' : '') +
+            'Esta acción no se puede deshacer.')) return;
+        // 1) Revertir estadísticas de los jugadores
+        try { await _applyEvents((Array.isArray(m.events) ? m.events : []).filter(e => !_isCtrl(e.type)), -1); } catch(e){}
+        // 2) Revertir el resultado en la tabla de posiciones
+        if (tieneResultado && m.home_team_id && m.away_team_id) {
+            try {
+                await _applyTeamResult(m.home_team_id, m.home_score, m.away_score, -1);
+                await _applyTeamResult(m.away_team_id, m.away_score, m.home_score, -1);
+            } catch(e){}
+        }
+        // 3) Borrar el partido
+        const { error } = await sb.from('tournament_matches').delete().eq('id', matchId);
+        if (error) { toast('Error al eliminar: ' + error.message, 'error'); return; }
+        toast('Partido eliminado del fixture.', 'success');
+        _cmdClose();
+        if (m.tournament_id) {
+            const { data: t } = await sb.from('tournaments').select('organizer_email').eq('id', m.tournament_id).single();
+            try { _ctmTab('fixture', m.tournament_id, t?.organizer_email, document.querySelector('.ctm-tab[data-tab="fixture"]')); } catch(e){}
+        }
     }
 
     // Reinicia el MARCADOR: 0-0, borra los eventos de jugador y revierte lo que esos
@@ -2539,10 +2577,53 @@ window.CancheroTournaments = (function() {
     // ═══════════════════════════════════════════════════════════
     async function _ctmGoleadores(tournamentId) {
         const sb = getSb();
-        const { data: players } = await sb.from('tournament_players').select('*,tournament_teams(team_name)').eq('tournament_id', tournamentId).order('goals', {ascending:false}).order('assists',{ascending:false}).limit(20);
+        const { data: players } = await sb.from('tournament_players').select('*,tournament_teams(team_name)').eq('tournament_id', tournamentId).order('goals', {ascending:false}).order('assists',{ascending:false}).limit(60);
         const container = document.getElementById('ctm-content');
         if (!container) return;
         const topGoals = (players||[]).filter(p => (p.goals||0) > 0 || (p.assists||0) > 0);
+
+        // ── Rankings extra: asistencias y arqueros (vallas invictas) ──────────
+        // Las vallas se calculan de los partidos ya jugados: no hay columna propia,
+        // así que se cuentan los partidos con 0 goles en contra por equipo.
+        let bloquesExtra = '';
+        try {
+            const { data: matches } = await sb.from('tournament_matches')
+                .select('home_team_id,away_team_id,home_score,away_score')
+                .eq('tournament_id', tournamentId);
+            const vallas = {};   // teamId -> partidos sin goles en contra
+            (matches||[]).forEach(mm => {
+                if (mm.home_score == null || mm.away_score == null) return;
+                if (mm.away_score === 0 && mm.home_team_id) vallas[mm.home_team_id] = (vallas[mm.home_team_id]||0) + 1;
+                if (mm.home_score === 0 && mm.away_team_id) vallas[mm.away_team_id] = (vallas[mm.away_team_id]||0) + 1;
+            });
+            const arqueros = (players||[])
+                .filter(p => /arq|gk|golero|portero/i.test(p.position||''))
+                .map(p => ({ p, v: vallas[p.team_id] || 0 }))
+                .filter(x => x.v > 0)
+                .sort((a,b) => b.v - a.v).slice(0, 10);
+            const asistidores = (players||[]).filter(p => (p.assists||0) > 0)
+                .sort((a,b) => (b.assists||0) - (a.assists||0)).slice(0, 10);
+
+            const fila = (i, nombre, equipo, valor, avatar) => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <span style="display:inline-flex;width:22px;height:22px;border-radius:8px;align-items:center;justify-content:center;font-size:11px;font-weight:900;flex-shrink:0;${i<3?'background:var(--accent);color:#000;':'background:rgba(255,255,255,0.05);color:#888;'}">${i+1}</span>
+                <span style="width:26px;height:26px;border-radius:50%;flex-shrink:0;background:${avatar?`#222 center/cover url('${_esc(avatar)}')`:'rgba(186,255,0,0.1)'};"></span>
+                <span style="flex:1;min-width:0;"><span style="display:block;font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(nombre)}</span><span style="display:block;font-size:10px;color:#666;">${_esc(equipo||'—')}</span></span>
+                <span style="font-size:14px;font-weight:900;color:var(--accent);flex-shrink:0;">${valor}</span>
+            </div>`;
+            const bloque = (titulo, icono, filas, vacio) => `<div style="margin-top:22px;">
+                <div style="font-size:11px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><i class='bx ${icono}' style="color:var(--accent);"></i>${titulo}</div>
+                ${filas || `<div style="text-align:center;padding:18px;color:#555;font-size:12px;">${vacio}</div>`}</div>`;
+
+            bloquesExtra =
+                bloque('MEJORES ASISTIDORES', 'bx-run',
+                    asistidores.map((p,i) => fila(i, p.player_name, p.tournament_teams?.team_name, p.assists||0, p.avatar_url)).join(''),
+                    'Sin asistencias registradas aún.')
+              + bloque('ARQUEROS · VALLAS INVICTAS', 'bx-shield',
+                    arqueros.map((x,i) => fila(i, x.p.player_name, x.p.tournament_teams?.team_name, x.v, x.p.avatar_url)).join(''),
+                    'Todavía no hay partidos con la valla invicta.')
+              + `<div style="margin-top:18px;font-size:10.5px;color:#555;line-height:1.5;"><i class='bx bx-info-circle'></i> El MVP por partido se va a sumar cuando esté la votación; hoy no hay dato para rankearlo.</div>`;
+        } catch(e){ console.warn('rankings extra:', e); }
+
         container.innerHTML = `<div style="font-size:11px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:10px;">TABLA DE GOLEADORES</div>
         ${!topGoals.length ? '<div style="text-align:center;padding:30px;color:#555;">Sin goles registrados aún.</div>' :
         `<table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -2564,7 +2645,7 @@ window.CancheroTournaments = (function() {
                     <td style="padding:8px 6px;text-align:center;color:#ffaa00;">${p.yellow_cards||0}</td>
                 </tr>`; }).join('')}
             </tbody>
-        </table>`}`;
+        </table>`}${bloquesExtra}`;
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -2828,6 +2909,7 @@ window.CancheroTournaments = (function() {
         _liveSave,
         _liveUndo,
         _liveResetMarcador,
+        _deleteTournamentMatch,
         _liveAsistDeGol,
         _liveSinAsist,
         _shareToFeed,

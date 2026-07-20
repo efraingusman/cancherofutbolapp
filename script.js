@@ -27779,6 +27779,14 @@ window.addEventListener('resize', function(){ try { window._sizeBizPanel && wind
   // ---- Ejecutar la acción de una opción ----
   function activate(o, live){
     if (!o) return;
+    // Al ENTRAR a una sección la barra se achica sola (misma animación que al scrollear),
+    // para que ocupe menos y moleste menos. Vuelve a su tamaño al scrollear hacia arriba.
+    if (!live) {
+      try {
+        var _nv = document.querySelector('.ruleta2-nav');
+        if (_nv) { _nv.classList.add('r2-compact'); _nv._navCompactAt = Date.now(); }
+      } catch(e){}
+    }
     // Cerrar SIEMPRE el modal flotante de perfil ajeno antes de cualquier navegación
     try { var _v = document.getElementById('vup-modal-overlay'); if (_v) _v.remove(); } catch(e){}
     try { var _vm = document.getElementById('vup-more-modal'); if (_vm) _vm.remove(); } catch(e){}
@@ -28376,8 +28384,11 @@ window.addEventListener('resize', function(){ try { window._sizeBizPanel && wind
             var y = (tgt === document || tgt === document.documentElement || tgt === document.body)
               ? (window.scrollY || 0)
               : (tgt && tgt.scrollTop) || 0;
+            // Si recién se navegó, la barra quedó compacta a propósito: no descompactar
+            // por el reseteo de scroll a 0 que produce el cambio de sección.
+            var reciénNavegado = nav._navCompactAt && (Date.now() - nav._navCompactAt) < 1200;
             if (y > 90 && y > lastY + 4) nav.classList.add('r2-compact');
-            else if (y < lastY - 4 || y < 50) nav.classList.remove('r2-compact');
+            else if (!reciénNavegado && (y < lastY - 4 || y < 50)) nav.classList.remove('r2-compact');
             lastY = y; ticking = false;
           });
         }, { passive: true, capture: true });
