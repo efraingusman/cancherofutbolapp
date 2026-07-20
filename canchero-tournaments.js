@@ -722,10 +722,35 @@ window.CancheroTournaments = (function() {
 
     async function _approveTeam(teamId, status) {
         const sb = getSb();
-        const { data: team } = await sb.from('tournament_teams').update({ status }).eq('id', teamId).select('tournament_id').single();
+        // Se traen los datos del equipo ANTES de resolver, para poder avisarle al capitán.
+        const { data: team } = await sb.from('tournament_teams')
+            .update({ status }).eq('id', teamId)
+            .select('tournament_id,team_name,captain_email,captain_name,club_email').single();
         toast(status === 'approved' ? 'Equipo aprobado ✓' : 'Equipo rechazado.', status === 'approved' ? 'success' : 'warning');
         if (team) {
-            const { data: t } = await sb.from('tournaments').select('organizer_email').eq('id', team.tournament_id).single();
+            const { data: t } = await sb.from('tournaments').select('organizer_email,name').eq('id', team.tournament_id).single();
+            // Avisar al equipo que lo aceptaron o rechazaron. Antes la solicitud se
+            // resolvía en silencio y el que se inscribía nunca se enteraba.
+            try {
+                let dest = team.captain_email || '';
+                if (!dest && team.club_email && String(team.club_email).indexOf('club:') !== 0) dest = team.club_email;
+                if (dest) {
+                    const tName = (t && t.name) ? (' "' + t.name + '"') : '';
+                    const aprobado = status === 'approved';
+                    const msg = aprobado
+                        ? `Tu equipo ${team.team_name || ''} fue ACEPTADO en el torneo${tName}. ¡Ya estás dentro!`
+                        : `Tu solicitud para el torneo${tName} con ${team.team_name || 'tu equipo'} fue rechazada.`;
+                    await sb.from('notifications').insert({
+                        recipient_email: dest,
+                        type: aprobado ? 'torneo_aceptado' : 'torneo_rechazado',
+                        actor_name: (t && t.organizer_email) || 'La organización',
+                        actor_email: (t && t.organizer_email) || null,
+                        message: msg,
+                        post_id: team.tournament_id,
+                        read: false
+                    });
+                }
+            } catch(e){ console.warn('notif resolucion torneo:', e); }
             _ctmEquipos(team.tournament_id, t?.organizer_email);
         }
     }

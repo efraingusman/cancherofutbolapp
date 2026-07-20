@@ -24271,10 +24271,21 @@ function renderTorneoCard(t) {
 window.openTorneoDetail = async function(torneoId) {
     const sb = window._sb;
     if (!sb) { if(typeof showToast==='function') showToast('Sin conexión','error'); return; }
-    // Abrir el modal de gestión de torneo completo (CancheroTournaments)
-    if (window.CancheroTournaments && typeof window.CancheroTournaments.openTournamentModal === 'function') {
-        window.CancheroTournaments.openTournamentModal(torneoId);
-        return;
+    // Abrir el PANEL del torneo. Antes se llamaba a openTournamentModal, que NO existe
+    // (los exports son openTournamentManager y openPublicView), así que siempre caía al
+    // fallback de abajo: un modal mínimo con el botón "Inscribir mi equipo" y nada del
+    // torneo. Ahora: la organización va a su gestión y el resto a la vista pública, que
+    // ya trae Tabla, Fixture, Equipos, Goleadores, Jugadores e Inscribirme.
+    if (window.CancheroTournaments) {
+        const CT = window.CancheroTournaments;
+        let esOrg = false;
+        try {
+            const { data: t0 } = await sb.from('tournaments').select('organizer_email').eq('id', torneoId).maybeSingle();
+            const mail = (window.userData && window.userData.email || '').toLowerCase();
+            esOrg = !!(t0 && mail && (t0.organizer_email || '').toLowerCase() === mail);
+        } catch(e){}
+        if (esOrg && typeof CT.openTournamentManager === 'function') { CT.openTournamentManager(torneoId); return; }
+        if (typeof CT.openPublicView === 'function') { CT.openPublicView(torneoId); return; }
     }
     // Fallback: cargar datos y mostrar info básica
     try {
