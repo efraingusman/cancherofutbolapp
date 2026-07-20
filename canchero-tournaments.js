@@ -1857,7 +1857,15 @@ window.CancheroTournaments = (function() {
             else if (abierto != null) { ms += t - abierto; abierto = null; }
         }
         if (abierto != null) ms += Date.now() - abierto;
-        return { minute: Math.floor(ms/60000), seconds: Math.floor(ms/1000), corriendo: abierto != null };
+        // TOPE: si el partido queda corriendo (se olvidaron de darle Fin), el reloj seguía
+        // sumando y llegaba a valores absurdos tipo 2400'. El partido dura lo que se
+        // configuró; se deja un margen de 15' para descuento/alargue y ahí se planta.
+        const dur = _liveDuracion(events);
+        const topeMs = (dur + 15) * 60000;
+        const tope = ms > topeMs;
+        if (tope) ms = topeMs;
+        return { minute: Math.floor(ms/60000), seconds: Math.floor(ms/1000),
+                 corriendo: abierto != null && !tope, topado: tope };
     }
     function _liveEstado(events) {
         const ctrl = (events||[]).filter(e => _isCtrl(e.type) && e.at)
@@ -1940,6 +1948,26 @@ window.CancheroTournaments = (function() {
         _openMatchDetail(matchId);
     }
 
+    // Reinicia el MARCADOR: 0-0, borra los eventos de jugador y revierte lo que esos
+    // eventos sumaron a las estadísticas (goles, asistencias, tarjetas). El cronómetro
+    // no se toca: para eso está "Reiniciar cronómetro".
+    async function _liveResetMarcador(matchId) {
+        const sb = getSb();
+        const { data: m } = await sb.from('tournament_matches').select('*').eq('id', matchId).single();
+        if (!m) return;
+        const events = Array.isArray(m.events) ? m.events : [];
+        const deJugador = events.filter(e => !_isCtrl(e.type));
+        if (!deJugador.length && !m.home_score && !m.away_score) { toast('El marcador ya está en cero.', 'info'); return; }
+        if (!confirm('¿Reiniciar el marcador?\n\nVuelve a 0-0 y se borran los ' + deJugador.length + ' evento(s) cargados (goles, asistencias, tarjetas y cambios). Las estadísticas de los jugadores se descuentan.')) return;
+        const { error } = await sb.from('tournament_matches')
+            .update({ events: events.filter(e => _isCtrl(e.type)), home_score: 0, away_score: 0 })
+            .eq('id', matchId);
+        if (error) { toast('Error: ' + error.message, 'error'); return; }
+        try { await _applyEvents(deJugador, -1); } catch(e){}
+        toast('Marcador reiniciado.', 'success');
+        _openMatchDetail(matchId);
+    }
+
     // Selector de jugador para cargar un evento en vivo.
     async function _liveEvent(matchId, tipo) {
         const sb = getSb();
@@ -2016,8 +2044,46 @@ window.CancheroTournaments = (function() {
         // Estadística acumulada del jugador (goles/asistencias/tarjetas).
         if (_EV_COL[tipo]) { try { await _applyEvents([ev], 1); } catch(e){} }
         document.getElementById('cmdlive-modal')?.remove();
+        document.getElementById('cmdasist-modal')?.remove();   // si vino del paso de asistencia
         const nombres = { gol:'Gol', asistencia:'Asistencia', amarilla:'Amarilla', roja:'Roja', cambio:'Cambio' };
         toast((nombres[tipo]||'Evento') + ' de ' + p.player_name + " (" + min + "')", 'success');
+        // Después de un GOL se pregunta la asistencia en el momento (es cuando se sabe).
+        // Se puede omitir: una asistencia sin gol no tiene sentido, pero un gol sin
+        // asistencia sí (jugada individual, penal, rebote).
+        if (tipo === 'gol') { _liveAsistDeGol(matchId, p.team_id, p.id, p.player_name); return; }
+        _openMatchDetail(matchId);
+    }
+
+    // Selector de ASISTENCIA para el gol recién cargado: solo compañeros del goleador.
+    async function _liveAsistDeGol(matchId, teamId, golPlayerId, golPlayerName) {
+        const sb = getSb();
+        const { data: roster } = await sb.from('tournament_players').select('*').eq('team_id', teamId).order('number');
+        const companeros = (roster||[]).filter(x => String(x.id) !== String(golPlayerId));
+        if (!companeros.length) { _openMatchDetail(matchId); return; }
+        const ex = document.getElementById('cmdasist-modal'); if (ex) ex.remove();
+        const modal = document.createElement('div');
+        modal.id = 'cmdasist-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100009;background:rgba(0,0,0,0.93);overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:20px;';
+        modal.innerHTML = `
+        <div style="background:#0d0d0d;border:1px solid #222;border-radius:18px;width:100%;max-width:420px;padding:20px;margin-top:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <h3 style="font-family:Outfit,sans-serif;font-weight:900;font-size:15px;">${_evIcon('asistencia')} ¿Quién dio la asistencia?</h3>
+                <button onclick="CancheroTournaments._liveSinAsist('${matchId}')" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;">&times;</button>
+            </div>
+            <div style="font-size:11.5px;color:#888;margin-bottom:14px;">Gol de <b style="color:var(--accent);">${_esc(golPlayerName||'')}</b>. Si fue jugada individual o no la sabés, tocá "Sin asistencia".</div>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
+                ${companeros.map(x => `<button onclick="CancheroTournaments._liveSave('${matchId}','asistencia','${x.id}')" style="display:flex;align-items:center;gap:9px;width:100%;background:#141414;border:1px solid #222;border-radius:10px;padding:9px 11px;cursor:pointer;color:#fff;text-align:left;">
+                    <span style="width:28px;height:28px;border-radius:50%;flex-shrink:0;${x.avatar_url?`background:#222 url('${_esc(x.avatar_url)}') center/cover;`:`background:rgba(186,255,0,0.12);`}display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--accent);">${x.avatar_url?'':(x.number||'')}</span>
+                    <span style="font-size:13px;font-weight:700;">${_esc(x.player_name)}</span>
+                </button>`).join('')}
+            </div>
+            <button onclick="CancheroTournaments._liveSinAsist('${matchId}')" style="width:100%;background:rgba(255,255,255,0.05);color:#aaa;border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:12px;font-weight:800;font-size:13px;cursor:pointer;">Sin asistencia</button>
+        </div>`;
+        modal.onclick = e => { if (e.target === modal) { modal.remove(); _openMatchDetail(matchId); } };
+        document.body.appendChild(modal);
+    }
+    function _liveSinAsist(matchId) {
+        document.getElementById('cmdasist-modal')?.remove();
         _openMatchDetail(matchId);
     }
 
@@ -2075,7 +2141,10 @@ window.CancheroTournaments = (function() {
                 ${btn('medio', 'bx-time', '½ tiempo')}
                 ${btn('fin', 'bx-stop', 'Fin', 'rgba(255,68,68,0.12)')}
             </div>
-            ${est !== 'sin_empezar' ? `<button onclick="CancheroTournaments._liveChrono('${matchId}','reiniciar')" style="width:100%;margin-top:8px;background:rgba(255,255,255,0.04);color:#888;border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:9px;font-weight:800;font-size:11.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;"><i class='bx bx-reset'></i> Reiniciar cronómetro a cero</button>` : ''}
+            <div style="display:flex;gap:8px;margin-top:8px;">
+                ${est !== 'sin_empezar' ? `<button onclick="CancheroTournaments._liveChrono('${matchId}','reiniciar')" style="flex:1;background:rgba(255,255,255,0.04);color:#888;border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:9px 6px;font-weight:800;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;"><i class='bx bx-reset'></i> Reiniciar tiempo</button>` : ''}
+                <button onclick="CancheroTournaments._liveResetMarcador('${matchId}')" style="flex:1;background:rgba(255,255,255,0.04);color:#888;border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:9px 6px;font-weight:800;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;"><i class='bx bx-refresh'></i> Reiniciar marcador</button>
+            </div>
         </div>
         <div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:8px;">CARGAR EVENTO</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
@@ -2241,17 +2310,90 @@ window.CancheroTournaments = (function() {
         openTournamentManager(tournamentId, t?.organizer_email);
     }
 
+    // Compartir el partido: DENTRO de Canchero (feed o mensaje) o fuera (link nativo).
+    // Antes solo ofrecía el compartir del sistema y no había forma de publicarlo.
     async function _matchShare(matchId, tournamentId) {
         const sb = getSb();
-        const { data: m } = await sb.from('tournament_matches').select('home_team_name,away_team_name,home_score,away_score').eq('id', matchId).single();
-        const score = (m && m.home_score != null) ? ` ${m.home_score}-${m.away_score}` : '';
-        const txt = m ? `${m.home_team_name}${score} ${m.away_team_name}` : 'Partido';
+        const { data: m } = await sb.from('tournament_matches')
+            .select('home_team_name,away_team_name,home_score,away_score,scheduled_at').eq('id', matchId).single();
+        const score = (m && m.home_score != null) ? ` ${m.home_score}-${m.away_score}` : ' vs ';
+        const txt = m ? `${m.home_team_name}${score}${m.away_team_name}` : 'Partido';
         const url = (location.origin || 'https://canchero-app.vercel.app') + '/torneo.html?id=' + tournamentId;
+        window.__ctShare = { matchId, tournamentId, txt, url };
+        const ex = document.getElementById('ctshare-modal'); if (ex) ex.remove();
+        const modal = document.createElement('div');
+        modal.id = 'ctshare-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100011;background:rgba(0,0,0,0.93);display:flex;align-items:center;justify-content:center;padding:20px;';
+        const op = (fn, icon, titulo, sub) => `<button onclick="${fn}" style="display:flex;align-items:center;gap:12px;width:100%;background:#141414;border:1px solid #222;border-radius:14px;padding:14px;margin-bottom:8px;cursor:pointer;color:#fff;text-align:left;">
+            <span style="width:40px;height:40px;border-radius:10px;background:rgba(186,255,0,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class='bx ${icon}' style="font-size:20px;color:var(--accent);"></i></span>
+            <span style="flex:1;min-width:0;"><span style="display:block;font-size:14px;font-weight:800;">${titulo}</span><span style="display:block;font-size:11px;color:#777;">${sub}</span></span>
+            <i class='bx bx-chevron-right' style="color:#444;font-size:18px;"></i></button>`;
+        modal.innerHTML = `
+        <div style="background:#0d0d0d;border:1px solid #222;border-radius:18px;width:100%;max-width:400px;padding:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <h3 style="font-family:Outfit,sans-serif;font-weight:900;font-size:15px;"><i class='bx bx-share-alt' style="color:var(--accent);"></i> Compartir partido</h3>
+                <button onclick="document.getElementById('ctshare-modal').remove()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;">&times;</button>
+            </div>
+            <div style="font-size:12px;color:#888;margin-bottom:14px;">${_esc(txt)}</div>
+            ${op("CancheroTournaments._shareToFeed()", 'bx-broadcast', 'Publicar en el feed', 'Lo ven quienes te siguen')}
+            ${op("CancheroTournaments._shareToChat()", 'bx-message-dots', 'Enviar por mensaje', 'Elegí a quién mandárselo')}
+            ${op("CancheroTournaments._shareOut()", 'bx-link-external', 'Compartir fuera de Canchero', 'WhatsApp, redes o copiar el link')}
+        </div>`;
+        modal.onclick = e => { if (e.target === modal) modal.remove(); };
+        document.body.appendChild(modal);
+    }
+
+    // Publica el partido en el feed, sellado con la identidad ACTIVA.
+    async function _shareToFeed() {
+        const s = window.__ctShare; if (!s) return;
+        const sb = getSb(); const u = getUser();
+        if (!u || !u.email) { toast('Iniciá sesión.', 'warning'); return; }
+        const av = (window._pubAvatar && window._pubAvatar()) || {};
+        const post = {
+            user_email: u.email,
+            user_name: av.name || u.name || u.email,
+            user_role: (window._pubRole && window._pubRole()) || 'jugador',
+            user_avatar: av.photo || u.photo || null,
+            content: s.txt + '\n' + s.url,
+            created_at: new Date().toISOString()
+        };
+        try { const bid = window._pubBizId && window._pubBizId(); if (bid) post.business_id = bid; } catch(e){}
+        let r = await sb.from('posts').insert(post);
+        if (r && r.error) {   // reintento sin las columnas que el esquema pueda no tener
+            delete post.business_id; delete post.user_avatar;
+            r = await sb.from('posts').insert(post);
+        }
+        document.getElementById('ctshare-modal')?.remove();
+        if (r && r.error) { toast('No se pudo publicar: ' + r.error.message, 'error'); return; }
+        toast('Partido publicado en tu feed.', 'success');
+        try { if (window.loadFeed) window.loadFeed(); } catch(e){}
+    }
+
+    // Manda el partido por mensaje: abre el buscador de chats con el texto listo.
+    function _shareToChat() {
+        const s = window.__ctShare; if (!s) return;
+        document.getElementById('ctshare-modal')?.remove();
+        try { window._msgPrefill = s.txt + '\n' + s.url; } catch(e){}
         try {
-            if (navigator.share) { await navigator.share({ title: txt + ' · Canchero', text: txt, url }); return; }
+            if (typeof switchDashboardTab === 'function') switchDashboardTab((window.userData && window.userData.role) || 'jugador', 'mensajes', null);
+            if (window.CancheroMessaging) {
+                window.CancheroMessaging.init();
+                setTimeout(function(){
+                    if (window.CancheroMessaging.openNewChatSearch) window.CancheroMessaging.openNewChatSearch();
+                    toast('Elegí el chat: el partido se pega en el mensaje.', 'info');
+                }, 400);
+            }
+        } catch(e){}
+    }
+
+    async function _shareOut() {
+        const s = window.__ctShare; if (!s) return;
+        document.getElementById('ctshare-modal')?.remove();
+        try {
+            if (navigator.share) { await navigator.share({ title: s.txt + ' · Canchero', text: s.txt, url: s.url }); return; }
         } catch(e){ return; }
-        try { await navigator.clipboard.writeText(txt + ' — ' + url); toast('Link copiado'); }
-        catch(e){ toast(url); }
+        try { await navigator.clipboard.writeText(s.txt + ' — ' + s.url); toast('Link copiado'); }
+        catch(e){ toast(s.url); }
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -2685,6 +2827,12 @@ window.CancheroTournaments = (function() {
         _liveEvent,
         _liveSave,
         _liveUndo,
+        _liveResetMarcador,
+        _liveAsistDeGol,
+        _liveSinAsist,
+        _shareToFeed,
+        _shareToChat,
+        _shareOut,
         _cmdClose,
         _cmdTab,
         _startMatch,

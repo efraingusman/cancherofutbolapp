@@ -5714,6 +5714,32 @@ window.viewUserProfile = async function(email, forcePublic, opts) {
         const dashboard = (window.userData && window.userData.role === 'club') ? 'club' : 'jugador';
         window._currentVupEmail = email;
 
+        // ── POSTS POR IDENTIDAD ───────────────────────────────────
+        // Los posts se traían solo por user_email, así que en el perfil de FANÁTICO
+        // salían las publicaciones hechas como JUGADOR (misma cuenta, otra identidad).
+        // Cada identidad muestra únicamente lo suyo.
+        try {
+            const _esMiPerfil = !!(window.userData && (window.userData.email||'').toLowerCase() === (email||'').toLowerCase());
+            let _idPerfil;                     // identidad que se está viendo
+            if (opts.bizId && opts.bizId !== '__primary__') _idPerfil = 'biz:' + opts.bizId;
+            else if (_forcedBizRole) _idPerfil = 'negocio';
+            else if (_esMiPerfil) {
+                // Mi propio perfil: la identidad ACTIVA (jugador o fanático).
+                const ap = (window._activeProfileType && window._activeProfileType()) || 'jugador';
+                _idPerfil = (ap === 'fanatico') ? 'fanatico' : 'jugador';
+            } else {
+                _idPerfil = ((u.role || '') === 'fanatico') ? 'fanatico' : 'jugador';
+            }
+            posts = (posts || []).filter(function(p){
+                const pb = p.business_id ? ('biz:' + p.business_id) : null;
+                if (String(_idPerfil).indexOf('biz:') === 0) return pb === _idPerfil;
+                if (_idPerfil === 'negocio') return !!pb || ['club','organizacion','tienda','profesional','complejo','sponsor'].indexOf(p.user_role) !== -1;
+                if (pb) return false;          // post de un negocio: no va en jugador/fanático
+                const pr = p.user_role || 'jugador';
+                return (_idPerfil === 'fanatico') ? (pr === 'fanatico') : (pr !== 'fanatico');
+            });
+        } catch(e){ console.warn('filtro posts por identidad:', e); }
+
         // ── Bifurcación: perfil de negocio ───────────────────────
         if (!isJugador) {
             // Cargar datos extras de negocio. Puede haber VARIOS negocios por email:
