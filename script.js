@@ -26930,13 +26930,42 @@ window.deleteMatch = async function(matchId) {
     var sbx = window._sb;
     if (!sbx) return;
     try {
-        try { await sbx.from('match_players').delete().eq('match_id', matchId); } catch(_e){}
-        try { await sbx.from('match_bets').delete().eq('match_id', matchId); } catch(_e){}
-        try { await sbx.from('match_captain_log').delete().eq('match_id', matchId); } catch(_e){}
-        try { await sbx.from('match_invites').delete().eq('match_id', matchId); } catch(_e){}
-        try { await sbx.from('match_checkins').delete().eq('match_id', matchId); } catch(_e){}
-        var res = await sbx.from('matches').delete().eq('id', matchId);
+        // Un partido lo referencian MUCHAS tablas. Antes solo se limpiaban 5 y, si alguna
+        // de las otras tiene FK sin ON DELETE CASCADE, el DELETE de matches falla y el
+        // partido "no se eliminaba y seguía ahí". Se limpian todas las dependencias.
+        var _tablasHijas = ['match_players','match_bets','match_captain_log','match_invites',
+            'match_checkins','match_events','match_chat','match_confirmations','match_costs',
+            'match_media','match_participants','match_predictions','match_requests',
+            'match_reviews','party_messages','predictions','prediction_bets'];
+        for (var _i = 0; _i < _tablasHijas.length; _i++) {
+            try { await sbx.from(_tablasHijas[_i]).delete().eq('match_id', matchId); } catch(_e){}
+        }
+        // Chat de grupo del partido: primero sus mensajes y miembros, después el grupo.
+        try {
+            var _gc = await sbx.from('group_chats').select('id').eq('match_id', matchId);
+            var _gids = ((_gc && _gc.data) || []).map(function(g){ return g.id; });
+            for (var _j = 0; _j < _gids.length; _j++) {
+                try { await sbx.from('group_messages').delete().eq('group_id', _gids[_j]); } catch(_e){}
+                try { await sbx.from('group_members').delete().eq('group_id', _gids[_j]); } catch(_e){}
+            }
+            if (_gids.length) { try { await sbx.from('group_chats').delete().eq('match_id', matchId); } catch(_e){} }
+        } catch(_e){}
+        // El partido del TORNEO no se borra: solo se desvincula de la ficha real.
+        try { await sbx.from('tournament_matches').update({ match_id: null }).eq('match_id', matchId); } catch(_e){}
+
+        // .select() para saber si REALMENTE se borró: con RLS, un DELETE sin permiso
+        // devuelve éxito con 0 filas y antes se avisaba "eliminado" igual.
+        var res = await sbx.from('matches').delete().eq('id', matchId).select('id');
         if (res.error) throw res.error;
+        if (!res.data || !res.data.length) {
+            // Confirmar si sigue existiendo (puede que RLS tampoco deje leerlo)
+            var _chk = await sbx.from('matches').select('id').eq('id', matchId).maybeSingle();
+            if (_chk && _chk.data) {
+                if (typeof showToast === 'function') showToast('No se pudo eliminar: la base rechazó el borrado (permisos). El partido sigue existiendo.', 'error');
+                console.error('deleteMatch: DELETE devolvió 0 filas y el partido sigue en la DB', matchId);
+                return;
+            }
+        }
         if(typeof showToast==='function') showToast('Partido eliminado.', 'success');
         var dashboard = window.userData && window.userData.role === 'club' ? 'club' : 'jugador';
         // Cerrar modal de detalles si está abierto
