@@ -4806,16 +4806,25 @@ window._dirBizList = async function(roles, q, f) {
     const out = [];
     const conNegocio = new Set();   // emails que tienen identidades en business_requests
 
-    // Todos los emails con algún negocio (para descartar las filas fantasma de users)
+    // Las tres consultas van EN PARALELO: en serie el directorio tardaba visiblemente
+    // en aparecer (cada una esperaba a la anterior).
+    let _todos = [], _brs = [], _us = [];
     try {
-        const { data: todos } = await sb.from('business_requests').select('email').limit(500);
-        (todos || []).forEach(b => conNegocio.add(norm(b.email)));
-    } catch(e){}
+        const [r1, r2, r3] = await Promise.all([
+            sb.from('business_requests').select('email').limit(500),
+            sb.from('business_requests').select('id,email,name,role,payload,status').in('role', roles).limit(200),
+            sb.from('users').select('*').in('role', roles).limit(200)
+        ]);
+        _todos = (r1 && r1.data) || [];
+        _brs   = (r2 && r2.data) || [];
+        _us    = (r3 && r3.data) || [];
+    } catch(e){ console.warn('_dirBizList queries:', e); }
+
+    (_todos).forEach(b => conNegocio.add(norm(b.email)));
 
     // 1) business_requests = la fuente real
     try {
-        const { data: brs } = await sb.from('business_requests')
-            .select('id,email,name,role,payload,status').in('role', roles).limit(200);
+        const brs = _brs;
         (brs || []).forEach(b => {
             const st = String(b.status || '').toUpperCase();
             // Solo los aprobados/activos (pendientes y rechazados no van al directorio)
@@ -4837,7 +4846,7 @@ window._dirBizList = async function(roles, q, f) {
     // 2) users legacy con ese rol — solo si ese email NO tiene negocios en
     //    business_requests (si los tiene, su fila de users es la cuenta base, no un negocio)
     try {
-        const { data: us } = await sb.from('users').select('*').in('role', roles).limit(200);
+        const us = _us;
         (us || []).forEach(u => {
             const em = norm(u.email);
             if (!em || conNegocio.has(em)) return;   // descarta el fantasma
@@ -4969,7 +4978,7 @@ async function _generateDirResults(type, query, filters) {
             if (f.country) { const fc = normX(f.country); data = data.filter(c => { const cc = normX(c.country||c.nat||c.pais||'uruguay'); return cc.includes(fc) || fc.includes(cc); }); }
             if (f.city) { const fc = normX(f.city); data = data.filter(c => [c.city,c.department,c.ciudad,c.departamento,c.region].some(v => normX(v).includes(fc))); }
             const bizComplejos = await window._dirBizList(['complejo','club'], q, f);
-            if (!data.length && !bizComplejos.length) return emptyDirectoryHTML('bx-buildings', 'SIN RESULTADOS', 'No se encontraron complejos con esos filtros.');
+            if (!data.length && !bizComplejos.length) return emptyDirectoryHTML('bx-cancha', 'SIN RESULTADOS', 'No se encontraron complejos con esos filtros.');
             const filasComplexes = data.map(c => {
                 const city = c.city || c.department || '';
                 return `<div onclick="window.viewComplexProfile('${c.id}')" style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid #151515;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#111'" onmouseout="this.style.background='transparent'">
@@ -5658,8 +5667,27 @@ window.viewUserProfile = async function(email, forcePublic, opts) {
             sb.from('follows').select('following_email,follower_profile,following_profile').eq('follower_email', email).limit(100)
         ]);
 
+        // Un NEGOCIO puede existir en business_requests sin fila en users (se registró
+        // desde el switcher y nunca se creó el perfil personal). Antes eso daba
+        // "Usuario no encontrado" aunque el negocio estuviera aprobado y listado en
+        // Buscar. Se arma el perfil con los datos del negocio.
         if (!u) {
-            content.innerHTML = `<div style="padding:40px;color:#666;text-align:center;font-size:14px;">Usuario no encontrado.</div>`;
+            try {
+                let bq = sb.from('business_requests').select('*').eq('email', email);
+                if (opts.bizId && opts.bizId !== '__primary__') bq = bq.eq('id', opts.bizId);
+                const { data: brs } = await bq.order('created_at', { ascending: true });
+                const biz = (brs || [])[0];
+                if (biz) {
+                    let pl = biz.payload || {};
+                    try { if (typeof pl === 'string') pl = JSON.parse(pl); } catch(e){ pl = {}; }
+                    u = { email: biz.email, name: biz.name, role: biz.role,
+                          photo: pl.photo || pl.logo || '', bio: pl.bio || pl.description || '',
+                          city: pl.city || '', nat: pl.country || '', stats: {} };
+                }
+            } catch(e){ console.warn('perfil desde business_requests:', e); }
+        }
+        if (!u) {
+            content.innerHTML = `<div style="padding:40px;color:#666;text-align:center;font-size:14px;">Este perfil ya no está disponible.</div>`;
             return;
         }
 
@@ -19580,7 +19608,9 @@ window.initAllLocationSelects = function() {
 
 const SECTION_CONFIG = {
     complejos: {
-        icon: 'bx-buildings',
+        // Icono de CANCHA (no edificio): es la seccion de complejos y canchas, y el
+        // icono tiene que leerse de un vistazo. Organizaciones si usa bx-buildings.
+        icon: 'bx-cancha',
         roles: ['club', 'complejo', 'cancha'],
         filters: [
             { id: 'sintetico', label: 'Pasto Sintético' },
