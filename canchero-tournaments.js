@@ -871,6 +871,13 @@ window.CancheroTournaments = (function() {
         document.getElementById('ctap-modal')?.remove();
         toast('Jugador agregado.', 'success');
         // refrescar el modal de jugadores del equipo si está abierto
+        // Si veníamos del editor de resultado, volver ahí: ahora sí hay plantel y se
+        // pueden cargar goleadores, asistencias y tarjetas.
+        if (window.__cmeVolverA) {
+            const v = window.__cmeVolverA; window.__cmeVolverA = null;
+            _openMatchLoad(v.matchId, v.tournamentId);
+            return;
+        }
         const openTeamModal = document.querySelector('[data-team-players="'+teamId+'"]');
         if (openTeamModal) { openTeamModal.closest('[style*=fixed]')?.remove(); _openTeamPlayers(teamId, ''); }
     }
@@ -1441,7 +1448,7 @@ window.CancheroTournaments = (function() {
             ${hasRoster ? `
             <div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:8px;">EVENTOS · tocá un jugador para sumar</div>
             <div style="display:flex;gap:6px;margin-bottom:10px;">
-                ${typeBtn('gol','Gol',true)}${typeBtn('asistencia','Asist.',false)}${typeBtn('amarilla','Amarilla',false)}${typeBtn('roja','Roja',false)}
+                ${typeBtn('gol','Gol',true)}${typeBtn('asistencia','Asist.',false)}${typeBtn('amarilla','Amarilla',false)}${typeBtn('roja','Roja',false)}${typeBtn('cambio','Cambio',false)}
                 <input id="cme-min" type="number" min="1" max="130" placeholder="min" style="width:50px;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:8px 4px;font-size:12px;text-align:center;">
             </div>
             <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;">
@@ -1451,7 +1458,12 @@ window.CancheroTournaments = (function() {
             </div>
             <div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:6px;">CARGADOS</div>
             <div id="cme-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:16px;"></div>`
-            : `<div style="font-size:11px;color:#666;background:#111;border:1px solid #1e1e1e;border-radius:10px;padding:10px 12px;margin-bottom:16px;">Agregá jugadores a los equipos (pestaña Equipos → Jugadores) para registrar goleadores y tarjetas. Igual podés guardar el marcador.</div>`}
+            : `<div style="font-size:11px;color:#888;background:#111;border:1px solid #1e1e1e;border-radius:10px;padding:12px;margin-bottom:10px;line-height:1.5;">Para registrar goleadores, asistencias y tarjetas hacen falta los jugadores del equipo. Podés cargarlos acá mismo:</div>
+            <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+                <button onclick="CancheroTournaments._cmeCargarJugador('${m.home_team_id||''}','${matchId}','${(tournamentId||'').replace(/'/g,"\\'")}' )" style="flex:1;min-width:130px;background:rgba(186,255,0,0.08);color:var(--accent);border:1px solid rgba(186,255,0,0.25);border-radius:10px;padding:10px;font-weight:800;font-size:12px;cursor:pointer;"><i class='bx bx-user-plus'></i> ${_esc((_homeT.team_name||m.home_team_name||'Local')).slice(0,16)}</button>
+                <button onclick="CancheroTournaments._cmeCargarJugador('${m.away_team_id||''}','${matchId}','${(tournamentId||'').replace(/'/g,"\\'")}' )" style="flex:1;min-width:130px;background:rgba(74,158,255,0.08);color:#4a9eff;border:1px solid rgba(74,158,255,0.25);border-radius:10px;padding:10px;font-weight:800;font-size:12px;cursor:pointer;"><i class='bx bx-user-plus'></i> ${_esc((_awayT.team_name||m.away_team_name||'Visitante')).slice(0,16)}</button>
+            </div>
+            <div style="font-size:10.5px;color:#555;margin-bottom:16px;line-height:1.5;">También podés cargarlos desde Equipos → Jugadores. Igual podés guardar solo el marcador.</div>`}
             <button onclick="CancheroTournaments._saveMatchLoad('${matchId}','${(tournamentId||'').replace(/'/g,"\\'")}' )" style="width:100%;background:linear-gradient(135deg,#baff00,#8fd400);color:#000;border:none;border-radius:12px;padding:13px;font-weight:900;font-size:14px;cursor:pointer;box-shadow:0 4px 16px rgba(186,255,0,0.25);">Guardar</button>
         </div>`;
         modal.onclick = e => { if (e.target === modal) modal.remove(); };
@@ -1511,10 +1523,54 @@ window.CancheroTournaments = (function() {
         const mnt = document.getElementById('cme-min');
         const min = mnt && mnt.value !== '' ? parseInt(mnt.value) : null;
         window.__cmeEvents = window.__cmeEvents || [];
-        window.__cmeEvents.push({ player_id: pid, player_name: p.player_name, team_id: p.team_id, type: window.__cmeType || 'gol', minute: (isNaN(min)?null:min) });
+        const _tipo = window.__cmeType || 'gol';
+        window.__cmeEvents.push({ player_id: pid, player_name: p.player_name, team_id: p.team_id, type: _tipo, minute: (isNaN(min)?null:min) });
         if (mnt) mnt.value = '';
         _cmeRenderList();
-        try { if (window.showToast) showToast(_evName(window.__cmeType||'gol') + ': ' + p.player_name, 'success', 1200); } catch(e){}
+        try { if (window.showToast) showToast(_evName(_tipo) + ': ' + p.player_name, 'success', 1200); } catch(e){}
+        // Igual que en vivo: después de un GOL se sugiere la asistencia entre los
+        // compañeros. Se puede omitir — un gol sin asistencia es válido.
+        if (_tipo === 'gol') _cmeSugerirAsist(p);
+    }
+
+    // Sugerencia de asistencia dentro del EDITOR de resultado (sin cronómetro).
+    function _cmeSugerirAsist(goleador) {
+        const companeros = (window.__cmeRoster||[]).filter(x =>
+            String(x.team_id) === String(goleador.team_id) && String(x.id) !== String(goleador.id));
+        if (!companeros.length) return;
+        const ex = document.getElementById('cmeasist-modal'); if (ex) ex.remove();
+        const d = document.createElement('div');
+        d.id = 'cmeasist-modal';
+        d.style.cssText = 'position:fixed;inset:0;z-index:100012;background:rgba(0,0,0,0.93);overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:20px;';
+        d.innerHTML = `
+        <div style="background:#0d0d0d;border:1px solid #222;border-radius:18px;width:100%;max-width:400px;padding:20px;margin-top:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <h3 style="font-family:Outfit,sans-serif;font-weight:900;font-size:15px;">${_evIcon('asistencia')} ¿Quién asistió?</h3>
+                <button onclick="document.getElementById('cmeasist-modal').remove()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;">&times;</button>
+            </div>
+            <div style="font-size:11.5px;color:#888;margin-bottom:14px;">Gol de <b style="color:var(--accent);">${_esc(goleador.player_name||'')}</b>.</div>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
+                ${companeros.map(x => `<button onclick="CancheroTournaments._cmeAsist('${x.id}')" style="display:flex;align-items:center;gap:9px;width:100%;background:#141414;border:1px solid #222;border-radius:10px;padding:9px 11px;cursor:pointer;color:#fff;text-align:left;">
+                    <span style="width:28px;height:28px;border-radius:50%;flex-shrink:0;${x.avatar_url?`background:#222 url('${_esc(x.avatar_url)}') center/cover;`:`background:rgba(186,255,0,0.12);`}display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--accent);">${x.avatar_url?'':(x.number||'')}</span>
+                    <span style="font-size:13px;font-weight:700;">${_esc(x.player_name)}</span>
+                </button>`).join('')}
+            </div>
+            <button onclick="document.getElementById('cmeasist-modal').remove()" style="width:100%;background:rgba(255,255,255,0.05);color:#aaa;border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:12px;font-weight:800;font-size:13px;cursor:pointer;">Sin asistencia</button>
+        </div>`;
+        d.onclick = e => { if (e.target === d) d.remove(); };
+        document.body.appendChild(d);
+    }
+    // Suma la asistencia elegida al mismo minuto que el gol recién cargado.
+    function _cmeAsist(pid) {
+        const p = (window.__cmeRoster||[]).find(x => String(x.id) === String(pid));
+        document.getElementById('cmeasist-modal')?.remove();
+        if (!p) return;
+        const evs = window.__cmeEvents || [];
+        const ultimoGol = [...evs].reverse().find(e => e.type === 'gol');
+        evs.push({ player_id: p.id, player_name: p.player_name, team_id: p.team_id,
+                   type: 'asistencia', minute: ultimoGol ? ultimoGol.minute : null });
+        _cmeRenderList();
+        try { if (window.showToast) showToast('Asistencia: ' + p.player_name, 'success', 1200); } catch(e){}
     }
     // Compat: el selector viejo por <select> (por si algún flujo aún lo llama).
     function _cmeAdd() {
@@ -1528,6 +1584,16 @@ window.CancheroTournaments = (function() {
         _cmeRenderList();
     }
     function _cmeRemove(i) { (window.__cmeEvents||[]).splice(i, 1); _cmeRenderList(); }
+
+    // Cargar un jugador SIN salir del editor de resultado: si el equipo no tiene plantel
+    // no se podían registrar goleadores y había que irse a Equipos → Jugadores.
+    // Al terminar se reabre el editor, ya con el selector de eventos disponible.
+    function _cmeCargarJugador(teamId, matchId, tournamentId) {
+        if (!teamId) { toast('Ese equipo todavía no está vinculado al partido.', 'warning'); return; }
+        window.__cmeVolverA = { matchId, tournamentId };
+        document.getElementById('cme-modal')?.remove();
+        _addPlayerToTeam(teamId);
+    }
 
     async function _saveMatchLoad(matchId, tid) {
         const sb = getSb();
@@ -2902,6 +2968,8 @@ window.CancheroTournaments = (function() {
         _cmeAddPlayer,
         _cmeSetType,
         _cmeRemove,
+        _cmeCargarJugador,
+        _cmeAsist,
         _saveMatchLoad,
         _openMatchDetail,
         _liveChrono,
