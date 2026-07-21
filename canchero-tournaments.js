@@ -402,6 +402,7 @@ window.CancheroTournaments = (function() {
                 ${_ctmTabBtn('tabla','bx-list-ol','Tabla',tournamentId,organizerEmail)}
                 ${_ctmTabBtn('jugadores','bx-group','Jugadores',tournamentId,organizerEmail)}
                 ${_ctmTabBtn('goleadores','bx-football','Goleadores',tournamentId,organizerEmail)}
+                ${_ctmTabBtn('info','bx-info-circle','Info',tournamentId,organizerEmail)}
                 ${isOrgMgr ? _ctmTabBtn('solicitudes','bx-user-plus','Solicitudes',tournamentId,organizerEmail) : ''}
             </div>
             <div id="ctm-content" style="min-height:300px;"></div>
@@ -598,7 +599,7 @@ window.CancheroTournaments = (function() {
         const name = document.getElementById('ctm-team-name')?.value.trim();
         if (!name) { toast('Ingresá el nombre del equipo.', 'warning'); return; }
         const proofUrl = document.getElementById('ctm-payment-proof')?.value.trim() || null;
-        const { error } = await sb.from('tournament_teams').insert({
+        const fila = {
             tournament_id: tournamentId,
             team_name: name,
             captain_email: user.email,
@@ -606,8 +607,28 @@ window.CancheroTournaments = (function() {
             status: 'pending',
             payment_status: proofUrl ? 'pending' : 'pending',
             payment_proof_url: proofUrl
-        });
+        };
+        // Si eligió un equipo YA registrado en Canchero, se lleva el escudo y queda vinculado.
+        const clubId = window.__ctInscribeClub;
+        if (clubId) {
+            try {
+                const { data: c } = await sb.from('clubs').select('id,name,logo,logo_url,city,owner_email').eq('id', clubId).maybeSingle();
+                if (c) {
+                    fila.club_id = c.id;
+                    fila.club_email = c.owner_email || null;
+                    fila.logo_url = c.logo_url || c.logo || null;
+                }
+            } catch(e){}
+        }
+        let { error } = await sb.from('tournament_teams').insert(fila);
+        if (error && clubId) {
+            // Si faltan las columnas de vínculo, se anota igual con el nombre.
+            const bare = { ...fila }; delete bare.club_id; delete bare.club_email; delete bare.logo_url;
+            const r2 = await sb.from('tournament_teams').insert(bare);
+            error = r2.error;
+        }
         if (error) { toast('Error: ' + (error.message||''), 'error'); return; }
+        window.__ctInscribeClub = null;
         // Notificar a la organización creadora (le llega en su campana)
         try {
             let orgEmail = organizerEmail;
@@ -3534,6 +3555,7 @@ window.CancheroTournaments = (function() {
         else if (tab === 'tabla') await _ctmTabla(tournamentId, organizerEmail);
         else if (tab === 'jugadores') await _ctmJugadores(tournamentId, organizerEmail);
         else if (tab === 'goleadores') await _ctmGoleadores(tournamentId);
+        else if (tab === 'info') { const c = document.getElementById('ctm-content'); if (c) await _ctpInfo(tournamentId, organizerEmail, c); }
         else if (tab === 'solicitudes') await _ctmSolicitudes(tournamentId, organizerEmail);
     }
 
@@ -3645,6 +3667,7 @@ window.CancheroTournaments = (function() {
                 <button class="ctp-tab" onclick="CancheroTournaments._ctpTab('equipos','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:transparent;color:#666;border:1px solid #222;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;"><i class='bx bx-shield-quarter'></i> Equipos</button>
                 <button class="ctp-tab" onclick="CancheroTournaments._ctpTab('goleadores','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:transparent;color:#666;border:1px solid #222;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;"><i class='bx bx-football'></i> Goleadores</button>
                 <button class="ctp-tab" onclick="CancheroTournaments._ctpTab('jugadores','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:transparent;color:#666;border:1px solid #222;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;"><i class='bx bx-group'></i> Jugadores</button>
+                <button class="ctp-tab" onclick="CancheroTournaments._ctpTab('info','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:transparent;color:#666;border:1px solid #222;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;"><i class='bx bx-info-circle'></i> Info</button>
                 ${t.status === 'registration' && !isOrg ? `<button class="ctp-tab" onclick="CancheroTournaments._ctpTab('inscribir','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:rgba(186,255,0,0.05);color:var(--accent);border:1px solid rgba(186,255,0,0.2);border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;"><i class='bx bx-edit'></i> Inscribirme</button>` : ''}
             </div>
             <div id="ctp-content" style="min-height:200px;"></div>
@@ -3653,6 +3676,286 @@ window.CancheroTournaments = (function() {
         modal.onclick = e => { if (e.target === modal) modal.remove(); };
         document.body.appendChild(modal);
         _ctpTab('tabla', tournamentId, t.organizer_email, modal.querySelector('.ctp-tab'));
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // VISTA PÚBLICA · INSCRIBIRME
+    // Se puede elegir un equipo YA registrado en Canchero (se lleva escudo y ciudad) o
+    // cargar uno suelto si todavía no existe.
+    // ═══════════════════════════════════════════════════════════
+    async function _ctpInscribir(tournamentId, organizerEmail, el) {
+        const sb = getSb();
+        const user = getUser();
+        const caja = 'padding:16px;background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.08);border-radius:16px;backdrop-filter:blur(10px);';
+        if (!user || !user.email) {
+            el.innerHTML = `<div style="${caja}text-align:center;">
+                <i class='bx bx-lock-alt' style="font-size:32px;color:var(--accent);"></i>
+                <div style="font-weight:900;font-size:15px;margin:10px 0 6px;">Iniciá sesión para inscribirte</div>
+                <div style="font-size:12px;color:#888;line-height:1.5;">Con tu cuenta de Canchero podés anotar tu equipo y seguir el torneo.</div>
+            </div>`;
+            return;
+        }
+        // Equipos del usuario: los que creó y los que capitanea.
+        let míos = [];
+        try {
+            const { data: a } = await sb.from('clubs').select('id,name,city,logo,logo_url').eq('owner_email', user.email).limit(20);
+            const { data: b } = await sb.from('clubs').select('id,name,city,logo,logo_url').eq('captain_email', user.email).limit(20);
+            const map = {};
+            [...(a||[]), ...(b||[])].forEach(c => { map[c.id] = c; });
+            míos = Object.values(map);
+        } catch(e){}
+        // Los que ya están anotados en ESTE torneo no se ofrecen de nuevo.
+        let yaAnotados = new Set();
+        try {
+            const { data: ya } = await sb.from('tournament_teams').select('team_name,club_id,captain_email').eq('tournament_id', tournamentId);
+            (ya||[]).forEach(x => { if (x.club_id) yaAnotados.add(x.club_id); });
+            if ((ya||[]).some(x => (x.captain_email||'').toLowerCase() === user.email.toLowerCase())) {
+                el.innerHTML = `<div style="${caja}text-align:center;">
+                    <i class='bx bx-check-circle' style="font-size:32px;color:#00e676;"></i>
+                    <div style="font-weight:900;font-size:15px;margin:10px 0 6px;">Ya enviaste tu solicitud</div>
+                    <div style="font-size:12px;color:#888;line-height:1.5;">La organización la va a revisar. Te avisamos cuando la aprueben.</div>
+                </div>`;
+                return;
+            }
+        } catch(e){}
+        const disponibles = míos.filter(c => !yaAnotados.has(c.id));
+
+        el.innerHTML = `
+        <div style="${caja}margin-bottom:12px;">
+            <div style="font-weight:900;font-size:14px;margin-bottom:4px;"><i class='bx bx-shield-quarter' style="color:var(--accent);"></i> Inscribir mi equipo</div>
+            <div style="font-size:11.5px;color:#888;line-height:1.5;margin-bottom:12px;">Elegí un equipo que ya tengas en Canchero — se lleva el escudo y el plantel — o cargá uno nuevo.</div>
+            ${disponibles.length ? disponibles.map(c => `
+                <div onclick="CancheroTournaments._inscribePick('${c.id}')" id="ctpick-${c.id}" class="ctp-pick" style="display:flex;align-items:center;gap:11px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;margin-bottom:7px;cursor:pointer;transition:.15s;">
+                    ${_shieldHTML(c.logo_url || c.logo, c.name, 36)}
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(c.name)}</div>
+                        <div style="font-size:10.5px;color:#666;">${_esc(c.city||'Sin ciudad')}</div>
+                    </div>
+                    <i class='bx bx-circle' style="color:#444;font-size:19px;"></i>
+                </div>`).join('')
+            : `<div style="font-size:12px;color:#666;padding:10px 12px;background:rgba(255,255,255,0.02);border-radius:10px;margin-bottom:10px;"><i class='bx bx-info-circle'></i> Todavía no tenés equipos en Canchero. Cargá uno acá abajo.</div>`}
+        </div>
+        <div style="${caja}">
+            <div style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;margin-bottom:6px;">${disponibles.length ? 'O CARGÁ UNO NUEVO' : 'NOMBRE DEL EQUIPO'}</div>
+            <input id="ctm-team-name" type="text" placeholder="Nombre de tu equipo" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:11px 12px;font-size:13px;box-sizing:border-box;margin-bottom:10px;">
+            <button onclick="CancheroTournaments._inscribeTeam('${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}' )" style="width:100%;background:var(--accent);color:#000;border:none;border-radius:12px;padding:12px;font-weight:900;font-size:14px;cursor:pointer;">Enviar solicitud</button>
+        </div>`;
+        window.__ctInscribeClub = null;
+    }
+
+    // Marca visualmente el equipo elegido y completa el nombre en el formulario.
+    function _inscribePick(clubId) {
+        const prev = window.__ctInscribeClub;
+        document.querySelectorAll('.ctp-pick').forEach(d => {
+            d.style.borderColor = 'rgba(255,255,255,0.08)';
+            d.style.background = 'rgba(255,255,255,0.03)';
+            const ic = d.querySelector('i.bx'); if (ic) { ic.className = 'bx bx-circle'; ic.style.color = '#444'; }
+        });
+        if (prev === clubId) { window.__ctInscribeClub = null; const n = document.getElementById('ctm-team-name'); if (n) n.value = ''; return; }
+        const box = document.getElementById('ctpick-' + clubId);
+        if (box) {
+            box.style.borderColor = 'rgba(186,255,0,0.45)';
+            box.style.background = 'rgba(186,255,0,0.08)';
+            const ic = box.querySelector('i.bx'); if (ic) { ic.className = 'bx bxs-check-circle'; ic.style.color = 'var(--accent)'; }
+            const nombre = box.querySelector('div > div');
+            const n = document.getElementById('ctm-team-name');
+            if (n && nombre) n.value = nombre.textContent.trim();
+        }
+        window.__ctInscribeClub = clubId;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // VISTA PÚBLICA · INFO (premio, sponsors y contacto con la organización)
+    // ═══════════════════════════════════════════════════════════
+    async function _ctpInfo(tournamentId, organizerEmail, el) {
+        const sb = getSb();
+        const { data: t } = await sb.from('tournaments').select('*').eq('id', tournamentId).single();
+        if (!t) { el.innerHTML = ''; return; }
+        const isOrg = _isOrgActive(t.organizer_email);
+        const caja = 'padding:16px;background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.08);border-radius:16px;backdrop-filter:blur(10px);margin-bottom:12px;';
+
+        const org = await _orgContacto(t.organizer_email);
+        const wsp = org.whatsapp;
+
+        // Sponsors del torneo (tabla propia; si no existe todavía, no se muestra la sección)
+        let sponsors = [];
+        try {
+            const { data } = await sb.from('tournament_sponsors')
+                .select('*').eq('tournament_id', tournamentId).order('orden');
+            sponsors = data || [];
+        } catch(e){ sponsors = null; }   // null = la tabla no existe (falta migración)
+
+        const premio = `
+        <div style="${caja}text-align:center;">
+            <div style="font-size:10px;color:#666;font-weight:900;letter-spacing:1.4px;margin-bottom:10px;">PREMIO</div>
+            ${t.prize_pool ? `
+                <i class='bx bxs-trophy' style="font-size:38px;color:#ffd23f;filter:drop-shadow(0 0 14px rgba(255,210,63,.4));"></i>
+                <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:20px;margin-top:8px;line-height:1.2;">${_esc(t.prize_pool)}</div>`
+            : `<div style="font-size:12.5px;color:#666;">La organización todavía no cargó el premio.</div>`}
+            ${t.entry_fee > 0
+                ? `<div style="font-size:12px;color:#ffaa00;margin-top:10px;"><i class='bx bx-dollar-circle'></i> Inscripción: $${t.entry_fee}</div>`
+                : `<div style="font-size:12px;color:#00e676;margin-top:10px;"><i class='bx bx-dollar-circle'></i> Inscripción gratis</div>`}
+        </div>`;
+
+        const contacto = `
+        <div style="${caja}">
+            <div style="font-size:10px;color:#666;font-weight:900;letter-spacing:1.4px;margin-bottom:10px;">CONTACTAR A LA ORGANIZACIÓN</div>
+            <div style="font-size:13px;font-weight:800;margin-bottom:12px;">${_esc(org.name || t.organizer_email || 'Organización')}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="CancheroTournaments._contactOrg('chat','${tournamentId}')" style="flex:1;min-width:140px;background:rgba(186,255,0,0.12);color:var(--accent);border:1px solid rgba(186,255,0,0.3);border-radius:12px;padding:12px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;"><i class='bx bx-message-dots'></i> Chat de Canchero</button>
+                ${wsp ? `<button onclick="CancheroTournaments._contactOrg('wa','${tournamentId}')" style="flex:1;min-width:140px;background:#25D366;color:#000;border:none;border-radius:12px;padding:12px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;"><i class='bx bxl-whatsapp' style="font-size:17px;"></i> WhatsApp</button>` : ''}
+            </div>
+            ${!wsp ? `<div style="font-size:10.5px;color:#555;margin-top:8px;">${isOrg ? 'Cargá tu WhatsApp en el perfil del negocio para que también te puedan escribir por ahí.' : 'Esta organización no publicó WhatsApp.'}</div>` : ''}
+        </div>`;
+
+        let bloqueSponsors = '';
+        if (sponsors === null) {
+            bloqueSponsors = isOrg ? `<div style="${caja}font-size:11.5px;color:#888;line-height:1.5;"><i class='bx bx-error-circle' style="color:#ffaa00;"></i> Para cargar sponsors falta correr la migración SQL de <b>tournament_sponsors</b>.</div>` : '';
+        } else if (sponsors.length || isOrg) {
+            bloqueSponsors = `
+            <div style="${caja}">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <div style="font-size:10px;color:#666;font-weight:900;letter-spacing:1.4px;">SPONSORS</div>
+                    ${isOrg ? `<button onclick="CancheroTournaments._openAddSponsor('${tournamentId}')" style="background:rgba(186,255,0,0.1);color:var(--accent);border:1px solid rgba(186,255,0,0.25);border-radius:9px;padding:5px 10px;font-size:11px;font-weight:800;cursor:pointer;"><i class='bx bx-plus'></i> Agregar</button>` : ''}
+                </div>
+                ${sponsors.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;">
+                    ${sponsors.map(s => `<div style="position:relative;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:13px;padding:12px 8px;text-align:center;">
+                        ${isOrg ? `<button onclick="event.stopPropagation();CancheroTournaments._deleteSponsor('${s.id}','${tournamentId}')" title="Quitar" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);border:none;color:#ff6b6b;border-radius:7px;width:20px;height:20px;font-size:13px;cursor:pointer;line-height:1;">&times;</button>` : ''}
+                        <a ${s.link ? `href="${_esc(s.link)}" target="_blank" rel="noopener noreferrer"` : ''} style="text-decoration:none;color:inherit;display:block;">
+                            ${s.logo_url
+                                ? `<img src="${_esc(s.logo_url)}" alt="${_esc(s.name)}" style="width:56px;height:56px;object-fit:contain;border-radius:10px;background:#fff;padding:4px;" onerror="this.style.display='none'">`
+                                : `<div style="width:56px;height:56px;margin:0 auto;border-radius:10px;background:rgba(186,255,0,.1);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:var(--accent);">${_esc((s.name||'?')[0].toUpperCase())}</div>`}
+                            <div style="font-size:10.5px;font-weight:700;margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(s.name)}</div>
+                        </a>
+                    </div>`).join('')}
+                </div>` : `<div style="font-size:12px;color:#666;">Todavía no hay sponsors cargados.</div>`}
+            </div>`;
+        }
+
+        el.innerHTML = premio + bloqueSponsors + contacto
+            + (t.rules ? `<div style="${caja}"><div style="font-size:10px;color:#666;font-weight:900;letter-spacing:1.4px;margin-bottom:8px;">REGLAMENTO</div><p style="font-size:12.5px;color:#999;line-height:1.6;white-space:pre-wrap;margin:0;">${_esc(t.rules)}</p></div>` : '');
+    }
+
+    // Nombre y WhatsApp de la organización. El negocio vive en business_requests; como
+    // respaldo se mira users.whatsapp_number, que es donde lo guardan otros rubros.
+    async function _orgContacto(email) {
+        const sb = getSb();
+        const out = { name: '', whatsapp: '' };
+        if (!email) return out;
+        try {
+            const { data } = await sb.from('business_requests')
+                .select('name,whatsapp,phone').ilike('email', email).maybeSingle();
+            if (data) { out.name = data.name || ''; out.whatsapp = data.whatsapp || data.phone || ''; }
+        } catch(e){}
+        if (!out.whatsapp) {
+            try {
+                const { data } = await sb.from('users')
+                    .select('name,whatsapp_number,phone').ilike('email', email).maybeSingle();
+                if (data) { out.name = out.name || data.name || ''; out.whatsapp = data.whatsapp_number || data.phone || ''; }
+            } catch(e){}
+        }
+        out.whatsapp = String(out.whatsapp || '').replace(/[^0-9]/g, '');
+        return out;
+    }
+
+    // Contactar a la organización: por el chat de Canchero o por WhatsApp, a elección.
+    async function _contactOrg(via, tournamentId) {
+        const sb = getSb();
+        const { data: t } = await sb.from('tournaments').select('name,organizer_email').eq('id', tournamentId).single();
+        if (!t) return;
+        if (via === 'wa') {
+            const num = (await _orgContacto(t.organizer_email)).whatsapp;
+            if (!num) { toast('La organización no publicó WhatsApp.', 'info'); return; }
+            const txt = `Hola! Te escribo por el torneo ${t.name} que vi en Canchero.`;
+            window.open(`https://wa.me/${num}?text=${encodeURIComponent(txt)}`, '_blank');
+            return;
+        }
+        // Chat interno de Canchero
+        const user = getUser();
+        if (!user || !user.email) { toast('Iniciá sesión para escribirle a la organización.', 'warning'); return; }
+        if (typeof window.openChatWith === 'function') { window.openChatWith(t.organizer_email); return; }
+        if (typeof window.abrirChatCon === 'function') { window.abrirChatCon(t.organizer_email); return; }
+        // Sin función de chat a mano (torneo.html público): avisamos por notificación.
+        try {
+            await sb.from('notifications').insert({
+                recipient_email: t.organizer_email,
+                type: 'torneo_consulta',
+                actor_name: user.name || user.email,
+                actor_email: user.email,
+                message: `${user.name || user.email} quiere contactarte por el torneo ${t.name}.`,
+                post_id: tournamentId,
+                read: false
+            });
+            toast('Le avisamos a la organización. Te van a escribir por el chat.', 'success');
+        } catch(e) { toast('No se pudo enviar el mensaje.', 'error'); }
+    }
+
+    // ── Sponsors del torneo (sin límite y gratis)
+    async function _openAddSponsor(tournamentId) {
+        window.__ctSponsorLogo = null;
+        const ex = document.getElementById('ctsp-modal'); if (ex) ex.remove();
+        const modal = document.createElement('div');
+        modal.id = 'ctsp-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100011;background:rgba(0,0,0,0.92);backdrop-filter:blur(6px);overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:20px;';
+        const sty = 'width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;box-sizing:border-box;margin-bottom:10px;';
+        modal.innerHTML = `
+        <div style="background:rgba(255,255,255,0.045);border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(16px);border-radius:18px;width:100%;max-width:380px;padding:20px;margin-top:24px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                <h3 style="font-family:Outfit,sans-serif;font-weight:900;font-size:15px;"><i class='bx bx-store' style="color:var(--accent);"></i> Agregar sponsor</h3>
+                <button onclick="document.getElementById('ctsp-modal').remove()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;">&times;</button>
+            </div>
+            <div style="text-align:center;margin-bottom:14px;">
+                <label style="cursor:pointer;display:inline-block;">
+                    <span id="ctsp-logo-box" style="width:80px;height:80px;border-radius:14px;border:1px dashed #444;display:flex;align-items:center;justify-content:center;color:#666;font-size:22px;background-size:cover;background-position:center;"><i class='bx bx-image-add'></i></span>
+                    <input type="file" accept="image/*" style="display:none;" onchange="CancheroTournaments._ctspPickLogo(this)">
+                </label>
+                <div style="font-size:10px;color:#555;margin-top:5px;">Logo (opcional)</div>
+            </div>
+            <input id="ctsp-name" type="text" placeholder="Nombre del sponsor" style="${sty}">
+            <input id="ctsp-link" type="url" placeholder="Link (opcional) https://..." style="${sty}">
+            <button onclick="CancheroTournaments._saveSponsor('${tournamentId}')" style="width:100%;background:var(--accent);color:#000;border:none;border-radius:12px;padding:12px;font-weight:900;font-size:14px;cursor:pointer;">Agregar sponsor</button>
+        </div>`;
+        modal.onclick = e => { if (e.target === modal) modal.remove(); };
+        document.body.appendChild(modal);
+    }
+    async function _ctspPickLogo(input) {
+        const f = input.files && input.files[0]; if (!f) return;
+        toast('Subiendo logo...', 'info');
+        const url = await _uploadImg(f, 'torneos/sponsors');
+        if (!url) { toast('No se pudo subir el logo.', 'error'); return; }
+        window.__ctSponsorLogo = url;
+        const box = document.getElementById('ctsp-logo-box');
+        if (box) { box.style.backgroundImage = `url('${url}')`; box.innerHTML = ''; box.style.border = '1px solid rgba(186,255,0,.4)'; }
+    }
+    async function _saveSponsor(tournamentId) {
+        const sb = getSb();
+        const name = (document.getElementById('ctsp-name')?.value || '').trim();
+        if (!name) { toast('Ingresá el nombre del sponsor.', 'warning'); return; }
+        const { error } = await sb.from('tournament_sponsors').insert({
+            tournament_id: tournamentId,
+            name,
+            logo_url: window.__ctSponsorLogo || null,
+            link: (document.getElementById('ctsp-link')?.value || '').trim() || null,
+            orden: Date.now() % 100000
+        });
+        if (error) { toast('Error: ' + error.message + ' (¿corriste la migración?)', 'error'); return; }
+        window.__ctSponsorLogo = null;
+        document.getElementById('ctsp-modal')?.remove();
+        toast('Sponsor agregado.', 'success');
+        _ctpRefreshInfo(tournamentId);
+    }
+    async function _deleteSponsor(sponsorId, tournamentId) {
+        if (!confirm('¿Quitar este sponsor del torneo?')) return;
+        const sb = getSb();
+        const { error } = await sb.from('tournament_sponsors').delete().eq('id', sponsorId);
+        if (error) { toast('Error: ' + error.message, 'error'); return; }
+        toast('Sponsor quitado.', 'success');
+        _ctpRefreshInfo(tournamentId);
+    }
+    // Vuelve a pintar el tab Info donde esté abierto (vista pública o panel de gestión).
+    function _ctpRefreshInfo(tournamentId) {
+        const cont = document.getElementById('ctp-content') || document.getElementById('ctm-content');
+        if (cont) _ctpInfo(tournamentId, null, cont);
     }
 
     async function _ctpTab(tab, tournamentId, organizerEmail, btn) {
@@ -3673,7 +3976,8 @@ window.CancheroTournaments = (function() {
         else if (tab === 'equipos') await _ctmEquipos(tournamentId, organizerEmail);
         else if (tab === 'jugadores') await _ctmJugadores(tournamentId);
         else if (tab === 'goleadores') await _ctmGoleadores(tournamentId);
-        else if (tab === 'inscribir') { tempEl.innerHTML = `<div style="padding:16px;background:#111;border:1px solid #1e1e1e;border-radius:14px;"><div style="font-weight:900;font-size:14px;margin-bottom:10px;"><i class='bx bx-clipboard'></i> Inscribir mi equipo</div><div style="display:flex;gap:8px;"><input id="ctm-team-name" type="text" placeholder="Nombre de tu equipo" style="flex:1;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:9px 12px;font-size:13px;"><button onclick="CancheroTournaments._inscribeTeam('${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}' )" style="background:var(--accent);color:#000;border:none;border-radius:10px;padding:9px 16px;font-weight:900;font-size:13px;cursor:pointer;">Inscribir</button></div></div>`; }
+        else if (tab === 'inscribir') { await _ctpInscribir(tournamentId, organizerEmail, tempEl); }
+        else if (tab === 'info') { await _ctpInfo(tournamentId, organizerEmail, tempEl); }
         if (ctpContent) ctpContent.innerHTML = tempEl.innerHTML;
         tempEl.remove();
     }
@@ -3775,6 +4079,14 @@ window.CancheroTournaments = (function() {
         _saveMatchTeams,
         _openAddMatch,
         _saveAddMatch,
+        _ctpInscribir,
+        _inscribePick,
+        _ctpInfo,
+        _contactOrg,
+        _openAddSponsor,
+        _ctspPickLogo,
+        _saveSponsor,
+        _deleteSponsor,
         _invitePlayer,
         _inviteTeam,
         _inviteVia,
