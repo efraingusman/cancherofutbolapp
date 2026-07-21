@@ -85,6 +85,25 @@ function _crmDedupHeader(){
   }
 })();
 
+/* ── Abrir un perfil desde el CRM ────────────────────────────────────────
+   El CRM vive dentro de un iframe de la app. Hacer window.open('index.html?...')
+   recargaba la app entera y "te sacaba de todo". Si estamos embebidos y el padre
+   ya tiene el visor de perfiles, se lo pedimos a él; si no, recién ahí se abre
+   en una pestaña nueva. */
+window.crmAbrirPerfil = function(tipo, ref){
+  if (!ref) return;
+  try {
+    var embebido = window.self !== window.top;
+    var padre = embebido ? window.parent : null;
+    if (padre) {
+      if (tipo === 'club' && typeof padre.viewClubProfile === 'function') { padre.viewClubProfile(ref); return; }
+      if (tipo !== 'club' && typeof padre.viewUserProfile === 'function') { padre.viewUserProfile(ref, true); return; }
+    }
+  } catch(e){ /* cross-origin o padre sin visor: caemos a la pestaña nueva */ }
+  var url = 'index.html?' + (tipo === 'club' ? 'club=' : 'perfil=') + encodeURIComponent(ref);
+  window.open(url, '_blank');
+};
+
 function _fmt(n){ n = Number(n)||0; return '$' + n.toLocaleString('es-UY',{maximumFractionDigits:0}); }
 function _t(msg){ try { toast(msg); } catch(e){ alert(msg); } }
 function _modal(html){

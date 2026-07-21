@@ -874,15 +874,21 @@ window.CancheroTournaments = (function() {
     // Modal para agregar jugador (manual o vinculando un jugador registrado → autocompleta).
     // Cuántos jugadores puede tener un equipo según el tipo de fútbol del torneo.
     // Titulares + una banca razonable; si el torneo no declara el tipo, no hay tope.
+    // Suplentes por defecto según el tipo de fútbol; la organización puede fijar otro
+    // número (max_subs) o poner 0 para no limitar la banca.
     const _SUPLENTES = { 5: 5, 7: 5, 11: 7 };
     async function _topePlantel(tournamentId) {
         if (!tournamentId) return null;
         try {
             const sb = getSb();
-            const { data: t } = await sb.from('tournaments').select('match_format').eq('id', tournamentId).single();
+            const { data: t } = await sb.from('tournaments').select('match_format,max_subs').eq('id', tournamentId).single();
             const f = parseInt(t && t.match_format);
             if (!f || !_SUPLENTES[f]) return null;
-            return { formato: f, titulares: f, suplentes: _SUPLENTES[f], max: f + _SUPLENTES[f] };
+            const subs = (t.max_subs === null || t.max_subs === undefined || t.max_subs === '')
+                ? _SUPLENTES[f] : parseInt(t.max_subs);
+            if (!subs && subs !== 0) return null;
+            if (subs < 0) return null;                  // negativo = sin tope
+            return { formato: f, titulares: f, suplentes: subs, max: f + subs };
         } catch(e) { return null; }
     }
 
@@ -1556,12 +1562,21 @@ window.CancheroTournaments = (function() {
     }
     const _PHASE_NOMBRE = { r64:'32avos de final', r32:'16avos de final', r16:'Octavos de final', quarterfinal:'Cuartos de final', semifinal:'Semifinales', final:'Final' };
 
-    // Tarjeta "cómo se juega" para mostrar arriba del fixture y al confirmar la generación.
-    function _comoSeJuegaHTML(t, teamsCount, compacto) {
+    // Tarjeta "cómo se juega". Se puede plegar para no ocupar lugar siempre; la preferencia
+    // queda guardada, así el que ya entendió el formato no lo ve más.
+    function _comoSeJuegaHTML(t, teamsCount, siempreAbierto) {
         const pasos = _comoSeJuega(t, teamsCount);
         if (!pasos.length) return '';
-        return `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:13px 14px;margin-bottom:${compacto?'10':'14'}px;">
-            <div style="font-size:10px;font-weight:900;color:var(--accent);letter-spacing:1.2px;margin-bottom:9px;"><i class='bx bx-map-alt'></i> CÓMO SE JUEGA</div>
+        let abierto = true;
+        if (!siempreAbierto) {
+            try { abierto = localStorage.getItem('ct_como_cerrado') !== '1'; } catch(e){}
+        }
+        return `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:11px 14px;margin-bottom:${siempreAbierto?'10':'14'}px;">
+            <div ${siempreAbierto?'':`onclick="CancheroTournaments._toggleComoSeJuega(this)" style="cursor:pointer;"`} style="display:flex;align-items:center;gap:7px;${siempreAbierto?'':'cursor:pointer;'}">
+                <span style="font-size:10px;font-weight:900;color:var(--accent);letter-spacing:1.2px;"><i class='bx bx-map-alt'></i> CÓMO SE JUEGA</span>
+                ${siempreAbierto?'':`<i class='bx bx-chevron-${abierto?'up':'down'}' style="margin-left:auto;color:#888;font-size:19px;"></i>`}
+            </div>
+            <div class="ct-como-body" style="display:${abierto?'block':'none'};margin-top:10px;">
             ${pasos.map((p, i) => `<div style="display:flex;gap:9px;margin-bottom:${i===pasos.length-1?'0':'8px'};">
                 <span style="flex-shrink:0;width:19px;height:19px;border-radius:50%;background:rgba(186,255,0,.14);color:var(--accent);font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;margin-top:1px;">${i+1}</span>
                 <div style="min-width:0;">
@@ -1569,7 +1584,17 @@ window.CancheroTournaments = (function() {
                     <div style="font-size:11.5px;color:#8f978f;line-height:1.5;">${_esc(p.d)}</div>
                 </div>
             </div>`).join('')}
+            </div>
         </div>`;
+    }
+    function _toggleComoSeJuega(cab) {
+        const caja = cab.parentElement.querySelector('.ct-como-body');
+        const ico = cab.querySelector('i.bx-chevron-up, i.bx-chevron-down');
+        if (!caja) return;
+        const abrir = caja.style.display === 'none';
+        caja.style.display = abrir ? 'block' : 'none';
+        if (ico) ico.className = 'bx bx-chevron-' + (abrir ? 'up' : 'down');
+        try { localStorage.setItem('ct_como_cerrado', abrir ? '0' : '1'); } catch(e){}
     }
 
     function _splitGroups(teams, perGroup) {
@@ -2846,7 +2871,7 @@ window.CancheroTournaments = (function() {
                 ${tabBtn('jugadores','bx-group','Jugadores',false)}
             </div>
             ${isOrg ? `<div id="cmd-panel-envivo" class="cmd-panel" style="display:none;">${_livePanel(matchId, m)}</div>` : ''}
-            <div id="cmd-panel-resumen" class="cmd-panel">${resumenStats}</div>
+            <div id="cmd-panel-resumen" class="cmd-panel">${resumenStats}<div id="cmd-sponsors" data-torneo="${m.tournament_id||''}"></div></div>
             <div id="cmd-panel-timeline" class="cmd-panel" style="display:none;">${timeline}</div>
             <div id="cmd-panel-jugadores" class="cmd-panel" style="display:none;">
                 <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;font-size:11px;font-weight:800;"><span style="color:var(--accent);"><i class='bx bxs-circle' style="font-size:8px;"></i> ${_esc(home.team_name||'Local')}</span><span style="color:#555;">vs</span><span style="color:#4a9eff;"><i class='bx bxs-circle' style="font-size:8px;"></i> ${_esc(away.team_name||'Visitante')}</span></div>
@@ -2857,6 +2882,7 @@ window.CancheroTournaments = (function() {
         // NO cerrar al tocar el fondo: el usuario tocaba "bastante abajo" y se salía de la
         // gestión sin querer. Se sale solo con "Volver" o la barra inferior.
         document.body.appendChild(modal);
+        _pintarSponsorsEn('cmd-sponsors', m.tournament_id);
         _injectTabCss();
         // Volver al tab en el que estabas: cargar un evento recarga la ficha y te
         // devolvía a Resumen, sacándote de EN VIVO en cada toque.
@@ -3391,6 +3417,13 @@ window.CancheroTournaments = (function() {
                         ${[4,8,12,16,24,32,48,64].map(n => `<option value="${n}" ${(parseInt(t.max_teams)||8)===n?'selected':''}>${n} equipos</option>`).join('')}
                     </select></div>
             </div>
+            <div style="margin-bottom:10px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">SUPLENTES POR EQUIPO</label>
+                <select id="cte-max-subs" style="${selSty}">
+                    <option value="" ${t.max_subs==null?'selected':''}>Por defecto según el tipo de fútbol</option>
+                    ${[0,1,2,3,4,5,6,7,8,9,10,12,15].map(n => `<option value="${n}" ${String(t.max_subs)===String(n)?'selected':''}>${n} suplente${n===1?'':'s'}</option>`).join('')}
+                    <option value="-1" ${String(t.max_subs)==='-1'?'selected':''}>Sin límite</option>
+                </select>
+                <div style="font-size:10px;color:#666;margin-top:4px;">El plantel máximo es los que van a la cancha más los suplentes que elijas.</div></div>
             <div style="margin-bottom:10px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">PLAYOFFS (arrancan en)</label>
                 <select id="cte-playoff" style="${selSty}">
                     ${[['auto','Automático (2 por grupo)'],['r32','16avos de final'],['r16','Octavos de final'],['quarterfinal','Cuartos de final'],['semifinal','Semifinales'],['final','Final directa'],['none','Sin playoffs (solo grupos)']]
@@ -3517,12 +3550,13 @@ window.CancheroTournaments = (function() {
             group_size: parseInt(v('cte-group-size')) || 4,
             match_format: v('cte-match-format') || null,
             max_teams: parseInt(v('cte-max-teams')) || 8,
-            playoff_from: v('cte-playoff') || 'auto'
+            playoff_from: v('cte-playoff') || 'auto',
+            max_subs: v('cte-max-subs') === '' ? null : parseInt(v('cte-max-subs'))
         };
         if (!upd.name) { toast('El nombre no puede quedar vacío.', 'warning'); return; }
         let { error } = await sb.from('tournaments').update(upd).eq('id', tournamentId);
         if (error) {
-            const bare = { ...upd }; delete bare.group_size; delete bare.match_format; delete bare.playoff_from;
+            const bare = { ...upd }; delete bare.group_size; delete bare.match_format; delete bare.playoff_from; delete bare.max_subs;
             const retry = await sb.from('tournaments').update(bare).eq('id', tournamentId);
             if (retry.error) { toast('Error: ' + retry.error.message, 'error'); return; }
             toast('Guardado. Corré la migración SQL para tipo de fútbol y tamaño de grupo.', 'warning');
@@ -3642,6 +3676,9 @@ window.CancheroTournaments = (function() {
         } else {
             container.innerHTML = _renderStandingsTable(teams);
         }
+        // Los sponsors acompañan la tabla: es de lo más compartido del torneo.
+        container.insertAdjacentHTML('beforeend', '<div id="ctm-tabla-sponsors"></div>');
+        _pintarSponsorsEn('ctm-tabla-sponsors', tournamentId);
     }
 
     // Render de la tabla de posiciones en CUALQUIER contenedor (p.ej. la sección
@@ -3984,7 +4021,12 @@ window.CancheroTournaments = (function() {
                 <button onclick="document.getElementById('ctp-modal').remove()" style="background:none;border:none;color:#888;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;"><i class='bx bx-arrow-back'></i> Volver</button>
                 ${isOrg ? `<button onclick="CancheroTournaments.openTournamentManager('${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}' )" style="background:rgba(186,255,0,0.08);color:var(--accent);border:1px solid rgba(186,255,0,0.25);border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;"><i class='bx bx-edit'></i> Gestionar</button>` : ''}
             </div>
-            ${t.cover_url ? `<img src="${t.cover_url}" style="width:100%;height:160px;object-fit:cover;border-radius:16px;margin-bottom:16px;" onerror="this.style.display='none'">` : ''}
+            ${t.cover_url
+                ? `<div style="position:relative;border-radius:16px;overflow:hidden;margin-bottom:16px;">
+                     <img src="${t.cover_url}" style="width:100%;height:160px;object-fit:cover;display:block;" onerror="this.style.display='none'">
+                     <div id="ctp-sponsors-portada"></div>
+                   </div>`
+                : `<div id="ctp-sponsors-portada"></div>`}
             <div style="padding:0 4px;">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
                     <h1 style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;margin:0;">${t.name}</h1>
@@ -4013,7 +4055,28 @@ window.CancheroTournaments = (function() {
         </div>`;
         modal.onclick = e => { if (e.target === modal) modal.remove(); };
         document.body.appendChild(modal);
+        _pintarSponsorsPortada(tournamentId, !!t.cover_url);
         _ctpTab('tabla', tournamentId, t.organizer_email, modal.querySelector('.ctp-tab'));
+    }
+
+    // Pinta la barra de sponsors "compartible" (fichas, tablas, resultados) en un contenedor.
+    async function _pintarSponsorsEn(contId, tournamentId) {
+        if (!tournamentId) return;
+        const cont = document.getElementById(contId);
+        if (!cont) return;
+        const sponsors = await _sponsorsDe(tournamentId);
+        if (!sponsors || !sponsors.length) return;
+        cont.innerHTML = _sponsorBarHTML(sponsors, 'compartir', { conRotulo: true });
+    }
+
+    // Los logos de los sponsors sobre la portada del torneo (o en una barra propia si no
+    // hay foto de portada). Se pintan aparte para no demorar la apertura de la vista.
+    async function _pintarSponsorsPortada(tournamentId, hayFoto) {
+        const cont = document.getElementById('ctp-sponsors-portada');
+        if (!cont) return;
+        const sponsors = await _sponsorsDe(tournamentId);
+        if (!sponsors || !sponsors.length) return;
+        cont.innerHTML = _sponsorBarHTML(sponsors, 'portada', { sobreFoto: hayFoto, conRotulo: !hayFoto });
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -4156,9 +4219,10 @@ window.CancheroTournaments = (function() {
                     <div style="font-size:10px;color:#666;font-weight:900;letter-spacing:1.4px;">SPONSORS</div>
                     ${isOrg ? `<button onclick="CancheroTournaments._openAddSponsor('${tournamentId}')" style="background:rgba(186,255,0,0.1);color:var(--accent);border:1px solid rgba(186,255,0,0.25);border-radius:9px;padding:5px 10px;font-size:11px;font-weight:800;cursor:pointer;"><i class='bx bx-plus'></i> Agregar</button>` : ''}
                 </div>
-                ${sponsors.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;">
-                    ${sponsors.map(s => `<div style="position:relative;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:13px;padding:12px 8px;text-align:center;">
-                        ${isOrg ? `<button onclick="event.stopPropagation();CancheroTournaments._deleteSponsor('${s.id}','${tournamentId}')" title="Quitar" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);border:none;color:#ff6b6b;border-radius:7px;width:20px;height:20px;font-size:13px;cursor:pointer;line-height:1;">&times;</button>` : ''}
+                ${sponsors.length ? (isOrg
+                    ? sponsors.map((s, i) => _sponsorFilaOrg(s, i, sponsors.length, tournamentId)).join('')
+                    : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;">
+                    ${sponsors.map(s => `<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:13px;padding:12px 8px;text-align:center;">
                         <a ${s.link ? `href="${_esc(s.link)}" target="_blank" rel="noopener noreferrer"` : ''} style="text-decoration:none;color:inherit;display:block;">
                             ${s.logo_url
                                 ? `<img src="${_esc(s.logo_url)}" alt="${_esc(s.name)}" style="width:56px;height:56px;object-fit:contain;border-radius:10px;background:#fff;padding:4px;" onerror="this.style.display='none'">`
@@ -4166,7 +4230,8 @@ window.CancheroTournaments = (function() {
                             <div style="font-size:10.5px;font-weight:700;margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(s.name)}</div>
                         </a>
                     </div>`).join('')}
-                </div>` : `<div style="font-size:12px;color:#666;">Todavía no hay sponsors cargados.</div>`}
+                </div>`) : `<div style="font-size:12px;color:#666;">Todavía no hay sponsors cargados.</div>`}
+                ${isOrg && sponsors.length ? `<div style="font-size:10.5px;color:#666;margin-top:10px;line-height:1.5;"><i class='bx bx-info-circle'></i> El orden de arriba hacia abajo es la jerarquía: el primero se muestra primero en la portada y en todo lo que se comparte.</div>` : ''}
             </div>`;
         }
 
@@ -4230,6 +4295,103 @@ window.CancheroTournaments = (function() {
             });
             toast('Le avisamos a la organización. Te van a escribir por el chat.', 'success');
         } catch(e) { toast('No se pudo enviar el mensaje.', 'error'); }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // SPONSORS: barra de logos reutilizable
+    // La organización decide, por sponsor: si aparece en la portada, si aparece en lo
+    // compartible (fichas, tabla, resultados), el tamaño y el orden de jerarquía.
+    // ═══════════════════════════════════════════════════════════
+    const _SP_TAM = { chico: 26, medio: 38, grande: 54 };
+
+    async function _sponsorsDe(tournamentId) {
+        try {
+            const sb = getSb();
+            const { data } = await sb.from('tournament_sponsors')
+                .select('*').eq('tournament_id', tournamentId).order('orden');
+            return data || [];
+        } catch(e) { return null; }   // null = falta la tabla
+    }
+
+    // donde: 'portada' | 'compartir'
+    function _sponsorBarHTML(sponsors, donde, opts) {
+        opts = opts || {};
+        if (!sponsors || !sponsors.length) return '';
+        const campo = donde === 'portada' ? 'mostrar_portada' : 'mostrar_compartir';
+        const visibles = sponsors.filter(s => s[campo] !== false);
+        if (!visibles.length) return '';
+        const sobreFoto = !!opts.sobreFoto;
+        return `<div style="display:flex;align-items:center;justify-content:center;gap:${sobreFoto?10:12}px;flex-wrap:wrap;
+            ${sobreFoto
+                ? 'position:absolute;left:0;right:0;bottom:0;padding:10px 12px;background:linear-gradient(0deg,rgba(0,0,0,.75),rgba(0,0,0,0));'
+                : 'padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:12px;margin-top:10px;'}">
+            ${opts.conRotulo ? `<span style="font-size:8.5px;font-weight:900;color:#7d857d;letter-spacing:1.2px;">AUSPICIAN</span>` : ''}
+            ${visibles.map(s => {
+                const alto = _SP_TAM[s.tamano || 'medio'] || _SP_TAM.medio;
+                const inner = s.logo_url
+                    ? `<img src="${_esc(s.logo_url)}" alt="${_esc(s.name)}" style="height:${alto}px;width:auto;max-width:${alto*3}px;object-fit:contain;display:block;" onerror="this.parentNode.textContent='${_esc(s.name).replace(/'/g,'')}'">`
+                    : `<span style="font-size:${Math.max(10, Math.round(alto*0.32))}px;font-weight:900;color:#fff;">${_esc(s.name)}</span>`;
+                return s.link
+                    ? `<a href="${_esc(s.link)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="display:flex;align-items:center;">${inner}</a>`
+                    : `<span style="display:flex;align-items:center;">${inner}</span>`;
+            }).join('')}
+        </div>`;
+    }
+
+    // Fila de sponsor para la organización: logo, dónde aparece, tamaño y orden.
+    function _sponsorFilaOrg(s, i, total, tournamentId) {
+        const chip = (activo, label, campo) => `<button onclick="CancheroTournaments._sponsorToggle('${s.id}','${campo}',${activo?'false':'true'},'${tournamentId}')" style="background:${activo?'rgba(186,255,0,.13)':'rgba(255,255,255,.04)'};border:1px solid ${activo?'rgba(186,255,0,.35)':'rgba(255,255,255,.1)'};color:${activo?'var(--accent)':'#7d857d'};border-radius:8px;padding:4px 9px;font-size:10.5px;font-weight:800;cursor:pointer;"><i class='bx bx-${activo?'check':'x'}'></i> ${label}</button>`;
+        const tam = (val, label) => `<button onclick="CancheroTournaments._sponsorTamano('${s.id}','${val}','${tournamentId}')" style="background:${(s.tamano||'medio')===val?'rgba(186,255,0,.13)':'rgba(255,255,255,.04)'};border:1px solid ${(s.tamano||'medio')===val?'rgba(186,255,0,.35)':'rgba(255,255,255,.1)'};color:${(s.tamano||'medio')===val?'var(--accent)':'#7d857d'};border-radius:8px;padding:4px 9px;font-size:10.5px;font-weight:800;cursor:pointer;">${label}</button>`;
+        const mover = (dir, off) => `<button ${off?'disabled':''} onclick="CancheroTournaments._sponsorMover('${s.id}','${tournamentId}',${dir})" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:${off?'#3a3f3a':'#bbb'};border-radius:7px;width:24px;height:24px;font-size:14px;cursor:${off?'default':'pointer'};line-height:1;"><i class='bx bx-chevron-${dir>0?'down':'up'}'></i></button>`;
+        return `<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:13px;padding:11px 12px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div style="display:flex;flex-direction:column;gap:3px;">${mover(-1, i===0)}${mover(1, i===total-1)}</div>
+                ${s.logo_url
+                    ? `<img src="${_esc(s.logo_url)}" style="width:44px;height:44px;object-fit:contain;border-radius:9px;background:#fff;padding:3px;flex-shrink:0;">`
+                    : `<div style="width:44px;height:44px;border-radius:9px;background:rgba(186,255,0,.1);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;color:var(--accent);flex-shrink:0;">${_esc((s.name||'?')[0].toUpperCase())}</div>`}
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(s.name)}</div>
+                    <div style="font-size:10px;color:#666;">${i+1}º en la jerarquía</div>
+                </div>
+                <button onclick="CancheroTournaments._deleteSponsor('${s.id}','${tournamentId}')" title="Quitar" style="background:rgba(255,68,68,.1);border:1px solid rgba(255,68,68,.25);color:#ff6b6b;border-radius:8px;width:26px;height:26px;font-size:14px;cursor:pointer;line-height:1;flex-shrink:0;">&times;</button>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;">
+                ${chip(s.mostrar_portada !== false, 'Portada', 'mostrar_portada')}
+                ${chip(s.mostrar_compartir !== false, 'Fichas y tablas', 'mostrar_compartir')}
+                <span style="width:1px;background:rgba(255,255,255,.1);margin:0 2px;"></span>
+                ${tam('chico','Chico')}${tam('medio','Medio')}${tam('grande','Grande')}
+            </div>
+        </div>`;
+    }
+
+    async function _sponsorToggle(id, campo, valor, tournamentId) {
+        const sb = getSb();
+        const upd = {}; upd[campo] = (valor === 'true' || valor === true);
+        const { error } = await sb.from('tournament_sponsors').update(upd).eq('id', id);
+        if (error) { toast('Falta la migración de sponsors: ' + error.message, 'error'); return; }
+        _ctpRefreshInfo(tournamentId);
+    }
+    async function _sponsorTamano(id, tamano, tournamentId) {
+        const sb = getSb();
+        const { error } = await sb.from('tournament_sponsors').update({ tamano }).eq('id', id);
+        if (error) { toast('Falta la migración de sponsors: ' + error.message, 'error'); return; }
+        _ctpRefreshInfo(tournamentId);
+    }
+    // Subir/bajar en la jerarquía: se intercambia el orden con el vecino.
+    async function _sponsorMover(id, tournamentId, dir) {
+        const sb = getSb();
+        const lista = await _sponsorsDe(tournamentId);
+        if (!lista) return;
+        const i = lista.findIndex(x => String(x.id) === String(id));
+        const j = i + (dir > 0 ? 1 : -1);
+        if (i < 0 || j < 0 || j >= lista.length) return;
+        // Se reescriben TODOS los ordenes para que queden 0,1,2... aunque vinieran repetidos.
+        const nuevo = lista.slice();
+        const tmp = nuevo[i]; nuevo[i] = nuevo[j]; nuevo[j] = tmp;
+        for (let k = 0; k < nuevo.length; k++) {
+            try { await sb.from('tournament_sponsors').update({ orden: k }).eq('id', nuevo[k].id); } catch(e){}
+        }
+        _ctpRefreshInfo(tournamentId);
     }
 
     // ── Sponsors del torneo (sin límite y gratis)
@@ -4431,6 +4593,10 @@ window.CancheroTournaments = (function() {
         _ctspPickLogo,
         _saveSponsor,
         _deleteSponsor,
+        _sponsorToggle,
+        _sponsorTamano,
+        _sponsorMover,
+        _toggleComoSeJuega,
         _invitePlayer,
         _inviteTeam,
         _inviteVia,

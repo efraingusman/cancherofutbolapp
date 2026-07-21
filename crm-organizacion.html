@@ -629,7 +629,9 @@ async function orgClientsLoad(){
     const f=fee(t);
     const logo=t.logo_url?`#000 center/cover url('${(t.logo_url||'').replace(/'/g,'')}')`:'rgba(186,255,0,0.12)';
     const cap=(t.captain_email||'').replace(/'/g,'');
-    const perfilRef=t.club_email&&String(t.club_email).indexOf('club:')===0?('index.html?club='+encodeURIComponent(String(t.club_email).slice(5))):(cap?('index.html?perfil='+encodeURIComponent(cap)):'');
+    const esClub=t.club_email&&String(t.club_email).indexOf('club:')===0;
+    const perfilTipo=esClub?'club':'user';
+    const perfilRef=esClub?String(t.club_email).slice(5):(cap||'');
     return `<div class="card" style="padding:12px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:0;">
       <span style="width:40px;height:40px;border-radius:10px;flex-shrink:0;background:${logo};display:flex;align-items:center;justify-content:center;font-weight:900;color:var(--accent);">${t.logo_url?'':(t.team_name||'?')[0].toUpperCase()}</span>
       <div style="flex:1;min-width:150px;">
@@ -642,7 +644,7 @@ async function orgClientsLoad(){
         ${t.payment_status==='pending'&&f>0?`<button class="btn-sm btn-accent" onclick="cliMarkPaid('${t.id}')"><i class='bx bx-dollar-circle'></i> Marcar pagado</button>
         <button class="btn-sm btn-glass" onclick="cliRemind('${t.id}')"><i class='bx bx-bell'></i> Recordar pago</button>`:''}
         <button class="btn-sm btn-glass" onclick="cliEditPay('${t.id}')"><i class='bx bx-edit'></i> Editar pago</button>
-        ${perfilRef?`<button class="btn-sm btn-glass" onclick="window.open('${perfilRef}','_blank')"><i class='bx bx-user'></i> Perfil</button>`:''}
+        ${perfilRef?`<button class="btn-sm btn-glass" onclick="crmAbrirPerfil('${perfilTipo}','${perfilRef.replace(/'/g,"\\'")}')"><i class='bx bx-user'></i> Perfil</button>`:''}
       </div>
     </div>`;
   }).join('');
@@ -832,8 +834,8 @@ async function saveFaq(){
 loadDashboard();
 </script>
   <script src="canchero-crm-ventas.js?v=20260624g"></script>
-<script src="crm-common.js?v=20260720i"></script>
+<script src="crm-common.js?v=20260720j"></script>
 <!-- Motor de torneos: equipos, fixture (cruces automáticos), tabla, jugadores, goleadores, vista pública -->
-<script src="canchero-tournaments.js?v=20260720i"></script>
+<script src="canchero-tournaments.js?v=20260720j"></script>
 </body>
 </html>
