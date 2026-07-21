@@ -23,6 +23,13 @@ alter table public.tournament_matches add column if not exists matchday int;
 alter table public.tournament_matches add column if not exists next_match_id uuid;
 alter table public.tournament_matches add column if not exists next_slot text;
 
+-- ── Traspaso de datos al registrarse ──────────────────────────────────────
+-- El organizador carga jugadores a mano con su email. Cuando esa persona entra a
+-- Canchero con ESE email, sus filas se atan a la cuenta (user_email) y las
+-- estadísticas se suman UNA sola vez al perfil: stats_claimed marca que ya se sumaron.
+alter table public.tournament_players add column if not exists stats_claimed boolean default false;
+create index if not exists idx_tplayers_email on public.tournament_players(lower(player_email));
+
 -- Índice para resolver rápido el encadenado del bracket
 create index if not exists idx_tmatches_next on public.tournament_matches(next_match_id);
 create index if not exists idx_tmatches_matchday on public.tournament_matches(tournament_id, matchday);

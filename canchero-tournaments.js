@@ -132,6 +132,7 @@ window.CancheroTournaments = (function() {
                     <div style="font-size:11.5px;color:#888;margin-top:3px;">${_esc(t?.name||'')}${team.group_letter?' · Grupo '+team.group_letter:''}</div>
                     <div style="font-size:11.5px;color:#666;margin-top:2px;"><i class='bx bx-user' style="color:var(--accent);"></i> ${_esc(team.captain_name||team.captain_email||'Sin capitán')}</div>
                     <div style="font-size:10px;color:#555;margin-top:6px;">Equipo no registrado en Canchero</div>
+                    ${isOrg ? `<button onclick="CancheroTournaments._inviteTeam('${teamId}')" style="margin-top:9px;background:rgba(186,255,0,0.12);color:var(--accent);border:1px solid rgba(186,255,0,0.3);border-radius:11px;padding:8px 14px;font-size:11.5px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><i class='bx bx-user-plus'></i> Invitarlo a Canchero</button>` : ''}
                 </div>
             </div>
             <div style="display:flex;gap:6px;margin:14px 0;flex-wrap:wrap;">
@@ -190,6 +191,8 @@ window.CancheroTournaments = (function() {
                     <div style="font-size:12px;color:#888;margin-top:3px;">${p.number?('#'+p.number+' · '):''}${p.position?(POS_LABEL[p.position]||p.position):'Sin posición'}</div>
                     <div style="font-size:12px;color:var(--accent);margin-top:4px;display:flex;align-items:center;justify-content:center;gap:7px;">${_shieldHTML(p.tournament_teams?.logo_url, p.tournament_teams?.team_name, 22)} ${_esc(p.tournament_teams?.team_name||'Sin equipo')}</div>
                     <div style="font-size:10px;color:#555;margin-top:8px;">Jugador no registrado en Canchero</div>
+                    ${isOrg ? `<button onclick="CancheroTournaments._invitePlayer('${playerId}')" style="margin-top:10px;background:rgba(186,255,0,0.12);color:var(--accent);border:1px solid rgba(186,255,0,0.3);border-radius:12px;padding:9px 16px;font-size:12px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:7px;"><i class='bx bx-user-plus'></i> Invitarlo a Canchero</button>
+                    <div style="font-size:10px;color:#555;margin-top:6px;max-width:250px;line-height:1.5;">Si se registra con el mismo email, estos datos pasan solos a su perfil y suman al ranking general.</div>` : ''}
                 </div>
             </div>
             <div style="display:flex;gap:6px;margin:14px 0;flex-wrap:wrap;">
@@ -1647,6 +1650,143 @@ window.CancheroTournaments = (function() {
         try { await sb.from('tournament_matches').update(upd).eq('id', match.next_match_id); } catch(e) {}
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // INVITAR A CANCHERO (jugadores y equipos que la org cargó a mano)
+    // La idea: que el que todavía no está en Canchero reciba un link lindo, se registre
+    // con el MISMO email y se quede con todo lo que la organización ya le cargó.
+    // ═══════════════════════════════════════════════════════════
+    function _invitacionUrl(tipo, id) {
+        const base = (location.origin && location.origin.startsWith('http'))
+            ? location.origin : 'https://canchero-app.vercel.app';
+        return `${base}/invitacion.html?${tipo === 'equipo' ? 'e' : 'p'}=${id}`;
+    }
+
+    // Abre el compartir con un mensaje ya escrito. WhatsApp/Telegram muestran la tarjeta
+    // del link (Open Graph), así que llega con imagen y no sólo texto.
+    async function _invitePlayer(playerId) {
+        const sb = getSb();
+        const { data: p } = await sb.from('tournament_players')
+            .select('player_name,goals,assists,matches_played,user_email,tournament_teams(team_name),tournaments(name)')
+            .eq('id', playerId).maybeSingle();
+        if (!p) { toast('Jugador no encontrado.', 'error'); return; }
+        if (p.user_email) { toast('Este jugador ya tiene cuenta en Canchero.', 'info'); return; }
+        const equipo = p.tournament_teams?.team_name || '';
+        const torneo = p.tournaments?.name || 'el torneo';
+        const stats = [];
+        if (p.goals) stats.push(`${p.goals} ${p.goals === 1 ? 'gol' : 'goles'}`);
+        if (p.assists) stats.push(`${p.assists} ${p.assists === 1 ? 'asistencia' : 'asistencias'}`);
+        const detalle = stats.length ? ` Ya tenés ${stats.join(' y ')} cargados.` : '';
+        const texto = `${p.player_name}, te anotamos en ${torneo}${equipo ? ` con ${equipo}` : ''}.${detalle}\n\n`
+            + `Creá tu cuenta gratis en Canchero y tus estadísticas quedan en tu perfil y suman al ranking general:`;
+        _shareInvite(texto, _invitacionUrl('jugador', playerId), p.player_name);
+    }
+
+    async function _inviteTeam(teamId) {
+        const sb = getSb();
+        const { data: tm } = await sb.from('tournament_teams')
+            .select('team_name,club_email,tournaments(name)').eq('id', teamId).maybeSingle();
+        if (!tm) { toast('Equipo no encontrado.', 'error'); return; }
+        const torneo = tm.tournaments?.name || 'el torneo';
+        const texto = `${tm.team_name} está anotado en ${torneo}.\n\n`
+            + `Creá la cuenta del equipo en Canchero (es gratis) y el plantel, los partidos y las estadísticas quedan atados a ustedes:`;
+        _shareInvite(texto, _invitacionUrl('equipo', teamId), tm.team_name);
+    }
+
+    // Hoja de compartir: WhatsApp directo, compartir del sistema o copiar.
+    function _shareInvite(texto, url, quien) {
+        const full = texto + '\n' + url;
+        const ex = document.getElementById('ctinv-modal'); if (ex) ex.remove();
+        const modal = document.createElement('div');
+        modal.id = 'ctinv-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100012;background:rgba(0,0,0,0.92);backdrop-filter:blur(6px);overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:20px;';
+        const btn = 'width:100%;margin-bottom:8px;border-radius:14px;padding:13px;font-weight:800;font-size:13.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;';
+        modal.innerHTML = `
+        <div style="background:rgba(255,255,255,0.045);border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(16px);border-radius:20px;width:100%;max-width:400px;padding:20px;margin-top:24px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <h3 style="font-family:Outfit,sans-serif;font-weight:900;font-size:15px;"><i class='bx bx-user-plus' style="color:var(--accent);"></i> Invitar a Canchero</h3>
+                <button onclick="document.getElementById('ctinv-modal').remove()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;">&times;</button>
+            </div>
+            <div style="font-size:11.5px;color:#888;line-height:1.5;margin-bottom:14px;">Le llega una tarjeta con sus datos del torneo y un botón para crear la cuenta. Si se registra con el mismo email, todo lo que cargaste se le pasa solo.</div>
+            <div style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:11px 12px;font-size:11.5px;color:#b9c0b9;line-height:1.55;white-space:pre-wrap;margin-bottom:14px;max-height:150px;overflow:auto;">${_esc(full)}</div>
+            <button onclick="CancheroTournaments._inviteVia('wa')" style="${btn}background:#25D366;color:#000;border:none;"><i class='bx bxl-whatsapp' style="font-size:18px;"></i> Enviar por WhatsApp</button>
+            <button onclick="CancheroTournaments._inviteVia('share')" style="${btn}background:rgba(186,255,0,0.12);color:var(--accent);border:1px solid rgba(186,255,0,0.28);"><i class='bx bx-share-alt'></i> Compartir por otra app</button>
+            <button onclick="CancheroTournaments._inviteVia('copy')" style="${btn}background:rgba(255,255,255,0.05);color:#ccc;border:1px solid rgba(255,255,255,0.12);"><i class='bx bx-copy'></i> Copiar mensaje</button>
+        </div>`;
+        modal.onclick = e => { if (e.target === modal) modal.remove(); };
+        document.body.appendChild(modal);
+        window.__ctInvite = { texto, url, full, quien };
+    }
+
+    function _inviteVia(via) {
+        const inv = window.__ctInvite; if (!inv) return;
+        if (via === 'wa') {
+            window.open('https://wa.me/?text=' + encodeURIComponent(inv.full), '_blank');
+        } else if (via === 'share' && navigator.share) {
+            navigator.share({ title: 'Sumate a Canchero', text: inv.texto, url: inv.url }).catch(()=>{});
+        } else {
+            try { navigator.clipboard.writeText(inv.full); toast('Mensaje copiado.', 'success'); }
+            catch(e) { prompt('Copiá la invitación:', inv.full); }
+            return;
+        }
+        document.getElementById('ctinv-modal')?.remove();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // TRASPASO AUTOMÁTICO DE DATOS AL REGISTRARSE
+    // El organizador carga a un jugador con su email. Cuando esa persona entra a Canchero
+    // con ESE email, sus filas de tournament_players se atan a su cuenta y las estadísticas
+    // se suman a users.stats, que es lo que lee el ranking general de Buscar.
+    // ═══════════════════════════════════════════════════════════
+    async function claimPendingPlayerData(email) {
+        try {
+            const sb = getSb();
+            const em = (email || '').toLowerCase().trim();
+            if (!sb || !em) return { claimed: 0 };
+            // Filas cargadas a mano con ese email y todavía sin cuenta asociada
+            const { data: filas } = await sb.from('tournament_players')
+                .select('*').ilike('player_email', em).is('user_email', null);
+            if (!filas || !filas.length) return { claimed: 0 };
+
+            let g = 0, a = 0, am = 0, ro = 0, pj = 0;
+            for (const f of filas) {
+                const upd = { user_email: em };
+                // stats_claimed evita volver a sumar lo mismo si el usuario re-entra.
+                if (!f.stats_claimed) {
+                    g += f.goals || 0; a += f.assists || 0;
+                    am += f.yellow_cards || 0; ro += f.red_cards || 0;
+                    pj += f.matches_played || 0;
+                    upd.stats_claimed = true;
+                }
+                let { error } = await sb.from('tournament_players').update(upd).eq('id', f.id);
+                if (error) { // la base puede no tener stats_claimed todavía
+                    await sb.from('tournament_players').update({ user_email: em }).eq('id', f.id);
+                }
+            }
+            if (g || a || am || ro || pj) {
+                await _bumpUserStats(em, { goals:g, assists:a, yellow_cards:am, red_cards:ro, matches:pj });
+            }
+            const torneos = new Set(filas.map(f => f.tournament_id)).size;
+            toast(`Se te asignaron tus datos de ${torneos} torneo${torneos===1?'':'s'}: ${g} goles y ${a} asistencias ya suman en tu ranking.`, 'success');
+            return { claimed: filas.length, goals: g, assists: a };
+        } catch(e) { console.warn('claimPendingPlayerData:', e && e.message); return { claimed: 0 }; }
+    }
+
+    // Suma (o resta) al acumulado del perfil, que es lo que rankea Buscar → Ranking.
+    async function _bumpUserStats(email, delta) {
+        try {
+            const sb = getSb();
+            const em = (email || '').toLowerCase().trim(); if (!em) return;
+            const { data: u } = await sb.from('users').select('stats').eq('email', em).maybeSingle();
+            if (!u) return;                      // todavía no existe la cuenta: se suma al reclamar
+            const s = (u.stats && typeof u.stats === 'object') ? { ...u.stats } : {};
+            const add = (k, v) => { if (v) s[k] = Math.max(0, (parseInt(s[k]) || 0) + v); };
+            add('goals', delta.goals); add('assists', delta.assists);
+            add('yellow_cards', delta.yellow_cards); add('red_cards', delta.red_cards);
+            add('matches', delta.matches);
+            await sb.from('users').update({ stats: s }).eq('email', em);
+        } catch(e) { console.warn('_bumpUserStats:', e && e.message); }
+    }
+
     // ── Agregar un partido suelto al fixture (fuera de lo que generó el motor)
     async function _openAddMatch(tournamentId) {
         const sb = getSb();
@@ -1928,6 +2068,16 @@ window.CancheroTournaments = (function() {
             const upd = {};
             for (const col of Object.keys(delta[pid])) upd[col] = Math.max(0, (p[col]||0) + delta[pid][col]);
             try { await sb.from('tournament_players').update(upd).eq('id', pid); } catch(e) { /* columna faltante → ignorar */ }
+            // Si el jugador ya tiene cuenta, lo del torneo también suma al ranking general.
+            // Si todavía no la tiene, queda en la fila y se le pasa al registrarse (claim).
+            if (p.user_email) {
+                await _bumpUserStats(p.user_email, {
+                    goals: delta[pid].goals || 0,
+                    assists: delta[pid].assists || 0,
+                    yellow_cards: delta[pid].yellow_cards || 0,
+                    red_cards: delta[pid].red_cards || 0
+                });
+            }
         }
     }
 
@@ -3625,6 +3775,10 @@ window.CancheroTournaments = (function() {
         _saveMatchTeams,
         _openAddMatch,
         _saveAddMatch,
+        _invitePlayer,
+        _inviteTeam,
+        _inviteVia,
+        claimPendingPlayerData,
         _openMatchLoad,
         _cmeAdd,
         _cmeAddPlayer,

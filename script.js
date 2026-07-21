@@ -1876,10 +1876,28 @@ window.confirmGoogleCompleteProfile = async function() {
                 await sba.from('users').upsert({ email: userData.email.toLowerCase(), name: userData.name, role: userData.role || 'jugador' }, { onConflict: 'email' }).catch(()=>{});
             }
         }
+        // Si una organización ya lo había cargado a mano en un torneo con este email, sus
+        // goles/asistencias/partidos se pasan solos a su perfil y al ranking general.
+        _reclamarDatosDeTorneos(userData.email);
     }
     applyUserData();
     navigate('jugador');
 };
+
+// Traspaso automático de lo que cargó la organización → perfil del jugador que se registra.
+// Se corre en cada login: es idempotente (marca las filas ya reclamadas).
+function _reclamarDatosDeTorneos(email) {
+    if (!email) return;
+    const intentar = (quedan) => {
+        const CT = window.CancheroTournaments;
+        if (CT && typeof CT.claimPendingPlayerData === 'function') {
+            CT.claimPendingPlayerData(email).catch(e => console.warn('claim torneos:', e && e.message));
+        } else if (quedan > 0) {
+            setTimeout(() => intentar(quedan - 1), 1200);   // el módulo carga después
+        }
+    };
+    setTimeout(() => intentar(5), 1500);
+}
 
 // ============================================================
 // PLAN SELECTION STATE
