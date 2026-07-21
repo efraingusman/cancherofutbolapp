@@ -58,17 +58,21 @@ formato se elige únicamente al CREAR el torneo, no al editarlo. Con 3 equipos e
 
 ---
 
-## P1 — VISTA PÚBLICA DEL TORNEO
+## P1 — VISTA PÚBLICA DEL TORNEO — HECHO (v351)
 
-Ya funciona el acceso (v341: al tocar un torneo abre el panel con Tabla, Fixture, Equipos,
-Goleadores, Jugadores e Inscribirme). Falta el contenido:
+Todo esto vive en la nueva pestaña **Info**, visible en la vista pública y en el panel
+de gestión.
 
-- [ ] **Premio** visible (`prize_pool` ya existe en la tabla, no se muestra).
-- [ ] **Sponsors del torneo** (requiere tabla nueva `tournament_sponsors`: torneo, nombre,
-      logo, link, orden). Sin límite y gratis.
-- [ ] **Inscribir mi equipo**: elegir un equipo YA registrado en Canchero, o cargar uno
-      suelto si no existe.
-- [ ] **Contactar a la organización**: chat de Canchero o WhatsApp, a elección.
+- [x] **Premio** visible, destacado con trofeo, más si la inscripción es paga o gratis.
+- [x] **Sponsors del torneo** con logo, nombre y link. Sin límite y gratis. Tabla nueva
+      `tournament_sponsors` → `sql/2026-07-20-sponsors-p1.sql`.
+- [x] **Inscribir mi equipo**: lista los equipos que el usuario ya tiene en Canchero
+      (creados o capitaneados), se elige uno y se anota con escudo y `club_id`; o se carga
+      uno suelto. No re-ofrece los ya anotados.
+- [x] **Contactar a la organización**: chat de Canchero o WhatsApp, a elección. El número
+      sale de `business_requests.whatsapp` con respaldo en `users.whatsapp_number`.
+
+Queda de P2 el campo de WhatsApp **por rubro** y el pipeline del CRM.
 
 ---
 
