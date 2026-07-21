@@ -2196,7 +2196,27 @@ window.CancheroTournaments = (function() {
                 ${_teamCol(m.away_team_id, _awayT)}
             </div>
             <div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:6px;">CARGADOS</div>
-            <div id="cme-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:16px;"></div>`
+            <div id="cme-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:16px;"></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <span style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;">FIGURA DEL PARTIDO</span>
+                <button onclick="CancheroTournaments._cmeSugerirMvp()" style="margin-left:auto;background:rgba(186,255,0,0.1);color:var(--accent);border:1px solid rgba(186,255,0,0.25);border-radius:9px;padding:5px 10px;font-size:10.5px;font-weight:800;cursor:pointer;"><i class='bx bx-bulb'></i> Sugerir</button>
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:140px;">
+                    <label style="font-size:9.5px;color:#666;font-weight:800;display:block;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(_homeT.team_name||m.home_team_name||'Local')}</label>
+                    <select id="cme-mvp-home" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:9px;font-size:12px;box-sizing:border-box;">
+                        <option value="">— Sin figura —</option>
+                        ${(roster||[]).filter(p => p.team_id === m.home_team_id).map(p => `<option value="${p.id}" ${m.mvp_home===p.id?'selected':''}>${_esc(p.player_name)}</option>`).join('')}
+                    </select>
+                </div>
+                <div style="flex:1;min-width:140px;">
+                    <label style="font-size:9.5px;color:#666;font-weight:800;display:block;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(_awayT.team_name||m.away_team_name||'Visitante')}</label>
+                    <select id="cme-mvp-away" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:9px;font-size:12px;box-sizing:border-box;">
+                        <option value="">— Sin figura —</option>
+                        ${(roster||[]).filter(p => p.team_id === m.away_team_id).map(p => `<option value="${p.id}" ${m.mvp_away===p.id?'selected':''}>${_esc(p.player_name)}</option>`).join('')}
+                    </select>
+                </div>
+            </div>`
             : `<div style="font-size:11px;color:#888;background:#111;border:1px solid #1e1e1e;border-radius:10px;padding:12px;margin-bottom:10px;line-height:1.5;">Para registrar goleadores, asistencias y tarjetas hacen falta los jugadores del equipo. Podés cargarlos acá mismo:</div>
             <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
                 <button onclick="CancheroTournaments._cmeCargarJugador('${m.home_team_id||''}','${matchId}','${(tournamentId||'').replace(/'/g,"\\'")}' )" style="flex:1;min-width:130px;background:rgba(186,255,0,0.08);color:var(--accent);border:1px solid rgba(186,255,0,0.25);border-radius:10px;padding:10px;font-weight:800;font-size:12px;cursor:pointer;"><i class='bx bx-user-plus'></i> ${_esc((_homeT.team_name||m.home_team_name||'Local')).slice(0,16)}</button>
@@ -2208,6 +2228,76 @@ window.CancheroTournaments = (function() {
         modal.onclick = e => { if (e.target === modal) modal.remove(); };
         document.body.appendChild(modal);
         _cmeRenderList();
+    }
+
+    // Fila de figuras en el resumen de la ficha. Si no se eligió ninguna, no ocupa lugar.
+    function _mvpResumen(m, roster) {
+        if (!m.mvp_home && !m.mvp_away) return '';
+        const de = id => (roster || []).find(p => p.id === id);
+        const lado = (pid, alinear) => {
+            const p = de(pid);
+            if (!p) return `<div style="flex:1;text-align:${alinear};font-size:11px;color:#555;">—</div>`;
+            return `<div onclick="CancheroTournaments._openPlayerInfo('${p.id}')" style="flex:1;display:flex;align-items:center;gap:7px;justify-content:${alinear==='right'?'flex-end':'flex-start'};cursor:pointer;min-width:0;">
+                ${alinear==='right' ? '' : `<span style="width:26px;height:26px;border-radius:50%;flex-shrink:0;background:${p.avatar_url?`#222 center/cover url('${_esc(p.avatar_url)}')`:'rgba(255,210,63,.15)'};border:1.5px solid #ffd23f;"></span>`}
+                <span style="font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(p.player_name)}</span>
+                ${alinear==='right' ? `<span style="width:26px;height:26px;border-radius:50%;flex-shrink:0;background:${p.avatar_url?`#222 center/cover url('${_esc(p.avatar_url)}')`:'rgba(255,210,63,.15)'};border:1.5px solid #ffd23f;"></span>` : ''}
+            </div>`;
+        };
+        return `<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:rgba(255,210,63,0.06);border:1px solid rgba(255,210,63,0.22);border-radius:12px;margin-bottom:6px;">
+            ${lado(m.mvp_home, 'right')}
+            <div style="flex-shrink:0;text-align:center;">
+                <i class='bx bxs-star' style="color:#ffd23f;font-size:15px;"></i>
+                <div style="font-size:8.5px;color:#8a8272;font-weight:900;letter-spacing:.6px;">FIGURA</div>
+            </div>
+            ${lado(m.mvp_away, 'left')}
+        </div>`;
+    }
+
+    // ── Figura del partido: se SUGIERE con lo que pasó en ESTE partido y se puede
+    // cambiar a mano. Puntúa gol=3 y asistencia=2; si el equipo no recibió goles y
+    // nadie destacó en ataque, propone al arquero por la valla invicta.
+    function _mvpSugerido(teamId, rivalScore) {
+        const roster = (window.__cmeRoster || []).filter(p => p.team_id === teamId);
+        if (!roster.length) return '';
+        const eventos = window.__cmeEvents || [];
+        const puntos = {};
+        eventos.forEach(ev => {
+            if (!ev.player_id) return;
+            if (ev.type === 'gol') puntos[ev.player_id] = (puntos[ev.player_id] || 0) + 3;
+            else if (ev.type === 'asistencia') puntos[ev.player_id] = (puntos[ev.player_id] || 0) + 2;
+            else if (ev.type === 'roja') puntos[ev.player_id] = (puntos[ev.player_id] || 0) - 5;
+        });
+        let mejor = null, mejorPts = 0;
+        roster.forEach(p => {
+            const pts = puntos[p.id] || 0;
+            if (pts > mejorPts) { mejorPts = pts; mejor = p; }
+        });
+        if (mejor) return mejor.id;
+        // Nadie sumó en ataque: si mantuvo la valla invicta, la figura es el arquero.
+        if (rivalScore === 0) {
+            const arquero = roster.find(p => /arq|gk|golero|portero/i.test(p.position || ''));
+            if (arquero) return arquero.id;
+        }
+        return '';
+    }
+
+    function _cmeSugerirMvp() {
+        const m = window.__cmeMatch || {};
+        const hs = parseInt(document.getElementById('cme-hs')?.value);
+        const as = parseInt(document.getElementById('cme-as')?.value);
+        const goles = tid => (window.__cmeEvents || []).filter(e => e.type === 'gol' && e.team_id === tid).length;
+        const hScore = isNaN(hs) ? goles(m.home_team_id) : hs;
+        const aScore = isNaN(as) ? goles(m.away_team_id) : as;
+        const selH = document.getElementById('cme-mvp-home');
+        const selA = document.getElementById('cme-mvp-away');
+        const sugH = _mvpSugerido(m.home_team_id, aScore);
+        const sugA = _mvpSugerido(m.away_team_id, hScore);
+        if (selH) selH.value = sugH;
+        if (selA) selA.value = sugA;
+        toast((sugH || sugA)
+            ? 'Figuras sugeridas por lo que pasó en el partido. Podés cambiarlas.'
+            : 'Todavía no hay goles ni asistencias cargados para sugerir una figura.',
+            (sugH || sugA) ? 'success' : 'info');
     }
 
     // Auto-suma: el marcador refleja los goles cargados. NO pisa un marcador manual si
@@ -2353,6 +2443,11 @@ window.CancheroTournaments = (function() {
         const hasScore = _manualScore || _hasGoals;
         // Campos de agenda (fecha/cancha/árbitro) — siempre se guardan
         const upd = { scheduled_at: scheduledAt, venue: venue, referee: referee };
+        // Figura del partido por equipo (se guarda el id del jugador).
+        const _mvpH = document.getElementById('cme-mvp-home');
+        const _mvpA = document.getElementById('cme-mvp-away');
+        if (_mvpH) upd.mvp_home = _mvpH.value || null;
+        if (_mvpA) upd.mvp_away = _mvpA.value || null;
         // Los EVENTOS se guardan SIEMPRE (antes solo entraban si había score → un timeline
         // cargado sin resultado se perdía y "no cargaba nada").
         upd.events = newEvents;
@@ -2385,8 +2480,17 @@ window.CancheroTournaments = (function() {
             // eventos y el marcador SÍ se intentan preservar (esas columnas existen).
             const safe = { events: newEvents };
             if (hasScore) { safe.home_score = upd.home_score; safe.away_score = upd.away_score; safe.status = 'finished'; safe.winner_team_id = upd.winner_team_id; }
-            await sb.from('tournament_matches').update(safe).eq('id', matchId);
-            toast('Guardado. Corré la migración SQL para día/cancha por partido.', 'warning');
+            // La figura se reintenta aparte: si esa columna sí existe, no se pierde.
+            const conMvp = { ...safe };
+            if (upd.mvp_home !== undefined) conMvp.mvp_home = upd.mvp_home;
+            if (upd.mvp_away !== undefined) conMvp.mvp_away = upd.mvp_away;
+            let r2 = await sb.from('tournament_matches').update(conMvp).eq('id', matchId);
+            if (r2.error) {
+                await sb.from('tournament_matches').update(safe).eq('id', matchId);
+                toast('Guardado. Corré la migración SQL para día/cancha y figura del partido.', 'warning');
+            } else {
+                toast('Guardado. Corré la migración SQL para día/cancha por partido.', 'warning');
+            }
         } else {
             toast(hasScore ? 'Resultado guardado' : (newEvents.length ? 'Eventos guardados' : 'Partido programado'), 'success');
         }
@@ -2571,7 +2675,8 @@ window.CancheroTournaments = (function() {
         const resumenStats = statRow('Goles', _evIcon('gol'), cnt(m.home_team_id,'gol'), cnt(m.away_team_id,'gol'))
             + statRow('Asistencias', _evIcon('asistencia'), cnt(m.home_team_id,'asistencia'), cnt(m.away_team_id,'asistencia'))
             + statRow('Amarillas', _evIcon('amarilla'), cnt(m.home_team_id,'amarilla'), cnt(m.away_team_id,'amarilla'))
-            + statRow('Rojas', _evIcon('roja'), cnt(m.home_team_id,'roja'), cnt(m.away_team_id,'roja'));
+            + statRow('Rojas', _evIcon('roja'), cnt(m.home_team_id,'roja'), cnt(m.away_team_id,'roja'))
+            + _mvpResumen(m, roster);
 
         const tabBtn = (id, icon, label, active) => `<button class="cmd-tab" data-panel="${id}" onclick="CancheroTournaments._cmdTab('${id}',this)" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:${active?'rgba(186,255,0,0.12)':'rgba(255,255,255,0.03)'};color:${active?'var(--accent)':'#888'};border:1px solid ${active?'rgba(186,255,0,0.3)':'rgba(255,255,255,0.07)'};border-radius:14px;padding:9px 4px;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap;backdrop-filter:blur(6px);"><i class='bx ${icon}' style="font-size:15px;"></i><span class="ctm-tab-label">${label}</span></button>`;
 
@@ -3473,7 +3578,7 @@ window.CancheroTournaments = (function() {
         let bloquesExtra = '';
         try {
             const { data: matches } = await sb.from('tournament_matches')
-                .select('home_team_id,away_team_id,home_score,away_score')
+                .select('home_team_id,away_team_id,home_score,away_score,mvp_home,mvp_away')
                 .eq('tournament_id', tournamentId);
             const vallas = {};   // teamId -> partidos sin goles en contra
             (matches||[]).forEach(mm => {
@@ -3488,6 +3593,18 @@ window.CancheroTournaments = (function() {
                 .sort((a,b) => b.v - a.v).slice(0, 10);
             const asistidores = (players||[]).filter(p => (p.assists||0) > 0)
                 .sort((a,b) => (b.assists||0) - (a.assists||0)).slice(0, 10);
+            // Figuras del partido: cuántas veces cada jugador fue elegido MVP de su equipo.
+            const vecesFigura = {};
+            (matches||[]).forEach(mm => {
+                [mm.mvp_home, mm.mvp_away].forEach(pid => {
+                    if (pid) vecesFigura[pid] = (vecesFigura[pid] || 0) + 1;
+                });
+            });
+            const figuras = (players||[])
+                .map(p => ({ p, v: vecesFigura[p.id] || 0 }))
+                .filter(x => x.v > 0)
+                .sort((a,b) => b.v - a.v).slice(0, 10);
+            const figPodio = figuras.map(x => ({ id:x.p.id, nombre:x.p.player_name, equipo:x.p.tournament_teams?.team_name, valor:x.v, avatar:x.p.avatar_url }));
 
             const fila = (i, nombre, equipo, valor, avatar) => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
                 <span style="display:inline-flex;width:22px;height:22px;border-radius:8px;align-items:center;justify-content:center;font-size:11px;font-weight:900;flex-shrink:0;${i<3?'background:var(--accent);color:#000;':'background:rgba(255,255,255,0.05);color:#888;'}">${i+1}</span>
@@ -3510,7 +3627,10 @@ window.CancheroTournaments = (function() {
                     _podioHTML(kPodio, 'partidos con la valla invicta') +
                     arqueros.slice(kPodio.length >= 3 ? 3 : 0).map((x,i) => fila(i + (kPodio.length >= 3 ? 3 : 0), x.p.player_name, x.p.tournament_teams?.team_name, x.v, x.p.avatar_url)).join(''),
                     'Todavía no hay partidos con la valla invicta.')
-              + `<div style="margin-top:18px;font-size:10.5px;color:#555;line-height:1.5;"><i class='bx bx-info-circle'></i> El MVP por partido se va a sumar cuando esté la votación; hoy no hay dato para rankearlo.</div>`;
+              + bloque('FIGURAS DEL PARTIDO', 'bx-star',
+                    _podioHTML(figPodio, 'veces figura') +
+                    figuras.slice(figPodio.length >= 3 ? 3 : 0).map((x,i) => fila(i + (figPodio.length >= 3 ? 3 : 0), x.p.player_name, x.p.tournament_teams?.team_name, x.v, x.p.avatar_url)).join(''),
+                    'Todavía no se eligió la figura de ningún partido. Se carga al guardar el resultado.');
         } catch(e){ console.warn('rankings extra:', e); }
 
         const gPodio = topGoals.filter(p => (p.goals||0) > 0)
@@ -4102,6 +4222,7 @@ window.CancheroTournaments = (function() {
         _cmeRemove,
         _cmeCargarJugador,
         _cmeAsist,
+        _cmeSugerirMvp,
         _saveMatchLoad,
         _openMatchDetail,
         _liveChrono,
