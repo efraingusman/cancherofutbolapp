@@ -5284,14 +5284,14 @@ function generateTorneosFeedHTML() {
 async function generateComplejosFeedHTML(query) {
     const sb = window._sb;
     const q = query || '';
-    const header = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><button class="btn-back-icon" aria-label="Volver" onclick="switchDashboardTab((window.userData&&window.userData.role)||'jugador','buscar')"><i class='bx bx-left-arrow-alt'></i></button><i class='bx bx-building-house' style="font-size:22px;color:var(--accent);"></i><div><div style="font-size:15px;font-weight:900;">Complejos Deportivos</div><div style="font-size:10px;color:#555;">Canchas y centros deportivos</div></div></div>`;
+    const header = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><button class="btn-back-icon" aria-label="Volver" onclick="switchDashboardTab((window.userData&&window.userData.role)||'jugador','buscar')"><i class='bx bx-left-arrow-alt'></i></button><i class='bx bx-cancha' style="font-size:22px;color:var(--accent);"></i><div><div style="font-size:15px;font-weight:900;">Complejos Deportivos</div><div style="font-size:10px;color:#555;">Canchas y centros deportivos</div></div></div>`;
     const searchBar = _dirSearchBar('complejos', q, {});
     if (!sb) return header + searchBar + emptyDirectoryHTML('bx-building-house', 'SIN CONEXIÓN', '');
     try {
         let dbq = sb.from('complexes').select('*').limit(40);
         if (q) dbq = dbq.or(`name.ilike.%${q}%,city.ilike.%${q}%,address.ilike.%${q}%`);
         const { data } = await dbq;
-        if (!data || data.length === 0) return header + searchBar + emptyDirectoryHTML('bx-building-house', 'SIN RESULTADOS', 'No se encontraron complejos. Los complejos registrados aparecerán aquí.') + '</div>';
+        if (!data || data.length === 0) return header + searchBar + emptyDirectoryHTML('bx-cancha', 'SIN RESULTADOS', 'No se encontraron complejos. Los complejos registrados aparecerán aquí.') + '</div>';
         return header + searchBar + `<div style="display:flex;flex-direction:column;gap:0;">${data.map(c => {
             const name = (c.name || 'Complejo').toUpperCase();
             const city = c.city || c.department || 'Uruguay';
@@ -6720,7 +6720,7 @@ window._bizItemCardHTML = function(p){
     // Torneo: NO es "Reservar" — es "Ver torneo" y abre la página pública del torneo,
     // donde "Gestionar" solo aparece para la organización creadora.
     const cta = it.cta || (kind==='torneo' ? 'VER TORNEO' : (kind==='cancha'||kind==='servicio' ? 'RESERVAR' : 'COMPRAR'));
-    const icon = { producto:'bx-shopping-bag', cancha:'bx-map-alt', torneo:'bx-trophy', servicio:'bx-briefcase' }[kind] || 'bx-shopping-bag';
+    const icon = { producto:'bx-shopping-bag', cancha:'bx-cancha', torneo:'bx-trophy', servicio:'bx-briefcase' }[kind] || 'bx-shopping-bag';
     const price = it.price ? `<div style="font-size:16px;font-weight:900;color:var(--accent);">$${esc(it.price)}</div>` : '';
     const em = (p.user_email||'').replace(/'/g,"\\'");
     const bid = (p.business_id || it.bizId || '').toString().replace(/'/g,'');
@@ -7076,7 +7076,7 @@ window._renderBusinessProfile = async function(opts) {
 
     // Tabs por rol — SOLO ICONOS (el label queda como tooltip/aria).
     var tabMap = {
-        club: [{id:'posts',label:'Publicaciones',icon:'bx-news'},{id:'canchas',label:'Canchas',icon:'bx-map-alt'},{id:'galeria',label:'Fotos',icon:'bx-image'},{id:'info',label:'Info',icon:'bx-info-circle'}],
+        club: [{id:'posts',label:'Publicaciones',icon:'bx-news'},{id:'canchas',label:'Canchas',icon:'bx-cancha'},{id:'galeria',label:'Fotos',icon:'bx-image'},{id:'info',label:'Info',icon:'bx-info-circle'}],
         tienda: [{id:'posts',label:'Publicaciones',icon:'bx-news'},{id:'productos',label:'Productos',icon:'bx-store'},{id:'info',label:'Info',icon:'bx-info-circle'}],
         organizacion: [{id:'posts',label:'Publicaciones',icon:'bx-news'},{id:'eventos',label:'Eventos',icon:'bx-trophy'},{id:'inscripciones',label:'Inscripciones',icon:'bx-list-check'},{id:'stats',label:'Stats',icon:'bx-bar-chart-alt-2'},{id:'info',label:'Info',icon:'bx-info-circle'}],
         profesional: [{id:'posts',label:'Publicaciones',icon:'bx-news'},{id:'servicios',label:'Servicios',icon:'bx-briefcase'},{id:'info',label:'Info',icon:'bx-info-circle'}]
@@ -22894,7 +22894,7 @@ window.loadCanchasFromSupabase = async function() {
         .select('email,name,photo,cover_photo,city')
         .in('role', ['club','complejo']).eq('sub_status','active').order('name');
     if (error || !bizs || bizs.length === 0) {
-        grid.innerHTML = '<div style="padding:30px;text-align:center;color:#666;font-size:13px;"><i class="bx bx-map-pin" style="font-size:32px;display:block;margin-bottom:10px;"></i>No hay complejos registrados aún.<br><span style="font-size:11px;color:#444;margin-top:8px;display:block;">Los complejos aparecerán acá cuando se registren en Canchero.</span></div>';
+        grid.innerHTML = '<div style="padding:30px;text-align:center;color:#666;font-size:13px;"><i class="bx bx-cancha" style="font-size:32px;display:block;margin-bottom:10px;"></i>No hay complejos registrados aún.<br><span style="font-size:11px;color:#444;margin-top:8px;display:block;">Los complejos aparecerán acá cuando se registren en Canchero.</span></div>';
         _allCanchas = [];
         return;
     }
@@ -28077,7 +28077,7 @@ window.addEventListener('resize', function(){ try { window._sizeBizPanel && wind
     buscar: { title:'BUSCAR', items:[
       { ic:'bx-run',        label:'Jugadores',        run:function(){ window.openGlobalDirectory&&window.openGlobalDirectory('jugadores'); } },
       { ic:'bx-shield',     label:'Equipos / Clubes', run:function(){ window.switchDashboardTab&&window.switchDashboardTab('jugador','buscar-clubes',null); } },
-      { ic:'bx-map-pin',    label:'Canchas',          run:function(){ window.switchDashboardTab&&window.switchDashboardTab('jugador','buscar-canchas',null); } },
+      { ic:'bx-cancha',     label:'Canchas',          run:function(){ window.switchDashboardTab&&window.switchDashboardTab('jugador','buscar-canchas',null); } },
       { ic:'bx-cancha', label:'Complejos',    run:function(){ window.switchDashboardTab&&window.switchDashboardTab('jugador','complejos',null); } },
       { ic:'bx-buildings',  label:'Organizaciones',   run:function(){ window.switchDashboardTab&&window.switchDashboardTab('jugador','organizaciones',null); } },
       { ic:'bx-trophy',     label:'Torneos',          run:function(){ window.openTorneosModal&&window.openTorneosModal(); } },

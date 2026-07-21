@@ -596,7 +596,7 @@
                     <ul class="sidebar-submenu" id="sidebar-buscar-sub">
                         <li class="menu-item" onclick="openGlobalDirectory('jugadores')"><i class='bx bx-run'></i> Jugadores</li>
                         <li class="menu-item" onclick="switchDashboardTab('jugador','buscar-clubes',this)"><i class='bx bx-shield'></i> Equipos / Clubes</li>
-                        <li class="menu-item" onclick="switchDashboardTab('jugador','buscar-canchas',this)"><i class='bx bx-map-pin'></i> Canchas</li>
+                        <li class="menu-item" onclick="switchDashboardTab('jugador','buscar-canchas',this)"><i class='bx bx-cancha'></i> Canchas</li>
                         <li class="menu-item" onclick="switchDashboardTab('jugador','buscar-partidos',this)"><i class='bx bx-football'></i> Partidos</li>
                         <li class="menu-item" onclick="openDisponiblesModal()"><span style="width:8px;height:8px;background:#00e676;border-radius:50%;display:inline-block;flex-shrink:0;box-shadow:0 0 5px #00e676;"></span> Disponibles</li>
                         <li class="menu-item" onclick="openClubesBuscanModal()"><i class='bx bx-user-plus'></i> Equipos buscan jugadores</li>
@@ -1291,7 +1291,7 @@
                         <div style="font-size:11px;font-weight:900;color:#666;letter-spacing:1.5px;margin:4px 0 10px;">NEGOCIOS Y LUGARES</div>
                         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:22px;">
                             <button onclick="switchDashboardTab('jugador','complejos',null)" class="buscar-card" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='#1e1e1e'">
-                                <i class='bx bx-building-house'></i>
+                                <i class='bx bx-cancha'></i>
                                 <div class="bc-t">Complejos</div><div class="bc-s">Canchas</div>
                             </button>
                             <button onclick="switchDashboardTab('jugador','tiendas',null)" class="buscar-card" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='#1e1e1e'">
@@ -2021,7 +2021,7 @@
                         <span id="res-notif-badge" style="display:none; position:absolute; top:10px; right:10px; width:10px; height:10px; background:var(--accent); border-radius:50%; box-shadow: 0 0 10px var(--accent);"></span>
                     </li>
 
-                    <li class="menu-item" onclick="switchDashboardTab('club', 'canchas', this)"><i class='bx bx-map-pin'></i> Mis Canchas</li>
+                    <li class="menu-item" onclick="switchDashboardTab('club', 'canchas', this)"><i class='bx bx-cancha'></i> Mis Canchas</li>
                     <li class="menu-item" onclick="switchDashboardTab('club', 'videos', this)"><i class='bx bx-video'></i> Subir Partidos</li>
                     <li class="menu-item" onclick="switchDashboardTab('club', 'directo', this)"><i class='bx bx-broadcast' style="color: #ff4d4d; animation: pulse 1s infinite;"></i> Hacer Directo <span style="background:#ff4d4d; color:white; font-size:8px; padding:2px 5px; border-radius:3px; font-weight:bold; margin-left:5px; vertical-align:middle;">LIVE</span></li>
                     <li class="menu-item" onclick="switchDashboardTab('club', 'chat', this)"><i class='bx bx-message-rounded-dots'></i> Chat IA WhatsApp</li>
@@ -2313,7 +2313,7 @@
                         <div class="profile-info-section">
                             <div class="profile-display-name" id="c-display-name">COMPLEJO LA TEJA</div>
                             <div class="profile-handle" id="c-handle">@lateja</div>
-                            <div class="profile-bio" id="c-bio"><i class='bx bx-building-house'></i> El mejor complejo de la zona. Canchas de última generación y ambiente familiar.</div>
+                            <div class="profile-bio" id="c-bio"><i class='bx bx-cancha'></i> El mejor complejo de la zona. Canchas de última generación y ambiente familiar.</div>
                             <div class="profile-meta-row">
                                 <span><i class='bx bx-map'></i> <span id="c-location">Montevideo, Uruguay</span></span>
                                 <span><i class='bx bx-link'></i> <a href="#" id="c-link">lateja.com</a></span>
@@ -2905,7 +2905,7 @@
             <div class="mobile-submenu" id="mob-buscar-sub">
                 <div class="mobile-submenu-item" onclick="openGlobalDirectory('jugadores'); toggleMobileMenu()"><i class='bx bx-run' style="color:var(--accent);font-size:18px;"></i> Jugadores</div>
                 <div class="mobile-submenu-item" onclick="switchDashboardTab('jugador','buscar-clubes',null); toggleMobileMenu()"><i class='bx bx-shield' style="color:var(--accent);font-size:18px;"></i> Equipos / Clubes</div>
-                <div class="mobile-submenu-item" onclick="switchDashboardTab('jugador','buscar-canchas',null); toggleMobileMenu()"><i class='bx bx-map-pin' style="color:var(--accent);font-size:18px;"></i> Canchas</div>
+                <div class="mobile-submenu-item" onclick="switchDashboardTab('jugador','buscar-canchas',null); toggleMobileMenu()"><i class='bx bx-cancha' style="color:var(--accent);font-size:18px;"></i> Canchas</div>
                 <div class="mobile-submenu-item" onclick="switchDashboardTab('jugador','buscar-partidos',null); toggleMobileMenu()"><i class='bx bx-football' style="color:var(--accent);font-size:18px;"></i> Partidos</div>
                 <div class="mobile-submenu-item" onclick="openDisponiblesModal(); toggleMobileMenu()"><span style="width:9px;height:9px;background:#00e676;border-radius:50%;flex-shrink:0;box-shadow:0 0 6px #00e676;"></span> Disponibles Ahora</div>
                 <div class="mobile-submenu-item" onclick="openClubesBuscanModal(); toggleMobileMenu()"><i class='bx bx-user-plus' style="color:var(--accent);font-size:18px;"></i> Equipos buscan jugadores</div>
@@ -3885,7 +3885,7 @@
       </div>
     </div>
 
-    <script src="script.js?v=20260720i" charset="utf-8"></script>
+    <script src="script.js?v=20260720k" charset="utf-8"></script>
     <script src="canchero-cloud.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-avatars.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-analytics.js?v=20260714a" charset="utf-8"></script>
