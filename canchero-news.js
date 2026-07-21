@@ -48,6 +48,14 @@ function timeAgo(iso){
   return Math.floor(s/86400)+'d';
 }
 
+// Clave estable por nota (url o título normalizado), apta para un atributo HTML.
+function _newsKey(a){
+  const base = (a.url || a.title || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9]/g,'').slice(0,48);
+  return base || 'n';
+}
+
 function card(a){
   // P4.1: TODAS las noticias con foto. Si la fuente no trae imagen, usar un fondo de
   // marca (logo Canchero sobre degradé) para que ninguna tarjeta quede sin imagen.
@@ -59,7 +67,9 @@ function card(a){
   const href = a.url && a.url!=='#' ? a.url : null;
   const _d = encodeURIComponent(JSON.stringify({ t:a.title||'', d:a.description||'', i:a.image||'', u:a.url||'', s:a.source||'' }));
   const onclick = href ? `window._openNewsInApp('${_d}')` : '';
-  return `<article class="news-card" style="background:#111;border:1px solid #1e1e1e;border-radius:16px;overflow:hidden;margin-bottom:12px;${href?'cursor:pointer;':''}" ${href?`onclick="${onclick}"`:''}>
+  // Clave estable de la nota: permite detectar si ya está en el feed antes de insertarla.
+  const _key = _newsKey(a);
+  return `<article class="news-card" data-news-key="${_key}" style="background:#111;border:1px solid #1e1e1e;border-radius:16px;overflow:hidden;margin-bottom:12px;${href?'cursor:pointer;':''}" ${href?`onclick="${onclick}"`:''}>
     ${img}
     <div style="padding:14px 16px;">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
@@ -81,8 +91,23 @@ window.injectNewsInFeed = async function(containerEl, every){
   containerEl = containerEl || document.getElementById('main-feed-container');
   if (!containerEl) return;
   if (containerEl.querySelector('.news-card')) return; // ya inyectadas
+  // El guard de arriba corre ANTES del await: si el feed llama a esta función dos o tres
+  // veces seguidas (re-render, scroll infinito), todas lo pasaban y todas insertaban las
+  // MISMAS noticias en el mismo lugar → la nota repetida 3 veces seguidas.
+  if (containerEl.__newsBusy) return;
+  containerEl.__newsBusy = true;
+  try {
+    await _injectNews(containerEl, every);
+  } finally {
+    containerEl.__newsBusy = false;
+  }
+};
+
+async function _injectNews(containerEl, every){
   const news = await fetchNews();
   if (!news.length) return;
+  // Re-chequeo DESPUÉS del await: otra llamada pudo haber terminado mientras esperábamos.
+  if (containerEl.querySelector('.news-card')) return;
 
   // ── Anti-jump: ancla el primer post visible y restaura su top después ──
   const scroller = document.scrollingElement || document.documentElement;
@@ -96,9 +121,14 @@ window.injectNewsInFeed = async function(containerEl, every){
     }
   } catch(e){}
 
+  // Segunda defensa: nunca insertar una nota cuya clave ya esté en el feed.
+  const yaEsta = (a) => !!containerEl.querySelector('.news-card[data-news-key="' + _newsKey(a) + '"]');
+
   const posts = containerEl.querySelectorAll('article.post-card, article.poll-card');
   let idx = 0;
   for (let i = every-1; i < posts.length && idx < news.length; i += every){
+    while (idx < news.length && yaEsta(news[idx])) idx++;
+    if (idx >= news.length) break;
     posts[i].insertAdjacentHTML('afterend', card(news[idx++]));
   }
   // Si hay pocos posts, poner al menos una arriba (NO antes del anchor para no saltar)
