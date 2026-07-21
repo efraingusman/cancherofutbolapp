@@ -9,11 +9,22 @@ EXISTE antes de insertarla.
 
 ---
 
-## P0 — FIXTURE — HECHO (deploy v348, 2026-07-20)
+## P0 — FIXTURE — HECHO (deploy v350, 2026-07-20)
 
-Todo P0 está implementado. Falta correr `sql/2026-07-20-fixture-p0.sql` en Supabase:
-sin esa migración el código funciona igual (reintenta sin las columnas nuevas), pero no
-hay numeración de fechas ni avance automático del ganador en el bracket.
+P0 completo, más allá del plan original:
+- Copa = grupos + playoffs de verdad: se elige desde dónde arrancan (16avos → final) y los
+  cruces se completan solos con los clasificados al cerrarse la fase de grupos.
+- Ningún cruce de primera llave enfrenta a dos del mismo grupo.
+- Agregar partido suelto al fixture; podio 1-2-3 en goleadores/asistidores/arqueros (esto
+  era P4, quedó hecho).
+- Tipo de fútbol, máx. equipos, equipos por grupo y playoffs también en el formulario del
+  **CRM de organización**, que es OTRO formulario distinto al del módulo.
+- Invitar a Canchero (`invitacion.html`) + traspaso automático de datos al registrarse, con
+  las stats del torneo sumando al ranking general de Buscar.
+
+**Falta correr `sql/2026-07-20-fixture-p0.sql` en Supabase.** Sin esa migración el código
+funciona igual (reintenta sin las columnas nuevas), pero no hay numeración de fechas,
+avance automático del ganador, playoffs configurables ni traspaso de stats al registrarse.
 
 
 **Diagnóstico:** el motor YA soporta más de lo que se puede elegir.
@@ -81,13 +92,10 @@ Goleadores, Jugadores e Inscribirme). Falta el contenido:
 
 ---
 
-## P4 — RANKING VISUAL DEL TORNEO
+## P4 — RANKING VISUAL DEL TORNEO — HECHO (v350)
 
-Hoy el ranking del torneo es una tabla plana. En Buscar → Ranking hay podios y detalles que
-se ven mucho mejor.
-
-- [ ] Reusar ese diseño (podio 1-2-3, medallas, avatares grandes) en el torneo.
-- [ ] Aplicar a goleadores, asistidores y arqueros (esas tres ya calculan bien).
+- [x] Podio 1-2-3 con medallas y avatares grandes en el torneo.
+- [x] Aplicado a goleadores, asistidores y arqueros.
 
 ---
 
