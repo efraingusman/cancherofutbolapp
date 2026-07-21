@@ -446,10 +446,32 @@ async function openTorneoModal(){
   // Complejos registrados
   const xs=document.getElementById('t-complex');
   if(xs){
+    // Los negocios viven en business_requests, NO en users: mirando solo users el
+    // selector salía vacío aunque hubiera complejos registrados.
     try{
-      const{data}=await sb.from('users').select('email,name,city,address').in('role',['complejo','club']).limit(200);
-      window._complexList=data||[];
-      xs.innerHTML='<option value="">— Sin complejo / a definir —</option>'+(data||[]).map(c=>`<option value="${(c.email||'').replace(/"/g,'')}">${(c.name||c.email||'').replace(/</g,'&lt;')}${c.city?(' · '+c.city):''}</option>`).join('');
+      const roles=['complejo','club','cancha','predio'];
+      const porEmail={};
+      try{
+        const{data}=await sb.from('business_requests').select('email,name,role,payload').in('role',roles).limit(300);
+        (data||[]).forEach(b=>{const em=(b.email||'').toLowerCase();if(!em)return;
+          let ciudad='',dir='';
+          try{const p=typeof b.payload==='string'?JSON.parse(b.payload):(b.payload||{});ciudad=p.city||p.ciudad||'';dir=p.address||p.direccion||'';}catch(e){}
+          porEmail[em]={email:b.email,name:b.name||b.email,city:ciudad,address:dir};});
+      }catch(e){}
+      try{
+        const{data}=await sb.from('users').select('email,name,city,address').in('role',roles).limit(300);
+        (data||[]).forEach(u=>{const em=(u.email||'').toLowerCase();if(!em)return;
+          if(!porEmail[em])porEmail[em]={email:u.email,name:u.name||u.email,city:u.city||'',address:u.address||''};
+          else{if(!porEmail[em].city)porEmail[em].city=u.city||'';if(!porEmail[em].address)porEmail[em].address=u.address||'';}});
+      }catch(e){}
+      try{
+        const{data}=await sb.from('business_courts').select('business_email').limit(500);
+        (data||[]).forEach(c=>{const em=(c.business_email||'').toLowerCase();if(!em)return;
+          if(!porEmail[em])porEmail[em]={email:c.business_email,name:c.business_email,city:'',address:''};});
+      }catch(e){}
+      const lista=Object.values(porEmail).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+      window._complexList=lista;
+      xs.innerHTML='<option value="">— Sin complejo / a definir —</option>'+lista.map(c=>`<option value="${(c.email||'').replace(/"/g,'')}">${(c.name||c.email||'').replace(/</g,'&lt;')}${c.city?(' · '+c.city):''}</option>`).join('');
     }catch(e){}
   }
   document.getElementById('modal-torneo').classList.add('open');
@@ -810,8 +832,8 @@ async function saveFaq(){
 loadDashboard();
 </script>
   <script src="canchero-crm-ventas.js?v=20260624g"></script>
-<script src="crm-common.js?v=20260720e"></script>
+<script src="crm-common.js?v=20260720i"></script>
 <!-- Motor de torneos: equipos, fixture (cruces automáticos), tabla, jugadores, goleadores, vista pública -->
-<script src="canchero-tournaments.js?v=20260720h"></script>
+<script src="canchero-tournaments.js?v=20260720i"></script>
 </body>
 </html>

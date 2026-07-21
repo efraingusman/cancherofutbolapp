@@ -763,9 +763,17 @@ window.CancheroTournaments = (function() {
         // No duplicar: jugadores ya cargados en este equipo del torneo
         const { data: existing } = await sb.from('tournament_players').select('user_email').eq('team_id', teamId);
         const have = new Set((existing||[]).map(p => (p.user_email||'').toLowerCase()).filter(Boolean));
+        // Respetar el tope de plantel del torneo también al importar en bloque.
+        const tope = await _topePlantel(tournamentId);
+        let cupo = tope ? Math.max(0, tope.max - (existing||[]).length) : Infinity;
         let added = 0;
         for (const em of emails) {
             if (have.has(em)) continue;
+            if (cupo <= 0) {
+                toast(`Se importaron ${added}: el plantel llegó al máximo de ${tope.max} (fútbol ${tope.formato}).`, 'warning');
+                break;
+            }
+            cupo--;
             const u = byEmail[em] || {};
             const pos = String(u.position || u.pos || '').toUpperCase().slice(0,3);
             try {
@@ -864,6 +872,20 @@ window.CancheroTournaments = (function() {
     }
 
     // Modal para agregar jugador (manual o vinculando un jugador registrado → autocompleta).
+    // Cuántos jugadores puede tener un equipo según el tipo de fútbol del torneo.
+    // Titulares + una banca razonable; si el torneo no declara el tipo, no hay tope.
+    const _SUPLENTES = { 5: 5, 7: 5, 11: 7 };
+    async function _topePlantel(tournamentId) {
+        if (!tournamentId) return null;
+        try {
+            const sb = getSb();
+            const { data: t } = await sb.from('tournaments').select('match_format').eq('id', tournamentId).single();
+            const f = parseInt(t && t.match_format);
+            if (!f || !_SUPLENTES[f]) return null;
+            return { formato: f, titulares: f, suplentes: _SUPLENTES[f], max: f + _SUPLENTES[f] };
+        } catch(e) { return null; }
+    }
+
     async function _addPlayerToTeam(teamId) {
         window.__ctPlayer = { user_email:null, avatar_url:null };
         const ex = document.getElementById('ctap-modal'); if (ex) ex.remove();
@@ -924,6 +946,16 @@ window.CancheroTournaments = (function() {
         const position = document.getElementById('ctap-pos')?.value || null;
         const p = window.__ctPlayer || {};
         const { data: team } = await sb.from('tournament_teams').select('tournament_id').eq('id', teamId).single();
+        // Tope de plantel según el tipo de fútbol del torneo (5/7/11 + suplentes).
+        const tope = await _topePlantel(team?.tournament_id);
+        if (tope) {
+            const { count } = await sb.from('tournament_players')
+                .select('*', { count:'exact', head:true }).eq('team_id', teamId);
+            if ((count || 0) >= tope.max) {
+                toast(`El plantel está completo: ${tope.max} jugadores como máximo (fútbol ${tope.formato}: ${tope.titulares} en cancha + ${tope.suplentes} suplentes).`, 'warning');
+                return;
+            }
+        }
         const { error } = await sb.from('tournament_players').insert({
             tournament_id: team?.tournament_id,
             team_id: teamId,
@@ -1259,7 +1291,7 @@ window.CancheroTournaments = (function() {
             ${plan.byeNote ? row('Descansa por fecha', plan.byeNote) : ''}
             ${plan.qualifiers ? row('Playoffs', `${plan.qualifiers} clasificados — desde ${plan.playoffLabel}`) : ''}
             ${row('Partidos a crear', `<span style="color:var(--accent);font-size:15px;">${plan.total}</span>`)}
-            ${plan.note ? `<div style="margin-top:10px;font-size:11px;color:#888;line-height:1.5;">${plan.note}</div>` : ''}
+            <div style="margin-top:12px;">${_comoSeJuegaHTML(t, allTeams.length, true)}</div>
             ${(prev||[]).length ? `<div style="margin-top:12px;background:rgba(255,68,68,0.08);border:1px solid rgba(255,68,68,0.25);border-radius:12px;padding:10px 12px;font-size:11px;color:#ff9b9b;line-height:1.5;"><i class='bx bx-error'></i> Ya hay ${prev.length} partidos generados${conResultado ? ` y <b>${conResultado} con resultado cargado</b>` : ''}. Regenerar los borra${conResultado ? ' y se pierden esos resultados' : ''}.</div>` : ''}
             <button onclick="CancheroTournaments._doGenerateFixture('${tournamentId}')" id="ctgf-go" style="width:100%;margin-top:14px;background:var(--accent);color:#000;border:none;border-radius:14px;padding:13px;font-weight:900;font-size:14px;cursor:pointer;font-family:Outfit,sans-serif;">${(prev||[]).length ? 'REGENERAR FIXTURE' : 'GENERAR FIXTURE'}</button>
             <button onclick="document.getElementById('ctgf-modal').remove()" style="width:100%;margin-top:8px;background:rgba(255,255,255,0.05);color:#aaa;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:11px;font-weight:800;font-size:13px;cursor:pointer;">Cancelar</button>
@@ -1478,6 +1510,67 @@ window.CancheroTournaments = (function() {
         return { rounds, size, label: _PHASE_LABEL[_getPhase(size)] || 'playoffs' };
     }
     const _PHASE_LABEL = { r64:'32avos', r32:'16avos', r16:'octavos', quarterfinal:'cuartos', semifinal:'semifinales', final:'la final' };
+
+    // Explica en castellano cómo se juega el torneo con la configuración actual.
+    // Devuelve una lista de pasos ("Fase de grupos: ...", "Cuartos: ...", "Final").
+    function _comoSeJuega(t, teamsCount) {
+        const dbl = !!t.double_round;
+        const pasos = [];
+        if (teamsCount < 2) return pasos;
+        if (t.format === 'league') {
+            const rr = _roundRobin(Array.from({length:teamsCount},(_,i)=>({id:i,team_name:'x'})), 'groups', 'L', dbl);
+            pasos.push({ t:'Liga', d:`Los ${teamsCount} equipos juegan todos contra todos${dbl?', ida y vuelta':''}: ${rr.matches.length} partidos en ${rr.matchdays} fechas. Gana el que termina primero en la tabla.` });
+            return pasos;
+        }
+        if (t.format === 'elimination') {
+            const br = _buildBracket(Array.from({length:teamsCount},(_,i)=>({id:i,team_name:'x'})));
+            const rondas = br.rounds.length;
+            pasos.push({ t:'Eliminación directa', d:`El que pierde queda afuera. Son ${rondas} ronda${rondas===1?'':'s'} hasta la final${br.byes?`, y ${br.byes} equipo${br.byes===1?' pasa':'s pasan'} directo a la segunda ronda porque no son potencia de 2`:''}.` });
+            return pasos;
+        }
+        // Copa: grupos + playoffs
+        const size = Math.max(3, Math.min(8, parseInt(t.group_size) || 4));
+        const grupos = _splitGroups(Array.from({length:teamsCount},(_,i)=>({id:i,team_name:'x'})), size).length;
+        const porGrupo = Math.round(teamsCount / grupos);
+        const rr = _roundRobin(Array.from({length:porGrupo},(_,i)=>({id:i,team_name:'x'})), 'groups', 'A', dbl);
+        pasos.push({ t:'Fase de grupos', d:`${grupos} grupo${grupos===1?'':'s'} de ~${porGrupo} equipos. Dentro de cada grupo juegan todos contra todos${dbl?', ida y vuelta':''}: ${rr.matches.length} partidos por grupo en ${rr.matchdays} fechas.` });
+        const clasif = _playoffSize(t, grupos, teamsCount);
+        if (clasif < 2) {
+            pasos.push({ t:'Sin playoffs', d:'Gana el que termina primero en la tabla. No hay cruces.' });
+            return pasos;
+        }
+        const porGrupoClasif = clasif / grupos;
+        const cuantos = Number.isInteger(porGrupoClasif)
+            ? `los ${porGrupoClasif} mejores de cada grupo (${clasif} en total)`
+            : `los ${clasif} mejores entre todos los grupos`;
+        pasos.push({ t:'Clasificación', d:`Pasan ${cuantos}. Se ordenan por puntos, después diferencia de gol y después goles a favor.` });
+        let n = clasif;
+        while (n >= 2) {
+            const nombre = _PHASE_NOMBRE[_getPhase(n)] || 'Ronda';
+            pasos.push({ t: nombre, d: n === 2
+                ? 'El ganador es el campeón.'
+                : `${n} equipos, ${n/2} partidos. El que pierde queda afuera.` });
+            n = n / 2;
+        }
+        return pasos;
+    }
+    const _PHASE_NOMBRE = { r64:'32avos de final', r32:'16avos de final', r16:'Octavos de final', quarterfinal:'Cuartos de final', semifinal:'Semifinales', final:'Final' };
+
+    // Tarjeta "cómo se juega" para mostrar arriba del fixture y al confirmar la generación.
+    function _comoSeJuegaHTML(t, teamsCount, compacto) {
+        const pasos = _comoSeJuega(t, teamsCount);
+        if (!pasos.length) return '';
+        return `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:13px 14px;margin-bottom:${compacto?'10':'14'}px;">
+            <div style="font-size:10px;font-weight:900;color:var(--accent);letter-spacing:1.2px;margin-bottom:9px;"><i class='bx bx-map-alt'></i> CÓMO SE JUEGA</div>
+            ${pasos.map((p, i) => `<div style="display:flex;gap:9px;margin-bottom:${i===pasos.length-1?'0':'8px'};">
+                <span style="flex-shrink:0;width:19px;height:19px;border-radius:50%;background:rgba(186,255,0,.14);color:var(--accent);font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;margin-top:1px;">${i+1}</span>
+                <div style="min-width:0;">
+                    <div style="font-size:12px;font-weight:800;">${_esc(p.t)}</div>
+                    <div style="font-size:11.5px;color:#8f978f;line-height:1.5;">${_esc(p.d)}</div>
+                </div>
+            </div>`).join('')}
+        </div>`;
+    }
 
     function _splitGroups(teams, perGroup) {
         const shuffled = [...teams].sort(() => Math.random() - 0.5);
@@ -1975,6 +2068,13 @@ window.CancheroTournaments = (function() {
             const { data: ats } = await sb.from('tournament_teams').select('id,team_name,group_letter').eq('tournament_id', tournamentId).eq('status','approved');
             allTeamNames = ats || [];
         } catch(e){}
+        // Explicación del recorrido del torneo, arriba de todo: era lo que no se entendía
+        // ("¿cómo con 3 partidos se define la final?").
+        let comoHTML = '';
+        try {
+            const { data: tt } = await sb.from('tournaments').select('*').eq('id', tournamentId).single();
+            if (tt) comoHTML = _comoSeJuegaHTML(tt, allTeamNames.length);
+        } catch(e){}
         // Escudos por equipo (para pintarlos junto a los nombres)
         let logoById = {};
         try {
@@ -1996,7 +2096,7 @@ window.CancheroTournaments = (function() {
             const pa = phaseOrder[a[1][0].phase] ?? 9, pb = phaseOrder[b[1][0].phase] ?? 9;
             return pa - pb || String(a[1][0].group_letter||'').localeCompare(String(b[1][0].group_letter||''));
         });
-        container.innerHTML = regenBtn + ordenadas.map(([key, groupMatches]) => {
+        container.innerHTML = regenBtn + comoHTML + ordenadas.map(([key, groupMatches]) => {
             const phase = groupMatches[0].phase;
             const gl = groupMatches[0].group_letter;
             const title = `${phaseLabels[phase]||phase}${gl && phase === 'groups' ? ` — Grupo ${gl}` : ''}`;
@@ -2152,8 +2252,7 @@ window.CancheroTournaments = (function() {
         }
         if (venueOpts.length < 2) {
             try {
-                const { data: cx } = await sb.from('users').select('name,city').in('role',['complejo','club']).limit(100);
-                (cx||[]).forEach(c => { if (c.name) venueOpts.push(c.name + (c.city ? ' · ' + c.city : '')); });
+                (await _listarComplejos()).forEach(c => { if (c.name) venueOpts.push(c.name + (c.city ? ' · ' + c.city : '')); });
             } catch(e){}
         }
         venueOpts = [...new Set(venueOpts.filter(Boolean))];
@@ -3320,18 +3419,51 @@ window.CancheroTournaments = (function() {
         _cteLlenarComplejos(t.complex_email, t.venue);
     }
 
-    // Complejos registrados en Canchero, para elegir dónde se juega el torneo.
-    async function _cteLlenarComplejos(actual, venueActual) {
+    // Complejos registrados en Canchero. OJO: los negocios viven en business_requests,
+    // NO en users — la fila de users con rol de negocio puede no existir. Se leen las dos
+    // tablas y se unifican por email, si no el selector salía vacío teniendo complejos.
+    async function _listarComplejos() {
         const sb = getSb();
+        const roles = ['complejo','club','cancha','predio'];
+        const porEmail = {};
+        try {
+            const { data } = await sb.from('business_requests')
+                .select('email,name,role,payload').in('role', roles).limit(300);
+            (data||[]).forEach(b => {
+                const em = (b.email||'').toLowerCase(); if (!em) return;
+                let ciudad = '';
+                try { const p = typeof b.payload === 'string' ? JSON.parse(b.payload) : (b.payload||{}); ciudad = p.city || p.ciudad || ''; } catch(e){}
+                porEmail[em] = { email: b.email, name: b.name || b.email, city: ciudad };
+            });
+        } catch(e){}
+        try {
+            const { data } = await sb.from('users').select('email,name,city').in('role', roles).limit(300);
+            (data||[]).forEach(u => {
+                const em = (u.email||'').toLowerCase(); if (!em) return;
+                if (!porEmail[em]) porEmail[em] = { email: u.email, name: u.name || u.email, city: u.city || '' };
+                else if (!porEmail[em].city) porEmail[em].city = u.city || '';
+            });
+        } catch(e){}
+        // Respaldo: cualquier email que tenga canchas cargadas es un complejo, aunque su
+        // rol esté mal puesto.
+        try {
+            const { data } = await sb.from('business_courts').select('business_email').limit(500);
+            (data||[]).forEach(c => {
+                const em = (c.business_email||'').toLowerCase(); if (!em) return;
+                if (!porEmail[em]) porEmail[em] = { email: c.business_email, name: c.business_email, city: '' };
+            });
+        } catch(e){}
+        return Object.values(porEmail).sort((a,b) => String(a.name).localeCompare(String(b.name)));
+    }
+
+    async function _cteLlenarComplejos(actual, venueActual) {
         const sel = document.getElementById('cte-complex');
         if (!sel) return;
-        try {
-            const { data } = await sb.from('users').select('email,name,city')
-                .in('role', ['complejo','club']).order('name').limit(200);
-            sel.innerHTML = '<option value="">— Sin complejo / a definir —</option>'
-                + (data||[]).map(c => `<option value="${_esc(c.email)}" ${c.email===actual?'selected':''}>${_esc(c.name||c.email)}${c.city?' · '+_esc(c.city):''}</option>`).join('');
-            if (actual) await _cteCargarCanchas(actual, venueActual);
-        } catch(e){}
+        const lista = await _listarComplejos();
+        sel.innerHTML = '<option value="">— Sin complejo / a definir —</option>'
+            + lista.map(c => `<option value="${_esc(c.email)}" ${c.email===actual?'selected':''}>${_esc(c.name)}${c.city?' · '+_esc(c.city):''}</option>`).join('')
+            + (lista.length ? '' : '<option value="" disabled>No hay complejos registrados todavía</option>');
+        if (actual) await _cteCargarCanchas(actual, venueActual);
     }
 
     // Canchas del complejo elegido (business_courts). El nombre elegido va a "venue".

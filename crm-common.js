@@ -31,6 +31,60 @@ var ADMIN_EMAIL = 'neurovidstudioia@gmail.com';
     document.documentElement.classList.add('crm-embedded');
   } catch(e){}
 })();
+/* ── Encabezados duplicados ──────────────────────────────────────────────
+   La topbar muestra el título de la página y un botón de acción general, y
+   además cada página trae SU propio <h2> con el mismo texto y su propio botón.
+   Resultado: "Mis Canchas / + Nueva reserva" arriba y "Mis Canchas / + Nueva
+   cancha" abajo. Se oculta el <h2> repetido y, si la página trae su propio
+   botón, se esconden los de la topbar (el de la página es el que corresponde).
+   Se aplica a los cuatro paneles sin tocar cada HTML. */
+function _crmNorm(s){ return (s||'').replace(/\s+/g,' ').trim().toLowerCase(); }
+function _crmDedupHeader(){
+  try {
+    var tb = document.getElementById('page-title');
+    var activa = document.querySelector('.page.active');
+    if (!activa) return;
+    // Restaurar lo ocultado en la página anterior
+    Array.prototype.forEach.call(document.querySelectorAll('[data-crm-oculto]'), function(el){
+      el.style.display = ''; el.removeAttribute('data-crm-oculto');
+    });
+    // Bloque de encabezado propio = primer hijo directo que contenga un <h2>
+    var head = null, h2 = null;
+    var hijos = activa.children;
+    for (var i = 0; i < hijos.length && i < 3; i++) {
+      var candidato = hijos[i].tagName === 'H2' ? hijos[i] : hijos[i].querySelector && hijos[i].querySelector('h2');
+      if (candidato) { head = hijos[i]; h2 = candidato; break; }
+    }
+    if (!h2) return;
+    if (tb && _crmNorm(h2.textContent) === _crmNorm(tb.textContent)) {
+      h2.style.display = 'none'; h2.setAttribute('data-crm-oculto','1');
+    }
+    if (head.querySelector('button')) {
+      Array.prototype.forEach.call(document.querySelectorAll('.topbar-actions button'), function(b){
+        // offsetParent es null en contenedores position:fixed (la topbar lo es), así que
+        // la visibilidad se mira por el estilo calculado.
+        if (getComputedStyle(b).display === 'none') return;   // ya lo ocultó la página
+        b.style.display = 'none'; b.setAttribute('data-crm-oculto','1');
+      });
+    }
+  } catch(e){}
+}
+// Envolver showPage para normalizar en cada cambio de sección.
+(function _crmHookShowPage(){
+  function envolver(){
+    if (typeof window.showPage !== 'function' || window.showPage.__crmWrap) return false;
+    var orig = window.showPage;
+    var wrap = function(){ var r = orig.apply(this, arguments); setTimeout(_crmDedupHeader, 0); return r; };
+    wrap.__crmWrap = true;
+    window.showPage = wrap;
+    setTimeout(_crmDedupHeader, 0);   // normalizar la sección inicial
+    return true;
+  }
+  if (!envolver()) {
+    var n = 0, iv = setInterval(function(){ if (envolver() || ++n > 20) clearInterval(iv); }, 150);
+  }
+})();
+
 function _fmt(n){ n = Number(n)||0; return '$' + n.toLocaleString('es-UY',{maximumFractionDigits:0}); }
 function _t(msg){ try { toast(msg); } catch(e){ alert(msg); } }
 function _modal(html){
