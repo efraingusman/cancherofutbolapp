@@ -1808,12 +1808,30 @@ window.CancheroTournaments = (function() {
         } catch(e) { console.warn('_bumpUserStats:', e && e.message); }
     }
 
+    // Canchas disponibles para los partidos de un torneo: las del complejo elegido, más
+    // la sede escrita a mano. Es lo que alimenta los sugeridos de cancha.
+    async function _canchasDelTorneo(tournamentId) {
+        const sb = getSb();
+        const out = [];
+        try {
+            const { data: t } = await sb.from('tournaments').select('venue,complex_email').eq('id', tournamentId).single();
+            if (t && t.venue) out.push(t.venue);
+            if (t && t.complex_email) {
+                const { data: canchas } = await sb.from('business_courts')
+                    .select('name,sede').eq('business_email', t.complex_email).order('name');
+                (canchas||[]).forEach(c => { if (c.name) out.push(c.name + (c.sede ? ' · ' + c.sede : '')); });
+            }
+        } catch(e){}
+        return [...new Set(out.filter(Boolean))];
+    }
+
     // ── Agregar un partido suelto al fixture (fuera de lo que generó el motor)
     async function _openAddMatch(tournamentId) {
         const sb = getSb();
         const { data: teams } = await sb.from('tournament_teams').select('id,team_name,group_letter').eq('tournament_id', tournamentId).eq('status','approved').order('team_name');
         if (!teams || teams.length < 2) { toast('Necesitás al menos 2 equipos aprobados.', 'warning'); return; }
         const opts = (teams||[]).map(x => `<option value="${x.id}">${_esc(x.team_name)}</option>`).join('');
+        const _canchasTorneo = await _canchasDelTorneo(tournamentId);
         const ex = document.getElementById('ctam-modal'); if (ex) ex.remove();
         const modal = document.createElement('div');
         modal.id = 'ctam-modal';
@@ -1845,7 +1863,8 @@ window.CancheroTournaments = (function() {
                 <div><label style="${lbl}">DÍA Y HORA</label><input id="ctam-when" type="datetime-local" style="${sty}"></div>
             </div>
             <label style="${lbl}">CANCHA</label>
-            <input id="ctam-venue" type="text" placeholder="Cancha 2" style="${sty}margin-bottom:14px;">
+            <input id="ctam-venue" type="text" list="ctam-venues" placeholder="Cancha 2" style="${sty}margin-bottom:14px;">
+            <datalist id="ctam-venues">${_canchasTorneo.map(v => `<option value="${_esc(v)}"></option>`).join('')}</datalist>
             <button onclick="CancheroTournaments._saveAddMatch('${tournamentId}')" style="width:100%;background:var(--accent);color:#000;border:none;border-radius:12px;padding:12px;font-weight:900;font-size:14px;cursor:pointer;">Agregar al fixture</button>
         </div>`;
         modal.onclick = e => { if (e.target === modal) modal.remove(); };
@@ -2115,17 +2134,29 @@ window.CancheroTournaments = (function() {
             .in('id', [m.home_team_id, m.away_team_id].filter(Boolean));
         const _homeT = (_tteams||[]).find(x => x.id === m.home_team_id) || { team_name: m.home_team_name };
         const _awayT = (_tteams||[]).find(x => x.id === m.away_team_id) || { team_name: m.away_team_name };
-        // Canchas sugeridas: la sede del torneo + complejos registrados en Canchero
+        // Canchas sugeridas. Si el torneo tiene un complejo elegido, se ofrecen SUS canchas
+        // (que es lo que realmente se va a usar); si no, se cae a la lista de complejos.
         let venueOpts = [];
+        let _torneoComplejo = null;
         try {
-            const { data: tt } = await sb.from('tournaments').select('venue').eq('id', m.tournament_id).single();
+            const { data: tt } = await sb.from('tournaments').select('venue,complex_email').eq('id', m.tournament_id).single();
             if (tt && tt.venue) venueOpts.push(tt.venue);
+            _torneoComplejo = tt && tt.complex_email;
         } catch(e){}
-        try {
-            const { data: cx } = await sb.from('users').select('name,city').in('role',['complejo','club']).limit(100);
-            (cx||[]).forEach(c => { if (c.name) venueOpts.push(c.name + (c.city ? ' · ' + c.city : '')); });
-        } catch(e){}
-        venueOpts = [...new Set(venueOpts)];
+        if (_torneoComplejo) {
+            try {
+                const { data: canchas } = await sb.from('business_courts')
+                    .select('name,sede').eq('business_email', _torneoComplejo).order('name');
+                (canchas||[]).forEach(c => { if (c.name) venueOpts.push(c.name + (c.sede ? ' · ' + c.sede : '')); });
+            } catch(e){}
+        }
+        if (venueOpts.length < 2) {
+            try {
+                const { data: cx } = await sb.from('users').select('name,city').in('role',['complejo','club']).limit(100);
+                (cx||[]).forEach(c => { if (c.name) venueOpts.push(c.name + (c.city ? ' · ' + c.city : '')); });
+            } catch(e){}
+        }
+        venueOpts = [...new Set(venueOpts.filter(Boolean))];
         window.__cmeEvents = Array.isArray(m.events) ? JSON.parse(JSON.stringify(m.events)) : [];
         window.__cmeRoster = roster || [];
         window.__cmeMatch = { home_team_id: m.home_team_id, away_team_id: m.away_team_id, home_team_name: _homeT.team_name || m.home_team_name, away_team_name: _awayT.team_name || m.away_team_name };
@@ -3227,10 +3258,17 @@ window.CancheroTournaments = (function() {
             </div>
             ${inp('cte-name','NOMBRE',t.name)}
             <div style="margin-bottom:10px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">DESCRIPCIÓN / AVISOS</label><textarea id="cte-desc" rows="2" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;box-sizing:border-box;resize:vertical;">${_esc(t.description||'')}</textarea></div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                ${inp('cte-city','CIUDAD',t.city)}
-                ${inp('cte-venue','CANCHA / SEDE',t.venue)}
-            </div>
+            ${inp('cte-city','CIUDAD',t.city)}
+            <div style="margin-bottom:10px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">COMPLEJO REGISTRADO EN CANCHERO</label>
+                <select id="cte-complex" onchange="CancheroTournaments._cteCargarCanchas(this.value)" style="${selSty}">
+                    <option value="">— Sin complejo / a definir —</option>
+                </select>
+                <div style="font-size:10px;color:#666;margin-top:4px;">Al elegirlo, las canchas de ese complejo quedan disponibles en cada partido.</div></div>
+            <div style="margin-bottom:10px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">CANCHA</label>
+                <select id="cte-court" onchange="CancheroTournaments._ctePickCancha(this.value)" style="${selSty}">
+                    <option value="">— Elegí el complejo primero —</option>
+                </select></div>
+            ${inp('cte-venue','CANCHA / SEDE (texto libre)',t.venue,'text','Ej: Cancha 1, o una dirección')}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                 <div style="margin-bottom:10px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">FORMATO</label>
                     <select id="cte-format" onchange="document.getElementById('cte-gs-wrap').style.visibility=(this.value==='groups'?'visible':'hidden')" style="${selSty}">
@@ -3279,7 +3317,54 @@ window.CancheroTournaments = (function() {
         </div>`;
         modal.onclick = e => { if (e.target === modal) modal.remove(); };
         document.body.appendChild(modal);
+        _cteLlenarComplejos(t.complex_email, t.venue);
     }
+
+    // Complejos registrados en Canchero, para elegir dónde se juega el torneo.
+    async function _cteLlenarComplejos(actual, venueActual) {
+        const sb = getSb();
+        const sel = document.getElementById('cte-complex');
+        if (!sel) return;
+        try {
+            const { data } = await sb.from('users').select('email,name,city')
+                .in('role', ['complejo','club']).order('name').limit(200);
+            sel.innerHTML = '<option value="">— Sin complejo / a definir —</option>'
+                + (data||[]).map(c => `<option value="${_esc(c.email)}" ${c.email===actual?'selected':''}>${_esc(c.name||c.email)}${c.city?' · '+_esc(c.city):''}</option>`).join('');
+            if (actual) await _cteCargarCanchas(actual, venueActual);
+        } catch(e){}
+    }
+
+    // Canchas del complejo elegido (business_courts). El nombre elegido va a "venue".
+    async function _cteCargarCanchas(email, venueActual) {
+        const sb = getSb();
+        const sel = document.getElementById('cte-court');
+        if (!sel) return;
+        if (!email) { sel.innerHTML = '<option value="">— Elegí el complejo primero —</option>'; return; }
+        sel.innerHTML = '<option value="">Cargando...</option>';
+        try {
+            const { data } = await sb.from('business_courts')
+                .select('id,name,sede,type').eq('business_email', email).order('name');
+            if (!data || !data.length) {
+                sel.innerHTML = '<option value="">Este complejo no cargó canchas</option>';
+                return;
+            }
+            const actual = venueActual != null ? venueActual : (document.getElementById('cte-venue')?.value || '');
+            sel.innerHTML = '<option value="">— Sin cancha fija —</option>'
+                + data.map(c => {
+                    const etiqueta = c.name + (c.sede ? ' · ' + c.sede : '');
+                    return `<option value="${_esc(etiqueta)}" ${etiqueta===actual?'selected':''}>${_esc(etiqueta)}</option>`;
+                }).join('');
+        } catch(e){
+            sel.innerHTML = '<option value="">No se pudieron cargar las canchas</option>';
+        }
+    }
+
+    // Elegir una cancha del complejo completa el campo de texto libre.
+    function _ctePickCancha(nombre) {
+        const v = document.getElementById('cte-venue');
+        if (v && nombre) v.value = nombre;
+    }
+
     async function _saveEditTournament(tournamentId) {
         const sb = getSb();
         const v = id => document.getElementById(id)?.value ?? '';
@@ -3288,6 +3373,7 @@ window.CancheroTournaments = (function() {
             description: v('cte-desc').trim() || null,
             city: v('cte-city').trim() || null,
             venue: v('cte-venue').trim() || null,
+            complex_email: v('cte-complex').trim() || null,
             start_date: v('cte-start') || null,
             end_date: v('cte-end') || null,
             entry_fee: parseFloat(v('cte-fee')) || 0,
@@ -4178,6 +4264,8 @@ window.CancheroTournaments = (function() {
         _openFullMatch,
         _openEditTournament,
         _saveEditTournament,
+        _cteCargarCanchas,
+        _ctePickCancha,
         _toggleSuspend,
         _deletePlayer,
         _ctmTab,
