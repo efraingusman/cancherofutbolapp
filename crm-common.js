@@ -425,4 +425,191 @@ window.crmOpenSupport = function(){
   };
   setTimeout(function(){ try{ m.querySelector('#sup-msg').focus(); }catch(e){} }, 100);
 };
+
+/* ══════════════════════════════════════════════════════════════════════
+   PIPELINE (P2) — tablero de etapas para TODOS los negocios.
+   Se alimenta de business_orders (ventas, consultas por chat, reservas) y,
+   en organizaciones, de las solicitudes de equipos a los torneos.
+   Las etapas son los mismos 'estado' que ya usa el resto del CRM, así el
+   tablero refleja la realidad en vez de inventar un sistema paralelo.
+   ══════════════════════════════════════════════════════════════════════ */
+var PIPE_ETAPAS = [
+  { id:'consulta',   label:'Consulta',   icon:'bx-message-dots', color:'#7aa2ff' },
+  { id:'pendiente',  label:'Pendiente',  icon:'bx-time-five',    color:'#ffaa00' },
+  { id:'confirmado', label:'Confirmado', icon:'bx-check',        color:'#00c8ff' },
+  { id:'pagado',     label:'Pagado',     icon:'bx-badge-check',  color:'#baff00' }
+];
+var _pipeCache = [];
+
+function _pipeEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+window.crmPipelineLoad = async function(){
+  var cont = document.getElementById('pipeline-board');
+  if (!cont) return;
+  cont.innerHTML = '<div style="color:#666;padding:24px;text-align:center;"><i class="bx bx-loader-alt bx-spin" style="font-size:22px;"></i></div>';
+  var tarjetas = [];
+
+  // 1) Pedidos / ventas / consultas del negocio
+  try {
+    var r = await sb.from('business_orders').select('*')
+      .eq('business_email', BIZ_EMAIL).order('created_at', { ascending:false }).limit(300);
+    (r.data||[]).forEach(function(o){
+      var est = String(o.estado||'pendiente').toLowerCase();
+      if (est === 'cancelado') return;                    // cancelados no ocupan el tablero
+      tarjetas.push({
+        id: o.id, tipo: 'order', etapa: est,
+        titulo: o.product_name || o.concepto || 'Pedido',
+        cliente: o.client_name || o.client_email || o.cliente_email || 'Sin cliente',
+        email: o.client_email || o.cliente_email || '',
+        monto: Number(o.precio_total||0),
+        fecha: o.created_at
+      });
+    });
+  } catch(e){ console.warn('pipeline orders', e); }
+
+  // 2) Solicitudes de equipos a los torneos (solo organizaciones)
+  try {
+    var tor = await sb.from('tournaments').select('id,name').eq('organizer_email', BIZ_EMAIL).limit(100);
+    var ids = (tor.data||[]).map(function(t){ return t.id; });
+    if (ids.length) {
+      var nombreTorneo = {};
+      (tor.data||[]).forEach(function(t){ nombreTorneo[t.id] = t.name; });
+      var eq = await sb.from('tournament_teams')
+        .select('id,team_name,captain_email,captain_name,status,payment_status,created_at,tournament_id')
+        .in('tournament_id', ids).limit(300);
+      (eq.data||[]).forEach(function(t){
+        // pendiente de aprobación → Pendiente · aprobado → Confirmado · pagado → Pagado
+        var etapa = (t.payment_status === 'paid') ? 'pagado'
+                  : (t.status === 'approved') ? 'confirmado'
+                  : (t.status === 'rejected') ? null : 'pendiente';
+        if (!etapa) return;
+        tarjetas.push({
+          id: t.id, tipo: 'team', etapa: etapa,
+          titulo: t.team_name || 'Equipo',
+          cliente: t.captain_name || t.captain_email || 'Sin capitán',
+          email: t.captain_email || '',
+          sub: nombreTorneo[t.tournament_id] || '',
+          fecha: t.created_at
+        });
+      });
+    }
+  } catch(e){ console.warn('pipeline torneos', e); }
+
+  _pipeCache = tarjetas;
+  _pipeRender();
+};
+
+function _pipeRender(){
+  var cont = document.getElementById('pipeline-board');
+  if (!cont) return;
+  if (!_pipeCache.length) {
+    cont.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#666;">'
+      + '<i class="bx bx-columns" style="font-size:44px;opacity:.35;display:block;margin-bottom:12px;"></i>'
+      + 'Todavía no hay nada en el pipeline.<br><span style="font-size:12px;">Las consultas por chat, las ventas y las solicitudes de equipos aparecen acá solas.</span></div>';
+    return;
+  }
+  cont.innerHTML = PIPE_ETAPAS.map(function(et){
+    var items = _pipeCache.filter(function(c){ return c.etapa === et.id; });
+    var total = items.reduce(function(a,c){ return a + (c.monto||0); }, 0);
+    return '<div class="pipe-col" data-etapa="' + et.id + '" '
+      + 'ondragover="event.preventDefault();this.style.background=\'rgba(186,255,0,.06)\'" '
+      + 'ondragleave="this.style.background=\'\'" '
+      + 'ondrop="crmPipeDrop(event,\'' + et.id + '\');this.style.background=\'\'" '
+      + 'style="flex:1;min-width:210px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px;transition:.15s;">'
+      + '<div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;">'
+        + '<i class="bx ' + et.icon + '" style="color:' + et.color + ';font-size:16px;"></i>'
+        + '<span style="font-size:12px;font-weight:900;letter-spacing:.4px;">' + et.label + '</span>'
+        + '<span style="margin-left:auto;font-size:11px;font-weight:800;color:#888;background:rgba(255,255,255,.06);border-radius:8px;padding:2px 8px;">' + items.length + '</span>'
+      + '</div>'
+      + (total ? '<div style="font-size:11px;color:' + et.color + ';font-weight:800;margin:-4px 0 9px;">' + _fmt(total) + '</div>' : '')
+      + (items.length ? items.map(_pipeCard).join('')
+          : '<div style="font-size:11px;color:#555;text-align:center;padding:16px 4px;">Vacío</div>')
+      + '</div>';
+  }).join('');
+}
+
+function _pipeCard(c){
+  var fecha = c.fecha ? new Date(c.fecha).toLocaleDateString('es-UY',{day:'numeric',month:'short'}) : '';
+  var icono = c.tipo === 'team' ? 'bx-shield-quarter' : 'bx-receipt';
+  // En celular no hay drag & drop (los eventos HTML5 no disparan con el dedo):
+  // tocar la tarjeta abre el selector de etapa.
+  return '<div draggable="true" ondragstart="crmPipeDrag(event,\'' + c.tipo + '\',\'' + c.id + '\')" '
+    + 'onclick="crmPipeMover(\'' + c.tipo + '\',\'' + c.id + '\')" '
+    + 'style="background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);border-radius:11px;padding:10px 11px;margin-bottom:7px;cursor:pointer;">'
+    + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
+      + '<i class="bx ' + icono + '" style="color:var(--accent);font-size:13px;flex-shrink:0;"></i>'
+      + '<span style="font-size:12.5px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + _pipeEsc(c.titulo) + '</span>'
+    + '</div>'
+    + '<div style="font-size:11px;color:#8a928a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + _pipeEsc(c.cliente) + '</div>'
+    + (c.sub ? '<div style="font-size:10px;color:#5f665f;margin-top:2px;">' + _pipeEsc(c.sub) + '</div>' : '')
+    + '<div style="display:flex;align-items:center;gap:8px;margin-top:7px;">'
+      + (c.monto ? '<span style="font-size:11.5px;font-weight:900;color:var(--accent);">' + _fmt(c.monto) + '</span>' : '')
+      + (fecha ? '<span style="font-size:10px;color:#555;margin-left:auto;">' + fecha + '</span>' : '')
+    + '</div></div>';
+}
+
+window.crmPipeDrag = function(ev, tipo, id){
+  try { ev.dataTransfer.setData('text/plain', tipo + ':' + id); ev.dataTransfer.effectAllowed = 'move'; } catch(e){}
+};
+
+// Mover por toque: la alternativa al drag & drop en celular.
+window.crmPipeMover = function(tipo, id){
+  var card = _pipeCache.filter(function(c){ return String(c.id) === String(id) && c.tipo === tipo; })[0];
+  if (!card) return;
+  var opciones = PIPE_ETAPAS.map(function(et){
+    var actual = et.id === card.etapa;
+    return '<button ' + (actual ? 'disabled' : 'onclick="crmPipeSet(\'' + tipo + '\',\'' + id + '\',\'' + et.id + '\')"')
+      + ' style="width:100%;display:flex;align-items:center;gap:9px;background:' + (actual?'rgba(186,255,0,.1)':'rgba(255,255,255,.05)')
+      + ';border:1px solid ' + (actual?'rgba(186,255,0,.3)':'rgba(255,255,255,.1)') + ';color:' + (actual?'var(--accent)':'#ddd')
+      + ';border-radius:11px;padding:12px;font-weight:800;font-size:13px;cursor:' + (actual?'default':'pointer') + ';margin-bottom:7px;">'
+      + '<i class="bx ' + et.icon + '" style="color:' + et.color + ';font-size:16px;"></i>' + et.label
+      + (actual ? '<span style="margin-left:auto;font-size:10px;">actual</span>' : '') + '</button>';
+  }).join('');
+  _modal('<div style="font-weight:900;font-size:15px;margin-bottom:4px;">' + _pipeEsc(card.titulo) + '</div>'
+    + '<div style="font-size:12px;color:#888;margin-bottom:14px;">' + _pipeEsc(card.cliente) + '</div>'
+    + '<div style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;margin-bottom:8px;">MOVER A</div>'
+    + opciones);
+};
+
+window.crmPipeSet = async function(tipo, id, etapa){
+  var m = document.querySelector('.modal'); if (m) m.remove();
+  await _pipeAplicar(tipo, id, etapa);
+};
+
+window.crmPipeDrop = async function(ev, etapa){
+  ev.preventDefault();
+  var raw = '';
+  try { raw = ev.dataTransfer.getData('text/plain') || ''; } catch(e){}
+  var sep = raw.indexOf(':');
+  if (sep < 0) return;
+  await _pipeAplicar(raw.slice(0, sep), raw.slice(sep + 1), etapa);
+};
+
+// Un solo camino para mover una tarjeta, lo dispare el mouse o el dedo.
+async function _pipeAplicar(tipo, id, etapa){
+  var card = _pipeCache.filter(function(c){ return String(c.id) === String(id) && c.tipo === tipo; })[0];
+  if (!card || card.etapa === etapa) return;
+  var antes = card.etapa;
+  card.etapa = etapa;             // optimista: se ve al instante
+  _pipeRender();
+  try {
+    if (tipo === 'order') {
+      var r = await sb.from('business_orders').update({ estado: etapa }).eq('id', id);
+      if (r.error) throw r.error;
+    } else {
+      // Mover un equipo cambia su estado real en el torneo.
+      var upd = etapa === 'pagado'     ? { status:'approved', payment_status:'paid' }
+              : etapa === 'confirmado' ? { status:'approved' }
+              : { status:'pending' };
+      var r2 = await sb.from('tournament_teams').update(upd).eq('id', id);
+      if (r2.error) throw r2.error;
+    }
+    var lbl = PIPE_ETAPAS.filter(function(e){ return e.id === etapa; })[0];
+    _t('Movido a ' + (lbl ? lbl.label : etapa) + '.');
+  } catch(e){
+    card.etapa = antes; _pipeRender();
+    _t('No se pudo mover: ' + (e.message||''));
+  }
+}
 })();

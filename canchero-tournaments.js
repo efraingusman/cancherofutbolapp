@@ -3802,10 +3802,10 @@ window.CancheroTournaments = (function() {
             <div style="font-size:10px;color:#666;font-weight:900;letter-spacing:1.4px;margin-bottom:10px;">CONTACTAR A LA ORGANIZACIÓN</div>
             <div style="font-size:13px;font-weight:800;margin-bottom:12px;">${_esc(org.name || t.organizer_email || 'Organización')}</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button onclick="CancheroTournaments._contactOrg('chat','${tournamentId}')" style="flex:1;min-width:140px;background:rgba(186,255,0,0.12);color:var(--accent);border:1px solid rgba(186,255,0,0.3);border-radius:12px;padding:12px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;"><i class='bx bx-message-dots'></i> Chat de Canchero</button>
+                ${org.pref !== 'whatsapp' ? `<button onclick="CancheroTournaments._contactOrg('chat','${tournamentId}')" style="flex:1;min-width:140px;background:rgba(186,255,0,0.12);color:var(--accent);border:1px solid rgba(186,255,0,0.3);border-radius:12px;padding:12px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;"><i class='bx bx-message-dots'></i> Chat de Canchero</button>` : ''}
                 ${wsp ? `<button onclick="CancheroTournaments._contactOrg('wa','${tournamentId}')" style="flex:1;min-width:140px;background:#25D366;color:#000;border:none;border-radius:12px;padding:12px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;"><i class='bx bxl-whatsapp' style="font-size:17px;"></i> WhatsApp</button>` : ''}
             </div>
-            ${!wsp ? `<div style="font-size:10.5px;color:#555;margin-top:8px;">${isOrg ? 'Cargá tu WhatsApp en el perfil del negocio para que también te puedan escribir por ahí.' : 'Esta organización no publicó WhatsApp.'}</div>` : ''}
+            ${!wsp ? `<div style="font-size:10.5px;color:#555;margin-top:8px;">${isOrg ? 'Cargá tu WhatsApp en el perfil y elegí el canal preferido para que también te escriban por ahí.' : (org.pref === 'canchero' ? 'Esta organización prefiere que le escriban por el chat de Canchero.' : 'Esta organización no publicó WhatsApp.')}</div>` : ''}
         </div>`;
 
         let bloqueSponsors = '';
@@ -3840,21 +3840,25 @@ window.CancheroTournaments = (function() {
     // respaldo se mira users.whatsapp_number, que es donde lo guardan otros rubros.
     async function _orgContacto(email) {
         const sb = getSb();
-        const out = { name: '', whatsapp: '' };
+        const out = { name: '', whatsapp: '', pref: 'ambos' };
         if (!email) return out;
         try {
             const { data } = await sb.from('business_requests')
                 .select('name,whatsapp,phone').ilike('email', email).maybeSingle();
             if (data) { out.name = data.name || ''; out.whatsapp = data.whatsapp || data.phone || ''; }
         } catch(e){}
-        if (!out.whatsapp) {
-            try {
-                const { data } = await sb.from('users')
-                    .select('name,whatsapp_number,phone').ilike('email', email).maybeSingle();
-                if (data) { out.name = out.name || data.name || ''; out.whatsapp = data.whatsapp_number || data.phone || ''; }
-            } catch(e){}
-        }
+        try {
+            const { data } = await sb.from('users')
+                .select('name,whatsapp,whatsapp_number,phone,contact_pref').ilike('email', email).maybeSingle();
+            if (data) {
+                out.name = out.name || data.name || '';
+                out.whatsapp = out.whatsapp || data.whatsapp || data.whatsapp_number || data.phone || '';
+                out.pref = data.contact_pref || 'ambos';
+            }
+        } catch(e){}
         out.whatsapp = String(out.whatsapp || '').replace(/[^0-9]/g, '');
+        // El canal preferido manda: si eligió solo chat, no se ofrece WhatsApp.
+        if (out.pref === 'canchero') out.whatsapp = '';
         return out;
     }
 

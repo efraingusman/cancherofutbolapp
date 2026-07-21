@@ -89,6 +89,7 @@
       <div class="nav-item" onclick="showPage('caja',this)"><i class='bx bx-wallet'></i> Caja</div>
       <div class="nav-item" onclick="showPage('proveedores',this)"><i class='bx bx-package'></i> Proveedores</div>
       <div class="nav-item" onclick="showPage('clientes-crm',this)"><i class='bx bx-group'></i> Clientes</div>
+      <div class="nav-item" onclick="showPage('pipeline',this)"><i class='bx bx-columns'></i> Pipeline</div>
       <div class="nav-item" onclick="crmOpenSupport()"><i class='bx bx-support'></i> Hablar con soporte</div>
     </div>
     <div class="sidebar-section">
@@ -217,6 +218,14 @@
     </div>
 
     <!-- PERFIL PÚBLICO -->
+    <div id="page-pipeline" class="page">
+      <div class="card">
+        <div class="card-title" style="margin-bottom:4px;"><i class='bx bx-columns' style="color:var(--accent);"></i> Pipeline</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Arrastr&aacute; las tarjetas entre etapas. En celular, toc&aacute; una tarjeta para moverla.</div>
+        <div id="pipeline-board" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;"></div>
+      </div>
+    </div>
+
     <div id="page-perfil" class="page">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
         <div><h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Mi Perfil Público</h2><p style="color:var(--muted);font-size:12px;">Así te ven los jugadores en Canchero</p></div>
@@ -231,6 +240,7 @@
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
             <div><label class="form-label">TELÉFONO</label><input id="prof-phone-org" type="tel" class="form-input" placeholder="091234567"></div>
             <div><label class="form-label">WHATSAPP</label><input id="prof-wa-org" type="tel" class="form-input" placeholder="59891234567"></div>
+            <div><label class="form-label">C&Oacute;MO PREFER&Iacute;S QUE TE CONTACTEN</label><select id="prof-pref-org" class="form-input"><option value="ambos">Chat de Canchero y WhatsApp</option><option value="canchero">Solo chat de Canchero</option><option value="whatsapp">Solo WhatsApp</option></select></div>
           </div>
           <div><label class="form-label">DIRECCIÓN / SEDE</label><input id="prof-address-org" type="text" class="form-input" placeholder="Sede de la organización"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -330,8 +340,9 @@ function showPage(name,el){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name)?.classList.add('active');
   if(el)el.classList.add('active');
-  const titles={dashboard:'Dashboard',torneos:'Torneos',inscripciones:'Inscripciones',posiciones:'Tabla de Posiciones',comunicaciones:'Comunicaciones',caja:'Caja',proveedores:'Proveedores','clientes-crm':'Clientes'};
+  const titles={pipeline:'Pipeline',dashboard:'Dashboard',torneos:'Torneos',inscripciones:'Inscripciones',posiciones:'Tabla de Posiciones',comunicaciones:'Comunicaciones',caja:'Caja',proveedores:'Proveedores','clientes-crm':'Clientes'};
   document.getElementById('page-title').textContent=titles[name]||name;
+  if(name==='pipeline')crmPipelineLoad();
   // El botón "Nuevo torneo" de la topbar duplica el header propio de la página Torneos
   // ("Mis Torneos + Nuevo") → se oculta ahí y se muestra como atajo en las demás páginas.
   var _tbNew=document.getElementById('topbar-new-torneo'); if(_tbNew) _tbNew.style.display=(name==='torneos')?'none':'';
@@ -350,7 +361,7 @@ async function initPerfilOrg(){
   if(!(BIZ&&BIZ.email))return;
   try{ const{data:fresh}=await sb.from('users').select('*').eq('email',BIZ.email).maybeSingle(); if(fresh){Object.assign(BIZ,fresh);sessionStorage.setItem('crm_biz',JSON.stringify(BIZ));} }catch(e){}
   const sv=function(id,v){const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
-  sv('prof-bio-org',BIZ.bio);sv('prof-phone-org',BIZ.phone);sv('prof-wa-org',BIZ.whatsapp);
+  sv('prof-bio-org',BIZ.bio);sv('prof-phone-org',BIZ.phone);sv('prof-wa-org',BIZ.whatsapp);sv('prof-pref-org',BIZ.contact_pref||'ambos');
   sv('prof-address-org',BIZ.address);sv('prof-ig-org',BIZ.instagram);sv('prof-website-org',BIZ.website);
 }
 async function savePerfilOrg(){
@@ -359,7 +370,7 @@ async function savePerfilOrg(){
   const val=function(id){const e=document.getElementById(id);return e&&e.value!=null?e.value.trim():'';};
   const updates={};
   const setU=function(k,v){ if(v) updates[k]=v; };
-  setU('bio',val('prof-bio-org')); setU('phone',val('prof-phone-org')); setU('whatsapp',val('prof-wa-org'));
+  setU('bio',val('prof-bio-org')); setU('phone',val('prof-phone-org')); setU('whatsapp',val('prof-wa-org')); setU('contact_pref',val('prof-pref-org'));
   setU('address',val('prof-address-org')); setU('instagram',val('prof-ig-org')); setU('website',val('prof-website-org'));
   if(Object.keys(updates).length===0){toast('Nada para guardar.','warning');return;}
   try{const{error}=await sb.from('users').update(updates).eq('email',BIZ.email);if(error)throw error;
@@ -799,8 +810,8 @@ async function saveFaq(){
 loadDashboard();
 </script>
   <script src="canchero-crm-ventas.js?v=20260624g"></script>
-<script src="crm-common.js?v=20260717"></script>
+<script src="crm-common.js?v=20260720e"></script>
 <!-- Motor de torneos: equipos, fixture (cruces automáticos), tabla, jugadores, goleadores, vista pública -->
-<script src="canchero-tournaments.js?v=20260720d"></script>
+<script src="canchero-tournaments.js?v=20260720e"></script>
 </body>
 </html>

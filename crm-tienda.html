@@ -366,6 +366,7 @@
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
             <div><label class="form-label">TELÉFONO</label><input id="prof-phone-t" type="tel" class="form-input" placeholder="091234567"></div>
             <div><label class="form-label">WHATSAPP</label><input id="prof-wa-t" type="tel" class="form-input" placeholder="59891234567"></div>
+            <div><label class="form-label">C&Oacute;MO PREFER&Iacute;S QUE TE CONTACTEN</label><select id="prof-pref-t" class="form-input"><option value="ambos">Chat de Canchero y WhatsApp</option><option value="canchero">Solo chat de Canchero</option><option value="whatsapp">Solo WhatsApp</option></select></div>
           </div>
           <div><label class="form-label">DIRECCIÓN</label><input id="prof-address-t" type="text" class="form-input" placeholder="Ej: Av. 18 de Julio 1234"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -513,7 +514,7 @@ async function initPerfilTienda(){
     try{ const{data:br}=await sb.from('business_requests').select('name').eq('email',BIZ.email).order('created_at',{ascending:false}).limit(1); if(br&&br[0]&&br[0].name) BIZ.name=br[0].name; }catch(e){}
   }catch(e){}
   const sv=function(id,v){const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
-  sv('prof-bio-t',BIZ.bio);sv('prof-phone-t',BIZ.phone);sv('prof-wa-t',BIZ.whatsapp);
+  sv('prof-bio-t',BIZ.bio);sv('prof-phone-t',BIZ.phone);sv('prof-wa-t',BIZ.whatsapp);sv('prof-pref-t',BIZ.contact_pref||'ambos');
   sv('prof-address-t',BIZ.address);sv('prof-ig-t',BIZ.instagram);sv('prof-website-t',BIZ.website);
   // Previews de foto/portada
   if(BIZ.cover_photo){const c=document.getElementById('t-cover-prev');if(c)c.style.backgroundImage='url('+BIZ.cover_photo+')';}
@@ -579,6 +580,7 @@ async function savePerfilTienda(){
   const _b=val('prof-bio-t'); if(_b) updates.bio=_b;
   const _p=val('prof-phone-t'); if(_p) updates.phone=_p;
   const _w=val('prof-wa-t'); if(_w){ updates.whatsapp=_w; updates.whatsapp_number=_w; }
+  const _cp=val('prof-pref-t'); if(_cp){ updates.contact_pref=_cp; }
   const _a=val('prof-address-t'); if(_a) updates.address=_a;
   const _i=val('prof-ig-t'); if(_i) updates.instagram=_i;
   const _ws=val('prof-website-t'); if(_ws) updates.website=_ws;
@@ -1206,6 +1208,6 @@ async function loadReports(){
   }catch(e){ console.warn('loadReports',e); }
 }
 </script>
-<script src="crm-common.js?v=20260717"></script>
+<script src="crm-common.js?v=20260720e"></script>
 </body>
 </html>

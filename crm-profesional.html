@@ -86,6 +86,7 @@
       <div class="sidebar-title">Negocio</div>
       <div class="nav-item" onclick="showPage('pagos',this)"><i class='bx bx-credit-card'></i> Cobros</div>
       <div class="nav-item" onclick="showPage('chatbot',this)"><i class='bx bx-bot'></i> Chatbot FAQ</div>
+      <div class="nav-item" onclick="showPage('pipeline',this)"><i class='bx bx-columns'></i> Pipeline</div>
       <div class="nav-item" onclick="showPage('perfil',this)"><i class='bx bx-edit'></i> Mi Perfil Público</div>
     </div>
     <div class="sidebar-section">
@@ -158,6 +159,14 @@
       <div id="faq-list" style="display:flex;flex-direction:column;gap:8px;"></div>
     </div>
 
+    <div id="page-pipeline" class="page">
+      <div class="card">
+        <div class="card-title" style="margin-bottom:4px;"><i class='bx bx-columns' style="color:var(--accent);"></i> Pipeline</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Arrastr&aacute; las tarjetas entre etapas. En celular, toc&aacute; una tarjeta para moverla.</div>
+        <div id="pipeline-board" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;"></div>
+      </div>
+    </div>
+
     <div id="page-perfil" class="page">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
         <div><h2 style="font-family:var(--font);font-size:20px;font-weight:900;">Mi Perfil Público</h2><p style="color:var(--muted);font-size:12px;">Así te ven los jugadores en Canchero</p></div>
@@ -172,6 +181,7 @@
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
             <div><label class="form-label">TELÉFONO</label><input id="prof-phone" type="tel" class="form-input" placeholder="091234567"></div>
             <div><label class="form-label">WHATSAPP</label><input id="prof-wa-pro" type="tel" class="form-input" placeholder="59891234567"></div>
+            <div><label class="form-label">C&Oacute;MO PREFER&Iacute;S QUE TE CONTACTEN</label><select id="prof-pref-pro" class="form-input"><option value="ambos">Chat de Canchero y WhatsApp</option><option value="canchero">Solo chat de Canchero</option><option value="whatsapp">Solo WhatsApp</option></select></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
             <div><label class="form-label">INSTAGRAM</label><input id="prof-ig-pro" type="text" class="form-input" placeholder="@tu_usuario"></div>
@@ -234,7 +244,7 @@ const SUBTYPES={dt:'📋 Director Técnico',arbitro:'🟨 Árbitro',preparador:'
 const sub=BIZ.sub_type&&SUBTYPES[BIZ.sub_type]?SUBTYPES[BIZ.sub_type]:'💼 Panel Profesional';
 document.getElementById('biz-subtype').textContent=sub;
 
-const PAGES_T={dashboard:'Dashboard',servicios:'Mis Servicios',agenda:'Agenda',clientes:'Clientes',pagos:'Cobros',chatbot:'Chatbot FAQ',perfil:'Mi Perfil'};
+const PAGES_T={pipeline:'Pipeline',dashboard:'Dashboard',servicios:'Mis Servicios',agenda:'Agenda',clientes:'Clientes',pagos:'Cobros',chatbot:'Chatbot FAQ',perfil:'Mi Perfil'};
 function toggleCrmSidebar(){const sb=document.getElementById('crm-sidebar');const ov=document.getElementById('crm-overlay');if(sb)sb.classList.toggle('open');if(ov)ov.classList.toggle('open');}
 function showPage(name,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -244,6 +254,7 @@ function showPage(name,el){
   document.getElementById('page-'+name)?.classList.add('active');
   if(el)el.classList.add('active');
   document.getElementById('page-title').textContent=PAGES_T[name]||name;
+  if(name==='pipeline')crmPipelineLoad();
   if(name==='dashboard')loadDashboard();
   if(name==='servicios')loadServices();
   if(name==='agenda'){const d=new Date();document.getElementById('agenda-date').value=d.toISOString().slice(0,10);loadAgenda();}
@@ -386,7 +397,7 @@ async function loadPerfil(){
   const{data}=await sb.from('users').select('name,bio,city,phone,whatsapp,instagram,website,frame_style,certifications').eq('email',BIZ_EMAIL).maybeSingle();
   if(data){
     const sv=function(id,v){const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
-    sv('prof-bio',data.bio);sv('prof-phone',data.phone);sv('prof-wa-pro',data.whatsapp);
+    sv('prof-bio',data.bio);sv('prof-phone',data.phone);sv('prof-wa-pro',data.whatsapp);sv('prof-pref-pro',data.contact_pref||'ambos');
     sv('prof-ig-pro',data.instagram);sv('prof-website-pro',data.website);
     if(data.certifications&&Array.isArray(data.certifications)){sv('prof-certs',data.certifications.join(', '));}
     if(data.frame_style){const opt=document.querySelector('.frame-option-crm[data-frame="'+data.frame_style+'"]');if(opt)selFrameProf(opt,data.frame_style);}
@@ -398,7 +409,7 @@ async function savePerfil(){
   const val=function(id){const e=document.getElementById(id);return e&&e.value!=null?e.value.trim():'';};
   const updates={};
   const setU=function(k,v){ if(v) updates[k]=v; };
-  setU('bio',val('prof-bio')); setU('phone',val('prof-phone')); setU('whatsapp',val('prof-wa-pro'));
+  setU('bio',val('prof-bio')); setU('phone',val('prof-phone')); setU('whatsapp',val('prof-wa-pro')); setU('contact_pref',val('prof-pref-pro'));
   setU('instagram',val('prof-ig-pro')); setU('website',val('prof-website-pro'));
   const certsRaw=val('prof-certs');
   if(certsRaw){ updates.certifications=certsRaw.split(',').map(c=>c.trim()).filter(Boolean); }
@@ -411,6 +422,6 @@ loadDashboard();
 loadServices();
 </script>
   <script src="canchero-crm-ventas.js?v=20260624g"></script>
-  <script src="crm-common.js?v=20260717"></script>
+  <script src="crm-common.js?v=20260720e"></script>
 </body>
 </html>
