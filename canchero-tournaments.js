@@ -238,7 +238,7 @@ window.CancheroTournaments = (function() {
                     <textarea id="ct-desc" rows="2" style="width:100%;background:#111;border:1px solid #222;color:#fff;border-radius:10px;padding:10px 14px;font-size:13px;resize:vertical;" placeholder="Reglas, premios, información general..."></textarea></div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                     <div><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:5px;">FORMATO *</label>
-                        <select id="ct-format" onchange="document.getElementById('ct-gs-wrap').style.visibility=(this.value==='groups'?'visible':'hidden')" style="width:100%;background:#111;border:1px solid #222;color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;">
+                        <select id="ct-format" onchange="var g=this.value==='groups';document.getElementById('ct-gs-wrap').style.visibility=(g?'visible':'hidden');document.getElementById('ct-po-wrap').style.display=(g?'block':'none')" style="width:100%;background:#111;border:1px solid #222;color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;">
                             <option value="groups">Fase de grupos + eliminación</option>
                             <option value="elimination">Eliminación directa</option>
                             <option value="league">Liga (todos vs todos)</option>
@@ -268,6 +268,16 @@ window.CancheroTournaments = (function() {
                             <option value="6">6 por grupo</option>
                         </select></div>
                 </div>
+                <div id="ct-po-wrap"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:5px;">PLAYOFFS (ARRANCAN EN)</label>
+                    <select id="ct-playoff" style="width:100%;background:#111;border:1px solid #222;color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;">
+                        <option value="auto">Automático (2 por grupo)</option>
+                        <option value="r32">16avos de final</option>
+                        <option value="r16">Octavos de final</option>
+                        <option value="quarterfinal">Cuartos de final</option>
+                        <option value="semifinal">Semifinales</option>
+                        <option value="final">Final directa</option>
+                        <option value="none">Sin playoffs (solo grupos)</option>
+                    </select></div>
                 <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:11px 13px;cursor:pointer;">
                     <input id="ct-double" type="checkbox" style="width:17px;height:17px;accent-color:var(--accent);cursor:pointer;">
                     <span style="font-size:13px;font-weight:800;">Ida y vuelta</span>
@@ -317,6 +327,7 @@ window.CancheroTournaments = (function() {
                 double_round: !!document.getElementById('ct-double')?.checked,
                 group_size: parseInt(document.getElementById('ct-group-size')?.value) || 4,
                 match_format: document.getElementById('ct-match-format')?.value || null,
+                playoff_from: document.getElementById('ct-playoff')?.value || 'auto',
                 max_teams: parseInt(document.getElementById('ct-max-teams')?.value) || 8,
                 start_date: document.getElementById('ct-start')?.value || null,
                 end_date: document.getElementById('ct-end')?.value || null,
@@ -330,7 +341,7 @@ window.CancheroTournaments = (function() {
             let { data, error } = await sb.from('tournaments').insert(row).select('id').single();
             if (error) {
                 // La base puede no tener todavía group_size / match_format: reintentar sin ellas.
-                const bare = { ...row }; delete bare.group_size; delete bare.match_format;
+                const bare = { ...row }; delete bare.group_size; delete bare.match_format; delete bare.playoff_from;
                 const retry = await sb.from('tournaments').insert(bare).select('id').single();
                 if (retry.error) throw retry.error;
                 data = retry.data;
@@ -1222,7 +1233,8 @@ window.CancheroTournaments = (function() {
             ${plan.groupsCount ? row('Grupos', `${plan.groupsCount} de hasta ${plan.groupSize}`) : ''}
             ${plan.matchdays ? row('Fechas', plan.matchdays) : ''}
             ${plan.byeNote ? row('Descansa por fecha', plan.byeNote) : ''}
-            ${row('Partidos a crear', `<span style="color:var(--accent);font-size:15px;">${plan.matches.length}</span>`)}
+            ${plan.qualifiers ? row('Playoffs', `${plan.qualifiers} clasificados — desde ${plan.playoffLabel}`) : ''}
+            ${row('Partidos a crear', `<span style="color:var(--accent);font-size:15px;">${plan.total}</span>`)}
             ${plan.note ? `<div style="margin-top:10px;font-size:11px;color:#888;line-height:1.5;">${plan.note}</div>` : ''}
             ${(prev||[]).length ? `<div style="margin-top:12px;background:rgba(255,68,68,0.08);border:1px solid rgba(255,68,68,0.25);border-radius:12px;padding:10px 12px;font-size:11px;color:#ff9b9b;line-height:1.5;"><i class='bx bx-error'></i> Ya hay ${prev.length} partidos generados${conResultado ? ` y <b>${conResultado} con resultado cargado</b>` : ''}. Regenerar los borra${conResultado ? ' y se pierden esos resultados' : ''}.</div>` : ''}
             <button onclick="CancheroTournaments._doGenerateFixture('${tournamentId}')" id="ctgf-go" style="width:100%;margin-top:14px;background:var(--accent);color:#000;border:none;border-radius:14px;padding:13px;font-weight:900;font-size:14px;cursor:pointer;font-family:Outfit,sans-serif;">${(prev||[]).length ? 'REGENERAR FIXTURE' : 'GENERAR FIXTURE'}</button>
@@ -1252,12 +1264,13 @@ window.CancheroTournaments = (function() {
         }
 
         let total = 0;
-        if (plan.elimination) {
-            total = await _insertBracket(sb, tournamentId, plan.rounds);
-        } else if (plan.matches.length) {
-            const ok = await _insertMatches(sb, plan.matches.map(m => ({ ...m, tournament_id: tournamentId })));
+        if (plan.flat.length) {
+            const ok = await _insertMatches(sb, plan.flat.map(m => ({ ...m, tournament_id: tournamentId })));
             if (!ok) { if (btn) { btn.textContent = 'GENERAR FIXTURE'; btn.disabled = false; } return; }
-            total = plan.matches.length;
+            total += plan.flat.length;
+        }
+        if (plan.rounds && plan.rounds.length) {
+            total += await _insertBracket(sb, tournamentId, plan.rounds);
         }
 
         document.getElementById('ctgf-modal')?.remove();
@@ -1314,13 +1327,16 @@ window.CancheroTournaments = (function() {
 
     // ── Planificador: calcula TODO el fixture en memoria, sin tocar la base. Lo usan tanto
     // el modal de confirmación (para mostrar los números) como la generación real.
+    // Devuelve siempre { flat, rounds, total, ... }:
+    //   flat   = partidos sueltos (liga / fase de grupos), se insertan de una
+    //   rounds = llaves encadenadas (playoffs), se insertan de la final hacia atrás
     function _planFixture(t, allTeams) {
         const dbl = !!t.double_round;
         if (t.format === 'groups') {
             const size = Math.max(3, Math.min(8, parseInt(t.group_size) || 4));
             const groups = _splitGroups(allTeams, size);
-            const letters = 'ABCDEFGH'.split('');
-            const matches = [];
+            const letters = _GROUP_LETTERS;
+            const flat = [];
             const groupOf = {};
             let maxDays = 0, byeNames = [];
             for (let gi = 0; gi < groups.length; gi++) {
@@ -1329,25 +1345,115 @@ window.CancheroTournaments = (function() {
                 const rr = _roundRobin(groups[gi], 'groups', letter, dbl);
                 maxDays = Math.max(maxDays, rr.matchdays);
                 if (rr.hasBye) byeNames.push('Grupo ' + letter);
-                matches.push(...rr.matches);
+                flat.push(...rr.matches);
             }
-            return { matches, groupOf, groupsCount: groups.length, groupSize: size, matchdays: maxDays,
+            // Playoffs: llaves vacías rotuladas con el puesto de origen ("1º Grupo A"), que se
+            // completan solas cuando termina la fase de grupos.
+            const po = _buildPlayoffs(t, groups.length, allTeams.length);
+            return { flat, rounds: po.rounds, total: flat.length + po.rounds.flat().length,
+                groupOf, groupsCount: groups.length, groupSize: size, matchdays: maxDays,
+                playoffLabel: po.label, qualifiers: po.size,
                 byeNote: byeNames.length ? '1 equipo (' + byeNames.join(', ') + ')' : '',
-                note: 'Cada grupo juega todos contra todos' + (dbl ? ', ida y vuelta.' : '.') };
+                note: 'Cada grupo juega todos contra todos' + (dbl ? ', ida y vuelta.' : '.') +
+                      (po.size ? ` Clasifican ${po.size} a ${po.label}; los cruces se completan solos al terminar los grupos.` : '') };
         }
         if (t.format === 'league') {
             const rr = _roundRobin(allTeams, 'groups', 'L', dbl);
             const groupOf = {}; allTeams.forEach(tm => { groupOf[tm.id] = 'L'; });
-            return { matches: rr.matches, groupOf, matchdays: rr.matchdays,
+            return { flat: rr.matches, rounds: [], total: rr.matches.length, groupOf, matchdays: rr.matchdays,
                 byeNote: rr.hasBye ? '1 equipo' : '',
                 note: 'Todos contra todos' + (dbl ? ', ida y vuelta.' : '.') };
         }
         // Eliminación directa: bracket completo con cruces a definir en las rondas siguientes.
         const br = _buildBracket(allTeams);
-        return { matches: br.rounds.flat(), rounds: br.rounds, elimination: true, groupOf: {},
+        return { flat: [], rounds: br.rounds, total: br.rounds.flat().length, groupOf: {},
             note: br.byes ? `${br.byes} equipo(s) pasan directo a la ronda siguiente. El ganador de cada llave avanza solo al cargar el resultado.`
                           : 'El ganador de cada llave avanza solo al cargar el resultado.' };
     }
+
+    // Cuántos equipos entran a playoffs según lo elegido por la organización. 'auto' ajusta
+    // al tamaño más grande que entre con los equipos que hay (2 clasificados por grupo).
+    const _PLAYOFF_SIZES = { r32:32, r16:16, quarterfinal:8, semifinal:4, final:2 };
+    // Siempre devuelve una POTENCIA DE 2 (o 0): un bracket con 6 lugares no existe, y si se
+    // devolvía 6 quedaban llaves con rótulos vacíos.
+    function _playoffSize(t, groupsCount, teamsCount) {
+        const pick = t.playoff_from || 'auto';
+        if (pick === 'none') return 0;
+        const pedido = (pick !== 'auto' && _PLAYOFF_SIZES[pick]) ? _PLAYOFF_SIZES[pick]
+                                                                 : groupsCount * 2;
+        const tope = Math.min(pedido, teamsCount);
+        let size = 1; while (size * 2 <= tope) size *= 2;   // mayor potencia de 2 que entra
+        return size >= 2 ? size : 0;
+    }
+
+    const _GROUP_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+    // Ningún cruce de la primera llave debe ser entre dos clasificados del MISMO grupo
+    // (ya se enfrentaron en la fase de grupos). La siembra por espejado sola no lo garantiza
+    // con cualquier combinación de grupos y clasificados, así que se repara intercambiando
+    // visitantes entre llaves hasta que no queden choques.
+    function _evitarMismoGrupo(slots) {
+        const gr = s => { const m = /Grupo ([A-Z])/.exec(s || ''); return m ? m[1] : null; };
+        for (let pass = 0; pass < 6; pass++) {
+            let limpio = true;
+            for (let i = 0; i < slots.length; i += 2) {
+                if (!gr(slots[i]) || gr(slots[i]) !== gr(slots[i + 1])) continue;
+                limpio = false;
+                for (let j = 0; j < slots.length; j += 2) {
+                    if (j === i) continue;
+                    // El intercambio tiene que arreglar esta llave sin romper la otra.
+                    if (gr(slots[j + 1]) !== gr(slots[i]) && gr(slots[i + 1]) !== gr(slots[j])) {
+                        const tmp = slots[i + 1]; slots[i + 1] = slots[j + 1]; slots[j + 1] = tmp;
+                        break;
+                    }
+                }
+            }
+            if (limpio) break;
+        }
+        return slots;
+    }
+
+    // Bracket de playoffs SIN equipos todavía: cada posición lleva el rótulo de su origen
+    // ("1º Grupo A"). Al cerrarse la fase de grupos se reemplazan por los clasificados reales.
+    function _buildPlayoffs(t, groupsCount, teamsCount) {
+        const size = _playoffSize(t, groupsCount, teamsCount);
+        if (size < 2) return { rounds: [], size: 0, label: '' };
+        // Orden de clasificación: todos los 1º, después todos los 2º, etc. Si el último
+        // puesto entra sólo en parte (ej: 3 grupos y 4 clasificados), esos lugares van como
+        // "Mejor 2º" y se comparan entre todos los grupos, igual que las copas de verdad.
+        const labelFor = k => {
+            if (groupsCount <= 1) return `${k + 1}º`;
+            const pos = Math.floor(k / groupsCount) + 1;
+            if (pos * groupsCount <= size) return `${pos}º Grupo ${_GROUP_LETTERS[k % groupsCount]}`;
+            const j = k - (pos - 1) * groupsCount;              // orden dentro de los "mejores"
+            return j === 0 ? `Mejor ${pos}º` : `${j + 1}º mejor ${pos}º`;
+        };
+        const order = _seedOrder(size);
+        const slots = new Array(size).fill(null);
+        for (let k = 0; k < size; k++) slots[order[k]] = labelFor(k);
+        _evitarMismoGrupo(slots);
+
+        const rounds = [];
+        let cur = slots;
+        let phaseSize = size;
+        while (phaseSize >= 2) {
+            const phase = _getPhase(phaseSize);
+            const round = [];
+            const next = [];
+            for (let i = 0; i < cur.length; i += 2) {
+                round.push({ _pos: i / 2, phase, round: 1,
+                    home_team_id: null, away_team_id: null,
+                    home_team_name: cur[i], away_team_name: cur[i + 1],
+                    status: 'scheduled' });
+                next.push(null);
+            }
+            rounds.push(round);
+            cur = next;
+            phaseSize = phaseSize / 2;
+        }
+        return { rounds, size, label: _PHASE_LABEL[_getPhase(size)] || 'playoffs' };
+    }
+    const _PHASE_LABEL = { r64:'32avos', r32:'16avos', r16:'octavos', quarterfinal:'cuartos', semifinal:'semifinales', final:'la final' };
 
     function _splitGroups(teams, perGroup) {
         const shuffled = [...teams].sort(() => Math.random() - 0.5);
@@ -1452,6 +1558,84 @@ window.CancheroTournaments = (function() {
         return arr;
     }
 
+    // Cuando ya se jugó TODA la fase de grupos, los rótulos ("1º Grupo A") de la primera
+    // ronda de playoffs se reemplazan por los equipos que realmente clasificaron.
+    // Es idempotente: si ya están puestos no hace nada.
+    async function _maybeSeedPlayoffs(sb, tournamentId) {
+        try {
+            const { data: t } = await sb.from('tournaments').select('format').eq('id', tournamentId).single();
+            if (!t || t.format !== 'groups') return;
+            const { data: all } = await sb.from('tournament_matches').select('*').eq('tournament_id', tournamentId);
+            if (!all || !all.length) return;
+            const grupos = all.filter(m => m.phase === 'groups');
+            if (!grupos.length) return;
+            if (grupos.some(m => m.home_score === null || m.away_score === null)) return;  // todavía se juega
+
+            // Llaves de playoffs que siguen con rótulo (sin equipo asignado)
+            const pendientes = all.filter(m => m.phase !== 'groups' && (!m.home_team_id || !m.away_team_id));
+            if (!pendientes.length) return;
+
+            const { data: teams } = await sb.from('tournament_teams').select('*').eq('tournament_id', tournamentId).eq('status','approved');
+            if (!teams || !teams.length) return;
+            // Tabla por grupo: puntos, después diferencia de gol, después goles a favor.
+            const porGrupo = {};
+            for (const tm of teams) {
+                const g = tm.group_letter || 'A';
+                (porGrupo[g] = porGrupo[g] || []).push(tm);
+            }
+            Object.values(porGrupo).forEach(arr => arr.sort((a, b) =>
+                (b.points||0) - (a.points||0) ||
+                ((b.goals_for||0)-(b.goals_against||0)) - ((a.goals_for||0)-(a.goals_against||0)) ||
+                (b.goals_for||0) - (a.goals_for||0)));
+
+            const mejorQue = (a, b) =>
+                (b.points||0) - (a.points||0) ||
+                ((b.goals_for||0)-(b.goals_against||0)) - ((a.goals_for||0)-(a.goals_against||0)) ||
+                (b.goals_for||0) - (a.goals_for||0);
+
+            // Rótulos posibles:
+            //   "1º Grupo A"      → el 1º de ese grupo
+            //   "Mejor 2º" / "2º mejor 2º" → los mejores de ese puesto entre TODOS los grupos
+            //   "3º"              → puesto global (torneo de un solo grupo)
+            const resolver = (label) => {
+                if (!label) return null;
+                const s = label.trim();
+                let m = /^(\d+)[ºo]\s+Grupo\s+([A-H])$/i.exec(s);
+                if (m) return (porGrupo[m[2].toUpperCase()] || [])[parseInt(m[1]) - 1] || null;
+                m = /^Mejor\s+(\d+)[ºo]$/i.exec(s) || /^(\d+)[ºo]\s+mejor\s+(\d+)[ºo]$/i.exec(s);
+                if (m) {
+                    const esSimple = /^Mejor/i.test(s);
+                    const pos = parseInt(esSimple ? m[1] : m[2]);
+                    const j   = esSimple ? 0 : parseInt(m[1]) - 1;
+                    const candidatos = Object.values(porGrupo)
+                        .map(arr => arr[pos - 1]).filter(Boolean).sort(mejorQue);
+                    return candidatos[j] || null;
+                }
+                m = /^(\d+)[ºo]$/i.exec(s);
+                if (m) return Object.values(porGrupo).flat().sort(mejorQue)[parseInt(m[1]) - 1] || null;
+                return null;
+            };
+
+            let puestos = 0;
+            for (const match of pendientes) {
+                const upd = {};
+                if (!match.home_team_id) {
+                    const eq = resolver(match.home_team_name);
+                    if (eq) { upd.home_team_id = eq.id; upd.home_team_name = eq.team_name; }
+                }
+                if (!match.away_team_id) {
+                    const eq = resolver(match.away_team_name);
+                    if (eq) { upd.away_team_id = eq.id; upd.away_team_name = eq.team_name; }
+                }
+                if (Object.keys(upd).length) {
+                    await sb.from('tournament_matches').update(upd).eq('id', match.id);
+                    puestos++;
+                }
+            }
+            if (puestos) toast('Fase de grupos cerrada: se armaron los cruces de playoffs.', 'success');
+        } catch(e) { console.warn('_maybeSeedPlayoffs:', e && e.message); }
+    }
+
     // Al cerrarse una llave, el ganador ocupa su lugar en la ronda siguiente.
     async function _advanceWinner(sb, match, winnerId) {
         if (!match || !match.next_match_id || !winnerId) return;
@@ -1461,6 +1645,81 @@ window.CancheroTournaments = (function() {
         upd[slot + '_team_id'] = winnerId;
         upd[slot + '_team_name'] = name;
         try { await sb.from('tournament_matches').update(upd).eq('id', match.next_match_id); } catch(e) {}
+    }
+
+    // ── Agregar un partido suelto al fixture (fuera de lo que generó el motor)
+    async function _openAddMatch(tournamentId) {
+        const sb = getSb();
+        const { data: teams } = await sb.from('tournament_teams').select('id,team_name,group_letter').eq('tournament_id', tournamentId).eq('status','approved').order('team_name');
+        if (!teams || teams.length < 2) { toast('Necesitás al menos 2 equipos aprobados.', 'warning'); return; }
+        const opts = (teams||[]).map(x => `<option value="${x.id}">${_esc(x.team_name)}</option>`).join('');
+        const ex = document.getElementById('ctam-modal'); if (ex) ex.remove();
+        const modal = document.createElement('div');
+        modal.id = 'ctam-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:100011;background:rgba(0,0,0,0.92);backdrop-filter:blur(6px);overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:20px;';
+        const sty = 'width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;box-sizing:border-box;';
+        const lbl = 'font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;';
+        modal.innerHTML = `
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(14px);border-radius:18px;width:100%;max-width:400px;padding:20px;margin-top:24px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                <h3 style="font-family:Outfit,sans-serif;font-weight:900;font-size:15px;"><i class='bx bx-plus' style="color:var(--accent);"></i> Agregar partido</h3>
+                <button onclick="document.getElementById('ctam-modal').remove()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;">&times;</button>
+            </div>
+            <label style="${lbl}">LOCAL</label>
+            <select id="ctam-home" style="${sty}margin-bottom:12px;">${opts}</select>
+            <label style="${lbl}">VISITANTE</label>
+            <select id="ctam-away" style="${sty}margin-bottom:12px;">${opts}</select>
+            <label style="${lbl}">INSTANCIA</label>
+            <select id="ctam-phase" style="${sty}margin-bottom:12px;">
+                <option value="groups">Fase de grupos / liga</option>
+                <option value="r32">16avos de final</option>
+                <option value="r16">Octavos de final</option>
+                <option value="quarterfinal">Cuartos de final</option>
+                <option value="semifinal">Semifinales</option>
+                <option value="third_place">3er y 4to puesto</option>
+                <option value="final">Final</option>
+            </select>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+                <div><label style="${lbl}">FECHA Nº</label><input id="ctam-day" type="number" min="1" placeholder="Ej: 3" style="${sty}"></div>
+                <div><label style="${lbl}">DÍA Y HORA</label><input id="ctam-when" type="datetime-local" style="${sty}"></div>
+            </div>
+            <label style="${lbl}">CANCHA</label>
+            <input id="ctam-venue" type="text" placeholder="Cancha 2" style="${sty}margin-bottom:14px;">
+            <button onclick="CancheroTournaments._saveAddMatch('${tournamentId}')" style="width:100%;background:var(--accent);color:#000;border:none;border-radius:12px;padding:12px;font-weight:900;font-size:14px;cursor:pointer;">Agregar al fixture</button>
+        </div>`;
+        modal.onclick = e => { if (e.target === modal) modal.remove(); };
+        document.body.appendChild(modal);
+        // Por comodidad, el visitante arranca en el segundo equipo y no repetido con el local.
+        const away = document.getElementById('ctam-away');
+        if (away && teams[1]) away.value = teams[1].id;
+    }
+    async function _saveAddMatch(tournamentId) {
+        const sb = getSb();
+        const hId = document.getElementById('ctam-home')?.value;
+        const aId = document.getElementById('ctam-away')?.value;
+        if (!hId || !aId) { toast('Elegí los dos equipos.', 'warning'); return; }
+        if (hId === aId) { toast('Un equipo no puede jugar contra sí mismo.', 'warning'); return; }
+        const { data: teams } = await sb.from('tournament_teams').select('id,team_name,group_letter').eq('tournament_id', tournamentId);
+        const of = id => (teams||[]).find(x => x.id === id);
+        const h = of(hId), a = of(aId);
+        const phase = document.getElementById('ctam-phase')?.value || 'groups';
+        const when = document.getElementById('ctam-when')?.value;
+        const row = {
+            tournament_id: tournamentId, phase, round: 1,
+            group_letter: phase === 'groups' ? (h?.group_letter || null) : null,
+            matchday: parseInt(document.getElementById('ctam-day')?.value) || null,
+            home_team_id: hId, away_team_id: aId,
+            home_team_name: h?.team_name, away_team_name: a?.team_name,
+            scheduled_at: when ? new Date(when).toISOString() : null,
+            venue: (document.getElementById('ctam-venue')?.value || '').trim() || null,
+            status: 'scheduled'
+        };
+        const ok = await _insertMatches(sb, [row]);
+        if (!ok) return;
+        document.getElementById('ctam-modal')?.remove();
+        toast('Partido agregado.', 'success');
+        const { data: t } = await sb.from('tournaments').select('organizer_email').eq('id', tournamentId).single();
+        _ctmFixture(tournamentId, t?.organizer_email);
     }
 
     // ── Editar un cruce a mano (cambiar los equipos de un partido ya generado)
@@ -1518,9 +1777,16 @@ window.CancheroTournaments = (function() {
         const container = document.getElementById('ctm-content');
         if (!container) return;
         const isOrg = _isOrgActive(organizerEmail);
-        const regenBtn = isOrg ? `<button onclick="CancheroTournaments._generateFixture('${tournamentId}')" style="width:100%;margin-bottom:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);color:#ddd;border-radius:12px;padding:11px;font-weight:800;font-size:13px;cursor:pointer;"><i class='bx bx-refresh'></i> Regenerar fixture</button>` : '';
+        const regenBtn = isOrg ? `<div style="display:flex;gap:8px;margin-bottom:14px;">
+            <button onclick="CancheroTournaments._generateFixture('${tournamentId}')" style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);color:#ddd;border-radius:12px;padding:11px;font-weight:800;font-size:13px;cursor:pointer;"><i class='bx bx-refresh'></i> Regenerar</button>
+            <button onclick="CancheroTournaments._openAddMatch('${tournamentId}')" style="flex:1;background:rgba(186,255,0,0.1);border:1px solid rgba(186,255,0,0.25);color:var(--accent);border-radius:12px;padding:11px;font-weight:800;font-size:13px;cursor:pointer;"><i class='bx bx-plus'></i> Agregar partido</button>
+        </div>` : '';
         if (!matches || !matches.length) {
-            container.innerHTML = '<div style="text-align:center;padding:40px;color:#555;">No hay fixture generado aún.<br><span style="font-size:11px;">Primero aprobá los equipos y luego generá el fixture.</span></div>';
+            container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#555;">No hay fixture generado aún.<br><span style="font-size:11px;">Primero aprobá los equipos y luego generá el fixture.</span></div>'
+                + (isOrg ? `<div style="display:flex;gap:8px;">
+                    <button onclick="CancheroTournaments._generateFixture('${tournamentId}')" style="flex:1;background:var(--accent);color:#000;border:none;border-radius:12px;padding:12px;font-weight:900;font-size:13px;cursor:pointer;"><i class='bx bx-shuffle'></i> Generar fixture</button>
+                    <button onclick="CancheroTournaments._openAddMatch('${tournamentId}')" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:#ddd;border-radius:12px;padding:12px;font-weight:800;font-size:13px;cursor:pointer;"><i class='bx bx-plus'></i> Agregar partido</button>
+                </div>` : '');
             return;
         }
         // Equipos del torneo: hacen falta para saber quién descansa en cada fecha.
@@ -1543,8 +1809,14 @@ window.CancheroTournaments = (function() {
             if (!grouped[key]) grouped[key] = [];
             grouped[key].push(m);
         }
-        const phaseLabels = { groups:'Fase de Grupos', league:'Liga', r16:'Octavos de Final', r32:'16avos de Final', r64:'32avos de Final', quarterfinal:'Cuartos de Final', semifinal:'Semifinales', final:'Final', third_place:'3er y 4to Puesto' };
-        container.innerHTML = regenBtn + Object.entries(grouped).map(([key, groupMatches]) => {
+        const phaseLabels = { groups:'Fase de Grupos', league:'Liga', r64:'32avos de Final', r32:'16avos de Final', r16:'Octavos de Final', quarterfinal:'Cuartos de Final', semifinal:'Semifinales', final:'Final', third_place:'3er y 4to Puesto' };
+        // Las fases van en orden de torneo, no alfabético (si no la Final salía primera).
+        const phaseOrder = { groups:0, league:0, r64:1, r32:2, r16:3, quarterfinal:4, semifinal:5, third_place:6, final:7 };
+        const ordenadas = Object.entries(grouped).sort((a, b) => {
+            const pa = phaseOrder[a[1][0].phase] ?? 9, pb = phaseOrder[b[1][0].phase] ?? 9;
+            return pa - pb || String(a[1][0].group_letter||'').localeCompare(String(b[1][0].group_letter||''));
+        });
+        container.innerHTML = regenBtn + ordenadas.map(([key, groupMatches]) => {
             const phase = groupMatches[0].phase;
             const gl = groupMatches[0].group_letter;
             const title = `${phaseLabels[phase]||phase}${gl && phase === 'groups' ? ` — Grupo ${gl}` : ''}`;
@@ -1586,10 +1858,12 @@ window.CancheroTournaments = (function() {
         const isLive = m.status === 'live';
         const dateStr = m.scheduled_at ? new Date(m.scheduled_at).toLocaleDateString('es-UY', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : 'Por confirmar';
         const hLogo = logoById[m.home_team_id], aLogo = logoById[m.away_team_id];
-        // Bracket: las llaves de rondas siguientes arrancan sin equipo hasta que se define.
-        const tbd = `<span style="color:#555;font-style:italic;">A definir</span>`;
-        const hName = m.home_team_name ? _esc(m.home_team_name) : tbd;
-        const aName = m.away_team_name ? _esc(m.away_team_name) : tbd;
+        // Bracket: hasta que se define el cruce, el lugar muestra su origen ("1º Grupo A")
+        // o "A definir", en gris y cursiva para que se distinga de un equipo real.
+        const slot = (name, id) => id ? _esc(name)
+            : `<span style="color:#666;font-style:italic;">${name ? _esc(name) : 'A definir'}</span>`;
+        const hName = slot(m.home_team_name, m.home_team_id);
+        const aName = slot(m.away_team_name, m.away_team_id);
         const editBtn = isOrg ? `<button onclick="event.stopPropagation();CancheroTournaments._openEditMatchTeams('${m.id}','${tournamentId}')" title="Editar cruce" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#888;border-radius:8px;padding:4px 7px;font-size:13px;cursor:pointer;flex-shrink:0;"><i class='bx bx-edit-alt'></i></button>` : '';
         // Toda la fila abre la ficha del partido (org o invitado).
         return `<div onclick="CancheroTournaments._openMatchDetail('${m.id}')" style="background:#111;border:1px solid ${isLive?'rgba(0,230,118,0.4)':'#1e1e1e'};border-radius:12px;padding:12px 14px;margin-bottom:6px;cursor:pointer;transition:.15s;" onmouseover="this.style.borderColor='rgba(186,255,0,0.3)'" onmouseout="this.style.borderColor='${isLive?'rgba(0,230,118,0.4)':'#1e1e1e'}'">
@@ -1931,6 +2205,8 @@ window.CancheroTournaments = (function() {
             upd.home_score = homeScore; upd.away_score = awayScore; upd.status = 'finished'; upd.winner_team_id = winnerId || null;
             // Eliminación directa: el ganador ocupa su lugar en la llave siguiente.
             await _advanceWinner(sb, m, winnerId);
+            // Y si con este resultado se cerró la fase de grupos, se arman los playoffs.
+            await _maybeSeedPlayoffs(sb, tid);
         }
         let { error } = await sb.from('tournament_matches').update(upd).eq('id', matchId);
         if (error) {
@@ -2691,11 +2967,23 @@ window.CancheroTournaments = (function() {
                         ${[3,4,5,6].map(n => `<option value="${n}" ${(parseInt(t.group_size)||4)===n?'selected':''}>${n} por grupo</option>`).join('')}
                     </select></div>
             </div>
-            <div style="margin-bottom:10px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">TIPO DE FÚTBOL</label>
-                <select id="cte-match-format" style="${selSty}">
-                    <option value="" ${!t.match_format?'selected':''}>Sin especificar</option>
-                    ${[5,7,11].map(n => `<option value="${n}" ${String(t.match_format)===String(n)?'selected':''}>Fútbol ${n}</option>`).join('')}
-                </select></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div style="margin-bottom:10px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">TIPO DE FÚTBOL</label>
+                    <select id="cte-match-format" style="${selSty}">
+                        <option value="" ${!t.match_format?'selected':''}>Sin especificar</option>
+                        ${[5,7,11].map(n => `<option value="${n}" ${String(t.match_format)===String(n)?'selected':''}>Fútbol ${n}</option>`).join('')}
+                    </select></div>
+                <div style="margin-bottom:10px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">MÁX. EQUIPOS</label>
+                    <select id="cte-max-teams" style="${selSty}">
+                        ${[4,8,12,16,24,32,48,64].map(n => `<option value="${n}" ${(parseInt(t.max_teams)||8)===n?'selected':''}>${n} equipos</option>`).join('')}
+                    </select></div>
+            </div>
+            <div style="margin-bottom:10px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">PLAYOFFS (arrancan en)</label>
+                <select id="cte-playoff" style="${selSty}">
+                    ${[['auto','Automático (2 por grupo)'],['r32','16avos de final'],['r16','Octavos de final'],['quarterfinal','Cuartos de final'],['semifinal','Semifinales'],['final','Final directa'],['none','Sin playoffs (solo grupos)']]
+                        .map(([v,l]) => `<option value="${v}" ${(t.playoff_from||'auto')===v?'selected':''}>${l}</option>`).join('')}
+                </select>
+                <div style="font-size:10px;color:#666;margin-top:4px;">Solo aplica al formato de grupos. Los cruces se completan solos al terminar la fase de grupos.</div></div>
             <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:11px 13px;cursor:pointer;margin-bottom:12px;">
                 <input id="cte-double" type="checkbox" ${t.double_round?'checked':''} style="width:17px;height:17px;accent-color:var(--accent);cursor:pointer;">
                 <span style="font-size:13px;font-weight:800;">Ida y vuelta</span>
@@ -2733,12 +3021,14 @@ window.CancheroTournaments = (function() {
             format: v('cte-format') || 'groups',
             double_round: !!document.getElementById('cte-double')?.checked,
             group_size: parseInt(v('cte-group-size')) || 4,
-            match_format: v('cte-match-format') || null
+            match_format: v('cte-match-format') || null,
+            max_teams: parseInt(v('cte-max-teams')) || 8,
+            playoff_from: v('cte-playoff') || 'auto'
         };
         if (!upd.name) { toast('El nombre no puede quedar vacío.', 'warning'); return; }
         let { error } = await sb.from('tournaments').update(upd).eq('id', tournamentId);
         if (error) {
-            const bare = { ...upd }; delete bare.group_size; delete bare.match_format;
+            const bare = { ...upd }; delete bare.group_size; delete bare.match_format; delete bare.playoff_from;
             const retry = await sb.from('tournaments').update(bare).eq('id', tournamentId);
             if (retry.error) { toast('Error: ' + retry.error.message, 'error'); return; }
             toast('Guardado. Corré la migración SQL para tipo de fútbol y tamaño de grupo.', 'warning');
@@ -2977,6 +3267,28 @@ window.CancheroTournaments = (function() {
     // ═══════════════════════════════════════════════════════════
     // GOLEADORES / RANKING
     // ═══════════════════════════════════════════════════════════
+    // ── Podio 1-2-3 al estilo de Buscar → Ranking: el 1º al medio y más grande.
+    // items: [{ id, nombre, equipo, valor, avatar }]
+    function _podioHTML(items, unidad) {
+        if (!items || items.length < 3) return '';
+        const [p1, p2, p3] = items;
+        const medalla = { 1:'#ffd23f', 2:'#c8d2dc', 3:'#cd7f32' };
+        const col = (p, puesto, alto, tam) => `
+        <div onclick="${p.id ? `CancheroTournaments._openPlayerInfo('${p.id}')` : ''}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;cursor:${p.id?'pointer':'default'};">
+            <span style="position:relative;width:${tam}px;height:${tam}px;border-radius:50%;flex-shrink:0;background:${p.avatar?`#111 center/cover url('${_esc(p.avatar)}')`:'rgba(186,255,0,0.1)'};border:2.5px solid ${medalla[puesto]};box-shadow:0 0 16px ${medalla[puesto]}44;display:flex;align-items:center;justify-content:center;font-size:${Math.round(tam*0.36)}px;font-weight:900;color:var(--accent);">${p.avatar?'':((p.nombre||'?')[0]||'?').toUpperCase()}
+                <span style="position:absolute;bottom:-6px;right:-4px;width:22px;height:22px;border-radius:50%;background:${medalla[puesto]};color:#000;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #070907;">${puesto}</span>
+            </span>
+            <span style="font-size:12px;font-weight:800;text-align:center;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(p.nombre||'')}</span>
+            <span style="font-size:9.5px;color:#666;text-align:center;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(p.equipo||'—')}</span>
+            <div style="width:100%;height:${alto}px;background:linear-gradient(180deg,rgba(186,255,0,0.16),rgba(186,255,0,0.03));border:1px solid rgba(186,255,0,0.2);border-bottom:none;border-radius:10px 10px 0 0;display:flex;align-items:flex-start;justify-content:center;padding-top:8px;">
+                <span style="font-size:17px;font-weight:900;color:var(--accent);">${p.valor}</span>
+            </div>
+        </div>`;
+        return `<div style="display:flex;align-items:flex-end;gap:8px;margin:14px 0 4px;padding:16px 10px 0;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-radius:16px;backdrop-filter:blur(10px);overflow:hidden;">
+            ${col(p2, 2, 54, 50)}${col(p1, 1, 76, 66)}${col(p3, 3, 40, 46)}
+        </div><div style="text-align:center;font-size:10px;color:#555;margin-bottom:6px;">${unidad}</div>`;
+    }
+
     async function _ctmGoleadores(tournamentId) {
         const sb = getSb();
         const { data: players } = await sb.from('tournament_players').select('*,tournament_teams(team_name)').eq('tournament_id', tournamentId).order('goals', {ascending:false}).order('assists',{ascending:false}).limit(60);
@@ -3016,17 +3328,24 @@ window.CancheroTournaments = (function() {
                 <div style="font-size:11px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><i class='bx ${icono}' style="color:var(--accent);"></i>${titulo}</div>
                 ${filas || `<div style="text-align:center;padding:18px;color:#555;font-size:12px;">${vacio}</div>`}</div>`;
 
+            const aPodio = asistidores.map(p => ({ id:p.id, nombre:p.player_name, equipo:p.tournament_teams?.team_name, valor:p.assists||0, avatar:p.avatar_url }));
+            const kPodio = arqueros.map(x => ({ id:x.p.id, nombre:x.p.player_name, equipo:x.p.tournament_teams?.team_name, valor:x.v, avatar:x.p.avatar_url }));
             bloquesExtra =
                 bloque('MEJORES ASISTIDORES', 'bx-run',
-                    asistidores.map((p,i) => fila(i, p.player_name, p.tournament_teams?.team_name, p.assists||0, p.avatar_url)).join(''),
+                    _podioHTML(aPodio, 'asistencias') +
+                    asistidores.slice(aPodio.length >= 3 ? 3 : 0).map((p,i) => fila(i + (aPodio.length >= 3 ? 3 : 0), p.player_name, p.tournament_teams?.team_name, p.assists||0, p.avatar_url)).join(''),
                     'Sin asistencias registradas aún.')
               + bloque('ARQUEROS · VALLAS INVICTAS', 'bx-shield',
-                    arqueros.map((x,i) => fila(i, x.p.player_name, x.p.tournament_teams?.team_name, x.v, x.p.avatar_url)).join(''),
+                    _podioHTML(kPodio, 'partidos con la valla invicta') +
+                    arqueros.slice(kPodio.length >= 3 ? 3 : 0).map((x,i) => fila(i + (kPodio.length >= 3 ? 3 : 0), x.p.player_name, x.p.tournament_teams?.team_name, x.v, x.p.avatar_url)).join(''),
                     'Todavía no hay partidos con la valla invicta.')
               + `<div style="margin-top:18px;font-size:10.5px;color:#555;line-height:1.5;"><i class='bx bx-info-circle'></i> El MVP por partido se va a sumar cuando esté la votación; hoy no hay dato para rankearlo.</div>`;
         } catch(e){ console.warn('rankings extra:', e); }
 
+        const gPodio = topGoals.filter(p => (p.goals||0) > 0)
+            .map(p => ({ id:p.id, nombre:p.player_name, equipo:p.tournament_teams?.team_name, valor:p.goals||0, avatar:p.avatar_url }));
         container.innerHTML = `<div style="font-size:11px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:10px;">TABLA DE GOLEADORES</div>
+        ${_podioHTML(gPodio, 'goles')}
         ${!topGoals.length ? '<div style="text-align:center;padding:30px;color:#555;">Sin goles registrados aún.</div>' :
         `<table style="width:100%;border-collapse:collapse;font-size:12px;">
             <thead><tr style="color:#555;font-size:10px;font-weight:900;">
@@ -3263,6 +3582,7 @@ window.CancheroTournaments = (function() {
             const winnerId = homeScore > awayScore ? tm.home_team_id : awayScore > homeScore ? tm.away_team_id : null;
             await sb.from('tournament_matches').update({ home_score: homeScore, away_score: awayScore, status: 'finished', winner_team_id: winnerId || null }).eq('id', tm.id);
             await _advanceWinner(sb, tm, winnerId);
+            await _maybeSeedPlayoffs(sb, tm.tournament_id);
             try { if (window.showToast) showToast('Resultado sincronizado con el torneo.', 'success', 2000); } catch(e){}
         } catch(e) { console.warn('_syncTournamentFromRealMatch:', e && e.message); }
     }
@@ -3303,6 +3623,8 @@ window.CancheroTournaments = (function() {
         _doGenerateFixture,
         _openEditMatchTeams,
         _saveMatchTeams,
+        _openAddMatch,
+        _saveAddMatch,
         _openMatchLoad,
         _cmeAdd,
         _cmeAddPlayer,

@@ -253,7 +253,15 @@
   </div>
   <div class="form-group"><label class="form-label">Nombre</label><input id="t-name" type="text" class="form-input" placeholder="Copa Canchero 2026..."></div>
   <!-- Los value coinciden con el motor CancheroTournaments (_generateFixture): league / elimination / groups -->
-  <div class="form-group"><label class="form-label">Tipo</label><select id="t-type" class="form-input"><option value="league">Liga (todos contra todos)</option><option value="elimination">Eliminatoria (playoffs)</option><option value="groups">Copa (grupos + playoffs)</option></select></div>
+  <div class="form-group"><label class="form-label">Tipo</label><select id="t-type" class="form-input" onchange="_onTipoTorneo()"><option value="league">Liga (todos contra todos)</option><option value="elimination">Eliminatoria (playoffs)</option><option value="groups">Copa (grupos + playoffs)</option></select></div>
+  <div style="display:flex;gap:8px;">
+    <div class="form-group" style="flex:1;"><label class="form-label">Tipo de fútbol</label><select id="t-match-format" class="form-input"><option value="">Sin especificar</option><option value="5">Fútbol 5</option><option value="7">Fútbol 7</option><option value="11">Fútbol 11</option></select></div>
+    <div class="form-group" style="flex:1;"><label class="form-label">Máx. equipos anotados</label><select id="t-max-teams" class="form-input"><option value="4">4</option><option value="8" selected>8</option><option value="12">12</option><option value="16">16</option><option value="24">24</option><option value="32">32</option><option value="48">48</option><option value="64">64</option></select></div>
+  </div>
+  <div style="display:flex;gap:8px;" id="t-groups-row">
+    <div class="form-group" style="flex:1;"><label class="form-label">Equipos por grupo</label><select id="t-group-size" class="form-input"><option value="3">3 por grupo</option><option value="4" selected>4 por grupo</option><option value="5">5 por grupo</option><option value="6">6 por grupo</option></select></div>
+    <div class="form-group" style="flex:1;"><label class="form-label">Playoffs arrancan en</label><select id="t-playoff" class="form-input"><option value="auto">Automático (2 por grupo)</option><option value="r32">16avos de final</option><option value="r16">Octavos de final</option><option value="quarterfinal">Cuartos de final</option><option value="semifinal">Semifinales</option><option value="final">Final directa</option><option value="none">Sin playoffs</option></select></div>
+  </div>
   <div style="display:flex;gap:8px;">
     <div class="form-group" style="flex:1;"><label class="form-label">País</label><input id="t-country" type="text" class="form-input" value="Uruguay"></div>
     <div class="form-group" style="flex:1;"><label class="form-label">Departamento / Ciudad</label><select id="t-city" class="form-input"><option value="">Elegir…</option></select></div>
@@ -413,7 +421,14 @@ async function loadTorneos(){
 }
 const DEPARTAMENTOS_UY=['Artigas','Canelones','Cerro Largo','Colonia','Durazno','Flores','Florida','Lavalleja','Maldonado','Montevideo','Paysandú','Río Negro','Rivera','Rocha','Salto','San José','Soriano','Tacuarembó','Treinta y Tres'];
 window._complexList=[];
+// Equipos por grupo y playoffs solo tienen sentido en el formato de copa (grupos).
+function _onTipoTorneo(){
+  const esGrupos=document.getElementById('t-type')?.value==='groups';
+  const row=document.getElementById('t-groups-row');
+  if(row) row.style.display=esGrupos?'flex':'none';
+}
 async function openTorneoModal(){
+  _onTipoTorneo();
   // Departamentos
   const cs=document.getElementById('t-city');
   if(cs && cs.options.length<=1){ cs.innerHTML='<option value="">Elegir…</option>'+DEPARTAMENTOS_UY.map(d=>`<option value="${d}">${d}</option>`).join(''); }
@@ -454,9 +469,15 @@ async function saveTorneo(){
   if(!name){toast('Ingresá el nombre.','error');return;}
   // La tabla real es 'tournaments' (organizer_email/format), NO 'torneos' (no existía →
   // "crear torneo" fallaba en silencio). Unificado con el módulo de torneos del jugador.
-  const row={name,format:document.getElementById('t-type').value,city:(document.getElementById('t-city')?.value||'').trim()||null,country:(document.getElementById('t-country')?.value||'').trim()||null,venue:(document.getElementById('t-venue')?.value||'').trim()||null,complex_email:(document.getElementById('t-complex')?.value||'')||null,start_date:document.getElementById('t-start').value||null,end_date:document.getElementById('t-end')?.value||null,entry_fee:parseFloat(document.getElementById('t-price')?.value)||0,double_round:!!document.getElementById('t-double')?.checked,cover_url:window.__tImg.cover||null,logo_url:window.__tImg.logo||null,organizer_email:BIZ_EMAIL,status:'registration'};
-  const{data,error}=await sb.from('tournaments').insert(row).select('id').single();
-  if(error){toast('Error: '+error.message,'error');return;}
+  const row={name,format:document.getElementById('t-type').value,match_format:(document.getElementById('t-match-format')?.value||null),max_teams:parseInt(document.getElementById('t-max-teams')?.value)||8,group_size:parseInt(document.getElementById('t-group-size')?.value)||4,playoff_from:(document.getElementById('t-playoff')?.value||'auto'),city:(document.getElementById('t-city')?.value||'').trim()||null,country:(document.getElementById('t-country')?.value||'').trim()||null,venue:(document.getElementById('t-venue')?.value||'').trim()||null,complex_email:(document.getElementById('t-complex')?.value||'')||null,start_date:document.getElementById('t-start').value||null,end_date:document.getElementById('t-end')?.value||null,entry_fee:parseFloat(document.getElementById('t-price')?.value)||0,double_round:!!document.getElementById('t-double')?.checked,cover_url:window.__tImg.cover||null,logo_url:window.__tImg.logo||null,organizer_email:BIZ_EMAIL,status:'registration'};
+  let{data,error}=await sb.from('tournaments').insert(row).select('id').single();
+  if(error){
+    // La base puede no tener todavia las columnas nuevas: reintentar sin ellas.
+    const bare={...row}; delete bare.match_format; delete bare.group_size; delete bare.playoff_from;
+    const r2=await sb.from('tournaments').insert(bare).select('id').single();
+    if(r2.error){toast('Error: '+r2.error.message,'error');return;}
+    data=r2.data; toast('Torneo creado. Corré la migración SQL para tipo de fútbol y playoffs.','warning');
+  }
   window.__tImg={cover:null,logo:null};
   ['t-name','t-city','t-start','t-end'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   const cb=document.getElementById('t-cover-box'); if(cb){cb.style.backgroundImage='';cb.innerHTML="<i class='bx bx-image'></i> Portada";}
@@ -780,6 +801,6 @@ loadDashboard();
   <script src="canchero-crm-ventas.js?v=20260624g"></script>
 <script src="crm-common.js?v=20260717"></script>
 <!-- Motor de torneos: equipos, fixture (cruces automáticos), tabla, jugadores, goleadores, vista pública -->
-<script src="canchero-tournaments.js?v=20260720a"></script>
+<script src="canchero-tournaments.js?v=20260720b"></script>
 </body>
 </html>

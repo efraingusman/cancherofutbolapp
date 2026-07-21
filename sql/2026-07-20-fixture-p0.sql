@@ -11,6 +11,9 @@ alter table public.tournaments add column if not exists match_format text;
 alter table public.tournaments add column if not exists group_size int default 4;
 -- double_round ya existía, pero por las dudas:
 alter table public.tournaments add column if not exists double_round boolean default false;
+-- playoff_from: en qué instancia arrancan los playoffs de una copa
+-- 'auto' | 'r32' | 'r16' | 'quarterfinal' | 'semifinal' | 'final' | 'none'
+alter table public.tournaments add column if not exists playoff_from text default 'auto';
 
 -- ── Partidos del torneo: fecha del calendario y encadenado del bracket ─────
 -- matchday: número de fecha dentro del grupo / liga (1, 2, 3...)
@@ -24,12 +27,12 @@ alter table public.tournament_matches add column if not exists next_slot text;
 create index if not exists idx_tmatches_next on public.tournament_matches(next_match_id);
 create index if not exists idx_tmatches_matchday on public.tournament_matches(tournament_id, matchday);
 
--- ── Verificación: debería devolver 6 filas ─────────────────────────────────
+-- ── Verificación: debería devolver 7 filas ─────────────────────────────────
 select table_name, column_name, data_type
 from information_schema.columns
 where table_schema = 'public'
   and (
-    (table_name = 'tournaments'       and column_name in ('match_format','group_size','double_round'))
+    (table_name = 'tournaments'       and column_name in ('match_format','group_size','double_round','playoff_from'))
     or (table_name = 'tournament_matches' and column_name in ('matchday','next_match_id','next_slot'))
   )
 order by table_name, column_name;
