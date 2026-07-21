@@ -1,4 +1,4 @@
-const CACHE_NAME = 'canchero-v359';
+const CACHE_NAME = 'canchero-v360';
 const RUNTIME_CACHE = 'canchero-runtime'; // persistente entre deploys (media/JS/CSS cacheados)
 const assets = [
   './',
@@ -56,6 +56,18 @@ self.addEventListener('activate', event => {
       const rc = await caches.open(RUNTIME_CACHE);
       const reqs = await rc.keys();
       await Promise.all(reqs.filter(r => /\.(mp4|webm|mov|m4v|m3u8)(\?|$)/i.test(new URL(r.url).pathname)).map(r => rc.delete(r)));
+      // El JS/CSS PROPIO también se purga en cada deploy. RUNTIME_CACHE sobrevive entre
+      // versiones a propósito (para no re-bajar imágenes), pero eso dejaba congelada para
+      // siempre cualquier copia vieja o a medio bajar de un script del sitio: el celular
+      // quedaba con una mezcla de código nuevo y viejo imposible de recuperar.
+      // Las imágenes y el storage NO se tocan, así que el ahorro de datos se mantiene.
+      const propios = (await rc.keys()).filter(r => {
+        try {
+          const u = new URL(r.url);
+          return u.origin === self.location.origin && /\.(js|css)(\?|$)/i.test(u.pathname);
+        } catch(e) { return false; }
+      });
+      await Promise.all(propios.map(r => rc.delete(r)));
     } catch(e){}
     await self.clients.claim();
     // NOTA: ya NO forzamos c.navigate() de todas las ventanas. Ese reload en caliente

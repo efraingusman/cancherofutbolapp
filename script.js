@@ -33,7 +33,14 @@ window._cancheroFetch = function(input, init){
     return fetch(input, init).finally(function(){ if (t) clearTimeout(t); });
 };
 let _sb = null;
-try {
+// El cliente se creaba UNA sola vez, en la carga del script. Si el CDN de supabase-js
+// no había llegado todavía (red lenta del celular, corte, CDN bloqueado), _sb quedaba
+// en null PARA SIEMPRE y cada intento de entrar decía "Error de conexión con el
+// servidor" sin forma de recuperarse. Ahora la creación vive en una función que se
+// puede reintentar, y _ensureSupabase() puede además re-cargar la librería.
+function _crearClienteSupabase() {
+    if (_sb) return true;
+    try {
     if (window.supabase) {
         _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
             auth: {
@@ -64,7 +71,38 @@ try {
         // el código existente; las operaciones privilegiadas van a funciones api/.
         window._sbAdmin = _sb;
     }
-} catch(e) { console.warn('Supabase init error:', e); }
+    } catch(e) { console.warn('Supabase init error:', e); }
+    return !!_sb;
+}
+_crearClienteSupabase();
+
+// Garantiza que haya cliente antes de una operación que lo necesite (login, etc.).
+// Si la librería no está, la vuelve a pedir — primero al CDN original y después a uno
+// alternativo — y recién ahí se da por vencida.
+window._ensureSupabase = function() {
+    if (_crearClienteSupabase()) return Promise.resolve(true);
+    if (window.__sbCargando) return window.__sbCargando;
+    const fuentes = [
+        'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+        'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js'
+    ];
+    window.__sbCargando = new Promise(function(resolve){
+        let i = 0;
+        (function intentar(){
+            if (window.supabase) { resolve(_crearClienteSupabase()); return; }
+            if (i >= fuentes.length) { window.__sbCargando = null; resolve(false); return; }
+            const s = document.createElement('script');
+            s.src = fuentes[i++];
+            s.onload = function(){ resolve(_crearClienteSupabase()); };
+            s.onerror = intentar;
+            document.head.appendChild(s);
+        })();
+    });
+    return window.__sbCargando;
+};
+// Si la librería llegó tarde (red lenta), crear el cliente igual sin que el usuario
+// tenga que hacer nada.
+window.addEventListener('load', function(){ setTimeout(_crearClienteSupabase, 0); });
 
 // Restaurar sesión — esperar al DOM para poder navegar correctamente
 window._sessionRestored = false;
@@ -364,7 +402,16 @@ if (document.readyState === 'loading') {
 // GOOGLE AUTH
 // ============================================================
 window.handleGoogleAuth = async function() {
-    if (!_sb) { showToast('Error de conexión con el servidor.', 'error'); return; }
+    // Antes, si el cliente no se había creado, esto moría con "Error de conexión con el
+    // servidor" y no había forma de salir. Ahora se reintenta cargar la librería.
+    if (!_sb) {
+        showToast('Conectando...', 'info');
+        const ok = await window._ensureSupabase();
+        if (!ok || !_sb) {
+            showToast('No se pudo conectar. Revisá tu conexión y volvé a intentar.', 'error');
+            return;
+        }
+    }
     try {
         const { error } = await _sb.auth.signInWithOAuth({
             provider: 'google',
