@@ -1,6 +1,7 @@
 # PLAN — pendientes de Canchero (al 2026-07-18)
 
-**Estado:** deploy v347. Todo lo de abajo está SIN hacer salvo que diga lo contrario.
+**Estado:** deploy v355. P0 a P5 HECHOS. P6 descartado por decisión del usuario (2026-07-20).
+Lo único que sigue abierto está en "PENDIENTES REALES" al final.
 
 **Reglas fijas:** gratis también para negocios · sin emojis, siempre iconos · liquid glass ·
 tiene que verse bien en celular y PC · al tocar style.css / script.js / canchero-*.js bumpear
@@ -76,23 +77,25 @@ Queda de P2 el campo de WhatsApp **por rubro** y el pipeline del CRM.
 
 ---
 
-## P2 — CONTACTO Y NEGOCIOS
+## P2 — CONTACTO Y NEGOCIOS — HECHO (v352)
 
-- [ ] **WhatsApp del negocio**: campo en el perfil de negocio + elegir canal preferido
-      (chat de Canchero o WhatsApp). Aplica a todos los rubros, no solo torneos.
-- [ ] **Pipeline en el CRM** de todos los negocios (hoy no existe): etapas, arrastrar
-      tarjetas, y que se alimente de `business_orders` y de las solicitudes.
+- [x] **WhatsApp del negocio**: ya existía en los 4 CRM. Se agregó el **canal preferido**
+      (chat / WhatsApp / ambos) en `users.contact_pref`, respetado por la ficha del torneo.
+- [x] **Pipeline en el CRM**: tablero Consulta/Pendiente/Confirmado/Pagado en `crm-common.js`
+      (organización, complejo, profesional). Arrastrar en PC, tocar en celular. Se alimenta
+      de `business_orders` y de las solicitudes de equipos. Mover cambia el estado real.
+      OJO: `crm-tienda` YA tenía su propio pipeline (`loadPipeline`, con "Registrar venta")
+      y se dejó como estaba — queda unificarlo si se quiere.
 
 ---
 
-## P3 — MVP DEL PARTIDO
+## P3 — MVP DEL PARTIDO — HECHO (v353)
 
-- [ ] **MVP por equipo** en cada partido del torneo (local y visitante).
-- [ ] **Sugerencia automática** por estadísticas del propio partido: goles, asistencias,
-      y valla invicta para el arquero. Se sugiere, se puede cambiar a mano.
-- [ ] Ranking de MVP en el torneo (hoy la vista avisa que falta el dato).
-- [ ] Requiere migración: `alter table tournament_matches add column if not exists mvp_home text`
-      y `mvp_away text` (o una tabla de votos si se quiere votación).
+- [x] Figura por equipo en `mvp_home` / `mvp_away` (guardan el **id** del jugador).
+- [x] Botón "Sugerir": gol=3, asistencia=2, roja=-5; sin nada en ataque y con valla
+      invicta propone al arquero. Se puede cambiar a mano.
+- [x] Ranking "Figuras del partido" en Goleadores, con podio 1-2-3.
+- [x] Migración corrida por el usuario el 2026-07-20.
 
 ---
 
@@ -103,17 +106,21 @@ Queda de P2 el campo de WhatsApp **por rubro** y el pipeline del CRM.
 
 ---
 
-## P5 — CANCHAS Y SEDES
+## P5 — CANCHAS Y SEDES — HECHO (v355)
 
-- [ ] En editar torneo, elegir un **complejo registrado** (`complex_email` ya existe) y
-      además la **cancha específica** dentro de ese complejo.
-- [ ] Que el selector de cancha del partido use las canchas de ese complejo.
+- [x] En editar torneo se elige el **complejo registrado** y después la **cancha específica**
+      de ese complejo (`business_courts`). El texto libre sigue disponible para sedes
+      no registradas.
+- [x] El selector de cancha del partido (y de "Agregar partido") usa las canchas de ese
+      complejo. Sin migración: `complex_email` ya existía y la cancha viaja en `venue`.
 
 ---
 
-## P6 — LIGAS EXTERNAS (Champions, Libertadores, etc.)
+## P6 — LIGAS EXTERNAS — DESCARTADO (2026-07-20)
 
-**BLOQUEADO por la fuente de datos.** Verificado el 2026-07-18: la API gratuita de
+El usuario decidió NO hacerlo. Se deja el diagnóstico por si se retoma.
+
+**Estaba bloqueado por la fuente de datos.** Verificado el 2026-07-18: la API gratuita de
 TheSportsDB (key `3`, la que usa el módulo del Mundial) devuelve datos incorrectos para
 clubes — al pedir los equipos de Champions contesta con equipos de la Championship inglesa,
 y `eventsseason` trae 5 partidos en vez de ~180. Libertadores, Sudamericana, uruguayo,
@@ -131,7 +138,24 @@ Opciones (decisión del usuario):
 
 ---
 
-## MIGRACIONES PENDIENTES
+## PENDIENTES REALES (lo único abierto)
+
+- **Unificar el pipeline de `crm-tienda`** con el compartido de `crm-common.js`, sin perder
+  su botón "Registrar venta".
+- **Probar en la app con datos reales** todo lo de P0-P5: se validó con tests y se verificó
+  que producción sirve el código, pero la UI no se pudo recorrer logueada.
+- El server de preview local redirige `/x.html` → `/x` y tira 404: solo sirve la raíz.
+  Por eso las verificaciones visuales se hacen inyectando markup en `/`.
+
+---
+
+## MIGRACIONES — TODAS CORRIDAS (2026-07-20)
+
+Ya se corrieron: `match_format`, `group_size`, `double_round`, `playoff_from`, `matchday`,
+`next_match_id`, `next_slot`, `stats_claimed`, `tournament_sponsors`, `contact_pref`,
+`mvp_home`, `mvp_away`.
+
+### Referencia histórica
 
 ```sql
 -- P0.3 tipo de futbol
