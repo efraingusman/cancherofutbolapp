@@ -7183,6 +7183,11 @@ window._renderBusinessProfile = async function(opts) {
         : '<div class="profile-btn-row" style="display:flex;flex-wrap:nowrap;gap:6px;justify-content:center;align-items:center;">' + followBtnHtml + msgBtn + '<button onclick="window._vupMoreOptions(\'' + emailSafe + '\',\'' + nameSafe + '\')" aria-label="Más opciones" style="display:inline-flex;align-items:center;justify-content:center;background:transparent;color:#aaa;border:1px solid #333;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer;flex:0 0 32px;"><i class="bx bx-dots-horizontal-rounded"></i></button></div>';
     // "Editar" + "Guardados" (iconos) arriba a la derecha del bloque de info, con aire del borde.
     var nameRowEdit = (isMe && inline) ? ('<div style="position:absolute;top:6px;right:10px;z-index:2;display:flex;gap:6px;">' + savedIconBtn + editIconBtn + '</div>') : '';
+    // Los botones Guardados/Editar van absolutos arriba a la derecha, pero el nombre es un
+    // bloque centrado que ocupa TODO el ancho: en el celular un nombre largo se metía
+    // debajo de los botones y quedaban encimados. Se le reserva ese espacio a los dos
+    // lados (simétrico, así el nombre sigue centrado) sólo cuando los botones están.
+    var nameStyle = nameRowEdit ? ' style="padding:0 78px;"' : '';
 
     // En modo inline (perfil propio bajo el header): no repetir "Volver" ni el
     // cluster campana/ajustes — el header real de la app ya los provee.
@@ -7195,7 +7200,7 @@ window._renderBusinessProfile = async function(opts) {
         '<div class="cover-photo" style="' + coverBg + 'position:relative;">' + _backBtn + _coverCluster + coverEditBtn + '</div>' +
         // margin-top inline: el avatar SIEMPRE mitad sobre la portada y mitad debajo
         '<div class="profile-header-row" style="margin-top:-43px;position:relative;z-index:5;justify-content:center;align-items:center;flex-direction:column;padding:0 16px;gap:10px;"><div class="profile-avatar-card-container" style="width:86px;height:86px;margin:0;display:flex;align-items:center;justify-content:center;">' + frameHtml + '</div></div>' +
-        '<div class="profile-info-section" style="position:relative;">' + nameRowEdit + '<div class="profile-display-name">' + (u.name||'Sin nombre') + (window.countryFlag ? (' '+window.countryFlag(u.country||u.nat,14)) : '') + '</div><div class="profile-handle" style="color:var(--accent);font-size:11px;font-weight:700;letter-spacing:1px;">' + roleLabel.toUpperCase() + (subType ? ' · ' + subType.toUpperCase() : '') + '</div>' +
+        '<div class="profile-info-section" style="position:relative;">' + nameRowEdit + '<div class="profile-display-name"' + nameStyle + '>' + (u.name||'Sin nombre') + (window.countryFlag ? (' '+window.countryFlag(u.country||u.nat,14)) : '') + '</div><div class="profile-handle" style="color:var(--accent);font-size:11px;font-weight:700;letter-spacing:1px;">' + roleLabel.toUpperCase() + (subType ? ' · ' + subType.toUpperCase() : '') + '</div>' +
         (u.bio ? '<div class="profile-bio">' + u.bio + '</div>' : '') +
         '<div class="profile-follow-row"><div><strong>' + followingCount + '</strong><span>Siguiendo</span></div><div><strong>' + followersCount + '</strong><span>Seguidores</span></div></div>' + '</div>' +
         // Botones (Seguir / Mensaje / ...) DEBAJO de la descripción — sólo si hay algo que mostrar
