@@ -8,6 +8,38 @@
 'use strict';
 function sb(){ return window._sb || window.supabaseClient; }
 function me(){ return window.userData || {}; }
+
+// Identidad ACTIVA con la que se publica. Una misma cuenta (un email) puede ser
+// jugador, fanático, equipo o varios negocios: si solo se compara el email, el usuario
+// podía borrar desde CUALQUIER rol un comentario publicado con otro. Este sello permite
+// exigir que borre/edite la MISMA identidad que publicó.
+function identidadActiva(){
+  try {
+    var bizId = window._pubBizId && window._pubBizId();
+    if (bizId) return 'biz:' + bizId;
+    var rol = (window._pubRole && window._pubRole()) || (me().role || 'jugador');
+    return String(rol);
+  } catch(e) { return String(me().role || 'jugador'); }
+}
+
+// Nombre con el que se publica hoy (el del negocio/equipo activo, o el de la cuenta).
+function nombreActivo(){
+  try {
+    var b = window._activeBiz && window._activeBiz();
+    if (b && b.name) return b.name;
+  } catch(e){}
+  return me().name || (me().email||'').split('@')[0] || '';
+}
+
+// ¿La identidad activa es la autora de este post?
+// Los posts viejos no tienen el sello: para no dejarlos huérfanos ni permitir el abuso,
+// se cae a comparar el nombre mostrado, que es con el que se publicó.
+function esMio(p){
+  var miEmail = (me().email || '').toLowerCase();
+  if (!miEmail || (p.user_email || '').toLowerCase() !== miEmail) return false;
+  if (p.author_identity) return String(p.author_identity) === identidadActiva();
+  return String(p.user_name || '').trim().toLowerCase() === String(nombreActivo()).trim().toLowerCase();
+}
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function toast(t,k){ if(window.showToast) window.showToast(t,k||'info'); }
 function ago(iso){ if(!iso)return''; const s=Math.floor((Date.now()-new Date(iso))/1000); if(s<60)return'ahora'; if(s<3600)return Math.floor(s/60)+'m'; if(s<86400)return Math.floor(s/3600)+'h'; return Math.floor(s/86400)+'d'; }
@@ -176,10 +208,16 @@ C.post = async function(id){
   const txt = (inp.value||'').trim();
   if (!txt){ toast('Escribí algo','warning'); return; }
   try {
-    var _base = { community_id: id, user_email: me().email, user_name: me().name || (me().email||'').split('@')[0], user_photo: me().photo || null, content: txt, votes: 0 };
-    var _r = await s.from('community_posts').insert(Object.assign({ user_country: me().nat || me().country || me().nationality || null }, _base));
-    // Si la columna user_country aún no existe, reintentar sin ella.
-    if (_r && _r.error && /user_country/.test(_r.error.message||'')) _r = await s.from('community_posts').insert(_base);
+    // El nombre y la foto son los de la IDENTIDAD ACTIVA (no los de la cuenta), y se
+    // sella author_identity para saber después quién puede editarlo o borrarlo.
+    var _nom = nombreActivo();
+    var _foto = (window._pubAvatar && window._pubAvatar()) || me().photo || null;
+    var _base = { community_id: id, user_email: me().email, user_name: _nom, user_photo: _foto, content: txt, votes: 0 };
+    var _sello = { author_identity: identidadActiva() };
+    var _r = await s.from('community_posts').insert(Object.assign({ user_country: me().nat || me().country || me().nationality || null }, _sello, _base));
+    // Si alguna columna nueva aún no existe, reintentar sin ella (primero sin país, después sin sello).
+    if (_r && _r.error && /user_country/.test(_r.error.message||'')) _r = await s.from('community_posts').insert(Object.assign({}, _sello, _base));
+    if (_r && _r.error && /author_identity/.test(_r.error.message||'')) _r = await s.from('community_posts').insert(_base);
     if (_r && _r.error) { toast('Error: '+_r.error.message,'error'); return; }
     inp.value = '';
     C.loadPosts(id);
@@ -212,7 +250,8 @@ C.editPost = async function(pid, communityId){
   const s = sb(); if (!s || !me().email) return;
   try {
     const { data: p } = await s.from('community_posts').select('*').eq('id', pid).single();
-    if (!p || (p.user_email||'').toLowerCase() !== (me().email||'').toLowerCase()){ toast('Solo podés editar tus propios comentarios.','warning'); return; }
+    // No alcanza con el email: hay que estar en la MISMA identidad con la que se publicó.
+    if (!p || !esMio(p)){ toast('Solo podés editar los comentarios que publicaste con esta identidad.','warning'); return; }
     const ex = document.getElementById('comu-edit-modal'); if (ex) ex.remove();
     const m = document.createElement('div');
     m.id = 'comu-edit-modal';
@@ -238,8 +277,12 @@ C.editPost = async function(pid, communityId){
 // Eliminar un post PROPIO de la comunidad
 C.deletePost = async function(pid, communityId){
   const s = sb(); if (!s || !me().email) return;
-  if (!confirm('¿Eliminar tu comentario? Esta acción no se puede deshacer.')) return;
   try {
+    // Re-verificar contra la base antes de borrar: el boton se pinta con lo que hay en
+    // pantalla, y la identidad pudo haber cambiado desde que se dibujo la lista.
+    const { data: p } = await s.from('community_posts').select('*').eq('id', pid).single();
+    if (!p || !esMio(p)) { toast('Solo podés eliminar los comentarios que publicaste con esta identidad.','warning'); return; }
+    if (!confirm('¿Eliminar tu comentario? Esta acción no se puede deshacer.')) return;
     const r = await s.from('community_posts').delete().eq('id', pid).eq('user_email', me().email);
     if (r.error) throw r.error;
     toast('Comentario eliminado','success');
@@ -256,7 +299,7 @@ C.postHtml = function(p){
     ? `<div style="width:26px;height:26px;border-radius:50%;flex-shrink:0;${_avCss}"></div>`
     : `<div style="width:26px;height:26px;border-radius:50%;flex-shrink:0;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--accent);">${_init}</div>`;
   // Acciones del AUTOR: editar / eliminar su propio comentario
-  const _mine = me().email && (p.user_email||'').toLowerCase() === (me().email||'').toLowerCase();
+  const _mine = esMio(p);
   const ownBtns = _mine
     ? `<span style="margin-left:auto;display:inline-flex;gap:2px;flex-shrink:0;">
         <button onclick="window.CancheroComunidades.editPost('${p.id}','${p.community_id}')" title="Editar" style="background:none;border:none;color:#555;cursor:pointer;font-size:15px;padding:2px 4px;line-height:1;"><i class='bx bx-edit'></i></button>

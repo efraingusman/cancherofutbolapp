@@ -69,16 +69,23 @@ window.CancheroTournaments = (function() {
     // Antes se cerraban todos los modales del torneo (_closeAll) y "te sacaba del torneo".
     // El overlay del perfil vive en z-index 900, muy por debajo de la ficha (100004) y
     // de las fichas de equipo/jugador (100008): hay que elevarlo cuando viene de acá.
+    // Los perfiles de la app viven en z-index 900, muy por debajo del modal del torneo
+    // (99999): al abrirlos desde el torneo quedaban TAPADOS y parecía que la app no hacía
+    // nada o que te sacaba. Se eleva tanto el de usuario como el de CLUB (que antes no se
+    // contemplaba, y es justo el que se abre al tocar un equipo registrado).
     function _liftProfileOverlay() {
         let intentos = 0;
         const subir = () => {
-            const ov = document.getElementById('vup-modal-overlay');
-            if (ov) {
-                ov.style.zIndex = '100011';   // debajo del match-detail forzado (100012)
-                ov.style.top = '0px';         // arriba de todo: el header del torneo no aplica
-                return true;
-            }
-            return false;
+            let algo = false;
+            ['vup-modal-overlay', 'club-profile-modal'].forEach(id => {
+                const ov = document.getElementById(id);
+                if (ov) {
+                    ov.style.zIndex = '100011';   // debajo del match-detail forzado (100012)
+                    ov.style.top = '0px';         // arriba de todo: el header del torneo no aplica
+                    algo = true;
+                }
+            });
+            return algo;
         };
         if (subir()) return;
         const iv = setInterval(() => { if (subir() || ++intentos > 20) clearInterval(iv); }, 60);
@@ -92,7 +99,10 @@ window.CancheroTournaments = (function() {
             window.open('index.html?club=' + encodeURIComponent(clubId), '_blank');
             return;
         }
-        if (typeof window.viewUserProfile === 'function') { window.viewUserProfile(s); _liftProfileOverlay(); return; }
+        // forcePublic = true SIEMPRE: si el email es el del propio usuario, viewUserProfile
+        // sin ese flag hace switchDashboardTab('perfil'), que reconstruye el dashboard y se
+        // lleva puesto el modal del torneo (parecía que la app "te saca de todo").
+        if (typeof window.viewUserProfile === 'function') { window.viewUserProfile(s, true); _liftProfileOverlay(); return; }
         window.open('index.html?perfil=' + encodeURIComponent(s), '_blank');
     }
 
@@ -105,12 +115,66 @@ window.CancheroTournaments = (function() {
         const sb = getSb();
         const { data: team } = await sb.from('tournament_teams').select('*').eq('id', teamId).single();
         if (!team) { toast('Equipo no encontrado.', 'error'); return; }
-        // Registrado → perfil real
-        if (team.club_email) { _openProfile(team.club_email); return; }
+        // Tocar un equipo NUNCA saca del torneo. Antes, si estaba registrado, se saltaba
+        // directo al perfil del club: ese perfil se dibuja en z-index 900, muy por debajo
+        // del modal del torneo, así que quedaba tapado y parecía que la app se reiniciaba
+        // y volvía al inicio. Ahora siempre se abre la ficha del equipo DENTRO del torneo
+        // (plantel, estadísticas, posición y partidos) y, si además tiene perfil de club
+        // registrado, se ofrece un botón para ir a verlo.
+        const clubRef = (team.club_email && String(team.club_email).indexOf('club:') === 0)
+            ? String(team.club_email) : null;
 
         const { data: players } = await sb.from('tournament_players').select('*').eq('team_id', teamId).order('number');
         const { data: t } = await sb.from('tournaments').select('name,organizer_email').eq('id', team.tournament_id).single();
         const isOrg = _isOrgActive(t?.organizer_email);
+
+        // Posición en la tabla (dentro de su grupo) y partidos del equipo.
+        let posicion = 0, deCuantos = 0;
+        try {
+            const { data: rivales } = await sb.from('tournament_teams')
+                .select('id,points,goals_for,goals_against,group_letter')
+                .eq('tournament_id', team.tournament_id).eq('status','approved');
+            const mismos = (rivales||[]).filter(x => (x.group_letter||'') === (team.group_letter||''));
+            mismos.sort((a,b) => (b.points||0)-(a.points||0)
+                || ((b.goals_for||0)-(b.goals_against||0))-((a.goals_for||0)-(a.goals_against||0))
+                || (b.goals_for||0)-(a.goals_for||0));
+            deCuantos = mismos.length;
+            posicion = mismos.findIndex(x => String(x.id) === String(teamId)) + 1;
+        } catch(e){}
+
+        let jugados = [], proximos = [];
+        try {
+            const { data: ms } = await sb.from('tournament_matches').select('*')
+                .eq('tournament_id', team.tournament_id)
+                .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`);
+            (ms||[]).forEach(m => {
+                if (m.home_score !== null && m.away_score !== null) jugados.push(m); else proximos.push(m);
+            });
+            jugados.sort((a,b) => (b.matchday||0)-(a.matchday||0));
+            proximos.sort((a,b) => (a.matchday||0)-(b.matchday||0));
+        } catch(e){}
+
+        // Fila de partido vista DESDE este equipo: rival, local/visitante y resultado.
+        const filaPartido = (m) => {
+            const esLocal = String(m.home_team_id) === String(teamId);
+            const rival = esLocal ? (m.away_team_name||'A definir') : (m.home_team_name||'A definir');
+            const jugado = m.home_score !== null && m.away_score !== null;
+            const gf = esLocal ? m.home_score : m.away_score;
+            const gc = esLocal ? m.away_score : m.home_score;
+            const res = !jugado ? '' : (gf > gc ? 'G' : gf < gc ? 'P' : 'E');
+            const col = res === 'G' ? '#00e676' : res === 'P' ? '#ff5555' : '#ffaa00';
+            const cuando = m.scheduled_at
+                ? new Date(m.scheduled_at).toLocaleDateString('es-UY',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})
+                : (m.matchday ? 'Fecha ' + m.matchday : 'Por confirmar');
+            return `<div onclick="CancheroTournaments._openMatchDetail('${m.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:11px;margin-bottom:6px;cursor:pointer;">
+                <span style="font-size:9px;font-weight:900;color:#666;width:14px;flex-shrink:0;">${esLocal?'L':'V'}</span>
+                <span style="flex:1;min-width:0;font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(rival)}</span>
+                ${jugado
+                    ? `<span style="font-size:13px;font-weight:900;color:${col};flex-shrink:0;">${gf}-${gc}</span>
+                       <span style="width:17px;height:17px;border-radius:5px;background:${col}22;color:${col};font-size:9.5px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${res}</span>`
+                    : `<span style="font-size:10px;color:#666;flex-shrink:0;">${_esc(cuando)}</span>`}
+            </div>`;
+        };
         const pj = (team.wins||0)+(team.draws||0)+(team.losses||0);
         const dg = (team.goals_for||0)-(team.goals_against||0);
         const stat = (v, l) => `<div style="flex:1;min-width:52px;text-align:center;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:10px 4px;"><div style="font-size:18px;font-weight:900;color:var(--accent);">${v}</div><div style="font-size:9px;color:#777;font-weight:800;letter-spacing:.5px;">${l}</div></div>`;
@@ -131,8 +195,11 @@ window.CancheroTournaments = (function() {
                     <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;line-height:1.15;">${_esc(team.team_name)}</div>
                     <div style="font-size:11.5px;color:#888;margin-top:3px;">${_esc(t?.name||'')}${team.group_letter?' · Grupo '+team.group_letter:''}</div>
                     <div style="font-size:11.5px;color:#666;margin-top:2px;"><i class='bx bx-user' style="color:var(--accent);"></i> ${_esc(team.captain_name||team.captain_email||'Sin capitán')}</div>
-                    <div style="font-size:10px;color:#555;margin-top:6px;">Equipo no registrado en Canchero</div>
-                    ${isOrg ? `<button onclick="CancheroTournaments._inviteTeam('${teamId}')" style="margin-top:9px;background:rgba(186,255,0,0.12);color:var(--accent);border:1px solid rgba(186,255,0,0.3);border-radius:11px;padding:8px 14px;font-size:11.5px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><i class='bx bx-user-plus'></i> Invitarlo a Canchero</button>` : ''}
+                    ${posicion ? `<div style="font-size:11.5px;color:var(--accent);margin-top:4px;font-weight:800;"><i class='bx bx-list-ol'></i> ${posicion}º de ${deCuantos}${team.group_letter?' en el grupo '+team.group_letter:''}</div>` : ''}
+                    ${clubRef
+                        ? `<button onclick="CancheroTournaments._openProfile('${clubRef}')" style="margin-top:9px;background:rgba(186,255,0,0.12);color:var(--accent);border:1px solid rgba(186,255,0,0.3);border-radius:11px;padding:8px 14px;font-size:11.5px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><i class='bx bx-shield-quarter'></i> Ver perfil del equipo</button>`
+                        : `<div style="font-size:10px;color:#555;margin-top:6px;">Equipo no registrado en Canchero</div>
+                           ${isOrg ? `<button onclick="CancheroTournaments._inviteTeam('${teamId}')" style="margin-top:9px;background:rgba(186,255,0,0.12);color:var(--accent);border:1px solid rgba(186,255,0,0.3);border-radius:11px;padding:8px 14px;font-size:11.5px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><i class='bx bx-user-plus'></i> Invitarlo a Canchero</button>` : ''}`}
                 </div>
             </div>
             <div style="display:flex;gap:6px;margin:14px 0;flex-wrap:wrap;">
@@ -141,6 +208,10 @@ window.CancheroTournaments = (function() {
             <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;">
                 ${stat(team.goals_for||0,'GOLES A FAVOR')}${stat(team.goals_against||0,'EN CONTRA')}
             </div>
+            ${proximos.length ? `<div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:8px;">PRÓXIMOS PARTIDOS</div>
+                ${proximos.slice(0,5).map(filaPartido).join('')}<div style="height:10px;"></div>` : ''}
+            ${jugados.length ? `<div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:8px;">PARTIDOS JUGADOS</div>
+                ${jugados.slice(0,8).map(filaPartido).join('')}<div style="height:10px;"></div>` : ''}
             <div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:10px;">PLANTEL (${(players||[]).length})</div>
             ${(players||[]).length ? (players||[]).map(p => `
                 <div onclick="CancheroTournaments._openPlayerInfo('${p.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;margin-bottom:6px;cursor:pointer;">

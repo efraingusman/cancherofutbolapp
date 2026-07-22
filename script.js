@@ -1602,8 +1602,15 @@ window._renderProfileSwitcher = function(){
     if (_activeIsBiz) {
         const _bizIcons = { tienda:'bx-store', club:'bx-cancha', complejo:'bx-cancha', organizacion:'bx-trophy', profesional:'bx-briefcase', sponsor:'bx-dollar-circle' };
         var _ab = window._activeBiz ? window._activeBiz() : null;
-        label = (_ab && _ab.name) || window.userData.name || 'Mi Negocio';
-        icon = _bizIcons[(_ab && _ab.role) || _uRole] || 'bx-store';
+        // El botón muestra el ROL, no el nombre del negocio: un nombre largo hacía que el
+        // pill (centrado, hasta 200px) se metiera debajo de la campana en pantallas
+        // angostas. El rol siempre es corto y predecible.
+        var _rolesLabel = { tienda:'Tienda', club:'Complejo', complejo:'Complejo', cancha:'Complejo',
+                            organizacion:'Organización', liga:'Organización', escuela:'Organización',
+                            profesional:'Profesional', sponsor:'Sponsor' };
+        var _rolBiz = (_ab && _ab.role) || _uRole;
+        label = _rolesLabel[_rolBiz] || 'Negocio';
+        icon = _bizIcons[_rolBiz] || 'bx-store';
     } else if (active === 'team') {
         let t = null; try { t = JSON.parse(localStorage.getItem('canchero_active_team')||'null'); } catch(e){}
         // Fallback: si se perdió el snapshot, usar el cache de mis equipos
@@ -1623,7 +1630,12 @@ window._renderProfileSwitcher = function(){
         pill = document.createElement('button');
         pill.id = 'profile-switcher-pill';
         pill.onclick = window._openProfileSwitcher;
-        pill.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);border:1px solid #2a2a2a;border-radius:22px;padding:6px 12px;cursor:pointer;max-width:200px;z-index:5;';
+        // max-width relativo: en un celular angosto el pill se achica solo y nunca llega a
+        // los botones de campana/ajustes (a 360px queda en ~155px en vez de 200px).
+        // El pill va CENTRADO, así que su mitad no puede invadir la zona de la campana y
+        // los ajustes (unos 94px a la derecha). max-width = 100vw - 200px deja ~8px de aire
+        // en cualquier ancho; en pantallas chicas el texto se recorta antes que encimarse.
+        pill.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);border:1px solid #2a2a2a;border-radius:22px;padding:6px 12px;cursor:pointer;max-width:min(200px,calc(100vw - 200px));box-sizing:border-box;z-index:5;';
         // NO tocar nav.style.position: la navbar ya es position:fixed (sirve de contenedor
         // para el pill absoluto). Sobrescribirla a relative la saca del fixed y genera un
         // espacio vacío arriba en todas las secciones.
