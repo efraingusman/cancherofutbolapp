@@ -145,11 +145,12 @@ window.CancheroTournaments = (function() {
         const isOrg = _isOrgActive(t?.organizer_email);
 
         // Posición en la tabla (dentro de su grupo) y partidos del equipo.
-        let posicion = 0, deCuantos = 0;
+        let posicion = 0, deCuantos = 0, logoById = {};
         try {
             const { data: rivales } = await sb.from('tournament_teams')
-                .select('id,points,goals_for,goals_against,group_letter')
+                .select('id,team_name,logo_url,points,goals_for,goals_against,group_letter')
                 .eq('tournament_id', team.tournament_id).eq('status','approved');
+            (rivales||[]).forEach(x => { if (x.logo_url) logoById[x.id] = x.logo_url; });
             const mismos = (rivales||[]).filter(x => (x.group_letter||'') === (team.group_letter||''));
             mismos.sort((a,b) => (b.points||0)-(a.points||0)
                 || ((b.goals_for||0)-(b.goals_against||0))-((a.goals_for||0)-(a.goals_against||0))
@@ -170,25 +171,21 @@ window.CancheroTournaments = (function() {
             proximos.sort((a,b) => (a.matchday||0)-(b.matchday||0));
         } catch(e){}
 
-        // Fila de partido vista DESDE este equipo: rival, local/visitante y resultado.
+        // Se reusa la MISMA fila del fixture: versus con los dos escudos, nombres, marcador
+        // o "VS", día, hora y cancha. Antes acá había una fila propia mínima que solo
+        // mostraba el rival y no se entendía el cruce.
+        // Se le agrega arriba la instancia y si el equipo juega de local o de visitante.
         const filaPartido = (m) => {
             const esLocal = String(m.home_team_id) === String(teamId);
-            const rival = esLocal ? (m.away_team_name||'A definir') : (m.home_team_name||'A definir');
-            const jugado = m.home_score !== null && m.away_score !== null;
-            const gf = esLocal ? m.home_score : m.away_score;
-            const gc = esLocal ? m.away_score : m.home_score;
-            const res = !jugado ? '' : (gf > gc ? 'G' : gf < gc ? 'P' : 'E');
-            const col = res === 'G' ? '#00e676' : res === 'P' ? '#ff5555' : '#ffaa00';
-            const cuando = m.scheduled_at
-                ? new Date(m.scheduled_at).toLocaleDateString('es-UY',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})
-                : (m.matchday ? 'Fecha ' + m.matchday : 'Por confirmar');
-            return `<div onclick="CancheroTournaments._openMatchDetail('${m.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:11px;margin-bottom:6px;cursor:pointer;">
-                <span style="font-size:9px;font-weight:900;color:#666;width:14px;flex-shrink:0;">${esLocal?'L':'V'}</span>
-                <span style="flex:1;min-width:0;font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(rival)}</span>
-                ${jugado
-                    ? `<span style="font-size:13px;font-weight:900;color:${col};flex-shrink:0;">${gf}-${gc}</span>
-                       <span style="width:17px;height:17px;border-radius:5px;background:${col}22;color:${col};font-size:9.5px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${res}</span>`
-                    : `<span style="font-size:10px;color:#666;flex-shrink:0;">${_esc(cuando)}</span>`}
+            const inst = m.phase === 'groups' || m.phase === 'league'
+                ? (m.matchday ? 'Fecha ' + m.matchday : 'Fase de grupos')
+                : (_PHASE_NOMBRE[m.phase] || '');
+            return `<div style="margin-bottom:2px;">
+                <div style="display:flex;align-items:center;gap:6px;font-size:9.5px;font-weight:900;color:#5f665f;letter-spacing:.6px;margin:0 2px 3px;">
+                    ${inst ? `<span>${_esc(inst.toUpperCase())}</span>` : ''}
+                    <span style="margin-left:auto;color:${esLocal?'#7aa2ff':'#c8a24a'};">${esLocal?'DE LOCAL':'DE VISITANTE'}</span>
+                </div>
+                ${_renderMatchRow(m, false, team.tournament_id, logoById)}
             </div>`;
         };
         const pj = (team.wins||0)+(team.draws||0)+(team.losses||0);
@@ -2751,6 +2748,26 @@ window.CancheroTournaments = (function() {
         try { clearInterval(window.__ctLiveInt); } catch(e){}
         window.__ctLiveInt = null; window.__ctLiveSale = null;
         document.getElementById('cmd-modal')?.remove();
+        _restaurarFichaEquipo();
+    }
+
+    // La ficha del equipo (cti-modal) vive en z-index 100008 y la ficha del partido
+    // (cmd-modal) en 100004: al abrir un partido DESDE el equipo, el partido quedaba
+    // DEBAJO — parecía que no pasaba nada, y recién se veía al cerrar la ficha del equipo.
+    // Se baja la ficha del equipo mientras el partido está abierto y se restaura al cerrarlo
+    // (bajar una y no subir la otra mantiene intacto el resto de la jerarquía: editores,
+    // compartir y el modo en vivo siguen quedando por encima del partido).
+    function _bajarFichaEquipo() {
+        const cti = document.getElementById('cti-modal');
+        if (!cti) return;
+        if (!cti.dataset.zPrev) cti.dataset.zPrev = cti.style.zIndex || '100008';
+        cti.style.zIndex = '99998';
+    }
+    function _restaurarFichaEquipo() {
+        const cti = document.getElementById('cti-modal');
+        if (!cti || !cti.dataset.zPrev) return;
+        cti.style.zIndex = cti.dataset.zPrev;
+        delete cti.dataset.zPrev;
     }
 
     // Cambia de panel en la ficha del partido (Resumen / Timeline / Jugadores).
@@ -2768,8 +2785,10 @@ window.CancheroTournaments = (function() {
     }
     async function _openMatchDetail(matchId) {
         const sb = getSb();
+        // Si se llega desde la ficha de un equipo, esa ficha tiene que ceder el paso.
+        _bajarFichaEquipo();
         let { data: m } = await sb.from('tournament_matches').select('*').eq('id', matchId).single();
-        if (!m) { toast('Partido no encontrado.', 'error'); return; }
+        if (!m) { toast('Partido no encontrado.', 'error'); _restaurarFichaEquipo(); return; }
         // Si tiene Ficha completa vinculada, traer el resultado del partido real al torneo
         // antes de renderizar (así la tabla/marcador reflejan lo cargado en el partido real).
         if (m.match_id) {
