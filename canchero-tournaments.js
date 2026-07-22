@@ -73,12 +73,15 @@ window.CancheroTournaments = (function() {
     // (99999): al abrirlos desde el torneo quedaban TAPADOS y parecía que la app no hacía
     // nada o que te sacaba. Se eleva tanto el de usuario como el de CLUB (que antes no se
     // contemplaba, y es justo el que se abre al tocar un equipo registrado).
-    function _liftProfileOverlay() {
+    function _liftProfileOverlay(win) {
+        // El perfil puede haberse abierto en ESTA ventana o en la ventana padre (cuando el
+        // torneo se ve dentro del panel de negocio, que es un iframe).
+        const doc = (() => { try { return (win || window).document; } catch(e) { return document; } })();
         let intentos = 0;
         const subir = () => {
             let algo = false;
             ['vup-modal-overlay', 'club-profile-modal'].forEach(id => {
-                const ov = document.getElementById(id);
+                const ov = doc.getElementById(id);
                 if (ov) {
                     ov.style.zIndex = '100011';   // debajo del match-detail forzado (100012)
                     ov.style.top = '0px';         // arriba de todo: el header del torneo no aplica
@@ -90,19 +93,32 @@ window.CancheroTournaments = (function() {
         if (subir()) return;
         const iv = setInterval(() => { if (subir() || ++intentos > 20) clearInterval(iv); }, 60);
     }
+    // El visor de perfiles vive en script.js (la app). Pero el módulo de torneos también
+    // corre DENTRO del iframe del panel de negocio (crm-organizacion.html), donde esas
+    // funciones no existen: ahí caía al window.open y abría Canchero de nuevo en otra
+    // pestaña, en el inicio. Se busca el visor en esta ventana y, si no está, en la ventana
+    // padre; el window.open queda solo para la página pública del torneo (torneo.html),
+    // que no tiene app alrededor.
+    function _ventanaConVisor(fn) {
+        try { if (typeof window[fn] === 'function') return window; } catch(e){}
+        try { if (window.parent && window.parent !== window && typeof window.parent[fn] === 'function') return window.parent; } catch(e){}
+        return null;
+    }
     function _openProfile(ref) {
         if (!ref) { toast('No está registrado en Canchero.', 'info'); return; }
         const s = String(ref);
         if (s.indexOf('club:') === 0) {
             const clubId = s.slice(5);
-            if (typeof window.viewClubProfile === 'function') { window.viewClubProfile(clubId); _liftProfileOverlay(); return; }
+            const w = _ventanaConVisor('viewClubProfile');
+            if (w) { w.viewClubProfile(clubId); _liftProfileOverlay(w); return; }
             window.open('index.html?club=' + encodeURIComponent(clubId), '_blank');
             return;
         }
         // forcePublic = true SIEMPRE: si el email es el del propio usuario, viewUserProfile
         // sin ese flag hace switchDashboardTab('perfil'), que reconstruye el dashboard y se
         // lleva puesto el modal del torneo (parecía que la app "te saca de todo").
-        if (typeof window.viewUserProfile === 'function') { window.viewUserProfile(s, true); _liftProfileOverlay(); return; }
+        const w = _ventanaConVisor('viewUserProfile');
+        if (w) { w.viewUserProfile(s, true); _liftProfileOverlay(w); return; }
         window.open('index.html?perfil=' + encodeURIComponent(s), '_blank');
     }
 
