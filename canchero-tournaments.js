@@ -2757,11 +2757,14 @@ window.CancheroTournaments = (function() {
     // Se baja la ficha del equipo mientras el partido está abierto y se restaura al cerrarlo
     // (bajar una y no subir la otra mantiene intacto el resto de la jerarquía: editores,
     // compartir y el modo en vivo siguen quedando por encima del partido).
+    // El valor tiene que quedar ENTRE el torneo (99999) y la ficha del partido (100004):
+    // con 99998 la ficha del equipo caía por debajo del torneo y, durante el instante que
+    // tarda la consulta del partido, se veía el torneo de fondo antes de abrirse la ficha.
     function _bajarFichaEquipo() {
         const cti = document.getElementById('cti-modal');
         if (!cti) return;
         if (!cti.dataset.zPrev) cti.dataset.zPrev = cti.style.zIndex || '100008';
-        cti.style.zIndex = '99998';
+        cti.style.zIndex = '100002';
     }
     function _restaurarFichaEquipo() {
         const cti = document.getElementById('cti-modal');
