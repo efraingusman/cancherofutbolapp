@@ -65,7 +65,6 @@ const CLUB_RX = {
   'psg':          /psg|paris saint|par(í|i)s sg/i,
   'flamengo':     /flamengo|mengao/i,
   'palmeiras':    /palmeiras|verd(ã|a)o/i,
-  'boca-jrs':     /boca juniors/i,
 };
 
 // Nombre simple del club, válido SOLO dentro de prensa uruguaya (ahí no hay ambigüedad).

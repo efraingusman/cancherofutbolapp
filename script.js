@@ -9801,6 +9801,10 @@ window.switchProfileTab = function(dashboard, tabId, el) {
     if (dashboard === 'jugador' && tabId === 'predicciones') {
         setTimeout(() => window._loadProfilePredictions('mias'), 100);
     }
+    // Hinchada (perfil de fanático): club, hinchada, lo que dicen y noticias.
+    if (dashboard === 'jugador' && tabId === 'hinchada') {
+        try { window.CancheroHinchada && window.CancheroHinchada.render(); } catch(e) { console.warn('hinchada:', e); }
+    }
     // Cargar equipos en el perfil propio — SIEMPRE recargar según la identidad activa
     // (antes quedaba cacheado el contenido del otro rol: el jugador veía los equipos
     //  de HINCHA del fanático y viceversa).

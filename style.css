@@ -1234,6 +1234,9 @@ select option:hover {
 .fanatico-profile .profile-tab.jugador-only,
 .fanatico-profile #jugador-profile-equipos,
 .fanatico-profile #jugador-profile-logros { display: none !important; }
+/* Hinchada: al reves que las de arriba — solo existe en el perfil de FANATICO. */
+.profile-tab.fanatico-only { display: none; }
+.fanatico-profile .profile-tab.fanatico-only { display: flex !important; }
 .fanatico-profile #fanatico-extra { display: block !important; }
 
 /* ── FASE 0 — Modo NEGOCIO (tienda/complejo/organización/sponsor/profesional) ──
