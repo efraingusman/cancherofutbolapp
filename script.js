@@ -1619,12 +1619,14 @@ window._renderProfileSwitcher = function(){
             const tc = window._myTeamsCache.find(x => String(x.id) === String(cid)) || window._myTeamsCache[0];
             if (tc) t = { id: tc.id, name: tc.name };
         }
-        label = (t && t.name) || 'Equipo'; icon = 'bx-shield';
+        // El boton dice el ROL, no el nombre del equipo (igual que en los negocios).
+        label = 'Equipo'; icon = 'bx-shield';
     } else {
         const profs = window._getProfiles();
         const p = profs[active] || {};
         const meta = window._profileMeta[active] || { label:'Perfil', icon:'bx-user' };
-        label = p.name || meta.label; icon = meta.icon;
+        // Idem: "Jugador" / "Fanatico", nunca el nombre de la persona.
+        label = meta.label; icon = meta.icon;
     }
     if (!pill) {
         pill = document.createElement('button');
@@ -6300,9 +6302,9 @@ window.viewUserProfile = async function(email, forcePublic, opts) {
                 ${(isJugador && !_esFan && isMe) ? `<div class="profile-tab" id="vup-tab-stats" onclick="window._vupTab('stats')" title="Estadísticas" aria-label="Estadísticas"><i class='bx bx-bar-chart-alt-2'></i></div>` : ''}
                 ${(isJugador && !_esFan) ? `<div class="profile-tab" id="vup-tab-equipos" onclick="window._vupTab('equipos')" title="Equipos" aria-label="Equipos"><i class='bx bx-shield-quarter'></i></div>` : ''}
                 ${(isJugador && !_esFan) ? `<div class="profile-tab" id="vup-tab-logros" onclick="window._vupTab('logros')" title="Logros" aria-label="Logros"><i class='bx bx-medal'></i></div>` : ''}
-                <div class="profile-tab" id="vup-tab-fans" onclick="window._vupTab('fans')" title="Fans" aria-label="Fans"><i class='bx bx-group'></i></div>
-                <!-- Info SIEMPRE al final -->
+                <!-- Info ante-ultimo; Fans (seguidos/seguidores) SIEMPRE al final -->
                 <div class="profile-tab" id="vup-tab-info" onclick="window._vupTab('info')" title="Info" aria-label="Info"><i class='bx bx-info-circle'></i></div>
+                <div class="profile-tab" id="vup-tab-fans" onclick="window._vupTab('fans')" title="Fans" aria-label="Fans"><i class='bx bx-group'></i></div>
             </div>
 
             <!-- CONTENT SECTIONS -->
@@ -8804,10 +8806,15 @@ window._updateDailyStreak = async function() {
             await sb.from('users').update({ streak: nuevo }).eq('email', userData.email).catch(()=>{});
         }
     } catch(e) {}
-    // Aviso en hitos (3, 7, 15, 30...) sin ser molesto
-    if ([3,7,15,30,50,100].includes(nuevo) && typeof showToast === 'function') {
-        setTimeout(function(){ showToast('🔥 ¡Racha de ' + nuevo + ' días seguidos en Canchero!', 'success', 4000); }, 1600);
-    }
+    // Pantalla grande estilo Duolingo (una vez por día). Reemplaza al toast chico.
+    // Si el módulo no cargó aún, cae al toast como respaldo.
+    setTimeout(function(){
+        if (window.CancheroRacha && typeof window.CancheroRacha.mostrar === 'function') {
+            window.CancheroRacha.mostrar(nuevo);
+        } else if (typeof showToast === 'function') {
+            showToast('¡Racha de ' + nuevo + ' días en Canchero!', 'success', 3500);
+        }
+    }, 1400);
 };
 
 function applyUserData() {
@@ -9227,6 +9234,11 @@ function applyUserData() {
 
     const pHandle = document.getElementById('p-handle');
     if (pHandle) pHandle.innerText = handle;
+    // Chip de racha junto al handle (todos los roles). Tocarlo abre la pantalla grande.
+    const pRacha = document.getElementById('p-racha-chip');
+    if (pRacha && window.CancheroRacha) {
+        pRacha.innerHTML = window.CancheroRacha.chip(userData.streak_days || userData.streak || 0);
+    }
     const pBio = document.getElementById('p-bio');
     if (pBio) pBio.innerText = userData.bio || 'Sin biografía.';
     const pLoc = document.getElementById('p-location');

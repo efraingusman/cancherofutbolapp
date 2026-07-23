@@ -1331,6 +1331,14 @@ body.is-biz #p-stat-blocks { display: none !important; }
 /* Nombre centrado + botones (guardar/editar) absolutos a la derecha en su misma línea */
 .fanatico-profile .profile-display-name {
   position: relative; width: 100%; justify-content: center; flex-wrap: nowrap; font-size: 20px;
+  /* Los botones (guardados/editar) van absolutos a la derecha: el nombre les reserva
+     ese lugar a AMBOS lados para seguir centrado. Sin esto, en pantallas angostas
+     (Samsung A12, 360px) un nombre largo se metía debajo de los botones. */
+  padding: 0 74px; box-sizing: border-box;
+}
+@media (max-width: 380px) {
+  /* Pantalla muy angosta: el nombre puede partirse en dos líneas antes que encimarse. */
+  .fanatico-profile .profile-display-name { flex-wrap: wrap; font-size: 18px; }
 }
 .fanatico-profile .fan-inline-actions {
   position: absolute; right: 0; top: 50%; transform: translateY(-50%);
