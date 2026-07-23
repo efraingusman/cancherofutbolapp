@@ -5577,7 +5577,7 @@ async function _buildFanListHTML(query, filters) {
             const pos = x.photoStyle ? `background-position:${50+parseInt(x.photoStyle.x||0)}% ${50+parseInt(x.photoStyle.y||0)}%;background-size:${(parseFloat(x.photoStyle.zoom||100)>100)?(x.photoStyle.zoom+'%'):'cover'};` : 'background-position:center 25%;background-size:cover;';
             const av = hasPhoto ? `<div style="width:44px;height:44px;border-radius:50%;flex-shrink:0;border:2px solid rgba(186,255,0,0.4);background-image:url('${x.photo}');${pos}"></div>` : `<div style="width:44px;height:44px;border-radius:50%;flex-shrink:0;background:rgba(186,255,0,0.12);border:2px solid rgba(186,255,0,0.4);display:flex;align-items:center;justify-content:center;color:var(--accent);"><i class='bx bx-football' style="font-size:20px;"></i></div>`;
             const flag = (x.nat && window.countryFlag) ? window.countryFlag(x.nat,13) : '';
-            return `<div onclick="window.viewUserProfile('${emailEsc}', true)" style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid #151515;cursor:pointer;" onmouseover="this.style.background='#111'" onmouseout="this.style.background='transparent'">
+            return `<div onclick="window.viewUserProfile('${emailEsc}', true, {profile:'fanatico'})" style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid #151515;cursor:pointer;" onmouseover="this.style.background='#111'" onmouseout="this.style.background='transparent'">
                 ${av}
                 <div style="flex:1;min-width:0;">
                     <div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:5px;">${(x.name||'Fanático')}${flag}</div>
@@ -5743,6 +5743,27 @@ window.viewUserProfile = async function(email, forcePublic, opts) {
             sb.from('follows').select('follower_email,follower_profile,following_profile').eq('following_email', email).limit(100),
             sb.from('follows').select('following_email,follower_profile,following_profile').eq('follower_email', email).limit(100)
         ]);
+
+        // FANÁTICO: el perfil de fanático vive en users.linked_profiles.fanatico
+        // ({name, photo, photoStyle, nat}) y es DISTINTO del de jugador. Al entrar desde
+        // Buscar → Fanáticos se abría el perfil de jugador y sin foto, porque se leía
+        // users.photo. Con opts.profile === 'fanatico' se superponen sus datos.
+        if (u && opts.profile === 'fanatico') {
+            try {
+                var _lp = typeof u.linked_profiles === 'string' ? JSON.parse(u.linked_profiles) : (u.linked_profiles || {});
+                var _fan = _lp.fanatico || (u.role === 'fanatico' ? { name: u.name } : null);
+                if (_fan) {
+                    u = Object.assign({}, u, {
+                        name: _fan.name || u.name,
+                        photo: _fan.photo || u.photo,
+                        photo_style: _fan.photoStyle || _fan.photo_style || u.photo_style,
+                        bio: _fan.bio || u.bio,
+                        nat: _fan.nat || u.nat,
+                        role: 'fanatico'
+                    });
+                }
+            } catch(e){}
+        }
 
         // Un NEGOCIO puede existir en business_requests sin fila en users (se registró
         // desde el switcher y nunca se creó el perfil personal). Antes eso daba
@@ -6158,7 +6179,7 @@ window.viewUserProfile = async function(email, forcePublic, opts) {
 
         // ── HTML final — idéntico al perfil propio ───────────────
         content.innerHTML = `
-        <div class="social-profile">
+        <div class="social-profile${opts.profile === 'fanatico' ? ' fanatico-profile' : ''}">
             <!-- PORTADA -->
             <div class="cover-photo" style="${coverBg}position:relative;">
                 <button class="btn-back-icon" aria-label="Volver" onclick="window._closeProfileView()" style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.55);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.18);z-index:120;"><i class='bx bx-left-arrow-alt'></i></button>

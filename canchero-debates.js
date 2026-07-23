@@ -11,13 +11,40 @@
 'use strict';
 const sb = () => window._sb;
 const me = () => window.userData;
+
+// ── Identidad ACTIVA (misma lógica que Comunidades) ──────────────────────
+// Una cuenta publica como jugador, fanático, equipo o cualquiera de sus negocios.
+// Se sella con qué identidad se escribió para que solo esa pueda borrarlo.
+function _debIdentidad(){
+  try {
+    var bizId = window._pubBizId && window._pubBizId();
+    if (bizId) return 'biz:' + bizId;
+    return String((window._pubRole && window._pubRole()) || (me() && me().role) || 'jugador');
+  } catch(e){ return String((me() && me().role) || 'jugador'); }
+}
+function _debNombre(){
+  try { var b = window._activeBiz && window._activeBiz(); if (b && b.name) return b.name; } catch(e){}
+  return (me() && (me().name || (me().email||'').split('@')[0])) || 'Hincha';
+}
+function _debFoto(){
+  try { var f = window._pubAvatar && window._pubAvatar(); if (f) return f; } catch(e){}
+  return (me() && me().photo) || '';
+}
+// ¿Este argumento lo escribí YO con la identidad que tengo activa ahora?
+function _debEsMio(a){
+  var miEmail = ((me() && me().email) || '').toLowerCase();
+  if (!miEmail || (a.user_email||'').toLowerCase() !== miEmail) return false;
+  if (a.author_identity) return String(a.author_identity) === _debIdentidad();
+  // Argumentos viejos (sin sello): se compara el nombre con el que se publicó.
+  return String(a.user_name||'').trim().toLowerCase() === String(_debNombre()).trim().toLowerCase();
+}
 function toast(m,t){ if(window.showToast) showToast(m,t); }
 function q(b,fb){ return b.then(r=>(r&&!r.error?r:{data:fb}),()=>({data:fb})); }
 const PHASE_MS = 12*3600*1000; // 12h por fase
 const SIDE_COLORS = ['#baff00','#64b4ff','#ff6b9d','#ffaa00','#9c88ff','#00e676'];
 
-const CATS = ['Todos','Mundial','Jugadores','Clubes'];
-const CREATE_CATS = ['Mundial','Jugadores','Clubes','General'];
+const CATS = ['Todos','Jugadores','Clubes'];
+const CREATE_CATS = ['Jugadores','Clubes','General'];
 // Portadas sin copyright: gradientes premium + ícono según categoría (no fotos con derechos)
 const CAT_COVER = {
   Mundial:  { grad:'linear-gradient(135deg,#0a3d2e,#0a0a0a)', icon:'bx-trophy' },
@@ -38,9 +65,6 @@ const COVER_IMG = {
 const SEED = [
   { title:'Messi vs Cristiano', category:'Jugadores', options:['Messi','Cristiano'], local_cover:'img/debates/messi-cristiano.jpg', cover_url:COVER_IMG.player },
   { title:'Maradona vs Pelé', category:'Jugadores', options:['Maradona','Pelé'], local_cover:'img/debates/maradona-pele.jpg', cover_url:COVER_IMG.player },
-  { title:'Uruguay vs Argentina', category:'Mundial', options:['Uruguay','Argentina'], local_cover:'img/debates/uruguay-argentina.jpg', cover_url:COVER_IMG.stadium },
-  // Debate del Mundial LIBRE (sin bandos fijos — pedido 2026-07-08)
-  { title:'¿Quién gana el Mundial 2026?', category:'Mundial', options:[], local_cover:'img/debates/mundial-2026.jpg', cover_url:COVER_IMG.trophy },
   { title:'Peñarol vs Nacional', category:'Clubes', options:['Peñarol','Nacional'], local_cover:'img/debates/penarol-nacional.jpg', cover_url:COVER_IMG.shield },
   { title:'Barcelona vs Real Madrid', category:'Clubes', options:['Barcelona','Real Madrid'], local_cover:'img/debates/barsa-madrid.jpg', cover_url:COVER_IMG.stadium },
   { title:'Boca vs River', category:'Clubes', options:['Boca','River'], local_cover:'img/debates/boca-river.jpg', cover_url:COVER_IMG.shield },
@@ -102,6 +126,10 @@ window._debSetCat = function(c){ window._debCat=c; CATS.forEach(x=>{const b=docu
 window._renderDebatesList = async function(){
   const list = document.getElementById('debates-list'); if(!list) return;
   let rows = (await q(sb().from('debates').select('*').order('created_at',{ascending:false}).limit(120),[])).data;
+  // El Mundial 2026 ya terminó: los debates de esa categoría se retiran de la lista.
+  // No se borran de la base (quedan los argumentos y los votos por si se quiere revisar),
+  // simplemente dejan de mostrarse.
+  rows = rows.filter(d => (d.category||'') !== 'Mundial');
   // Dedupe reales por título (quedarse con el más reciente)
   const seen = {}; const realByTitle = {}; const realUnique = [];
   rows.forEach(d=>{ const k=(d.title||'').trim().toLowerCase(); if(!seen[k]){ seen[k]=1; realByTitle[k]=d; realUnique.push(d); } });
@@ -193,9 +221,9 @@ async function _debRoomLoad(){
   try {
     const emails = [...new Set(args.map(a=>a.user_email).filter(Boolean))];
     if (emails.length){
-      const us = (await q(sb().from('users').select('email,photo,name').in('email',emails),[])).data;
+      const us = (await q(sb().from('users').select('email,photo,name,photo_style').in('email',emails),[])).data;
       const umap={}; us.forEach(u=>umap[(u.email||'').toLowerCase()]=u);
-      args.forEach(a=>{ const u=umap[(a.user_email||'').toLowerCase()]; if(u){ a._photo=u.photo; if(!a.user_name) a.user_name=u.name; } });
+      args.forEach(a=>{ const u=umap[(a.user_email||'').toLowerCase()]; if(u){ if(!a._photo) a._photo=a.user_photo||u.photo; if(!a._pstyle) a._pstyle=u.photo_style||u.photoStyle||null; if(!a.user_name) a.user_name=u.name; } else if(a.user_photo){ a._photo=a.user_photo; } });
     }
   } catch(e){}
   const myVotes = me()? (await q(sb().from('argument_votes').select('argument_id').eq('user_email',me().email),[])).data.map(v=>v.argument_id) : [];
@@ -308,16 +336,26 @@ function _debArgsFeed(args, myVotes, hideVote){
   return sorted.map(a=>{
     const c=SIDE_COLORS[(a.side||0)%6];
     const voted=myVotes.includes(a.id);
+    // Votar: se bloquea por EMAIL (la misma persona no se vota a sí misma, esté en el rol
+    // que esté). Borrar: por IDENTIDAD (solo el rol con el que se escribió).
     const mine=a.user_email===me()?.email;
+    const puedoBorrar=_debEsMio(a);
     const em=(a.user_email||'').replace(/'/g,"\\'"); const nm=(a.user_name||'Hincha').replace(/'/g,"\\'");
     const prof=`window.openPlayerActions?window.openPlayerActions('${em}','${nm}'):(window.viewUserProfile&&window.viewUserProfile('${em}'))`;
-    const av=a._photo?`<div onclick="${prof}" style="width:26px;height:26px;border-radius:50%;background-image:url('${a._photo}');background-size:cover;background-position:center 25%;flex-shrink:0;cursor:pointer;border:1.5px solid ${c};"></div>`:`<div onclick="${prof}" style="width:26px;height:26px;border-radius:50%;background:${c}33;display:flex;align-items:center;justify-content:center;color:${c};font-weight:900;font-size:12px;flex-shrink:0;cursor:pointer;">${(a.user_name||'?')[0].toUpperCase()}</div>`;
+    // Encuadre de la foto: se usa _avatarBgCss (respeta el recorte que eligió cada uno).
+    // Antes iba con 'center 25%' fijo y las caras quedaban descentradas o cortadas.
+    const _avCss = a._photo
+      ? ((window._avatarBgCss && window._avatarBgCss({ photo:a._photo, photo_style:a._pstyle }))
+         || `background-image:url('${a._photo}');background-size:cover;background-position:center 25%;`)
+      : '';
+    const av=a._photo?`<div onclick="${prof}" style="width:30px;height:30px;border-radius:50%;${_avCss}flex-shrink:0;cursor:pointer;border:1.5px solid ${c};"></div>`:`<div onclick="${prof}" style="width:30px;height:30px;border-radius:50%;background:${c}33;display:flex;align-items:center;justify-content:center;color:${c};font-weight:900;font-size:13px;flex-shrink:0;cursor:pointer;">${(a.user_name||'?')[0].toUpperCase()}</div>`;
     return `<div style="background:rgba(16,19,13,0.92);border:1px solid #1d2416;border-left:3px solid ${c};border-radius:10px;padding:10px 12px;margin-bottom:8px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
         ${av}
         <span onclick="${prof}" style="font-size:12px;font-weight:800;color:${c};cursor:pointer;">${a.user_name||'Hincha'}</span>
         ${opts[a.side]?`<span style="font-size:9px;color:${c};background:${c}22;padding:1px 7px;border-radius:6px;">${opts[a.side]}</span>`:''}
         ${a.is_final?'<span style="font-size:9px;color:#ff6b00;font-weight:800;">FINAL</span>':''}
+        ${puedoBorrar?`<button onclick="window._debDelArg('${a.id}')" title="Eliminar mi comentario" style="margin-left:auto;background:none;border:none;color:#555;cursor:pointer;font-size:15px;padding:2px 4px;line-height:1;flex-shrink:0;"><i class='bx bx-trash'></i></button>`:''}
       </div>
       <div style="font-size:14px;color:#eaeaea;line-height:1.4;">${(a.text||'').replace(/</g,'&lt;')}</div>
       ${hideVote?'':`<div style="margin-top:6px;"><button ${mine?'disabled':''} onclick="window._debVoteArg('${a.id}')" style="background:${voted?'rgba(186,255,0,0.15)':'rgba(255,255,255,0.04)'};border:1px solid ${voted?'var(--accent)':'#2a2a2a'};color:${voted?'var(--accent)':'#aaa'};border-radius:16px;padding:4px 12px;font-size:11px;font-weight:700;cursor:${mine?'default':'pointer'};" title="${voted?'Quitar voto':'Votar'}"><i class='bx bx-upvote'></i> ${a.votes||0}${voted?' ✓':''}</button></div>`}
@@ -352,14 +390,43 @@ function _debInput(phase,d,opts){
 window._debPickSide=function(i){ window._debSide=i; const opts=window._debData.d.options; opts.forEach((o,j)=>{const b=document.getElementById('debside-'+j); if(b){const c=SIDE_COLORS[j%6]; const on=j===i; b.style.border='1px solid '+(on?c:'#2a2a2a'); b.style.background=on?c+'22':'transparent'; b.style.color=on?c:'#888';}}); };
 window._debPostArg=async function(){
   const t=document.getElementById('deb-arg-input')?.value?.trim(); if(!t||!me())return;
-  await q(sb().from('debate_arguments').insert({debate_id:window._debRoomId,user_email:me().email,user_name:me().name||me().email,side:window._debSide||0,text:t,votes:0,created_at:new Date().toISOString()}),null);
+  await _debInsertArg({side:window._debSide||0,text:t});
   document.getElementById('deb-arg-input').value=''; await _debRoomLoad();
 };
 window._debPostFinal=async function(){
   const t=document.getElementById('deb-arg-input')?.value?.trim(); if(!t||!me())return;
-  await q(sb().from('debate_arguments').insert({debate_id:window._debRoomId,user_email:me().email,user_name:me().name||me().email,side:0,text:t,is_final:true,votes:0,created_at:new Date().toISOString()}),null);
+  await _debInsertArg({side:0,text:t,is_final:true});
   document.getElementById('deb-arg-input').value=''; await _debRoomLoad();
 };
+// Publica un argumento con el NOMBRE, la FOTO y el SELLO de la identidad activa.
+// Si la base todavia no tiene esas columnas, reintenta sin ellas (no se pierde el mensaje).
+async function _debInsertArg(extra){
+  const base = Object.assign({
+    debate_id: window._debRoomId,
+    user_email: me().email,
+    user_name: _debNombre(),
+    votes: 0,
+    created_at: new Date().toISOString()
+  }, extra);
+  const full = Object.assign({ author_identity: _debIdentidad(), user_photo: _debFoto() || null }, base);
+  let r = await q(sb().from('debate_arguments').insert(full), null);
+  if (r && r.error) r = await q(sb().from('debate_arguments').insert(Object.assign({ author_identity: full.author_identity }, base)), null);
+  if (r && r.error) await q(sb().from('debate_arguments').insert(base), null);
+}
+
+// Eliminar MI comentario, solo desde la identidad con la que lo escribi.
+window._debDelArg = async function(argId){
+  if(!me() || !me().email) return;
+  const arg = (window._debData && (window._debData.args||[]).find(x=>String(x.id)===String(argId))) || null;
+  if (arg && !_debEsMio(arg)) { try{ showToast('Solo podes eliminar los comentarios que publicaste con esta identidad.','warning'); }catch(e){} return; }
+  if(!confirm('Eliminar tu comentario? Esta accion no se puede deshacer.')) return;
+  try { await q(sb().from('argument_votes').delete().eq('argument_id',argId), null); } catch(e){}
+  const r = await q(sb().from('debate_arguments').delete().eq('id',argId).eq('user_email',me().email), null);
+  if (r && r.error) { try{ showToast('No se pudo eliminar: '+(r.error.message||''),'error'); }catch(e){} return; }
+  try{ showToast('Comentario eliminado','success'); }catch(e){}
+  await _debRoomLoad();
+};
+
 window._debVoteArg=async function(argId){
   if(!me())return;
   const a=window._debData.args.find(x=>x.id===argId);

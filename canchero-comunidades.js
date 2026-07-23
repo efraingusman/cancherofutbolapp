@@ -58,10 +58,10 @@ C.open = async function(){
   // FANÁTICO: Comunidades es una sección propia de su barra inferior → SIN botón volver
   const _isFan = !!(window._activeProfileType && window._activeProfileType() === 'fanatico');
   const bar = _isFan
-    ? `<div style="position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;background:#0a0a0a;border-bottom:1px solid #1a1a1a;"><span style="font-weight:900;font-size:16px;color:#fff;">Comunidades</span></div>`
+    ? `<div style="position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:10px 16px;background:#0a0a0a;border-bottom:1px solid #1a1a1a;transform:translateZ(0);will-change:transform;"><span style="font-weight:900;font-size:16px;color:#fff;">Comunidades</span></div>`
     : (typeof window._appTopBar === 'function')
       ? window._appTopBar("document.getElementById('comunidades-view').remove()", 'Comunidades')
-      : `<div style="position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;background:#0a0a0a;border-bottom:1px solid #1a1a1a;"><button onclick="document.getElementById('comunidades-view').remove()" style="background:rgba(255,255,255,0.08);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:20px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button><span style="font-weight:900;font-size:16px;color:#fff;">Comunidades</span></div>`;
+      : `<div style="position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:10px 16px;background:#0a0a0a;border-bottom:1px solid #1a1a1a;transform:translateZ(0);will-change:transform;"><button onclick="document.getElementById('comunidades-view').remove()" style="background:rgba(255,255,255,0.08);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:20px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button><span style="font-weight:900;font-size:16px;color:#fff;">Comunidades</span></div>`;
   v.innerHTML = bar +
     `<div style="max-width:640px;margin:0 auto;padding:14px 16px calc(90px + env(safe-area-inset-bottom));">
        <button onclick="window.CancheroComunidades.createModal()" style="width:100%;display:flex;align-items:center;gap:10px;background:rgba(186,255,0,0.08);border:1px solid rgba(186,255,0,0.3);color:var(--accent);border-radius:14px;padding:13px 16px;font-weight:800;font-size:14px;cursor:pointer;margin-bottom:16px;font-family:inherit;"><i class='bx bx-plus-circle' style="font-size:20px;"></i> Crear comunidad</button>
@@ -131,10 +131,18 @@ C.create = async function(){
   const desc = (document.getElementById('comu-desc').value||'').trim();
   if (name.length < 3){ toast('El nombre debe tener al menos 3 letras','warning'); return; }
   try {
-    const { data, error } = await s.from('communities').insert({
+    let { data, error } = await s.from('communities').insert({
       name, description: desc || null, icon: C._pickedIcon || 'bx-group',
-      created_by: me().email, members_count: 1
+      created_by: me().email, members_count: 1, creator_identity: identidadActiva()
     }).select().single();
+    if (error && /creator_identity/.test(error.message||'')) {
+      const r2 = await s.from('communities').insert({
+        name, description: desc || null, icon: C._pickedIcon || 'bx-group',
+        created_by: me().email, members_count: 1
+      }).select().single();
+      if (r2.error) throw r2.error;
+      data = r2.data; error = null;
+    }
     if (error) throw error;
     try { await s.from('community_members').insert({ community_id: data.id, user_email: me().email }); } catch(e){}
     document.getElementById('comu-create-modal')?.remove();
@@ -164,7 +172,7 @@ C.openCommunity = async function(id){
     const joined = !!mem;
     const bar = (typeof window._appTopBar === 'function')
       ? window._appTopBar("document.getElementById('comunidad-detail').remove()", 'c/' + c.name)
-      : `<div style="position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;background:#0a0a0a;border-bottom:1px solid #1a1a1a;"><button onclick="document.getElementById('comunidad-detail').remove()" style="background:rgba(255,255,255,0.08);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:20px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button><span style="font-weight:900;font-size:16px;color:#fff;">c/${esc(c.name)}</span></div>`;
+      : `<div style="position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:10px 16px;background:#0a0a0a;border-bottom:1px solid #1a1a1a;transform:translateZ(0);will-change:transform;"><button onclick="document.getElementById('comunidad-detail').remove()" style="background:rgba(255,255,255,0.08);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:20px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button><span style="font-weight:900;font-size:16px;color:#fff;">c/${esc(c.name)}</span></div>`;
     v.innerHTML = bar +
       `<div style="max-width:640px;margin:0 auto;padding:14px 16px calc(90px + env(safe-area-inset-bottom));">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
