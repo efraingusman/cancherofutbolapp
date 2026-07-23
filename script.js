@@ -18216,12 +18216,36 @@ const social = (() => {
     }
 
     // Helper: query follows table con fallback a user_follows
-    async function _queryFollows(sbLocal, column, value, select) {
-        let res = await sbLocal.from('follows').select(select).eq(column, value);
+    // Identidad activa en el formato que guarda la tabla follows ('jugador' | 'fanatico' | ...).
+    function _identidadFollow() {
+        try {
+            var ap = (window._activeProfileType && window._activeProfileType()) || 'jugador';
+            return ap === 'fanatico' ? 'fanatico' : (ap === 'team' ? 'team' : 'jugador');
+        } catch(e) { return 'jugador'; }
+    }
+
+    // Seguidores y seguidos son POR IDENTIDAD: el jugador y el fanático de una misma
+    // cuenta son dos personas distintas y no comparten su gente. Antes se filtraba solo
+    // por email, así que en el perfil de fanático salían los del jugador.
+    // `perfilCol` es la columna de rol que corresponde al lado que se está consultando.
+    async function _queryFollows(sbLocal, column, value, select, perfilCol) {
+        const _sel = perfilCol ? (select + ',' + perfilCol) : select;
+        let res = await sbLocal.from('follows').select(_sel).eq(column, value);
         if (res.error) {
-            res = await sbLocal.from('user_follows').select(select).eq(column, value);
+            res = await sbLocal.from('user_follows').select(_sel).eq(column, value);
         }
-        return res.data || [];
+        let rows = res.data || [];
+        // Solo se filtra cuando la lista es de MI propia cuenta: para el perfil de otro
+        // la identidad activa es la mía y no dice nada de la suya.
+        const _miEmail = ((getUser() && getUser().email) || '').toLowerCase();
+        const _esMio = _miEmail && String(value||'').toLowerCase() === _miEmail;
+        if (perfilCol && rows.length && _esMio) {
+            const yo = _identidadFollow();
+            // Las filas viejas no tienen el rol: cuentan como 'jugador', que es como se
+            // creaban antes de separar identidades.
+            rows = rows.filter(function(r){ return (r[perfilCol] || 'jugador') === yo; });
+        }
+        return rows;
     }
 
     async function loadFollowersList(email, containerId) {
@@ -18230,7 +18254,7 @@ const social = (() => {
         if (!el || !sbLocal) return;
         el.innerHTML = '<div style="text-align:center;padding:20px;"><i class="bx bx-loader-alt bx-spin" style="font-size:22px;color:#555;"></i></div>';
         try {
-            const data = await _queryFollows(sbLocal, 'following_email', email, 'follower_email');
+            const data = await _queryFollows(sbLocal, 'following_email', email, 'follower_email', 'following_profile');
             if (!data.length) {
                 el.innerHTML = '<div style="text-align:center;padding:28px;color:#555;font-size:12px;"><i class="bx bx-user-plus" style="font-size:28px;display:block;margin-bottom:8px;"></i>Sin seguidores aún.</div>';
                 return;
@@ -18239,7 +18263,7 @@ const social = (() => {
             const emails = data.map(f => f.follower_email);
             const [usersMap, myFolData] = await Promise.all([
                 _fetchUsersMap(sbLocal, emails),
-                _queryFollows(sbLocal, 'follower_email', me.email, 'following_email')
+                _queryFollows(sbLocal, 'follower_email', me.email, 'following_email', 'follower_profile')
             ]);
             const myFolSet = new Set(myFolData.map(f => f.following_email));
             el.innerHTML = data.map(f => _fanRowHtml(f.follower_email, usersMap[f.follower_email], myFolSet.has(f.follower_email), f.follower_email === me.email)).join('');
@@ -18255,7 +18279,7 @@ const social = (() => {
         if (!el || !sbLocal) return;
         el.innerHTML = '<div style="text-align:center;padding:20px;"><i class="bx bx-loader-alt bx-spin" style="font-size:22px;color:#555;"></i></div>';
         try {
-            const data = await _queryFollows(sbLocal, 'follower_email', email, 'following_email');
+            const data = await _queryFollows(sbLocal, 'follower_email', email, 'following_email', 'follower_profile');
             if (!data.length) {
                 el.innerHTML = '<div style="text-align:center;padding:28px;color:#555;font-size:12px;"><i class="bx bx-user-check" style="font-size:28px;display:block;margin-bottom:8px;"></i>No seguís a nadie aún.</div>';
                 return;
