@@ -25495,7 +25495,41 @@ window._mptSwipe = function(e, container) {
 // ============================================================
 // CALENDARIO DE PARTIDOS
 // ============================================================
-window._matchCalendarFilters = { tipo: 'todos', precio: 'todos', fecha: null };
+window._matchCalendarFilters = { tipo: 'todos', precio: 'todos', fecha: null, nivel: 'todos' };
+
+// Filtro por NIVEL: cicla Todos → Mi nivel → Principiante → Intermedio → Avanzado → Crack.
+// "Mi nivel" usa la valoración del usuario, que es el caso que más importa: que un jugador
+// nuevo vea partidos donde va a poder jugar.
+window._toggleNivelFilter = function(btn){
+  const R = window.CancheroRating;
+  const orden = ['todos','mio','principiante','intermedio','avanzado','crack'];
+  const actual = window._matchCalendarFilters.nivel || 'todos';
+  const next = orden[(orden.indexOf(actual) + 1) % orden.length];
+  window._matchCalendarFilters.nivel = next;
+  const labels = { todos:'Nivel', mio:'Mi nivel', principiante:'Principiante', intermedio:'Intermedio', avanzado:'Avanzado', crack:'Crack' };
+  if (btn) {
+    btn.innerHTML = "<i class='bx bx-bar-chart-alt-2'></i> " + labels[next];
+    const on = next !== 'todos';
+    btn.style.borderColor = on ? 'var(--accent)' : '#222';
+    btn.style.color = on ? 'var(--accent)' : '#666';
+    btn.style.background = on ? 'rgba(186,255,0,0.1)' : 'transparent';
+  }
+  window._fetchAndRenderCalMatches();
+};
+
+// ¿Este partido entra en el nivel pedido?
+// Un partido SIN nivel declarado entra siempre: no se esconde por falta de dato.
+window._matchEntraEnNivel = function(m, filtro){
+  if (!filtro || filtro === 'todos') return true;
+  const R = window.CancheroRating; if (!R) return true;
+  const nivelPartido = m.skill_level || null;
+  if (!nivelPartido) return true;
+  if (filtro === 'mio') {
+    const mia = (window.userData && window.userData.stats && window.userData.stats.rating) || R.BASE;
+    return nivelPartido === R.nivel(mia).id;
+  }
+  return nivelPartido === filtro;
+};
 
 window._loadMatchCalendar = async function() {
     const container = document.getElementById('mis-partidos-content');
@@ -25516,6 +25550,8 @@ window._loadMatchCalendar = async function() {
                 ).join('')}
                 <button class="cal-tipo-btn" data-tipo="precio" onclick="window._togglePrecioFilter(this)"
                     style="flex-shrink:0;padding:7px 14px;border-radius:20px;border:1px solid #222;background:transparent;color:#666;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">💲 Precio</button>
+                <button class="cal-tipo-btn" data-tipo="nivel" onclick="window._toggleNivelFilter(this)"
+                    style="flex-shrink:0;padding:7px 14px;border-radius:20px;border:1px solid #222;background:transparent;color:#666;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;"><i class='bx bx-bar-chart-alt-2'></i> Nivel</button>
             </div>
             <!-- Días del mes -->
             <div id="cal-days-strip" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:8px;margin-bottom:14px;"></div>
@@ -25653,6 +25689,10 @@ window._fetchAndRenderCalMatches = async function() {
             filtered = filtered.filter(m => m.cost > 0 || m.price > 0 || m.fee > 0);
         } else if (window._matchCalendarFilters.precio === 'gratis') {
             filtered = filtered.filter(m => !m.cost && !m.price && !m.fee);
+        }
+        // Filtro por nivel del partido (los que no declaran nivel siguen apareciendo)
+        if (window._matchCalendarFilters.nivel && window._matchCalendarFilters.nivel !== 'todos') {
+            filtered = filtered.filter(m => window._matchEntraEnNivel(m, window._matchCalendarFilters.nivel));
         }
         if (searchQuery) filtered = filtered.filter(m => (m.title || m.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (m.location || m.venue || '').toLowerCase().includes(searchQuery.toLowerCase()));
 

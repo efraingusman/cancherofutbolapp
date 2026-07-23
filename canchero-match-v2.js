@@ -738,6 +738,9 @@ window._fBumpStat = async function(email, field, delta){
     st[field] = Math.max(0, (st[field]||0) + delta);
     await client.from('users').update({ stats: st }).eq('email', email);
   }catch(e){ console.warn('bumpStat', e); }
+  // La valoracion se gana jugando: cada gol/asistencia/partido la recalcula.
+  // Solo sube (ver docs/rating-system.md).
+  try { if (window.CancheroRating) await window.CancheroRating.sincronizar(email); } catch(e){}
 };
 
 window._fSaveEvent = async function(type, email, name, team){

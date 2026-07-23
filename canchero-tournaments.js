@@ -2007,6 +2007,8 @@ window.CancheroTournaments = (function() {
             add('yellow_cards', delta.yellow_cards); add('red_cards', delta.red_cards);
             add('matches', delta.matches);
             await sb.from('users').update({ stats: s }).eq('email', em);
+            // Lo del torneo también hace subir la valoración del jugador.
+            try { if (window.CancheroRating) await window.CancheroRating.sincronizar(em); } catch(e){}
         } catch(e) { console.warn('_bumpUserStats:', e && e.message); }
     }
 
