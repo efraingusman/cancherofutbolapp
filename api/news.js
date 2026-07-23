@@ -33,7 +33,10 @@ const RSS_FEEDS = [
 // cualquier nota, por eso pide el contexto del club).
 const CLUB_RX = {
   'penarol':      /pe(ñ|n)arol|manya|carbonero/i,
-  'nacional':     /(club )?nacional de football|bols(o|ill)|tricolor|nacional\b(?=.*(uruguay|campeonato|apertura|clausura|torneo))/i,
+  // 'nacional' suelto aparece en cualquier nota ("seleccionado nacional de Brasil"),
+  // por eso pide nombre completo, apodo o contexto. En prensa uruguaya alcanza con el
+  // nombre: ahí "Nacional" es el club (ver CLUB_RX_LOCAL).
+  'nacional':     /(club )?nacional de football|bols(o|ill)|tricolor|nacional\b(?=.*(uruguay|campeonato|apertura|clausura|torneo|copa|libertadores|sudamericana|auf))/i,
   'danubio':      /danubio/i,
   'defensor':     /defensor sporting|violeta/i,
   'liverpool-uy': /liverpool (de )?montevideo|liverpool f\.?c\.? uruguay/i,
@@ -63,6 +66,15 @@ const CLUB_RX = {
   'flamengo':     /flamengo|mengao/i,
   'palmeiras':    /palmeiras|verd(ã|a)o/i,
   'boca-jrs':     /boca juniors/i,
+};
+
+// Nombre simple del club, válido SOLO dentro de prensa uruguaya (ahí no hay ambigüedad).
+const CLUB_RX_LOCAL = {
+  'penarol':      /pe(ñ|n)arol/i,
+  'nacional':     /nacional/i,
+  'danubio':      /danubio/i,
+  'defensor':     /defensor/i,
+  'liverpool-uy': /liverpool/i,
 };
 
 const FOOT_RX = /(f[uú]tbol|football|soccer|gol(?:es)?|mundial|world cup|champions|liga|copa|partid|jugador|delanter|arquer|portero|messi|cristiano|ronaldo|neymar|peñarol|nacional|boca|river|barcelona|madrid|flamengo|palmeiras|brasil|argentina|uruguay|selecci[oó]n)/i;
@@ -177,7 +189,16 @@ module.exports = async (req, res) => {
     if (club) {
       const rx = CLUB_RX[club];
       if (!rx) { res.status(200).json({ source:'club', club: club, articles: [] }); return; }
-      const delClub = all.filter(a => rx.test(((a.title||'') + ' ' + (a.description||''))));
+      // En una fuente URUGUAYA, el nombre del club local no necesita contexto: si Referí
+      // dice "Nacional" está hablando del club, no de una selección nacional. Sin esto se
+      // perdían casi todas las notas locales, que son justo las que le importan al hincha.
+      const rxLocal = CLUB_RX_LOCAL[club];
+      const esFuenteUY = (a) => /^(referí|referi|ovación|ovacion)$/i.test(String(a.source||''));
+      const delClub = all.filter(a => {
+        const txt = (a.title||'') + ' ' + (a.description||'');
+        if (rxLocal && esFuenteUY(a) && rxLocal.test(txt)) return true;
+        return rx.test(txt);
+      });
       res.status(200).json({ source:'club', club: club, articles: delClub.slice(0, 30) });
       return;
     }
