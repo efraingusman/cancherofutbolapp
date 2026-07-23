@@ -6300,8 +6300,9 @@ window.viewUserProfile = async function(email, forcePublic, opts) {
                 ${(isJugador && !_esFan && isMe) ? `<div class="profile-tab" id="vup-tab-stats" onclick="window._vupTab('stats')" title="Estadísticas" aria-label="Estadísticas"><i class='bx bx-bar-chart-alt-2'></i></div>` : ''}
                 ${(isJugador && !_esFan) ? `<div class="profile-tab" id="vup-tab-equipos" onclick="window._vupTab('equipos')" title="Equipos" aria-label="Equipos"><i class='bx bx-shield-quarter'></i></div>` : ''}
                 ${(isJugador && !_esFan) ? `<div class="profile-tab" id="vup-tab-logros" onclick="window._vupTab('logros')" title="Logros" aria-label="Logros"><i class='bx bx-medal'></i></div>` : ''}
-                <div class="profile-tab" id="vup-tab-info" onclick="window._vupTab('info')" title="Info" aria-label="Info"><i class='bx bx-info-circle'></i></div>
                 <div class="profile-tab" id="vup-tab-fans" onclick="window._vupTab('fans')" title="Fans" aria-label="Fans"><i class='bx bx-group'></i></div>
+                <!-- Info SIEMPRE al final -->
+                <div class="profile-tab" id="vup-tab-info" onclick="window._vupTab('info')" title="Info" aria-label="Info"><i class='bx bx-info-circle'></i></div>
             </div>
 
             <!-- CONTENT SECTIONS -->

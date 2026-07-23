@@ -1420,10 +1420,10 @@ body.is-biz #p-stat-blocks { display: none !important; }
 .profile-follow-row span { color: var(--text-muted); }
 .profile-tabs-bar { display: flex; border-bottom: 1px solid var(--border-color); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .profile-tabs-bar::-webkit-scrollbar { display: none; }
-.profile-tab { flex: 1; text-align: center; padding: 12px 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: var(--transition); position: relative; white-space: nowrap; min-width: 0; }
+.profile-tab { flex: 1 1 0; min-width: 0; text-align: center; padding: 12px 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: var(--transition); position: relative; white-space: nowrap; min-width: 0; }
 .profile-tab:hover { color: #fff; background: rgba(255,255,255,0.03); }
 .profile-tab.active { color: var(--accent); }
-.profile-tab.active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 50px; height: 3px; background: var(--accent); border-radius: 3px; }
+.profile-tab.active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: min(50px, 60%); height: 3px; background: var(--accent); border-radius: 3px; }
 .post-composer { padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; gap: 12px; }
 .post-composer-avatar { width: 40px; height: 40px; border-radius: 50%; background-size: cover; background-position: center; border: 2px solid var(--accent); flex-shrink: 0; }
 .post-composer-input { flex: 1; display: flex; flex-direction: column; gap: 10px; }
