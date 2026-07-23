@@ -1229,7 +1229,11 @@ select option:hover {
 .fanatico-profile #p-avail-dot,
 .fanatico-profile #player-profile-badges,
 .fanatico-profile #info-pos-card,
-.fanatico-profile #p-stat-blocks { display: none !important; }
+.fanatico-profile #p-stat-blocks,
+/* Equipos y Logros son de JUGADOR: un fanático no tiene plantel ni logros de cancha. */
+.fanatico-profile .profile-tab.jugador-only,
+.fanatico-profile #jugador-profile-equipos,
+.fanatico-profile #jugador-profile-logros { display: none !important; }
 .fanatico-profile #fanatico-extra { display: block !important; }
 
 /* ── FASE 0 — Modo NEGOCIO (tienda/complejo/organización/sponsor/profesional) ──

@@ -4721,6 +4721,34 @@ window.renderUserPosts = async function(role) {
         // Excluir reels (van al apartado Reels) y respuestas de hilo (se ven al abrir el hilo)
         if (posts) posts = posts.filter(p => !p.parent_post_id);
 
+        // ── FILTRO POR IDENTIDAD ──────────────────────────────────────────
+        // Los posts se traían SOLO por email, y una cuenta publica como jugador, fanático,
+        // equipo o negocio: en el perfil de fanático aparecían las publicaciones hechas
+        // como jugador. Cada identidad muestra únicamente lo suyo (misma regla que el
+        // perfil público).
+        try {
+            const _ap = (window._activeProfileType && window._activeProfileType()) || 'jugador';
+            const _bizId = (window._pubBizId && window._pubBizId()) || null;
+            const _idPerfil = _bizId ? ('biz:' + _bizId)
+                            : (_ap === 'fanatico' ? 'fanatico'
+                            : (_ap === 'team' ? 'team' : 'jugador'));
+            posts = (posts || []).filter(function(p){
+                const pb = p.business_id ? ('biz:' + p.business_id) : null;
+                if (String(_idPerfil).indexOf('biz:') === 0) return pb === _idPerfil;
+                if (pb) return false;                 // post de un negocio: no va en jugador/fanático
+                const pr = (p.user_role || 'jugador');
+                return (_idPerfil === 'fanatico') ? (pr === 'fanatico') : (pr !== 'fanatico');
+            });
+            if (!posts.length) {
+                container.innerHTML = `
+                <div class="panel" style="text-align:center;padding:30px;border:1px solid rgba(255,255,255,0.05);background:rgba(0,0,0,0.4);border-radius:8px;">
+                    <i class='bx bx-message-square-detail' style="font-size:32px;color:var(--accent);opacity:0.3;margin-bottom:10px;display:block;"></i>
+                    <p style="color:#888;font-size:12px;margin:0;">Aún no publicaste nada con este perfil.</p>
+                </div>`;
+                return;
+            }
+        } catch(e){ console.warn('filtro posts por identidad (perfil propio):', e); }
+
         if (!posts || posts.length === 0) {
             container.innerHTML = `
                 <div class="panel" style="text-align:center;padding:30px;border:1px solid rgba(255,255,255,0.05);background:rgba(0,0,0,0.4);border-radius:8px;">
