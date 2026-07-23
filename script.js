@@ -5836,6 +5836,15 @@ window.viewUserProfile = async function(email, forcePublic, opts) {
         const _forcedBizRole = (opts.bizRole && String(opts.bizRole).toLowerCase()) || null;
         const isJugador = _forcedBizRole ? false
             : !['club','organizacion','tienda','profesional','periodismo','complejo','sponsor'].includes(u.role);
+        // Un FANÁTICO no es jugador: no tiene carta, ni valoración, ni goles, ni nivel.
+        // OJO: no se toca isJugador — ese flag enruta al perfil de NEGOCIO, y un fanático
+        // no es un negocio. Se usa _esFan solo para apagar la UI futbolística.
+        // Vale para tres casos: vengo del directorio de fanáticos (opts.profile), la fila
+        // users es de rol fanático, o es MI perfil y la identidad activa es la de fanático
+        // (ahí users.role sigue siendo 'jugador', que es el rol base de la cuenta).
+        const _esFan = opts.profile === 'fanatico' || (u.role||'') === 'fanatico' ||
+            (!!(window.userData && (window.userData.email||'').toLowerCase() === (email||'').toLowerCase())
+             && ((window._activeProfileType && window._activeProfileType()) === 'fanatico'));
         if (_forcedBizRole) u.role = _forcedBizRole;
         const dashboard = (window.userData && window.userData.role === 'club') ? 'club' : 'jugador';
         window._currentVupEmail = email;
@@ -6016,7 +6025,7 @@ window.viewUserProfile = async function(email, forcePublic, opts) {
                                 <div class="card-stat-item"><span class="stat-val" style="font-size:9px;">${(_st.fisico)||0}</span><span class="stat-lbl" style="font-size:6px;">FIS</span></div>
                             </div>`;
         const _posLabel = _isFan ? 'FAN' : (pos || 'JUG');
-        const card3dHtml = isJugador ? `
+        const card3dHtml = (isJugador && !_esFan) ? `
             <div class="fut-card-3d-container" style="width:140px;height:200px;margin-top:-80px;">
                 <div class="fut-card-wrapper">
                     <div class="fut-card-large" style="padding:10px;${cardBg}${cardShape}">
@@ -6210,7 +6219,7 @@ window.viewUserProfile = async function(email, forcePublic, opts) {
                 </div>
                 <div class="profile-handle">@${(u.name||u.email||'').toLowerCase().replace(/\s+/g,'')}</div>
                 <div class="profile-bio">${u.bio ? window.escH(u.bio) : 'Sin biografía.'}</div>
-                ${isJugador ? (() => {
+                ${(isJugador && !_esFan) ? (() => {
                     const st = u.stats || {};
                     const partidos = st.matches || st.partidos || 0;
                     const goles = st.goals || st.goles || 0;
@@ -6260,9 +6269,9 @@ window.viewUserProfile = async function(email, forcePublic, opts) {
             <!-- TABS (icon-only, idéntico al perfil propio) -->
             <div class="profile-tabs-bar profile-tabs-icons">
                 <div class="profile-tab active" id="vup-tab-posts" onclick="window._vupTab('posts')" title="Publicaciones" aria-label="Publicaciones"><i class='bx bx-grid-alt'></i></div>
-                ${(isJugador && isMe) ? `<div class="profile-tab" id="vup-tab-stats" onclick="window._vupTab('stats')" title="Estadísticas" aria-label="Estadísticas"><i class='bx bx-bar-chart-alt-2'></i></div>` : ''}
-                ${isJugador ? `<div class="profile-tab" id="vup-tab-equipos" onclick="window._vupTab('equipos')" title="Equipos" aria-label="Equipos"><i class='bx bx-shield-quarter'></i></div>` : ''}
-                ${isJugador ? `<div class="profile-tab" id="vup-tab-logros" onclick="window._vupTab('logros')" title="Logros" aria-label="Logros"><i class='bx bx-medal'></i></div>` : ''}
+                ${(isJugador && !_esFan && isMe) ? `<div class="profile-tab" id="vup-tab-stats" onclick="window._vupTab('stats')" title="Estadísticas" aria-label="Estadísticas"><i class='bx bx-bar-chart-alt-2'></i></div>` : ''}
+                ${(isJugador && !_esFan) ? `<div class="profile-tab" id="vup-tab-equipos" onclick="window._vupTab('equipos')" title="Equipos" aria-label="Equipos"><i class='bx bx-shield-quarter'></i></div>` : ''}
+                ${(isJugador && !_esFan) ? `<div class="profile-tab" id="vup-tab-logros" onclick="window._vupTab('logros')" title="Logros" aria-label="Logros"><i class='bx bx-medal'></i></div>` : ''}
                 <div class="profile-tab" id="vup-tab-info" onclick="window._vupTab('info')" title="Info" aria-label="Info"><i class='bx bx-info-circle'></i></div>
                 <div class="profile-tab" id="vup-tab-fans" onclick="window._vupTab('fans')" title="Fans" aria-label="Fans"><i class='bx bx-group'></i></div>
             </div>
