@@ -263,6 +263,112 @@ ul { list-style: none; }
 }
 
 /* ══════════════════════════════════
+   REDISEÑO HOME (v405+): descripciones bajo cada acceso, botón JUGADOR destacado,
+   bloque "¿Qué es Canchero?" con liquid glass, scroll natural del home.
+══════════════════════════════════ */
+/* Permitir scroll en el home ahora que hay contenido adicional al hero.
+   Ver overrides después que sacan el overflow:hidden fijo. */
+.home-viewport-wrap { overflow-y: auto !important; height: auto !important; min-height: 100vh; }
+.landing-hero-full { min-height: 82vh; }
+/* Hero CTA en flow normal (no absolute) para que quepan los 4 botones con descripción
+   sin quedar apretados sobre la parte baja de la imagen del hero. */
+.home-viewport-wrap .hero-cta-wrap {
+    position: relative !important; left: auto !important; right: auto !important;
+    bottom: auto !important; transform: none !important;
+    margin: 0 auto; padding: 24px 16px 40px;
+    display: flex; justify-content: center;
+}
+@media (max-width: 640px) {
+    .home-viewport-wrap .btn-fs-action { padding: 14px 18px !important; }
+    .home-viewport-wrap .btn-fs-action i { font-size: 30px !important; }
+    .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 20px !important; }
+    .home-viewport-wrap .fs-side-actions { gap: 10px !important; width: 100%; max-width: 360px !important; }
+}
+@media (min-width: 641px) {
+    .home-viewport-wrap .fs-side-actions { max-width: 380px !important; }
+    .home-viewport-wrap .btn-fs-action { width: 100% !important; }
+}
+
+/* Descripción bajo el título de cada acceso (línea explicativa). */
+.btn-fs-action .fs-btn-desc {
+    font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.7);
+    margin-top: 4px; line-height: 1.35; max-width: 240px;
+    white-space: normal; letter-spacing: 0;
+}
+/* JUGADOR = principal: aro de acento + halo, más grande que el resto. */
+.btn-fs-action.btn-fs-primary {
+    background: linear-gradient(135deg, rgba(186,255,0,0.14), rgba(186,255,0,0.05)) !important;
+    border: 1.5px solid rgba(186,255,0,0.55) !important;
+    box-shadow: 0 4px 24px rgba(186,255,0,0.18);
+}
+.btn-fs-action.btn-fs-primary:hover {
+    background: linear-gradient(135deg, rgba(186,255,0,0.22), rgba(186,255,0,0.08)) !important;
+    box-shadow: 0 4px 32px rgba(186,255,0,0.28);
+    transform: translateY(-1px);
+}
+.btn-fs-action.btn-fs-primary i { color: var(--accent) !important; }
+.btn-fs-action.btn-fs-primary .fs-btn-title { color: var(--accent) !important; }
+
+/* Bloque "¿Qué es Canchero?" con vidrio esmerilado sobre fondo oscuro. */
+.home-what-is {
+    max-width: 1080px; margin: 40px auto 20px; padding: 32px 20px;
+    text-align: center; color: #fff; position: relative;
+}
+.home-what-is .hw-badge {
+    display: inline-block; font-size: 10px; font-weight: 900; letter-spacing: 3px;
+    color: var(--accent); background: rgba(186,255,0,0.10);
+    border: 1px solid rgba(186,255,0,0.30); padding: 5px 12px; border-radius: 20px;
+    margin-bottom: 14px;
+}
+.home-what-is .hw-title {
+    font-family: 'Outfit', sans-serif; font-size: 30px; font-weight: 900;
+    line-height: 1.15; margin: 0 0 12px; letter-spacing: -0.5px;
+}
+.home-what-is .hw-accent { color: var(--accent); }
+.home-what-is .hw-sub {
+    font-size: 15px; color: rgba(255,255,255,0.65); max-width: 640px;
+    margin: 0 auto 28px; line-height: 1.5;
+}
+.home-what-is .hw-cards {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px; text-align: left;
+}
+.home-what-is .hw-card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 18px; padding: 20px 18px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
+    transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.home-what-is .hw-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(186,255,0,0.35);
+    box-shadow: 0 12px 36px rgba(186,255,0,0.12), inset 0 1px 0 rgba(255,255,255,0.10);
+}
+.home-what-is .hw-card i {
+    font-size: 26px; color: var(--accent); margin-bottom: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; border-radius: 12px;
+    background: rgba(186,255,0,0.10); border: 1px solid rgba(186,255,0,0.20);
+}
+.home-what-is .hw-card-title {
+    font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 800;
+    color: #fff; margin: 6px 0 4px; letter-spacing: 0.2px;
+}
+.home-what-is .hw-card-text {
+    font-size: 12.5px; color: rgba(255,255,255,0.62); line-height: 1.45;
+}
+@media (max-width: 640px) {
+    .home-what-is { padding: 24px 14px; margin: 24px auto 12px; }
+    .home-what-is .hw-title { font-size: 24px; }
+    .home-what-is .hw-sub { font-size: 13.5px; margin-bottom: 20px; }
+    .home-what-is .hw-cards { grid-template-columns: 1fr; gap: 10px; }
+    .home-what-is .hw-card { padding: 16px 14px; }
+}
+
+/* ══════════════════════════════════
    HERO CTA WRAP — base
 ══════════════════════════════════ */
 .hero-cta-wrap {
