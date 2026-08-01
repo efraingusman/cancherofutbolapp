@@ -21,13 +21,15 @@ Prioridad general sugerida: (A) bugs que frenan a Liga Clandestina, (B) racha + 
 
 ## 1) HOME / LANDING (rediseño)
 
-- [ ] Sacar la división "Jugador · Fanático · Negocios".
-- [ ] Accesos: **Jugador** (principal), **Canchas**, **Ligas**, **Tiendas** (Tiendas al final).
-      SIN el bloque genérico "Negocio".
-- [ ] Debajo del título, **breve resumen de cada uno** (1 línea).
-- [ ] Al tocar cada acceso (entrar/registrarse): **explicación + onboarding propio de ese rol**,
-      y lo mismo al entrar por primera vez.
-- [ ] **"Qué es Canchero"** en el home, bien diseñado (liquid glass, moderno), no texto plano.
+- [x] Sacar la división "Jugador · Fanático · Negocios" — HECHO (v406).
+- [x] Accesos: **Jugador** (principal), **Canchas**, **Ligas**, **Tiendas** (Tiendas al final).
+      SIN el bloque genérico "Negocio" — HECHO (v406): 4 CTAs directas, Jugador destacado.
+- [x] Debajo del título, **breve resumen de cada uno** (1 línea) — HECHO (v406): `.fs-btn-desc`.
+- [~] Al tocar cada acceso (entrar/registrarse): **explicación + onboarding propio de ese rol** —
+      PARCIAL: cada CTA llama a `_showLoginModal('<role>')` que muestra la ficha de ese rol.
+      Falta un onboarding guiado al 1er ingreso de Canchas/Ligas/Tiendas (ver punto 3).
+- [x] **"Qué es Canchero"** en el home, bien diseñado (liquid glass, moderno), no texto plano —
+      HECHO (v406): section `.home-what-is` con badge, título + acento, 4 cards liquid glass.
 - [ ] **Vista PC:** menú de la izquierda con **iconos**, muy moderno (referencia: imagen del usuario,
       reenviar en PNG/JPG — el .avif no se pudo leer).
 
