@@ -13,7 +13,7 @@
 const sb = () => window._sb;
 const me = () => window.userData;
 function toast(m,t){ if(window.showToast) showToast(m,t); }
-function host(){ return location.hostname || 'canchero-app.vercel.app'; }
+function host(){ return location.hostname || 'cancherofutbolapp.vercel.app'; }
 
 function meta(s){ try { return JSON.parse(s.formation||'{}'); } catch(e){ return {}; } }
 function platIcon(p){ return p==='youtube'?'<i class="bx bxl-youtube" style="color:#ff0000;"></i>':p==='twitch'?'<i class="bx bxl-twitch" style="color:#9146ff;"></i>':p==='kick'?'<span style="color:#53fc18;font-weight:900;">K</span>':'<i class="bx bx-broadcast" style="color:#ff4444;"></i>'; }

@@ -1019,7 +1019,7 @@ window._fShareFicha = function(){
 // Link de invitación universal: cualquiera (aunque no tenga cuenta) abre la ficha y se suma.
 window._fCopyInviteLink = async function(){
   const id = F.id; if(!id) return;
-  const base = (location.origin && location.origin.indexOf('http')===0) ? location.origin : 'https://canchero-app.vercel.app';
+  const base = (location.origin && location.origin.indexOf('http')===0) ? location.origin : 'https://cancherofutbolapp.vercel.app';
   const url = base + '/?invite=' + encodeURIComponent(id);
   const m = F.m||{};
   const txt = '⚽ Te invito a jugar' + (m.name?(' "'+m.name+'"'):'') + ' en Canchero. Sumate acá: ' + url;

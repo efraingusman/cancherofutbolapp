@@ -1005,7 +1005,7 @@ window._momSendMsg = async function(toEmail, toName){
 };
 
 window._momShare = function(id, title){
-  const url = 'https://canchero-app.vercel.app/#momento/'+id;
+  const url = 'https://cancherofutbolapp.vercel.app/#momento/'+id;
   if (navigator.share) navigator.share({title:'Momento Canchero', text:title, url}).catch(()=>{});
   else { try{ navigator.clipboard.writeText(url); toast('Link copiado','success'); }catch(e){ toast(title,'info'); } }
 };

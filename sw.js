@@ -1,4 +1,4 @@
-const CACHE_NAME = 'canchero-v401';
+const CACHE_NAME = 'canchero-v402';
 const RUNTIME_CACHE = 'canchero-runtime'; // persistente entre deploys (media/JS/CSS cacheados)
 const assets = [
   './',
@@ -155,7 +155,7 @@ self.addEventListener('push', event => {
     icon: data.icon || '/logo-oficial.png',
     badge: '/logo-oficial.png',
     vibrate: [100, 50, 100],
-    data: { url: data.url || 'https://canchero-app.vercel.app', notif: data.notif || null },
+    data: { url: data.url || 'https://cancherofutbolapp.vercel.app', notif: data.notif || null },
     actions: [
       { action: 'open', title: 'Abrir' },
       { action: 'close', title: 'Cerrar' }
@@ -179,14 +179,14 @@ self.addEventListener('notificationclick', event => {
   const notif = d.notif || null;
   // Si hay datos de la notificación, viajar con ellos en la URL (app cerrada)
   const url = notif
-    ? (d.url || 'https://canchero-app.vercel.app/') + '?notif=' + encodeURIComponent(JSON.stringify(notif))
-    : (d.url || 'https://canchero-app.vercel.app/');
+    ? (d.url || 'https://cancherofutbolapp.vercel.app/') + '?notif=' + encodeURIComponent(JSON.stringify(notif))
+    : (d.url || 'https://cancherofutbolapp.vercel.app/');
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
       // Si hay una ventana abierta con la app, enfocarla y mandarle el deep-link
       for (const client of clientList) {
-        if (client.url.includes('canchero-app.vercel.app') && 'focus' in client) {
+        if (client.url.includes('cancherofutbolapp.vercel.app') && 'focus' in client) {
           client.postMessage({ type: 'OPEN_NOTIF', notif: notif || d });
           return client.focus();
         }

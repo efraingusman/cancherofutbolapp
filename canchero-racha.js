@@ -158,7 +158,7 @@ R._buildShareCanvas = function(dias){
 // modal de racha (z-index mayor a 100050) — antes se abría detrás y había que cerrar racha.
 R.compartir = function(dias){
   dias = parseInt(dias) || 0;
-  R._texto = 'Llevo ' + dias + (dias === 1 ? ' día' : ' días') + ' de racha en Canchero. ¿Me seguís el ritmo? https://canchero-app.vercel.app';
+  R._texto = 'Llevo ' + dias + (dias === 1 ? ' día' : ' días') + ' de racha en Canchero. ¿Me seguís el ritmo? https://cancherofutbolapp.vercel.app';
   R._dias = dias;
   let imgSrc = '';
   try { R._canvas = R._buildShareCanvas(dias); imgSrc = R._canvas.toDataURL('image/png'); } catch(e){ console.warn('[racha canvas]', e); R._canvas = null; }

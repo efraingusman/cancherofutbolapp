@@ -4291,7 +4291,7 @@ window.toggleHamburgerSearch = function() {
 window.shareApp = function() {
     const user = userData;
     const refCode = user ? (user.email || '').replace(/[^a-z0-9]/gi, '').slice(0, 10) : 'canchero';
-    const shareUrl = `https://canchero-app.vercel.app?ref=${refCode}`;
+    const shareUrl = `https://cancherofutbolapp.vercel.app?ref=${refCode}`;
     const shareText = `⚽ ¡Unite a Canchero, la app de fútbol amateur!\nEncontrá canchas, partidos y jugadores cerca tuyo.\n${shareUrl}`;
 
     if (navigator.share) {
@@ -7016,7 +7016,7 @@ window._bizItemCardHTML = function(p){
 // Genera un link que abre Canchero DIRECTO en lo compartido (post, perfil,
 // partido, comunidad, producto) + hoja de compartir atractiva con marca.
 window.cancheroShareUrl = function(type, id){
-    const base = 'https://canchero-app.vercel.app/';
+    const base = 'https://cancherofutbolapp.vercel.app/';
     if (type === 'post' || type === 'reel' || type === 'producto') return base + '?post=' + encodeURIComponent(id);
     if (type === 'perfil')    return base + '?perfil=' + encodeURIComponent(id);
     if (type === 'partido')   return base + '?invite=' + encodeURIComponent(id);
@@ -8654,7 +8654,7 @@ window._buildClubNeedText = function(club, clubId, count, urg, pos, msg){
     if (club.city) bits.push(club.city);
     if (club.country || club.nat) bits.push(club.country || club.nat);
     if (urg==='alta') bits.push('URGENTE');
-    var link = 'https://canchero-app.vercel.app/#club/' + clubId;
+    var link = 'https://cancherofutbolapp.vercel.app/#club/' + clubId;
     return head + '\n\n' + bits.join(' · ') + (msg?('\n\n' + msg):'') + '\n\n→ Sumate al club: ' + link + '\n\n#FaltanJugadores #Canchero';
 };
 
@@ -8712,7 +8712,7 @@ window._cunShareFeed = async function(){
 window._cunShareExternal = async function(){
     var c = window._cunCtx; if (!c) return;
     var txt = window._buildClubNeedText(c.club, c.clubId, c.count, c.urg, c.pos, c.msg);
-    var url = 'https://canchero-app.vercel.app/#club/' + c.clubId;
+    var url = 'https://cancherofutbolapp.vercel.app/#club/' + c.clubId;
     try { if (navigator.share){ await navigator.share({ title:'Faltan jugadores en el club', text:txt, url:url }); return; } } catch(e){}
     try { await navigator.clipboard.writeText(txt); window.showToast && showToast('Aviso copiado','success'); } catch(e){ alert(txt); }
 };
@@ -13314,7 +13314,7 @@ window._saveNewPassword = async function() {
 window._sendPassReset = async function(email) {
     if (!_sb || !email) return;
     try {
-        const { error } = await _sb.auth.resetPasswordForEmail(email, { redirectTo: 'https://canchero-app.vercel.app/' });
+        const { error } = await _sb.auth.resetPasswordForEmail(email, { redirectTo: 'https://cancherofutbolapp.vercel.app/' });
         if (error) throw error;
         showToast('Listo: revisá tu email para crear la contraseña nueva. 📬', 'success');
         const bar = document.getElementById('login-reset-offer'); if (bar) bar.remove();
@@ -13814,7 +13814,7 @@ window._waInviteClub = function() {
     const clubId = window.currentEditingClubId;
     const clubName = (window._currentEditingClubName || 'Canchero');
     const url = 'https://meet.jit.si/canchero-club-' + (clubId || 'plantel');
-    const msg = encodeURIComponent(`🏆 *${clubName}* te invita a la reunión del plantel en Canchero!\n\n📹 Entrá acá: ${url}\n\n⚽ Vía Canchero — canchero-app.vercel.app`);
+    const msg = encodeURIComponent(`🏆 *${clubName}* te invita a la reunión del plantel en Canchero!\n\n📹 Entrá acá: ${url}\n\n⚽ Vía Canchero — cancherofutbolapp.vercel.app`);
     window.open('https://wa.me/?text=' + msg, '_blank');
 };
 
@@ -24378,7 +24378,7 @@ window._sendPredChallenge = async function(rivalEmail, rivalName) {
     const sb = window._sb;
     if (!sb) return;
     document.getElementById('pred-challenge-modal')?.remove();
-    const msg = `⚽ @${userData.name} te desafía en Canchero!\n🎯 Partido: ${d.matchName}\n🏆 Mi predicción: ${d.homeTeam} ${d.scoreA} - ${d.scoreB} ${d.awayTeam}\n¿Cuál es la tuya? Entrá y apostamolos: https://canchero-app.vercel.app/#jugador`;
+    const msg = `⚽ @${userData.name} te desafía en Canchero!\n🎯 Partido: ${d.matchName}\n🏆 Mi predicción: ${d.homeTeam} ${d.scoreA} - ${d.scoreB} ${d.awayTeam}\n¿Cuál es la tuya? Entrá y apostamolos: https://cancherofutbolapp.vercel.app/#jugador`;
     try {
         // Guardar apuesta en DB
         await sb.from('prediction_bets').insert({ match_id: d.matchId, challenger_email: userData.email, challenger_name: userData.name, rival_email: rivalEmail, rival_name: rivalName, challenger_score_a: d.scoreA, challenger_score_b: d.scoreB, status: 'pending', created_at: new Date().toISOString() }).catch(()=>{});
@@ -24401,7 +24401,7 @@ window._sendPredChallenge = async function(rivalEmail, rivalName) {
 // --- PUNTOS — COMPARTIR ---
 window.sharePoints = function() {
     const pts = document.getElementById('player-points')?.innerText || '0';
-    const msg = `¡Tengo ${pts} Canchero Coins en Canchero! 🟢⚽ Sumate en canchero-app.vercel.app`;
+    const msg = `¡Tengo ${pts} Canchero Coins en Canchero! 🟢⚽ Sumate en cancherofutbolapp.vercel.app`;
     if (navigator.share) { navigator.share({ title: 'Mis puntos en Canchero', text: msg }); }
     else { navigator.clipboard?.writeText(msg); alert('Texto copiado al portapapeles.'); }
 };
@@ -28255,7 +28255,7 @@ window.submitPrediction = async function(matchId) {
 // COMPARTIR PARTIDO — DEEP LINK
 // ============================================================
 window.shareMatch = function(matchId, name, venue, dateStr) {
-    var shareUrl = 'https://canchero-app.vercel.app/?invite=' + matchId;
+    var shareUrl = 'https://cancherofutbolapp.vercel.app/?invite=' + matchId;
     var nm = name || 'Partido';
     var existing = document.getElementById('share-match-modal');
     if (existing) existing.remove();
@@ -28301,7 +28301,7 @@ window.createPostFromText = async function(text, mediaUrl, mediaType) {
 
 window._shareMatchExternal = function(matchId, name) {
     var d = window._shareMatchData || {};
-    var shareUrl = d.url || ('https://canchero-app.vercel.app/?invite=' + matchId);
+    var shareUrl = d.url || ('https://cancherofutbolapp.vercel.app/?invite=' + matchId);
     var text = 'Partido: ' + (name||'Partido') + '\nUnite! ' + shareUrl;
     var modal = document.getElementById('share-match-modal'); if (modal) modal.remove();
     if (navigator.share) { navigator.share({ title: name||'Partido Canchero', text: text, url: shareUrl }).catch(function(){}); }
@@ -28314,7 +28314,7 @@ window._shareMatchTo = async function(dest, matchId, btn) {
     var sb = window._sb;
     var me = window.userData;
     if (!sb || !me) { if(typeof showToast==='function') showToast('Iniciá sesión.', 'error'); return; }
-    var content = '⚽ ' + (d.name||'Partido') + (d.venue ? ' · 📍 ' + d.venue : '') + (d.dateStr ? ' · 📅 ' + d.dateStr : '') + '\n¡Sumate! ' + (d.url || ('https://canchero-app.vercel.app/?invite=' + matchId));
+    var content = '⚽ ' + (d.name||'Partido') + (d.venue ? ' · 📍 ' + d.venue : '') + (d.dateStr ? ' · 📅 ' + d.dateStr : '') + '\n¡Sumate! ' + (d.url || ('https://cancherofutbolapp.vercel.app/?invite=' + matchId));
     if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
     try {
         if (dest === 'post') {
@@ -28459,7 +28459,7 @@ window._doMatchCheckin = async function(matchId, userEmail, matchPrice) {
 };
 
 window._showCaptainQR = function(matchId) {
-    const url = 'https://canchero-app.vercel.app/#checkin-' + matchId;
+    const url = 'https://cancherofutbolapp.vercel.app/#checkin-' + matchId;
     const existing = document.getElementById('captain-qr-modal');
     if (existing) existing.remove();
     const modal = document.createElement('div');

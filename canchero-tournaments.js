@@ -1881,7 +1881,7 @@ window.CancheroTournaments = (function() {
     // ═══════════════════════════════════════════════════════════
     function _invitacionUrl(tipo, id) {
         const base = (location.origin && location.origin.startsWith('http'))
-            ? location.origin : 'https://canchero-app.vercel.app';
+            ? location.origin : 'https://cancherofutbolapp.vercel.app';
         return `${base}/invitacion.html?${tipo === 'equipo' ? 'e' : 'p'}=${id}`;
     }
 
@@ -3688,7 +3688,7 @@ window.CancheroTournaments = (function() {
             .select('home_team_name,away_team_name,home_score,away_score,scheduled_at').eq('id', matchId).single();
         const score = (m && m.home_score != null) ? ` ${m.home_score}-${m.away_score}` : ' vs ';
         const txt = m ? `${m.home_team_name}${score}${m.away_team_name}` : 'Partido';
-        const url = (location.origin || 'https://canchero-app.vercel.app') + '/torneo.html?id=' + tournamentId;
+        const url = (location.origin || 'https://cancherofutbolapp.vercel.app') + '/torneo.html?id=' + tournamentId;
         window.__ctShare = { matchId, tournamentId, txt, url };
         const ex = document.getElementById('ctshare-modal'); if (ex) ex.remove();
         const modal = document.createElement('div');

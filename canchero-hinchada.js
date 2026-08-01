@@ -301,7 +301,7 @@ H.compartirClub = function(){
   H.compartir({
     titulo: 'Hincha de ' + club.name,
     texto:  'Soy hincha de ' + club.name + ' en Canchero',
-    url:    (location.origin || 'https://canchero-app.vercel.app')
+    url:    (location.origin || 'https://cancherofutbolapp.vercel.app')
   });
 };
 
