@@ -16,12 +16,30 @@
 const R = {};
 
 // Fueguito SVG (no emoji). Tamaño y si está "prendido" (color) o "apagado" (gris).
+// v2 (rediseño 2026-07-31): pelota de fútbol verde PRENDIÉNDOSE FUEGO, en vez del
+// fueguito. El primer <path> sigue siendo la llama externa para que el CSS
+// #racha-fuego svg path:first-child { animation: rachaFlicker } le siga aplicando
+// el flicker (solo la llama ondea; la pelota queda quieta abajo).
 function llama(size, activo){
-  const c1 = activo ? '#16a34a' : '#3a3f45';
-  const c2 = activo ? '#a3e635' : '#4a4f55';
+  const flame1 = activo ? '#16a34a' : '#3a3f45';  // llama externa (la que ondea)
+  const flame2 = activo ? '#a3e635' : '#5a6068';  // llama interna, verde brillante
+  const ball   = activo ? '#0a0f0a' : '#26292d';  // cuerpo de la pelota
+  const stroke = activo ? '#a3e635' : '#6a7076';  // gajos y borde de la pelota
   return `<svg width="${size}" height="${size}" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;">
-    <path d="M24 3c1 7-4 9-8 14-3 4-4 8-4 12 0 7 5.4 13 12 13s12-6 12-13c0-6-4-10-6-14-1.6 2-3 3-4 3 1-6-1-11-2-15Z" fill="${c1}"/>
-    <path d="M24 20c.7 4-2.5 5.5-4.5 8.4-1.3 1.9-1.5 3.6-1.5 5.1 0 3.4 2.7 6 6 6s6-2.6 6-6c0-3-2.2-5-3.5-7.4-.8 1-1.6 1.5-2.2 1.5.6-3-.3-6-.3-7.6Z" fill="${c2}"/>
+    <!-- Llama externa (se anima con flicker) -->
+    <path d="M24 2c1.6 5.5-3.5 8-7 12.5-2.6 3.4-4 6.7-4 10.2 0 1.2.15 2.35.42 3.45C15.5 26.6 19.4 25 24 25s8.5 1.6 10.58 3.15c.27-1.1.42-2.25.42-3.45 0-5.4-3.4-8.6-5.5-12-1.4 1.8-2.6 2.7-3.5 2.7C26.9 10.6 25.3 5.8 24 2Z" fill="${flame1}"/>
+    <!-- Llama interna, verde brillante -->
+    <path d="M24 11c.9 3.8-2.2 5.5-4 8.4-1.3 2-1.9 3.9-2 5.8 1.65-.8 3.72-1.3 6-1.3s4.35.5 6 1.3c-.1-2.2-.9-4-2-5.8-1-1.5-1.9-2.4-2.5-2.4C26 15 25 12.3 24 11Z" fill="${flame2}" opacity="0.9"/>
+    <!-- Pelota abajo: círculo con gajos estilo fútbol -->
+    <circle cx="24" cy="34" r="10.5" fill="${ball}" stroke="${stroke}" stroke-width="1.3"/>
+    <!-- Pentágono central de la pelota -->
+    <path d="M24 29.6 L27.3 32 L26 35.8 L22 35.8 L20.7 32 Z" fill="${stroke}" opacity="0.85"/>
+    <!-- Gajos hacia los bordes de la pelota -->
+    <path d="M24 29.6 L24 27" stroke="${stroke}" stroke-width="0.9" stroke-linecap="round" opacity="0.7"/>
+    <path d="M27.3 32 L30 30.5" stroke="${stroke}" stroke-width="0.9" stroke-linecap="round" opacity="0.7"/>
+    <path d="M20.7 32 L18 30.5" stroke="${stroke}" stroke-width="0.9" stroke-linecap="round" opacity="0.7"/>
+    <path d="M22 35.8 L20.4 38.6" stroke="${stroke}" stroke-width="0.9" stroke-linecap="round" opacity="0.7"/>
+    <path d="M26 35.8 L27.6 38.6" stroke="${stroke}" stroke-width="0.9" stroke-linecap="round" opacity="0.7"/>
   </svg>`;
 }
 

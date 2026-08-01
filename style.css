@@ -271,22 +271,29 @@ ul { list-style: none; }
 .home-viewport-wrap { overflow-y: auto !important; height: auto !important; min-height: 100vh; }
 .landing-hero-full { min-height: 82vh; }
 /* Hero CTA en flow normal (no absolute) para que quepan los 4 botones con descripción
-   sin quedar apretados sobre la parte baja de la imagen del hero. */
+   sin quedar apretados sobre la parte baja de la imagen del hero. Padding-top empuja
+   los botones para abajo así el jugador de fondo se ve completo por encima. */
 .home-viewport-wrap .hero-cta-wrap {
     position: relative !important; left: auto !important; right: auto !important;
     bottom: auto !important; transform: none !important;
-    margin: 0 auto; padding: 24px 16px 40px;
+    margin: 0 auto; padding: 34vh 16px 40px;
     display: flex; justify-content: center;
 }
 @media (max-width: 640px) {
-    .home-viewport-wrap .btn-fs-action { padding: 14px 18px !important; }
-    .home-viewport-wrap .btn-fs-action i { font-size: 30px !important; }
-    .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 20px !important; }
-    .home-viewport-wrap .fs-side-actions { gap: 10px !important; width: 100%; max-width: 360px !important; }
+    /* Botones un poco más chicos + más margen arriba para bajarlos en pantallas altas. */
+    .home-viewport-wrap .hero-cta-wrap { padding: 38vh 14px 24px; }
+    .home-viewport-wrap .btn-fs-action { padding: 11px 16px !important; border-radius: 14px !important; }
+    .home-viewport-wrap .btn-fs-action i { font-size: 24px !important; }
+    .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 17px !important; }
+    .btn-fs-action .fs-btn-desc { font-size: 11px !important; max-width: 220px; }
+    .home-viewport-wrap .fs-side-actions { gap: 9px !important; width: 100%; max-width: 340px !important; }
 }
 @media (min-width: 641px) {
-    .home-viewport-wrap .fs-side-actions { max-width: 380px !important; }
-    .home-viewport-wrap .btn-fs-action { width: 100% !important; }
+    .home-viewport-wrap .hero-cta-wrap { padding: 22vh 16px 40px; }
+    .home-viewport-wrap .fs-side-actions { max-width: 360px !important; }
+    .home-viewport-wrap .btn-fs-action { width: 100% !important; padding: 14px 20px !important; }
+    .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 19px !important; }
+    .home-viewport-wrap .btn-fs-action i { font-size: 26px !important; }
 }
 
 /* Descripción bajo el título de cada acceso (línea explicativa). */
