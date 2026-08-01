@@ -18717,15 +18717,32 @@ const social = (() => {
         try {
             // Etiquetar el rol: sigo COMO mi perfil activo, y sigo AL perfil indicado
             // (default jugador; 'fanatico' cuando vengo de Buscar Fanáticos).
+            const _myTag = (window._myProfileTag && window._myProfileTag()) || 'jugador';
             const payload = { follower_email: me.email, following_email: targetEmail,
-                follower_profile: (window._myProfileTag && window._myProfileTag()) || 'jugador',
-                following_profile: targetProfile || 'jugador' };
+                follower_profile: _myTag, following_profile: targetProfile || 'jugador' };
             let { error } = await getSb().from('follows').insert(payload);
-            if (error && /profile/.test(error.message||'')) {
-                await getSb().from('follows').insert({ follower_email: me.email, following_email: targetEmail });
+            if (error && /profile/i.test(error.message||'')) {
+                // Esquema viejo sin columnas de profile: reintentar sin ellas.
+                const r2 = await getSb().from('follows').insert({ follower_email: me.email, following_email: targetEmail });
+                error = r2 && r2.error;
             }
-            if (window.notif) window.notif.create(targetEmail, 'follow', me.name, `${me.name} ahora te sigue.`);
-        } catch(e) {}
+            // B8 (follow no se concreta): si hay error real (no "ya existe"), avisar al usuario en vez
+            // de silenciar. Duplicate/unique = follow ya existía → no molestar. Otros = mostrar toast.
+            if (error && !/duplicate|unique|already exists|violat/i.test(error.message||'')) {
+                console.warn('follow error:', error);
+                if (typeof showToast === 'function') showToast('No se pudo seguir: ' + (error.message || 'error'), 'error');
+                return;
+            }
+            // B8 (nombre no coincide): la notif guarda el nombre de la IDENTIDAD activa del follower
+            // (ej. "El Sur FC (Ligas)"), pero al abrirla se navegaba al perfil BASE (jugador) con otro
+            // nombre. Aclarar en el mensaje qué identidad siguió — así el receptor entiende de dónde viene.
+            if (window.notif) {
+                const _tagLabel = { fanatico:'Fanático', negocio:'Negocio', club:'Club', team:'Equipo', complejo:'Canchas', organizacion:'Ligas', tienda:'Tienda', profesional:'Profesional' };
+                const _isBizTag = _myTag && (_myTag.indexOf('biz:') === 0 || _myTag !== 'jugador');
+                const _suf = (_isBizTag && _tagLabel[_myTag]) ? ' (' + _tagLabel[_myTag] + ')' : '';
+                window.notif.create(targetEmail, 'follow', (me.name||'') + _suf, (me.name||'Alguien') + _suf + ' ahora te sigue.');
+            }
+        } catch(e) { console.warn('follow exception:', e); if (typeof showToast === 'function') showToast('No se pudo seguir. Reintentá.', 'error'); }
     }
 
     async function unfollow(targetEmail) {
