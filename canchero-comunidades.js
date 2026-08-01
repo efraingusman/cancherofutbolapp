@@ -87,7 +87,7 @@ C.loadList = async function(){
 C.cardHtml = function(c){
   const icon = c.icon || 'bx-group';
   return `<div onclick="window.CancheroComunidades.openCommunity('${c.id}')" style="display:flex;align-items:center;gap:12px;background:#111;border:1px solid #1e1e1e;border-radius:14px;padding:13px 14px;margin-bottom:10px;cursor:pointer;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='#1e1e1e'">
-    <div style="width:46px;height:46px;border-radius:50%;background:rgba(186,255,0,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class='bx ${esc(icon)}' style="font-size:24px;color:var(--accent);"></i></div>
+    <div style="width:46px;height:46px;border-radius:50%;background:${c.image_url?`#000 url('${esc(c.image_url)}') center/cover no-repeat`:'rgba(186,255,0,0.1)'};display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">${c.image_url?'':`<i class='bx ${esc(icon)}' style="font-size:24px;color:var(--accent);"></i>`}</div>
     <div style="flex:1;min-width:0;">
       <div style="font-weight:800;font-size:14px;color:#fff;">c/${esc(c.name)}</div>
       <div style="font-size:11px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(c.description||'Sin descripción')}</div>
@@ -170,14 +170,31 @@ C.openCommunity = async function(id){
     ]);
     if (!c){ v.innerHTML = '<div style="padding:40px;text-align:center;color:#666;">Comunidad no encontrada.</div>'; return; }
     const joined = !!mem;
+
+    // Quién creó la comunidad (para mostrarlo) y si soy yo en la MISMA identidad con la
+    // que la creé (para poder eliminarla).
+    let creadorNombre = '';
+    if (c.created_by) {
+      try {
+        const { data: cu } = await s.from('users').select('name').eq('email', c.created_by).maybeSingle();
+        creadorNombre = (cu && cu.name) || (c.created_by.split('@')[0]);
+      } catch(e){ creadorNombre = c.created_by.split('@')[0]; }
+    }
+    const esCreador = !!me().email
+      && (me().email || '').toLowerCase() === (c.created_by || '').toLowerCase()
+      && (!c.creator_identity || String(c.creator_identity) === identidadActiva());
     const bar = (typeof window._appTopBar === 'function')
       ? window._appTopBar("document.getElementById('comunidad-detail').remove()", 'c/' + c.name)
       : `<div style="position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:10px 16px;background:#0a0a0a;border-bottom:1px solid #1a1a1a;transform:translateZ(0);will-change:transform;"><button onclick="document.getElementById('comunidad-detail').remove()" style="background:rgba(255,255,255,0.08);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:20px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button><span style="font-weight:900;font-size:16px;color:#fff;">c/${esc(c.name)}</span></div>`;
     v.innerHTML = bar +
       `<div style="max-width:640px;margin:0 auto;padding:14px 16px calc(90px + env(safe-area-inset-bottom));">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-          <div style="width:56px;height:56px;border-radius:50%;background:rgba(186,255,0,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class='bx ${esc(c.icon||'bx-group')}' style="font-size:28px;color:var(--accent);"></i></div>
-          <div style="flex:1;min-width:0;"><div style="font-weight:900;font-size:18px;color:#fff;">c/${esc(c.name)}</div><div style="font-size:12px;color:#888;">${esc(c.description||'')}</div><div style="font-size:11px;color:#555;margin-top:2px;"><i class='bx bx-user'></i> <span id="comu-members-${c.id}">${c.members_count||0}</span> miembros</div></div>
+          <div style="position:relative;flex-shrink:0;">
+            <div id="comu-foto-${c.id}" style="width:56px;height:56px;border-radius:50%;background:${c.image_url?`#000 url('${esc(c.image_url)}') center/cover no-repeat`:'rgba(186,255,0,0.1)'};display:flex;align-items:center;justify-content:center;overflow:hidden;">${c.image_url?'':`<i class='bx ${esc(c.icon||'bx-group')}' style="font-size:28px;color:var(--accent);"></i>`}</div>
+            ${esCreador ? `<button onclick="window.CancheroComunidades.setFoto('${c.id}')" title="Cambiar foto de la comunidad" style="position:absolute;bottom:-2px;right:-2px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#000;border:2px solid #0a0a0a;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class='bx bxs-camera'></i></button>` : ''}
+          </div>
+          <div style="flex:1;min-width:0;"><div style="font-weight:900;font-size:18px;color:#fff;">c/${esc(c.name)}</div><div style="font-size:12px;color:#888;">${esc(c.description||'')}</div><div style="font-size:11px;color:#555;margin-top:2px;"><i class='bx bx-user'></i> <span id="comu-members-${c.id}">${c.members_count||0}</span> miembros${creadorNombre ? ` · <i class='bx bx-crown' style="color:#FFD600;"></i> Creada por ${esc(creadorNombre)}` : ''}</div></div>
+          ${esCreador ? `<button onclick="window.CancheroComunidades.deleteComunidad('${c.id}','${esc(c.name).replace(/'/g,"\\'")}')" title="Eliminar comunidad" style="flex-shrink:0;background:rgba(255,60,60,0.08);border:1px solid rgba(255,60,60,0.3);color:#ff5252;border-radius:50%;width:34px;height:34px;font-size:16px;cursor:pointer;margin-right:6px;"><i class='bx bx-trash'></i></button>` : ''}
           <button onclick="window.cancheroShare&&window.cancheroShare({type:'comunidad',id:'${c.id}',title:'c/${esc(c.name)} en Canchero',text:'Sumate a la comunidad c/${esc(c.name)} en Canchero'})" title="Compartir comunidad" style="flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid #333;color:#ccc;border-radius:50%;width:34px;height:34px;font-size:16px;cursor:pointer;margin-right:6px;"><i class='bx bx-share-alt'></i></button>
           <button id="comu-join-btn" onclick="window.CancheroComunidades.toggleJoin('${c.id}',${joined})" style="flex-shrink:0;background:${joined?'transparent':'var(--accent)'};border:1px solid ${joined?'#444':'var(--accent)'};color:${joined?'#fff':'#000'};border-radius:20px;padding:8px 16px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;">${joined?'Unido':'Unirme'}</button>
         </div>
@@ -208,6 +225,68 @@ C.toggleJoin = async function(id, joined){
       if (memEl) memEl.textContent = (parseInt(memEl.textContent)||0)+1;
     }
   } catch(e){ toast('Error: '+(e.message||''),'error'); }
+};
+
+// Eliminar una comunidad — solo el creador, en la MISMA identidad con la que la creó.
+C.deleteComunidad = async function(id, nombre){
+  const s = sb(); if (!s || !me().email){ toast('Iniciá sesión','error'); return; }
+  const { data: c } = await s.from('communities').select('created_by,creator_identity').eq('id', id).single();
+  if (!c){ toast('Comunidad no encontrada','error'); return; }
+  const puede = (me().email||'').toLowerCase() === (c.created_by||'').toLowerCase()
+    && (!c.creator_identity || String(c.creator_identity) === identidadActiva());
+  if (!puede){ toast('Solo el creador puede eliminar la comunidad (con la identidad que la creó).','warning'); return; }
+  if (!confirm('¿Eliminar la comunidad c/' + (nombre||'') + '? Se borran también sus publicaciones y miembros. No se puede deshacer.')) return;
+  try {
+    // Borrar dependencias primero (por si no hay ON DELETE CASCADE en la base).
+    await s.from('community_posts').delete().eq('community_id', id);
+    await s.from('community_members').delete().eq('community_id', id);
+    // .select() devuelve las filas borradas: si RLS bloquea, vuelve vacío SIN error.
+    const { data: del, error } = await s.from('communities').delete().eq('id', id).select();
+    if (error) throw error;
+    if (!del || !del.length) {
+      toast('No se pudo borrar: falta el permiso en la base (corré la migración de comunidades).','error');
+      return;
+    }
+    toast('Comunidad eliminada','success');
+    const det = document.getElementById('comunidad-detail'); if (det) det.remove();
+    if (typeof C.loadList === 'function') C.loadList();
+  } catch(e){ toast('Error al eliminar: '+(e.message||''),'error'); }
+};
+
+// Cambiar la foto de la comunidad — solo el creador, en la identidad con la que la creó.
+C.setFoto = async function(id){
+  const s = sb(); if (!s || !me().email){ toast('Iniciá sesión','error'); return; }
+  const { data: c } = await s.from('communities').select('created_by,creator_identity').eq('id', id).single();
+  if (!c){ toast('Comunidad no encontrada','error'); return; }
+  const puede = (me().email||'').toLowerCase() === (c.created_by||'').toLowerCase()
+    && (!c.creator_identity || String(c.creator_identity) === identidadActiva());
+  if (!puede){ toast('Solo el creador puede cambiar la foto (con la identidad que la creó).','warning'); return; }
+
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = async function(){
+    const file = inp.files && inp.files[0]; if (!file) return;
+    toast('Subiendo foto...','info');
+    try {
+      let f = file;
+      if (window._compressImageFile){ try { f = await window._compressImageFile(file, 512, 0.82); } catch(e){} }
+      let url = null;
+      if (window.cloudUpload){ const r = await window.cloudUpload(f, { folder:'canchero/comunidades' }); if (r && r.url) url = r.url; }
+      if (!url){ // fallback a storage de supabase
+        const fp = 'comunidades/' + id + '/foto_' + Date.now() + '.jpg';
+        const up = await s.storage.from('media').upload(fp, f, { upsert:true, contentType:'image/jpeg' });
+        if (!up.error){ const { data: ud } = s.storage.from('media').getPublicUrl(fp); url = ud && ud.publicUrl; }
+      }
+      if (!url){ toast('No se pudo subir la imagen','error'); return; }
+      const { data: upd, error } = await s.from('communities').update({ image_url: url }).eq('id', id).select();
+      if (error) throw error;
+      if (!upd || !upd.length){ toast('No se pudo guardar (falta el permiso en la base: corré la migración).','error'); return; }
+      const el = document.getElementById('comu-foto-' + id);
+      if (el){ el.style.background = "#000 url('" + url + "') center/cover no-repeat"; el.innerHTML = ''; }
+      toast('Foto actualizada','success');
+    } catch(e){ toast('Error: '+(e.message||''),'error'); }
+  };
+  inp.click();
 };
 
 C.post = async function(id){

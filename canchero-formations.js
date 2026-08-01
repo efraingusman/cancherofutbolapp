@@ -40,6 +40,11 @@ var CATALOG = {
     '1-3-2-1': [ {k:'ARQ',x:50,y:90},{k:'DEF',x:22,y:70},{k:'DEF',x:50,y:74},{k:'DEF',x:78,y:70},{k:'MED',x:34,y:46},{k:'MED',x:66,y:46},{k:'DEL',x:50,y:20} ],
     '1-3-1-2': [ {k:'ARQ',x:50,y:90},{k:'DEF',x:22,y:70},{k:'DEF',x:50,y:74},{k:'DEF',x:78,y:70},{k:'MED',x:50,y:48},{k:'DEL',x:34,y:22},{k:'DEL',x:66,y:22} ]
   },
+  '8v8': {
+    '1-3-3-1': [ {k:'ARQ',x:50,y:90},{k:'DEF',x:24,y:71},{k:'DEF',x:50,y:74},{k:'DEF',x:76,y:71},{k:'MED',x:26,y:47},{k:'MED',x:50,y:50},{k:'MED',x:74,y:47},{k:'DEL',x:50,y:20} ],
+    '1-3-2-2': [ {k:'ARQ',x:50,y:90},{k:'DEF',x:24,y:71},{k:'DEF',x:50,y:74},{k:'DEF',x:76,y:71},{k:'MED',x:34,y:48},{k:'MED',x:66,y:48},{k:'DEL',x:34,y:22},{k:'DEL',x:66,y:22} ],
+    '1-2-3-2': [ {k:'ARQ',x:50,y:90},{k:'DEF',x:34,y:72},{k:'DEF',x:66,y:72},{k:'MED',x:24,y:48},{k:'MED',x:50,y:51},{k:'MED',x:76,y:48},{k:'DEL',x:34,y:22},{k:'DEL',x:66,y:22} ]
+  },
   '11v11': {
     '1-4-3-3': [ {k:'ARQ',x:50,y:91},{k:'DEF',x:16,y:72},{k:'DEF',x:38,y:75},{k:'DEF',x:62,y:75},{k:'DEF',x:84,y:72},
                  {k:'MED',x:28,y:50},{k:'MED',x:50,y:53},{k:'MED',x:72,y:50},{k:'DEL',x:24,y:25},{k:'DEL',x:50,y:19},{k:'DEL',x:76,y:25} ],
@@ -51,7 +56,7 @@ var CATALOG = {
                  {k:'MED',x:30,y:50},{k:'MED',x:50,y:54},{k:'MED',x:70,y:50},{k:'DEL',x:36,y:22},{k:'DEL',x:64,y:22} ]
   }
 };
-var DEFAULTS = { '5v5':'1-1-2-1', '7v7':'1-2-3-1', '11v11':'1-4-3-3' };
+var DEFAULTS = { '5v5':'1-1-2-1', '7v7':'1-2-3-1', '8v8':'1-3-3-1', '11v11':'1-4-3-3' };
 var MAX_SUBS = 3;
 
 /* Deriva el formato real de un PARTIDO completo (no solo de un string):
@@ -59,12 +64,14 @@ var MAX_SUBS = 3;
 function formatOf(m){
   if (!m) return '11v11';
   if (typeof m === 'string') return normFormat(m);
-  var f = ((m.format||'')+' '+(m.match_type||'')+' '+(m.modality||'')+' '+(m.name||'')).toLowerCase();
+  var f = ((m.format||'')+' '+(m.match_type||'')+' '+(m.modality||'')+' '+(m.name||'')+' '+(m.match_format||'')).toLowerCase();
   if (/5v5|f5|futbol 5|fútbol 5/.test(f)) return '5v5';
   if (/7v7|f7|futbol 7|fútbol 7/.test(f)) return '7v7';
   if (/11v11|f11|futbol 11|fútbol 11|11/.test(f)) return '11v11';
+  if (/8v8|f8|futbol 8/.test(f)) return '8v8';
   if (m.slots_total === 10) return '5v5';
   if (m.slots_total === 14) return '7v7';
+  if (m.slots_total === 16) return '8v8';
   return '11v11';
 }
 
@@ -72,6 +79,7 @@ function normFormat(f){
   var s = String(f||'').toLowerCase();
   if (s.indexOf('5')!==-1) return '5v5';
   if (s.indexOf('7')!==-1) return '7v7';
+  if (s.indexOf('8')!==-1) return '8v8';
   return '11v11';
 }
 function formationsFor(format){ return Object.keys(CATALOG[normFormat(format)]); }

@@ -36,7 +36,7 @@ window.CancheroMessaging = (function() {
     // Los mensajes se sellan con sender_profile y recipient_profile.
     const _BIZ_ROLES_MSG = ['club','complejo','tienda','organizacion','profesional','sponsor','cancha','periodismo'];
     // La bandeja es de la identidad ACTIVA y de ninguna otra. Antes TODOS los negocios
-    // colapsaban a 'negocio': con Tienda + Organización compartían la misma bandeja y
+    // colapsaban a 'negocio': con Tienda + Ligas compartían la misma bandeja y
     // los chats "se abrían como si fueras otro". Ahora cada negocio es 'biz:<id>'.
     // Bandeja EXACTA de la identidad activa. Una identidad = una bandeja:
     // jugador · fanatico · team:<id> (cada equipo la suya) · biz:<id> (cada negocio la suya).
@@ -225,11 +225,11 @@ window.CancheroMessaging = (function() {
     // Distintivo por tipo de negocio (icono + color) para la lista de chats
     window._bizBadge = function(role) {
         const map = {
-            club:       { i: 'bx-football',     c: '#64b4ff', t: 'Complejo' },
-            complejo:   { i: 'bx-football',     c: '#64b4ff', t: 'Complejo' },
+            club:       { i: 'bx-football',     c: '#64b4ff', t: 'Canchas' },
+            complejo:   { i: 'bx-football',     c: '#64b4ff', t: 'Canchas' },
             tienda:     { i: 'bx-store',        c: '#ff9800', t: 'Tienda' },
             profesional:{ i: 'bx-user-voice',   c: '#9c88ff', t: 'Profesional' },
-            organizacion:{ i: 'bx-trophy',      c: '#ff96c8', t: 'Organización' },
+            organizacion:{ i: 'bx-trophy',      c: '#ff96c8', t: 'Ligas' },
             sponsor:    { i: 'bx-bolt-circle',  c: '#baff00', t: 'Sponsor' }
         };
         const b = map[role];
@@ -1658,7 +1658,7 @@ window.CancheroMessaging = (function() {
                 el.innerHTML = '<div style="padding:20px;text-align:center;color:#555;font-size:12px;">Sin resultados.</div>';
                 return;
             }
-            const roleLabel = { jugador:'Jugador', club:'Complejo', organizacion:'Organización', tienda:'Tienda', profesional:'Profesional' };
+            const roleLabel = { jugador:'Jugador', club:'Canchas', organizacion:'Ligas', tienda:'Tienda', profesional:'Profesional' };
             el.innerHTML = data.map(u => {
                 const initials = (u.name||'?')[0].toUpperCase();
                 const avatarHtml = `<div style="width:42px;height:42px;border-radius:50%;background:var(--accent);color:#000;font-weight:900;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initials}</div>`;

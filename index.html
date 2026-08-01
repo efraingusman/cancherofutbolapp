@@ -134,7 +134,7 @@
         } catch(e) {}
     </script>
 
-    <link rel="stylesheet" href="style.css?v=20260721h">
+    <link rel="stylesheet" href="style.css?v=20260729e">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -192,11 +192,11 @@
             <div class="nav-brand" onclick="if(typeof window.goHomeFeed==='function'){window.goHomeFeed();}else{navigate('home');}" style="cursor:pointer;"><img src="logo-oficial.png" onerror="this.src='logo.png'" style="height: 54px; object-fit: contain;"></div>
             <ul class="nav-menu">
                 <li id="nav-mi-panel" style="display:none;"><a href="#" class="nav-link" onclick="navigatePanel()">MI PANEL</a></li>
-                <li class="nav-directory"><a href="#" class="nav-link" onclick="openDirectorioModal('complejos')">COMPLEJOS</a></li>
+                <li class="nav-directory"><a href="#" class="nav-link" onclick="openDirectorioModal('complejos')">CANCHAS</a></li>
                 <li class="nav-directory"><a href="#" class="nav-link" onclick="openDirectorioModal('jugadores')">JUGADORES</a></li>
                 <li class="nav-directory"><a href="#" class="nav-link" onclick="openTorneosModal()">TORNEOS</a></li>
                 <li class="nav-directory"><a href="#" class="nav-link" onclick="openDirectorioModal('tienda')">TIENDA</a></li>
-                <li class="nav-directory"><a href="#" class="nav-link" onclick="openDirectorioModal('organizaciones')">ORGANIZACIONES</a></li>
+                <li class="nav-directory"><a href="#" class="nav-link" onclick="openDirectorioModal('organizaciones')">LIGAS</a></li>
             </ul>
         </div>
         <div class="nav-actions">
@@ -248,7 +248,7 @@
                             <div class="fs-btn-text">
                                 <div class="fs-btn-subtitle">ACCEDÉ COMO</div>
                                 <div class="fs-btn-title">NEGOCIO</div>
-                                <div class="fs-btn-roles">Tienda · Complejo · Organización</div>
+                                <div class="fs-btn-roles">Tienda · Canchas · Ligas</div>
                             </div>
                         </button>
                     </div>
@@ -338,12 +338,12 @@
                             </div>
                             <div class="type-card" onclick="setRegRole('club', this)" data-role="club">
                                 <i class='bx bx-cancha'></i>
-                                <span class="type-label">Complejo</span>
+                                <span class="type-label">Canchas</span>
                                 <span class="type-sublabel">Gratis</span>
                             </div>
                             <div class="type-card" onclick="setRegRole('organizacion', this)" data-role="organizacion">
                                 <i class='bx bx-shield'></i>
-                                <span class="type-label">Organización</span>
+                                <span class="type-label">Ligas</span>
                                 <span class="type-sublabel">Gratis</span>
                             </div>
                             <div class="type-card" onclick="setRegRole('tienda', this)" data-role="tienda">
@@ -379,7 +379,7 @@
                     </div>
                     <!-- Org sub-type -->
                     <div class="form-group" id="reg-org-type-group" style="display:none;">
-                        <label class="form-label">TIPO DE ORGANIZACIÓN</label>
+                        <label class="form-label">TIPO DE LIGAS</label>
                         <div class="prof-type-selector">
                             <div class="prof-type-btn active" onclick="setRegOrgType('club', this)"><i class='bx bx-shield'></i> Club Deportivo</div>
                             <div class="prof-type-btn" onclick="setRegOrgType('liga', this)"><i class='bx bx-trophy'></i> Liga / Asociación</div>
@@ -425,7 +425,7 @@
                         <input type="text" class="form-control fs-input" id="reg-complex-owner" placeholder="Ej: Carlos Silva">
                     </div>
                     <div class="form-group club-only" style="display:none;">
-                        <label class="form-label">NOMBRE DEL COMPLEJO</label>
+                        <label class="form-label">NOMBRE DE LAS CANCHAS</label>
                         <input type="text" class="form-control fs-input" id="reg-complex-name" placeholder="Ej: Maracaná Fútbol 5">
                     </div>
                     <!-- RUT eliminado del registro de negocios (2026-07) -->
@@ -463,7 +463,7 @@
                     <!-- CLUB/COMPLEX ONLY FIELDS -->
                     <div class="fs-form-grid club-only" style="display:none;">
                         <div class="form-group">
-                            <label class="form-label">DIRECCIÓN DEL COMPLEJO</label>
+                            <label class="form-label">DIRECCIÓN DE LAS CANCHAS</label>
                             <input type="text" class="form-control fs-input" id="reg-complex-address" placeholder="Ej: Av. Italia 1234">
                         </div>
                         <div class="form-group" style="grid-column: span 2;">
@@ -586,7 +586,7 @@
                     <li class="menu-item active" onclick="switchDashboardTab('jugador', 'perfil', this)"><i class='bx bx-user'></i> Mi Perfil</li>
                     <li class="menu-item" onclick="switchDashboardTab('jugador', 'feed', this)"><i class='bx bx-news'></i> Feed</li>
                     <li class="menu-item" onclick="switchDashboardTab('jugador', 'mensajes', this)"><i class='bx bx-message-dots'></i> Chats</li>
-                    <li class="menu-item" onclick="switchDashboardTab('jugador','complejos',this)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" style="vertical-align:middle;margin-right:2px;"><rect x="2.5" y="4.5" width="19" height="15" rx="1.5"/><line x1="12" y1="4.5" x2="12" y2="19.5"/><circle cx="12" cy="12" r="2.6"/><rect x="2.5" y="8.5" width="3" height="7"/><rect x="18.5" y="8.5" width="3" height="7"/></svg> Complejos</li>
+                    <li class="menu-item" onclick="switchDashboardTab('jugador','complejos',this)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" style="vertical-align:middle;margin-right:2px;"><rect x="2.5" y="4.5" width="19" height="15" rx="1.5"/><line x1="12" y1="4.5" x2="12" y2="19.5"/><circle cx="12" cy="12" r="2.6"/><rect x="2.5" y="8.5" width="3" height="7"/><rect x="18.5" y="8.5" width="3" height="7"/></svg> Canchas</li>
                     <li class="menu-item" onclick="switchDashboardTab('jugador','tiendas',this)"><i class='bx bx-store'></i> Tiendas</li>
                     <!-- BUSCAR — desplegable -->
                     <li class="menu-item menu-item-parent" onclick="toggleSidebarSubmenu('sidebar-buscar-sub')">
@@ -632,15 +632,15 @@
                             <button class="explore-item" onclick="setFeedFilter('all',null);window.toggleExploreMenu()"><i class='bx bx-grid-alt'></i> Ver todo</button>
                             <button class="explore-item" onclick="setFeedFilter('siguiendo',null);window.toggleExploreMenu()"><i class='bx bx-user-check'></i> Seguidos</button>
                             <button class="explore-item" onclick="setFeedFilter('disponibles',null);window.toggleExploreMenu()"><span style="width:8px;height:8px;background:#00e676;border-radius:50%;display:inline-block;margin-right:4px;"></span> Disponibles</button>
-                            <button class="explore-item" onclick="setFeedFilter('club',null);window.toggleExploreMenu()"><i class='bx bx-cancha'></i> Complejos</button>
+                            <button class="explore-item" onclick="setFeedFilter('club',null);window.toggleExploreMenu()"><i class='bx bx-cancha'></i> Canchas</button>
                             <button class="explore-item" onclick="setFeedFilter('tienda',null);window.toggleExploreMenu()"><i class='bx bx-store'></i> Tiendas</button>
-                            <button class="explore-item" onclick="setFeedFilter('organizacion',null);window.toggleExploreMenu()"><i class='bx bx-shield-alt-2'></i> Organizaciones</button>
+                            <button class="explore-item" onclick="setFeedFilter('organizacion',null);window.toggleExploreMenu()"><i class='bx bx-shield-alt-2'></i> Ligas</button>
                             <button class="explore-item" onclick="setFeedFilter('jugador',null);window.toggleExploreMenu()"><i class='bx bx-run'></i> Jugadores</button>
                             <div style="height:1px;background:#2a2a2a;margin:6px 4px;"></div>
                             <div style="font-size:9px;color:#555;font-weight:900;letter-spacing:1px;padding:4px 10px;">EXPLORAR</div>
                             <button class="explore-item" onclick="openGlobalDirectory('rankings');window.toggleExploreMenu()"><i class='bx bx-trophy'></i> Rankings</button>
                             <button class="explore-item" onclick="openGlobalDirectory('clubes');window.toggleExploreMenu()"><i class='bx bx-shield'></i> Clubes</button>
-                            <button class="explore-item" onclick="openGlobalDirectory('complejos');window.toggleExploreMenu()"><i class='bx bx-cancha'></i> Complejos</button>
+                            <button class="explore-item" onclick="openGlobalDirectory('complejos');window.toggleExploreMenu()"><i class='bx bx-cancha'></i> Canchas</button>
                         </div>
                     </div>
                     <div class="global-search-results" id="global-search-results" style="display:none; position:absolute; top:100%; left:14px; right:14px; background: #111; border: 1px solid var(--border-color); border-radius: 12px; max-height: 400px; overflow-y: auto; z-index: 9000; box-shadow: 0 12px 40px rgba(0,0,0,0.9); margin-top:5px;"></div>
@@ -900,6 +900,7 @@
                                 <div class="info-card"><div class="info-label">TELÉFONO</div><div class="info-value" id="info-phone">—</div></div>
                                 <div class="info-card"><div class="info-label">CORREO</div><div class="info-value" id="info-email">—</div></div>
                             </div>
+                            <div id="jugador-info-availability"></div>
                         </div>
 
                         <!-- (Pestaña de PREDICCIONES removida — feature discontinuada) -->
@@ -980,9 +981,9 @@
                                 <button class="feed-cat-item" onclick="setFeedFilter('all',document.getElementById('feed-btn-all'));pickFeedLabel('VER TODO')"><i class='bx bx-grid-alt'></i> Ver todo</button>
                                 <button class="feed-cat-item" onclick="setFeedFilter('siguiendo',document.getElementById('feed-btn-siguiendo'));pickFeedLabel('SEGUIDOS')"><i class='bx bx-user-check'></i> Seguidos</button>
                                 <button class="feed-cat-item" onclick="setFeedFilter('disponibles',document.getElementById('feed-btn-disponibles'));pickFeedLabel('DISPONIBLES')"><span style="width:8px;height:8px;background:#00e676;border-radius:50%;display:inline-block;"></span> Disponibles</button>
-                                <button class="feed-cat-item" onclick="pickFeedCategory('club','COMPLEJOS',this)"><i class='bx bx-cancha'></i> Complejos</button>
+                                <button class="feed-cat-item" onclick="pickFeedCategory('club','CANCHAS',this)"><i class='bx bx-cancha'></i> Canchas</button>
                                 <button class="feed-cat-item" onclick="pickFeedCategory('tienda','TIENDAS',this)"><i class='bx bx-store'></i> Tiendas</button>
-                                <button class="feed-cat-item" onclick="pickFeedCategory('organizacion','ORGANIZACIONES',this)"><i class='bx bx-shield-alt-2'></i> Organizaciones</button>
+                                <button class="feed-cat-item" onclick="pickFeedCategory('organizacion','LIGAS',this)"><i class='bx bx-shield-alt-2'></i> Ligas</button>
                                 <button class="feed-cat-item" onclick="pickFeedCategory('jugador','JUGADORES',this)"><i class='bx bx-run'></i> Jugadores</button>
                             </div>
                         </div>
@@ -1085,6 +1086,8 @@
                         <button onclick="window.openReels&&window.openReels()" title="Reels" style="flex-shrink:0;width:42px;height:38px;background:#111;border:1px solid #2a2a2a;border-radius:10px;color:var(--accent);cursor:pointer;font-size:19px;display:flex;align-items:center;justify-content:center;"><i class='bx bx-movie-play'></i></button>
                         <button onclick="window.CancheroSocial&&window.CancheroSocial.openSearch()" title="Buscar" style="flex-shrink:0;width:42px;height:38px;background:#111;border:1px solid #2a2a2a;border-radius:10px;color:var(--accent);cursor:pointer;font-size:19px;display:flex;align-items:center;justify-content:center;"><i class='bx bx-search'></i></button>
                     </div>
+                    <!-- Bloque de INICIO del jugador (progreso + partidos cerca + CTA) -->
+                    <div id="jugador-inicio-hero" style="margin:6px 0 10px;"></div>
                     <!-- Contenedor deslizable -->
                     <div id="feed-swipe-wrap" style="overflow:hidden;">
                         <!-- Panel Publicaciones -->
@@ -1298,7 +1301,7 @@
                         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:22px;">
                             <button onclick="switchDashboardTab('jugador','complejos',null)" class="buscar-card" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='#1e1e1e'">
                                 <i class='bx bx-cancha'></i>
-                                <div class="bc-t">Complejos</div><div class="bc-s">Canchas</div>
+                                <div class="bc-t">Canchas</div><div class="bc-s">Canchas</div>
                             </button>
                             <button onclick="switchDashboardTab('jugador','tiendas',null)" class="buscar-card" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='#1e1e1e'">
                                 <i class='bx bx-store'></i>
@@ -1306,7 +1309,7 @@
                             </button>
                             <button onclick="switchDashboardTab('jugador','organizaciones',null)" class="buscar-card" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='#1e1e1e'">
                                 <i class='bx bx-buildings'></i>
-                                <div class="bc-t">Organizaciones</div><div class="bc-s">Ligas</div>
+                                <div class="bc-t">Ligas</div><div class="bc-s">Ligas</div>
                             </button>
                         </div>
                         <!-- BLOQUE: CANCHERO -->
@@ -1333,11 +1336,11 @@
                     </div>
                 </div>
 
-                <!-- TAB: COMPLEJOS -->
+                <!-- TAB: CANCHAS -->
                 <div id="jugador-complejos" class="dashboard-tab-content" style="display:none;">
                     <div class="section-tab-header" style="display:flex;align-items:center;gap:10px;">
                         <button class="btn-back-icon" aria-label="Volver" onclick="switchDashboardTab('jugador','buscar')"><i class='bx bx-left-arrow-alt'></i></button>
-                        <h2 class="panel-title pt-mundial" style="margin:0;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--accent)" stroke-width="1.7"><rect x="2.5" y="4.5" width="19" height="15" rx="1.5"/><line x1="12" y1="4.5" x2="12" y2="19.5"/><circle cx="12" cy="12" r="2.6"/><rect x="2.5" y="8.5" width="3" height="7"/><rect x="18.5" y="8.5" width="3" height="7"/></svg><span class="pt-text"><span class="pt-main">COMPLEJOS</span><span class="pt-sub">Canchas y complejos deportivos cerca tuyo</span></span></h2>
+                        <h2 class="panel-title pt-mundial" style="margin:0;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--accent)" stroke-width="1.7"><rect x="2.5" y="4.5" width="19" height="15" rx="1.5"/><line x1="12" y1="4.5" x2="12" y2="19.5"/><circle cx="12" cy="12" r="2.6"/><rect x="2.5" y="8.5" width="3" height="7"/><rect x="18.5" y="8.5" width="3" height="7"/></svg><span class="pt-text"><span class="pt-main">CANCHAS</span><span class="pt-sub">Canchas y complejos deportivos cerca tuyo</span></span></h2>
                     </div>
                     <!-- Buscador optimizado -->
                     <div class="section-search-bar" style="margin-bottom:12px;">
@@ -1429,11 +1432,11 @@
                     <div id="profesionales-feed-container" style="display:grid;gap:10px;"></div>
                 </div>
 
-                <!-- TAB: ORGANIZACIONES -->
+                <!-- TAB: LIGAS -->
                 <div id="jugador-organizaciones" class="dashboard-tab-content" style="display:none;">
                     <div class="section-tab-header" style="display:flex;align-items:center;gap:10px;">
                         <button class="btn-back-icon" aria-label="Volver" onclick="switchDashboardTab('jugador','buscar')"><i class='bx bx-left-arrow-alt'></i></button>
-                        <h2 class="panel-title pt-mundial" style="margin:0;"><i class='bx bx-buildings' style="color:var(--accent);"></i><span class="pt-text"><span class="pt-main">ORGANIZACIONES</span><span class="pt-sub">Ligas, clubes y organizadores de torneos</span></span></h2>
+                        <h2 class="panel-title pt-mundial" style="margin:0;"><i class='bx bx-buildings' style="color:var(--accent);"></i><span class="pt-text"><span class="pt-main">LIGAS</span><span class="pt-sub">Ligas, clubes y organizadores de torneos</span></span></h2>
                     </div>
                     <div class="section-search-bar" style="margin-bottom:12px;">
                         <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.05);padding:10px 16px;border-radius:30px;border:1px solid var(--border-color);">
@@ -1495,6 +1498,7 @@
                                 <select class="form-control" id="club-tac-type" title="Modalidad" aria-label="Modalidad" style="flex:1.3;min-width:0;height:38px;padding:0 6px;font-size:11px;" onchange="updateTacticFormations()">
                                     <option value="F5">F5</option>
                                     <option value="F7">F7</option>
+                                    <option value="F8">F8</option>
                                     <option value="F11" selected>F11</option>
                                 </select>
                                 <select class="form-control" id="club-tac-formation" title="Formación" aria-label="Formación" style="flex:1.6;min-width:0;height:38px;padding:0 6px;font-size:11px;" onchange="updateClubTacticBoard()">
@@ -1715,8 +1719,21 @@
                                 <div class="type-btn" style="flex:1;text-align:center;padding:9px 0;font-size:13px;" onclick="this.parentElement.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');" data-gender="femenino">♀ Femenino</div>
                             </div>
                         </div>
-                        <div class="form-group"><label class="form-label">TIPO DE FÚTBOL</label><div class="type-selector" id="cp-ftype-selector"><div class="type-btn" onclick="this.parentElement.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); if(window.calcularTotalPartido)window.calcularTotalPartido();">5v5</div><div class="type-btn" onclick="this.parentElement.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); if(window.calcularTotalPartido)window.calcularTotalPartido();">7v7</div><div class="type-btn active" onclick="this.parentElement.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); if(window.calcularTotalPartido)window.calcularTotalPartido();">11v11</div></div></div>
+                        <div class="form-group"><label class="form-label">TIPO DE FÚTBOL</label><div class="type-selector" id="cp-ftype-selector"><div class="type-btn" onclick="this.parentElement.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); if(window.calcularTotalPartido)window.calcularTotalPartido();">5v5</div><div class="type-btn" onclick="this.parentElement.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); if(window.calcularTotalPartido)window.calcularTotalPartido();">7v7</div><div class="type-btn" onclick="this.parentElement.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); if(window.calcularTotalPartido)window.calcularTotalPartido();">8v8</div><div class="type-btn active" onclick="this.parentElement.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); if(window.calcularTotalPartido)window.calcularTotalPartido();">11v11</div></div></div>
                         
+                        <!-- NIVEL DE JUEGO (para el filtro por nivel de "Buscar partidos") -->
+                        <div class="form-group">
+                            <label class="form-label"><i class='bx bx-bar-chart-alt-2' style="color:var(--accent);"></i> NIVEL DE JUEGO</label>
+                            <select class="form-control" id="cp-nivel">
+                                <option value="">Cualquier nivel</option>
+                                <option value="principiante">Principiante</option>
+                                <option value="intermedio">Intermedio</option>
+                                <option value="avanzado">Avanzado</option>
+                                <option value="crack">Crack</option>
+                            </select>
+                            <small style="font-size:10px;color:#666;margin-top:3px;display:block;">Ayuda a que se anoten jugadores parejos. "Cualquier nivel" aparece en todas las búsquedas.</small>
+                        </div>
+
                         <!-- MATCH MODALITY -->
                         <div class="form-group">
                             <label class="form-label">MODALIDAD DE PARTIDO</label>
@@ -1747,6 +1764,10 @@
                             <span>Llegada sugerida: <b id="cp-llegada-txt" style="color:#fff;">—</b> <span style="color:#8aa06a;">(15 min antes)</span></span>
                             <input type="hidden" id="cp-llegada">
                         </div>
+                        <label style="display:flex;align-items:center;gap:9px;cursor:pointer;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:11px 13px;margin-bottom:12px;">
+                            <input type="checkbox" id="cp-recurring" style="width:18px;height:18px;accent-color:var(--accent);flex-shrink:0;">
+                            <span style="font-size:13px;color:#ddd;font-weight:600;"><i class='bx bx-repeat' style="color:var(--accent);"></i> Repetir todas las semanas <span style="color:#666;font-weight:400;">— se recrea solo cada 7 días</span></span>
+                        </label>
                         <div class="form-row">
                             <div class="form-group" style="flex:1;">
                                 <label class="form-label">PAÍS</label>
@@ -1758,7 +1779,7 @@
                             </div>
                         </div>
                         <div class="form-group" id="cp-cancha-wrap">
-                            <label class="form-label">COMPLEJO / CANCHA</label>
+                            <label class="form-label">CANCHAS / CANCHA</label>
                             <select class="form-control" id="cp-cancha" onchange="onCanchaChange(this)">
                                 <option value="">Cargando complejos...</option>
                                 <option value="__manual__">📍 Ingresar manualmente...</option>
@@ -2010,14 +2031,14 @@
         </div>
     </section>
 
-    <!-- ==================== VIEW: CLUB (COMPLEJO) ==================== -->
+    <!-- ==================== VIEW: CLUB (CANCHAS) ==================== -->
     <section id="view-club" class="view-section" style="display: none;">
         <div class="dashboard-layout">
             <aside class="sidebar">
                 <div class="sidebar-user">
                     <div class="sidebar-avatar" style="background-image: url('https://ui-avatars.com/api/?name=C&background=fff&color=000'); background-size: cover; background-position: center;"></div>
 
-                    <div class="sidebar-user-info"><div class="name">COMPLEJO LA TEJA</div><div class="level">Montevideo</div></div>
+                    <div class="sidebar-user-info"><div class="name">CANCHAS LA TEJA</div><div class="level">Montevideo</div></div>
                 </div>
                 <ul class="sidebar-menu">
                     <li class="menu-item active" onclick="switchDashboardTab('club', 'perfil', this)"><i class='bx bx-user'></i> Mi Perfil</li>
@@ -2048,7 +2069,7 @@
                         <button class="btn btn-glass btn-sm" onclick="openGlobalDirectory('rankings')" style="font-size:10px; white-space:nowrap;"><i class='bx bx-trophy'></i> RANKINGS</button>
                         <button class="btn btn-glass btn-sm" onclick="openGlobalDirectory('clubes')" style="font-size:10px; white-space:nowrap;"><i class='bx bx-shield'></i> CLUBES</button>
                         <button class="btn btn-glass btn-sm" onclick="openGlobalDirectory('jugadores')" style="font-size:10px; white-space:nowrap;"><i class='bx bx-user'></i> JUGADORES</button>
-                        <button class="btn btn-glass btn-sm" onclick="openGlobalDirectory('complejos')" style="font-size:10px; white-space:nowrap;"><i class='bx bx-cancha'></i> COMPLEJOS</button>
+                        <button class="btn btn-glass btn-sm" onclick="openGlobalDirectory('complejos')" style="font-size:10px; white-space:nowrap;"><i class='bx bx-cancha'></i> CANCHAS</button>
                     </div>
                     <div class="global-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background: #111; border: 1px solid var(--border-color); border-radius: 0 0 8px 8px; max-height: 400px; overflow-y: auto; z-index: 101; box-shadow: 0 10px 30px rgba(0,0,0,0.8);"></div>
                 </div>
@@ -2298,7 +2319,7 @@
                     </div>
                 </div>
 
-                <!-- TAB: PERFIL (COMPLEJO) -->
+                <!-- TAB: PERFIL (CANCHAS) -->
                 <div id="club-perfil" class="dashboard-tab-content" style="display:none;">
                     <div class="social-profile">
                         <div class="cover-photo" id="club-cover" onclick="openCoverEditor('club')">
@@ -2317,7 +2338,7 @@
 
                         </div>
                         <div class="profile-info-section">
-                            <div class="profile-display-name" id="c-display-name">COMPLEJO LA TEJA</div>
+                            <div class="profile-display-name" id="c-display-name">CANCHAS LA TEJA</div>
                             <div class="profile-handle" id="c-handle">@lateja</div>
                             <div class="profile-bio" id="c-bio"><i class='bx bx-cancha'></i> El mejor complejo de la zona. Canchas de última generación y ambiente familiar.</div>
                             <div class="profile-meta-row">
@@ -2356,7 +2377,7 @@
                                 <div class="post-card">
                                     <div class="post-avatar sidebar-avatar" style="background-image:url('https://ui-avatars.com/api/?name=C&background=fff&color=000')"></div>
                                     <div class="post-content">
-                                        <div class="post-header"><span class="post-author">Complejo La Teja</span><span class="post-handle">@lateja</span><span class="post-time">· 1h</span></div>
+                                        <div class="post-header"><span class="post-author">Canchas La Teja</span><span class="post-handle">@lateja</span><span class="post-time">· 1h</span></div>
                                         <div class="post-text">¡Nuevas luces LED instaladas en la Cancha 1! <i class='bx bx-bulb'></i> Vení a probarlas este finde. Reservas abiertas.</div>
                                         <div class="post-actions">
                                             <div class="post-action" onclick="likePost(this)"><i class='bx bx-heart'></i> 25</div>
@@ -2677,6 +2698,7 @@
                     <div id="edit-pos-wrap">
                         <label style="font-size:9px;font-weight:800;color:#555;letter-spacing:1.5px;display:block;margin-bottom:5px;">POSICIÓN</label>
                         <select id="edit-pos" style="width:100%;background:#161616;border:1px solid #252525;color:#fff;padding:10px 8px;border-radius:10px;font-size:12px;outline:none;cursor:pointer;box-sizing:border-box;">
+                            <option value="">Sin definir</option>
                             <option value="POR">Arquero</option>
                             <option value="DEF">Defensa Central</option>
                             <option value="LAT">Lateral</option>
@@ -2715,6 +2737,12 @@
                 <div>
                     <label style="font-size:9px;font-weight:800;color:#555;letter-spacing:1.5px;display:block;margin-bottom:5px;">BIO</label>
                     <textarea id="edit-bio" rows="2" placeholder="Contá algo sobre vos..." style="width:100%;background:#161616;border:1px solid #252525;color:#fff;padding:11px 12px;border-radius:10px;font-size:13px;resize:none;outline:none;box-sizing:border-box;transition:.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='#252525'"></textarea>
+                </div>
+
+                <!-- Disponibilidad horaria (cuándo podés jugar) -->
+                <div id="edit-availability-wrap">
+                    <label style="font-size:9px;font-weight:800;color:#555;letter-spacing:1.5px;display:block;margin-bottom:5px;">DISPONIBILIDAD <span style="color:#333;font-weight:400;">(tocá las franjas en las que podés jugar)</span></label>
+                    <div class="availability-grid" id="edit-availability"></div>
                 </div>
 
                 <!-- Link -->
@@ -2789,6 +2817,7 @@
                 <div class="type-selector" id="new-club-modality-selector" style="display:flex;gap:6px;">
                     <div class="type-btn" data-modality="F5" style="flex:1;text-align:center;padding:8px 0;font-size:12px;font-weight:700;" onclick="this.parentElement.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');">Fútbol 5</div>
                     <div class="type-btn" data-modality="F7" style="flex:1;text-align:center;padding:8px 0;font-size:12px;font-weight:700;" onclick="this.parentElement.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');">Fútbol 7</div>
+                    <div class="type-btn" data-modality="F8" style="flex:1;text-align:center;padding:8px 0;font-size:12px;font-weight:700;" onclick="this.parentElement.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');">Fútbol 8</div>
                     <div class="type-btn active" data-modality="F11" style="flex:1;text-align:center;padding:8px 0;font-size:12px;font-weight:700;" onclick="this.parentElement.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');">Fútbol 11</div>
                 </div>
             </div>
@@ -2916,9 +2945,9 @@
                 <div class="mobile-submenu-item" onclick="openDisponiblesModal(); toggleMobileMenu()"><span style="width:9px;height:9px;background:#00e676;border-radius:50%;flex-shrink:0;box-shadow:0 0 6px #00e676;"></span> Disponibles Ahora</div>
                 <div class="mobile-submenu-item" onclick="openClubesBuscanModal(); toggleMobileMenu()"><i class='bx bx-user-plus' style="color:var(--accent);font-size:18px;"></i> Equipos buscan jugadores</div>
             </div>
-            <!-- COMPLEJOS -->
+            <!-- CANCHAS -->
             <div onclick="switchDashboardTab('jugador','complejos',null); toggleMobileMenu()" style="display:flex;align-items:center;gap:14px;padding:18px 0;border-bottom:1px solid #1a1a1a;cursor:pointer;font-size:17px;font-weight:700;">
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--accent)" stroke-width="1.7" style="flex-shrink:0;"><rect x="2.5" y="4.5" width="19" height="15" rx="1.5"/><line x1="12" y1="4.5" x2="12" y2="19.5"/><circle cx="12" cy="12" r="2.6"/><rect x="2.5" y="8.5" width="3" height="7"/><rect x="18.5" y="8.5" width="3" height="7"/></svg> COMPLEJOS
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--accent)" stroke-width="1.7" style="flex-shrink:0;"><rect x="2.5" y="4.5" width="19" height="15" rx="1.5"/><line x1="12" y1="4.5" x2="12" y2="19.5"/><circle cx="12" cy="12" r="2.6"/><rect x="2.5" y="8.5" width="3" height="7"/><rect x="18.5" y="8.5" width="3" height="7"/></svg> CANCHAS
             </div>
             <!-- TIENDAS -->
             <div onclick="switchDashboardTab('jugador','tiendas',null); toggleMobileMenu()" style="display:flex;align-items:center;gap:14px;padding:18px 0;border-bottom:1px solid #1a1a1a;cursor:pointer;font-size:17px;font-weight:700;">
@@ -3112,8 +3141,8 @@
                 </div>
             </div>
             <div class="form-group">
-                <label class="form-label">UBICACIÓN / COMPLEJO</label>
-                <input type="text" id="live-location" class="form-control" placeholder="Ej: Complejo La Teja - Cancha 1">
+                <label class="form-label">UBICACIÓN / CANCHAS</label>
+                <input type="text" id="live-location" class="form-control" placeholder="Ej: Canchas La Teja - Cancha 1">
             </div>
             <div style="margin-top:20px;">
                 <button class="btn btn-primary" style="width:100%;" onclick="startLiveTransmission()"><i class='bx bx-play'></i> EMPEZAR DIRECTO</button>
@@ -3281,7 +3310,7 @@
     <div id="reservation-modal" class="modal-overlay" style="display:none;">
         <div class="fs-form-card" style="max-width: 500px;">
             <h3 class="fs-form-title">RESERVAR CANCHA</h3>
-            <div id="res-complex-name" style="color:var(--accent); text-align:center; margin-top:-20px; margin-bottom:20px; font-weight:800;">COMPLEJO LA TEJA</div>
+            <div id="res-complex-name" style="color:var(--accent); text-align:center; margin-top:-20px; margin-bottom:20px; font-weight:800;">CANCHAS LA TEJA</div>
             
             <div class="form-group">
                 <label class="form-label">SELECCIONAR CANCHA</label>
@@ -3323,6 +3352,7 @@
                 <select class="form-control" id="court-type">
                     <option value="F5">Fútbol 5</option>
                     <option value="F7">Fútbol 7</option>
+                    <option value="F8">Fútbol 8</option>
                     <option value="F11">Fútbol 11</option>
                 </select>
             </div>
@@ -3494,9 +3524,9 @@
             <h3 class="fs-form-title" style="text-align:left; font-size:14px;">MÁS OPCIONES</h3>
             <div class="quick-actions-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">
                 <div class="menu-item" id="biz-dashboard-menu-item" style="display:none;" onclick="window.location.href='crm.html?role='+(window._bizRole||'club'); toggleMobileMoreMenu()"><i class='bx bx-bar-chart-square'></i> Mi Dashboard</div>
-                <div class="menu-item" onclick="openDirectorioModal('complejos'); toggleMobileMoreMenu()"><i class='bx bx-cancha'></i> Complejos</div>
+                <div class="menu-item" onclick="openDirectorioModal('complejos'); toggleMobileMoreMenu()"><i class='bx bx-cancha'></i> Canchas</div>
                 <div class="menu-item" onclick="openDirectorioModal('tienda'); toggleMobileMoreMenu()"><i class='bx bx-store'></i> Tiendas</div>
-                <div class="menu-item" onclick="openDirectorioModal('organizaciones'); toggleMobileMoreMenu()"><i class='bx bx-shield'></i> Organizaciones</div>
+                <div class="menu-item" onclick="openDirectorioModal('organizaciones'); toggleMobileMoreMenu()"><i class='bx bx-shield'></i> Ligas</div>
                 <div class="menu-item" onclick="switchDashboardTab('jugador', 'buscar-canchas', this); toggleMobileMoreMenu()"><i class='bx bx-search-alt'></i> Buscar Canchas</div>
                 <div class="menu-item" onclick="switchDashboardTab('jugador', 'crear-partido', this); toggleMobileMoreMenu()"><i class='bx bx-plus-circle'></i> Crear Partido</div>
                 <div class="menu-item jugador-pro-only" onclick="switchDashboardTab('jugador', 'crear-torneo', this); toggleMobileMoreMenu()" style="display:none;"><i class='bx bx-trophy'></i> Crear Torneo</div>
@@ -3764,12 +3794,12 @@
                     </div>
                     <div class="type-card" onclick="selectGoogleRole('club', this)">
                         <i class='bx bx-cancha'></i>
-                        <span class="type-label">Complejo</span>
+                        <span class="type-label">Canchas</span>
                         <span class="type-sublabel">Gratis</span>
                     </div>
                     <div class="type-card" onclick="selectGoogleRole('organizacion', this)">
                         <i class='bx bx-shield'></i>
-                        <span class="type-label">Organización</span>
+                        <span class="type-label">Ligas</span>
                         <span class="type-sublabel">Gratis</span>
                     </div>
                     <div class="type-card" onclick="selectGoogleRole('tienda', this)">
@@ -3891,16 +3921,16 @@
       </div>
     </div>
 
-    <script src="script.js?v=20260721h" charset="utf-8"></script>
+    <script src="script.js?v=20260729d" charset="utf-8"></script>
     <script src="canchero-cloud.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-avatars.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-analytics.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-plus.js?v=20260714a" charset="utf-8"></script>
-    <script src="canchero-features.js?v=20260714a" charset="utf-8"></script>
-    <script src="canchero-app.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-features.js?v=20260724x" charset="utf-8"></script>
+    <script src="canchero-app.js?v=20260724x" charset="utf-8"></script>
     <script src="canchero-fase3.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-notifications.js?v=20260715a" charset="utf-8"></script>
-    <script src="canchero-messaging.js?v=20260718f" charset="utf-8"></script>
+    <script src="canchero-messaging.js?v=20260724x" charset="utf-8"></script>
     <script src="canchero-live.js?v=20260714a" charset="utf-8"></script>
     <!-- Seccion MUNDIAL retirada (2026-07-18): la competencia termino. El modulo queda
          en el repo (canchero-mundial.js) para reactivarlo descomentando esta linea y
@@ -3908,9 +3938,9 @@
     <script src="canchero-mundial.js?v=20260714a" charset="utf-8"></script> -->
     <script src="canchero-encuesta.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-achievements.js?v=20260714a" charset="utf-8"></script>
-    <script src="canchero-tournaments.js?v=20260721f" charset="utf-8"></script>
-    <script src="canchero-formations.js?v=20260714a" charset="utf-8"></script>
-    <script src="canchero-match-players.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-tournaments.js?v=20260729b" charset="utf-8"></script>
+    <script src="canchero-formations.js?v=20260729b" charset="utf-8"></script>
+    <script src="canchero-match-players.js?v=20260724d" charset="utf-8"></script>
     <script src="canchero-match-pitch.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-match-dashboard.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-polls.js?v=20260714a" charset="utf-8"></script>
@@ -3932,13 +3962,13 @@
     <script src="canchero-match-v2.js?v=20260721f" charset="utf-8"></script>
     <script src="canchero-player-actions.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-news.js?v=20260720g" charset="utf-8"></script>
-    <script src="canchero-comunidades.js?v=20260721a" charset="utf-8"></script>
-    <script src="canchero-hinchada.js?v=20260721g" charset="utf-8"></script>
+    <script src="canchero-comunidades.js?v=20260724b" charset="utf-8"></script>
+    <script src="canchero-hinchada.js?v=20260724a" charset="utf-8"></script>
     <script src="canchero-rating.js?v=20260721f" charset="utf-8"></script>
-    <script src="canchero-racha.js?v=20260721h" charset="utf-8"></script>
+    <script src="canchero-racha.js?v=20260724b" charset="utf-8"></script>
     <script src="canchero-gamification.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-player-card.js?v=20260714a" charset="utf-8"></script>
-    <script src="canchero-social.js?v=20260714a" charset="utf-8"></script>
+    <script src="canchero-social.js?v=20260724x" charset="utf-8"></script>
     <script src="canchero-ui-v2.js?v=20260714a" charset="utf-8"></script>
     <script>
     (function() {
@@ -3971,8 +4001,8 @@
                 '<button id="neg-close" style="background:rgba(255,255,255,0.06);border:none;color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:18px;">&times;</button>'+
               '</div>'+
               '<div style="padding:14px 22px 22px;display:flex;flex-direction:column;gap:9px;">'+
-                bizItem('complejo','bx-cancha','Complejo','Canchas, reservas, calendario','club')+
-                bizItem('organizacion','bx-trophy','Organización','Club, liga, escuela...','organizacion')+
+                bizItem('complejo','bx-cancha','Canchas','Canchas, reservas, calendario','club')+
+                bizItem('organizacion','bx-trophy','Ligas','Club, liga, escuela...','organizacion')+
                 bizItem('tienda','bx-store','Tienda','Productos deportivos','tienda')+
                 '<div style="border-top:1px solid #1a1a1a;padding-top:12px;margin-top:4px;display:flex;flex-direction:column;gap:8px;">'+
                   '<button data-action="login-biz" style="background:transparent;border:1px solid rgba(186,255,0,0.25);color:#baff00;padding:11px;border-radius:12px;font-weight:800;font-size:12px;cursor:pointer;">YA TENGO CUENTA → INICIAR SESIÓN</button>'+

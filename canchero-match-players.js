@@ -63,6 +63,11 @@ window.CancheroMatchPlayers = (function () {
                     ${_buildTeamList(teamAway, 'away', matchId, isCaptainAway, match.captain_away_changes || 0)}
                 </div>
             </div>
+            ${isCaptainHome ? `
+            <button onclick="CancheroMatchPlayers.balancearEquipos('${matchId}')" style="width:100%;background:linear-gradient(135deg,#baff00,#8fd400);color:#000;border:none;border-radius:12px;padding:12px;font-weight:900;font-size:14px;cursor:pointer;margin-bottom:10px;box-shadow:0 4px 16px rgba(186,255,0,0.22);">
+                <i class='bx bx-transfer-alt'></i> BALANCEAR EQUIPOS
+            </button>
+            <div style="font-size:10px;color:#555;text-align:center;margin:-4px 0 12px;">Reparte los jugadores parejos por valoración. Los capitanes no se mueven.</div>` : ''}
             ${isCaptain ? `
             <div style="background:#111;border:1px solid #222;border-radius:12px;padding:12px;margin-bottom:10px;">
                 <div style="font-size:11px;color:#555;font-weight:900;letter-spacing:1px;margin-bottom:8px;">CAMBIAR CAPITÁN (máx 2 veces por equipo)</div>
@@ -79,6 +84,74 @@ window.CancheroMatchPlayers = (function () {
 
         modal.onclick = e => { if (e.target === modal) modal.remove(); };
         document.body.appendChild(modal);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // BALANCEAR EQUIPOS — reparte parejo por valoración, anclando capitanes
+    // ═══════════════════════════════════════════════════════════
+    async function balancearEquipos(matchId) {
+        const sb = getSb(); const user = getUser();
+        if (!sb || !user) { toast('Sin conexión.', 'error'); return; }
+
+        const { data: match } = await sb.from('matches').select('*').eq('id', matchId).single();
+        if (!match) { toast('Partido no encontrado.', 'error'); return; }
+        const isCaptainHome = match.created_by === user.email || match.captain_home_email === user.email;
+        if (!isCaptainHome) { toast('Solo el organizador puede balancear.', 'error'); return; }
+
+        const { data: players } = await sb.from('match_players').select('*').eq('match_id', matchId);
+        if (!players || players.length < 2) { toast('Hacen falta al menos 2 jugadores.', 'info'); return; }
+
+        // Valoraciones desde users.stats.rating (fallback 50 = base).
+        const emails = players.map(p => (p.player_email || '').toLowerCase()).filter(Boolean);
+        const ratingBy = {};
+        try {
+            const { data: us } = await sb.from('users').select('email,stats').in('email', emails);
+            (us || []).forEach(u => {
+                const r = u.stats && typeof u.stats === 'object' ? u.stats.rating : null;
+                ratingBy[(u.email || '').toLowerCase()] = parseInt(r) || 50;
+            });
+        } catch(e) { console.warn('[balancear] ratings:', e && e.message); }
+        const val = p => ratingBy[(p.player_email || '').toLowerCase()] || 50;
+
+        // Capitanes anclados: se quedan en su equipo. El resto se reparte.
+        const homeCapEmail = (match.captain_home_email || match.created_by || '').toLowerCase();
+        const awayCapEmail = (match.captain_away_email || '').toLowerCase();
+        const perTeam = Math.floor((match.slots_total || players.length) / 2);
+
+        const home = [], away = [];
+        let sumHome = 0, sumAway = 0;
+        const resto = [];
+        players.forEach(p => {
+            const em = (p.player_email || '').toLowerCase();
+            if (em && em === homeCapEmail) { home.push(p); sumHome += val(p); }
+            else if (em && em === awayCapEmail) { away.push(p); sumAway += val(p); }
+            else resto.push(p);
+        });
+        // Greedy: del mejor al peor, al equipo con menor suma (respetando cupo).
+        resto.sort((a, b) => val(b) - val(a));
+        resto.forEach(p => {
+            const homeFull = home.length >= perTeam && away.length < perTeam;
+            const awayFull = away.length >= perTeam && home.length < perTeam;
+            const toHome = homeFull ? false : awayFull ? true : (sumHome <= sumAway);
+            if (toHome) { home.push(p); sumHome += val(p); }
+            else { away.push(p); sumAway += val(p); }
+        });
+
+        // Persistir solo los que cambiaron de equipo.
+        const updates = [];
+        home.forEach(p => { if ((p.team || 'home') !== 'home') updates.push({ p, team: 'home' }); });
+        away.forEach(p => { if (p.team !== 'away') updates.push({ p, team: 'away' }); });
+        try {
+            for (const u of updates) {
+                await sb.from('match_players').update({ team: u.team })
+                    .eq('match_id', matchId).eq('player_email', u.p.player_email);
+            }
+        } catch(e) { console.warn('[balancear] update:', e && e.message); toast('No se pudo guardar el balance.', 'error'); return; }
+
+        const promH = home.length ? Math.round(sumHome / home.length) : 0;
+        const promA = away.length ? Math.round(sumAway / away.length) : 0;
+        toast('Equipos balanceados — Local ' + promH + ' vs Visitante ' + promA + ' (dif ' + Math.abs(promH - promA) + ')', 'success');
+        openPlayersPanel(matchId);
     }
 
     function _buildTeamList(players, team, matchId, isCaptain, captainChanges) {
@@ -120,12 +193,112 @@ window.CancheroMatchPlayers = (function () {
                 <input id="invite-search-input" type="text" placeholder="Buscar jugador..." oninput="CancheroMatchPlayers._searchPlayers(this.value,'${matchId}','${team}')"
                     style="flex:1;background:#111;border:1px solid #333;color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;">
             </div>
+            <div id="invite-suggested-label" style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;margin-bottom:6px;display:none;">SUGERIDOS PARA ESTE PARTIDO</div>
             <div id="invite-search-results" style="max-height:300px;overflow-y:auto;">
-                <div style="text-align:center;padding:20px;color:#555;">Escribí el nombre del jugador</div>
+                <div style="text-align:center;padding:16px;color:#555;"><i class="bx bx-loader-alt bx-spin"></i></div>
             </div>
         </div>`;
         modal.onclick = e => { if (e.target === modal) modal.remove(); };
         document.body.appendChild(modal);
+        _suggestPlayers(matchId, team);
+    }
+
+    // Sugiere jugadores para el partido: prioriza los que cubren una posición faltante
+    // del equipo y cuya valoración está más cerca del nivel del partido.
+    async function _suggestPlayers(matchId, team) {
+        const results = document.getElementById('invite-search-results');
+        const label = document.getElementById('invite-suggested-label');
+        if (!results) return;
+        const sb = getSb();
+        if (!sb) return;
+        try {
+            const { data: match } = await sb.from('matches').select('*').eq('id', matchId).single();
+            const { data: inMatch } = await sb.from('match_players').select('player_email,position,team').eq('match_id', matchId);
+            const taken = new Set((inMatch || []).map(p => (p.player_email || '').toLowerCase()));
+
+            // Posiciones que ya tiene ESTE equipo → las faltantes valen más.
+            const POS = ['ARQ', 'DEF', 'MED', 'DEL'];
+            const normPos = p => {
+                const s = (p || '').toUpperCase();
+                if (/ARQ|GK|ARQUERO|PORTERO/.test(s)) return 'ARQ';
+                if (/DEF|ZAG|LAT|BACK/.test(s)) return 'DEF';
+                if (/MED|VOL|MID|CARRIL/.test(s)) return 'MED';
+                if (/DEL|PUN|ATA|FWD|EXT/.test(s)) return 'DEL';
+                return s || 'MED';
+            };
+            const teamPos = new Set((inMatch || []).filter(p => (p.team || 'home') === team).map(p => normPos(p.position)));
+            const faltantes = POS.filter(p => !teamPos.has(p));
+
+            // Nivel objetivo: del partido si lo declaró; si no, el del organizador.
+            const R = window.CancheroRating;
+            let target = 65;
+            if (match && match.skill_level && R && R.NIVELES) {
+                const n = R.NIVELES.find(x => x.id === match.skill_level);
+                if (n) target = Math.round((n.min + n.max) / 2);
+            } else if (window.userData && window.userData.stats && window.userData.stats.rating) {
+                target = parseInt(window.userData.stats.rating) || 65;
+            }
+
+            // Candidatos: misma ciudad primero, sin bots, no ya anotados.
+            const _cols = 'email,name,photo,city,pos,stats,availability_schedule';
+            let q = sb.from('users').select(_cols).neq('role', 'bot');
+            if (match && match.city) q = q.eq('city', match.city);
+            let { data: cands, error: _ce } = await q.limit(60);
+            if (_ce && /availability_schedule/.test(_ce.message||'')) {
+                // La columna puede no existir aún: reintentar sin ella.
+                const r0 = await sb.from('users').select('email,name,photo,city,pos,stats').neq('role','bot').eq('city', (match&&match.city)||'').limit(60);
+                cands = r0.data || [];
+            }
+            if ((!cands || cands.length < 5)) {
+                const r2 = await sb.from('users').select(_cols).neq('role', 'bot').limit(60);
+                cands = r2.data || cands || [];
+                if (r2.error && /availability_schedule/.test(r2.error.message||'')) {
+                    const r3 = await sb.from('users').select('email,name,photo,city,pos,stats').neq('role','bot').limit(60);
+                    cands = r3.data || cands || [];
+                }
+            }
+            // ¿El partido cae en la franja de disponibilidad del candidato?
+            const matchDate = (match && match.scheduled_at) ? new Date(match.scheduled_at) : null;
+            const dispEnHorario = u => {
+                if (!matchDate || !window._scheduleCoversDate) return false;
+                return window._scheduleCoversDate(u.availability_schedule, matchDate);
+            };
+            const me = (window.userData && window.userData.email || '').toLowerCase();
+            const ranked = (cands || [])
+                .filter(u => u.email && !taken.has(u.email.toLowerCase()) && u.email.toLowerCase() !== me && !(window._esCuentaPrueba && window._esCuentaPrueba(u)))
+                .map(u => {
+                    const rating = (u.stats && typeof u.stats === 'object' ? parseInt(u.stats.rating) : 0) || 50;
+                    const pos = normPos(u.pos);
+                    const cubre = faltantes.includes(pos);
+                    const dispo = dispEnHorario(u);
+                    // Puntaje: disponible en el horario del partido + cubrir posición faltante + cercanía de nivel.
+                    const score = (dispo ? 120 : 0) + (cubre ? 100 : 0) - Math.abs(rating - target);
+                    return { u, rating, pos, cubre, dispo, score };
+                })
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 8);
+
+            if (!ranked.length) {
+                results.innerHTML = '<div style="text-align:center;padding:20px;color:#555;">Buscá un jugador por nombre</div>';
+                return;
+            }
+            if (label) label.style.display = 'block';
+            results.innerHTML = ranked.map(({ u, rating, pos, cubre, dispo }) => `
+                <div onclick="CancheroMatchPlayers._sendInvite('${matchId}','${u.email.replace(/'/g,"\\'")}','${(u.name||'').replace(/'/g,"\\'")}','${team}')"
+                    style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #1a1a1a;cursor:pointer;transition:.15s;" onmouseover="this.style.background='rgba(186,255,0,0.05)'" onmouseout="this.style.background='transparent'">
+                    ${u.photo ? `<img src="${u.photo}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;">` : `<div style="width:40px;height:40px;border-radius:50%;background:rgba(186,255,0,0.1);display:flex;align-items:center;justify-content:center;font-weight:900;color:var(--accent);flex-shrink:0;">${(u.name||'?')[0].toUpperCase()}</div>`}
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.name||u.email}</div>
+                        <div style="font-size:10px;color:#666;">${pos} · Nv ${rating} · ${u.city||''}</div>
+                    </div>
+                    ${dispo ? `<span style="background:rgba(0,230,118,0.12);color:#00e676;border-radius:6px;padding:2px 6px;font-size:9px;font-weight:900;margin-right:4px;white-space:nowrap;">DISPONIBLE</span>` : ''}
+                    ${cubre ? `<span style="background:rgba(186,255,0,0.12);color:var(--accent);border-radius:6px;padding:2px 6px;font-size:9px;font-weight:900;margin-right:4px;">CUBRE ${pos}</span>` : ''}
+                    <button style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:900;cursor:pointer;">INVITAR</button>
+                </div>`).join('');
+        } catch(e) {
+            console.warn('[sugerir jugadores]', e && e.message);
+            results.innerHTML = '<div style="text-align:center;padding:20px;color:#555;">Buscá un jugador por nombre</div>';
+        }
     }
 
     window.CancheroMatchPlayers = window.CancheroMatchPlayers || {};
@@ -134,11 +307,14 @@ window.CancheroMatchPlayers = (function () {
     async function _searchPlayers(query, matchId, team) {
         clearTimeout(_searchTimeout);
         const results = document.getElementById('invite-search-results');
+        const label = document.getElementById('invite-suggested-label');
         if (!results) return;
         if (!query || query.length < 2) {
-            results.innerHTML = '<div style="text-align:center;padding:20px;color:#555;">Escribí al menos 2 caracteres</div>';
+            // Sin texto: volver a mostrar los sugeridos del partido.
+            _suggestPlayers(matchId, team);
             return;
         }
+        if (label) label.style.display = 'none';
         _searchTimeout = setTimeout(async () => {
             results.innerHTML = '<div style="text-align:center;padding:16px;color:#555;"><i class="bx bx-loader-alt bx-spin"></i></div>';
             const sb = getSb();
@@ -476,6 +652,7 @@ window.CancheroMatchPlayers = (function () {
 
     return {
         openPlayersPanel,
+        balancearEquipos,
         openInvitePlayer,
         _searchPlayers,
         _sendInvite,

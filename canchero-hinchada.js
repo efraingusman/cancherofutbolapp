@@ -311,11 +311,10 @@ H.compartir = function(payload){
   const ex = document.getElementById('hin-share'); if (ex) ex.remove();
   const m = document.createElement('div');
   m.id = 'hin-share';
-  m.style.cssText = 'position:fixed;inset:0;z-index:21500;background:rgba(0,0,0,.78);backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;';
+  m.style.cssText = 'position:fixed;inset:0;z-index:100080;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
   m.onclick = e => { if (e.target === m) m.remove(); };
   const btn = 'width:100%;display:flex;align-items:center;gap:12px;border-radius:14px;padding:14px 15px;font-weight:800;font-size:13.5px;cursor:pointer;margin-bottom:8px;text-align:left;';
-  m.innerHTML = `<div style="width:100%;max-width:460px;background:#0d0d0d;border:1px solid #1e1e1e;border-radius:20px 20px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom));">
-    <div style="width:38px;height:4px;border-radius:3px;background:#333;margin:0 auto 14px;"></div>
+  m.innerHTML = `<div style="width:100%;max-width:400px;background:#0d0d0d;border:1px solid #1e1e1e;border-radius:20px;padding:18px 16px;">
     <div style="font-size:14px;font-weight:900;color:#fff;margin-bottom:4px;">Compartir</div>
     <div style="font-size:11.5px;color:#888;margin-bottom:14px;line-height:1.45;">${esc((payload&&payload.titulo)||'')}</div>
     <button onclick="window.CancheroHinchada._share('feed')" style="${btn}background:rgba(186,255,0,.12);color:var(--accent);border:1px solid rgba(186,255,0,.3);"><i class='bx bx-home-alt' style="font-size:18px;"></i> Publicar en el inicio</button>

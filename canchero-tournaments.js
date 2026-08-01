@@ -42,7 +42,7 @@ window.CancheroTournaments = (function() {
         return `<span style="width:${size}px;height:${size}px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:#0d120d;border:2px solid rgba(186,255,0,0.75);box-shadow:0 0 10px rgba(186,255,0,0.25);overflow:hidden;">${inner}</span>`;
     }
 
-    // ¿El usuario actual es LA ORGANIZACIÓN creadora, con su identidad de organización activa?
+    // ¿El usuario actual es LA LIGAS creadora, con su identidad de organización activa?
     // (Multi-identidad: el mismo email puede entrar como jugador/fanático — en esos roles
     //  NO debe poder gestionar el torneo.)
     function _isOrgActive(organizerEmail) {
@@ -345,6 +345,7 @@ window.CancheroTournaments = (function() {
                             <option value="">Sin especificar</option>
                             <option value="5">Fútbol 5</option>
                             <option value="7">Fútbol 7</option>
+                            <option value="8">Fútbol 8</option>
                             <option value="11">Fútbol 11</option>
                         </select></div>
                     <div id="ct-gs-wrap"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:5px;">EQUIPOS POR GRUPO</label>
@@ -3495,7 +3496,7 @@ window.CancheroTournaments = (function() {
             ${inp('cte-name','NOMBRE',t.name)}
             <div style="margin-bottom:10px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">DESCRIPCIÓN / AVISOS</label><textarea id="cte-desc" rows="2" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;box-sizing:border-box;resize:vertical;">${_esc(t.description||'')}</textarea></div>
             ${inp('cte-city','CIUDAD',t.city)}
-            <div style="margin-bottom:10px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">COMPLEJO REGISTRADO EN CANCHERO</label>
+            <div style="margin-bottom:10px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">CANCHAS REGISTRADO EN CANCHERO</label>
                 <select id="cte-complex" onchange="CancheroTournaments._cteCargarCanchas(this.value)" style="${selSty}">
                     <option value="">— Sin complejo / a definir —</option>
                 </select>
@@ -3521,7 +3522,7 @@ window.CancheroTournaments = (function() {
                 <div style="margin-bottom:10px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">TIPO DE FÚTBOL</label>
                     <select id="cte-match-format" style="${selSty}">
                         <option value="" ${!t.match_format?'selected':''}>Sin especificar</option>
-                        ${[5,7,11].map(n => `<option value="${n}" ${String(t.match_format)===String(n)?'selected':''}>Fútbol ${n}</option>`).join('')}
+                        ${[5,7,8,11].map(n => `<option value="${n}" ${String(t.match_format)===String(n)?'selected':''}>Fútbol ${n}</option>`).join('')}
                     </select></div>
                 <div style="margin-bottom:10px;"><label style="font-size:10px;color:#666;font-weight:900;letter-spacing:1px;display:block;margin-bottom:4px;">MÁX. EQUIPOS</label>
                     <select id="cte-max-teams" style="${selSty}">
@@ -3563,7 +3564,7 @@ window.CancheroTournaments = (function() {
         _cteLlenarComplejos(t.complex_email, t.venue);
     }
 
-    // Complejos registrados en Canchero. OJO: los negocios viven en business_requests,
+    // Canchas registrados en Canchero. OJO: los negocios viven en business_requests,
     // NO en users — la fila de users con rol de negocio puede no existir. Se leen las dos
     // tablas y se unifican por email, si no el selector salía vacío teniendo complejos.
     async function _listarComplejos() {
@@ -4311,8 +4312,8 @@ window.CancheroTournaments = (function() {
 
         const contacto = `
         <div style="${caja}">
-            <div style="font-size:10px;color:#666;font-weight:900;letter-spacing:1.4px;margin-bottom:10px;">CONTACTAR A LA ORGANIZACIÓN</div>
-            <div style="font-size:13px;font-weight:800;margin-bottom:12px;">${_esc(org.name || t.organizer_email || 'Organización')}</div>
+            <div style="font-size:10px;color:#666;font-weight:900;letter-spacing:1.4px;margin-bottom:10px;">CONTACTAR A LA LIGAS</div>
+            <div style="font-size:13px;font-weight:800;margin-bottom:12px;">${_esc(org.name || t.organizer_email || 'Ligas')}</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 ${org.pref !== 'whatsapp' ? `<button onclick="CancheroTournaments._contactOrg('chat','${tournamentId}')" style="flex:1;min-width:140px;background:rgba(186,255,0,0.12);color:var(--accent);border:1px solid rgba(186,255,0,0.3);border-radius:12px;padding:12px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;"><i class='bx bx-message-dots'></i> Chat de Canchero</button>` : ''}
                 ${wsp ? `<button onclick="CancheroTournaments._contactOrg('wa','${tournamentId}')" style="flex:1;min-width:140px;background:#25D366;color:#000;border:none;border-radius:12px;padding:12px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;"><i class='bx bxl-whatsapp' style="font-size:17px;"></i> WhatsApp</button>` : ''}
@@ -4382,8 +4383,11 @@ window.CancheroTournaments = (function() {
         const { data: t } = await sb.from('tournaments').select('name,organizer_email').eq('id', tournamentId).single();
         if (!t) return;
         if (via === 'wa') {
-            const num = (await _orgContacto(t.organizer_email)).whatsapp;
+            let num = (await _orgContacto(t.organizer_email)).whatsapp;
             if (!num) { toast('La organización no publicó WhatsApp.', 'info'); return; }
+            // Normalizar a internacional (Uruguay 598) para que wa.me funcione.
+            num = String(num).replace(/[^\d]/g, '');
+            if (!num.startsWith('598')) { if (num.startsWith('0')) num = num.slice(1); if (num.length <= 9) num = '598' + num; }
             const txt = `Hola! Te escribo por el torneo ${t.name} que vi en Canchero.`;
             window.open(`https://wa.me/${num}?text=${encodeURIComponent(txt)}`, '_blank');
             return;

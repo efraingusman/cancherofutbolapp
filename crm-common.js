@@ -253,7 +253,10 @@ window.crmCajaLoad = async function(){
   var list = document.getElementById('caja-list'); if (!list) return;
   list.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#666;padding:16px;">Cargando...</td></tr>';
   try {
-    var r = await sb.from('business_cashflow').select('*').eq('business_email', BIZ_EMAIL).order('created_at',{ascending:false}).limit(300);
+    // ilike (case-insensitive) en vez de eq: los ingresos automáticos (inscripciones a
+    // torneos) se insertan con organizer_email, cuyo casing puede diferir de BIZ_EMAIL.
+    // Con eq exacto esos movimientos no aparecían y el total quedaba en $0. (B6)
+    var r = await sb.from('business_cashflow').select('*').ilike('business_email', BIZ_EMAIL).order('created_at',{ascending:false}).limit(300);
     var rows = r.data || [];
     var tin = 0, tout = 0;
     rows.forEach(function(x){ if (x.type==='ingreso') tin += Number(x.amount)||0; else tout += Number(x.amount)||0; });
@@ -289,7 +292,7 @@ window.crmCajaAdd = function(type){
     if (!concept) { _t('Poné un concepto.'); return; }
     if (!(amount > 0)) { _t('Poné un monto mayor a 0.'); return; }
     try {
-      var ins = await sb.from('business_cashflow').insert({ business_email: BIZ_EMAIL, type: type, concept: concept, amount: amount });
+      var ins = await sb.from('business_cashflow').insert({ business_email: (BIZ_EMAIL||'').toLowerCase(), type: type, concept: concept, amount: amount });
       if (ins.error) throw ins.error;
       m.remove(); _t(esIn?'Ingreso registrado.':'Egreso registrado.'); crmCajaLoad();
     } catch(e){ _t('Error: ' + (e.message||'')); }

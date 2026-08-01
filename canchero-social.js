@@ -310,7 +310,7 @@ window.CancheroSocial = (function(){
       });
       cands = cands.slice(0, 10);
       if (!cands.length) return;
-      const roleLabel = { jugador:'Jugador', club:'Club', complejo:'Complejo', tienda:'Tienda', profesional:'Profesional', organizacion:'Organización' };
+      const roleLabel = { jugador:'Jugador', club:'Club', complejo:'Canchas', tienda:'Tienda', profesional:'Profesional', organizacion:'Ligas' };
       const card = x => {
         const em=(x.email||'').replace(/'/g,"\\'"); const nm=(x.name||x.email.split('@')[0]).replace(/'/g,"\\'");
         // MISMO encuadre que toda la app (photoStyle del usuario o rostro center 25%)

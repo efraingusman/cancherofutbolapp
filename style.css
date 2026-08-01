@@ -1108,9 +1108,19 @@ select option:hover {
 /* AVAILABILITY GRID */
 .availability-grid {
     display: grid;
-    grid-template-columns: auto 1fr 1fr 1fr;
+    /* minmax(0,1fr) en las franjas: 1fr solo no baja de su contenido mínimo y la
+       columna NOCHE se salía por la derecha en el modal angosto de celular. */
+    grid-template-columns: minmax(52px, max-content) repeat(3, minmax(0, 1fr));
     gap: 4px;
+    width: 100%;
     max-width: 400px;
+    box-sizing: border-box;
+}
+/* Celular: la grilla nunca debe exceder el ancho del modal (si no, se corta NOCHE). */
+@media (max-width: 599px) {
+    .availability-grid { max-width: 100%; gap: 3px; }
+    .availability-grid .availability-header { font-size: 9px; padding: 6px 2px; letter-spacing: 0; white-space: nowrap; }
+    .availability-grid .avail-cell { padding: 9px 2px; font-size: 10px; }
 }
 .availability-header {
     font-size: 10px;
@@ -1236,7 +1246,7 @@ select option:hover {
 .fanatico-profile #jugador-profile-logros { display: none !important; }
 /* Hinchada: al reves que las de arriba — solo existe en el perfil de FANATICO. */
 .profile-tab.fanatico-only { display: none; }
-.fanatico-profile .profile-tab.fanatico-only { display: flex !important; }
+.fanatico-profile .profile-tab.fanatico-only { display: flex !important; align-items: center !important; justify-content: center !important; }
 .fanatico-profile #fanatico-extra { display: block !important; }
 
 /* ── FASE 0 — Modo NEGOCIO (tienda/complejo/organización/sponsor/profesional) ──
@@ -5709,7 +5719,9 @@ body.r2-wheel-open { overflow: hidden !important; touch-action: none !important;
   body.is-internal .dashboard-content { padding-top: 0; }
 }
 /* Tabs del perfil sólo-ícono */
-.profile-tabs-icons .profile-tab { font-size: 0 !important; padding: 12px 4px !important; }
+/* Todas las celdas del mismo ancho → iconos con separación idéntica (aun en mobile,
+   donde .profile-tab usa flex:1 0 auto y cada glyph de boxicons mide distinto). */
+.profile-tabs-icons .profile-tab { flex: 1 1 0 !important; min-width: 0 !important; font-size: 0 !important; padding: 12px 4px !important; }
 .profile-tabs-icons .profile-tab i { font-size: 22px !important; line-height: 1; }
 .profile-tabs-icons .profile-tab.active i { color: var(--accent); }
 /* Bloques embebidos (estadísticas / logros) bajo la bio */

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Canchero · Panel Organización</title>
+<title>Canchero · Panel Ligas</title>
 <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -52,9 +52,11 @@
   .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;}
   .badge-pending{background:rgba(255,180,0,0.15);color:var(--orange);}
   .badge-confirmed{background:rgba(186,255,0,0.12);color:var(--accent);}
-  .modal{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);padding:16px;}
+  .modal{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);padding:16px;overflow-y:auto;}
   .modal.open{display:flex;}
-  .modal-inner{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:100%;max-width:480px;padding:24px;max-height:90vh;overflow-y:auto;}
+  .modal-inner{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:100%;max-width:480px;padding:24px;max-height:calc(100dvh - 32px);overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));}
+  /* En móvil: anclar arriba y permitir scroll de toda la hoja para que el botón Crear nunca quede tapado por la barra inferior. */
+  @media (max-height:720px){ .modal{align-items:flex-start;padding-top:12px;padding-bottom:calc(72px + env(safe-area-inset-bottom,0px));} .modal-inner{max-height:none;} }
   .toast{position:fixed;bottom:20px;right:20px;background:var(--bg2);border:1px solid var(--accent);color:var(--accent);padding:10px 16px;border-radius:10px;font-size:13px;font-weight:700;z-index:99999;animation:ti .3s ease;}
   @keyframes ti{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
   .crm-mobile-topbar{display:none;position:fixed;top:0;left:0;right:0;z-index:300;height:44px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;padding:0 14px;gap:10px;}
@@ -71,11 +73,11 @@
 </style>
 </head>
 <body>
-<div class="crm-mobile-topbar" id="crm-mob-bar"><button onclick="toggleCrmSidebar()" style="background:none;border:none;color:#aaa;font-size:24px;cursor:pointer;padding:4px;"><i class='bx bx-menu'></i></button><span class="brand"><i class='bx bx-trophy'></i> Panel Organización</span></div>
+<div class="crm-mobile-topbar" id="crm-mob-bar"><button onclick="toggleCrmSidebar()" style="background:none;border:none;color:#aaa;font-size:24px;cursor:pointer;padding:4px;"><i class='bx bx-menu'></i></button><span class="brand"><i class='bx bx-trophy'></i> Panel Ligas</span></div>
 <div class="crm-mobile-overlay" id="crm-overlay" onclick="toggleCrmSidebar()"></div>
 <div class="app">
   <nav class="sidebar" id="crm-sidebar">
-    <div class="sidebar-brand"><div class="brand-name" id="biz-name">Mi Organización</div><div class="brand-role"><i class='bx bx-trophy' style="vertical-align:-2px;"></i> Panel Organización</div></div>
+    <div class="sidebar-brand"><div class="brand-name" id="biz-name">Mi Ligas</div><div class="brand-role"><i class='bx bx-trophy' style="vertical-align:-2px;"></i> Panel Ligas</div></div>
     <div class="sidebar-section">
       <div class="sidebar-title">Principal</div>
       <div class="nav-item active" onclick="showPage('dashboard',this)"><i class='bx bx-grid-alt'></i> Dashboard</div>
@@ -234,7 +236,7 @@
       <input type="hidden" id="prof-frame-org" value="">
       <!-- Info -->
       <div class="card" style="padding:20px;margin-bottom:16px;">
-        <div style="font-family:var(--font);font-size:13px;font-weight:900;margin-bottom:14px;color:var(--accent);">Información de la Organización</div>
+        <div style="font-family:var(--font);font-size:13px;font-weight:900;margin-bottom:14px;color:var(--accent);">Información de las Ligas</div>
         <div style="display:grid;gap:12px;">
           <div><label class="form-label">DESCRIPCIÓN / BIO</label><textarea id="prof-bio-org" rows="3" class="form-input" style="resize:vertical;" placeholder="Describí tu organización, torneos que organizás..."></textarea></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -265,7 +267,7 @@
   <!-- Los value coinciden con el motor CancheroTournaments (_generateFixture): league / elimination / groups -->
   <div class="form-group"><label class="form-label">Tipo</label><select id="t-type" class="form-input" onchange="_onTipoTorneo()"><option value="league">Liga (todos contra todos)</option><option value="elimination">Eliminatoria (playoffs)</option><option value="groups">Copa (grupos + playoffs)</option></select></div>
   <div style="display:flex;gap:8px;">
-    <div class="form-group" style="flex:1;"><label class="form-label">Tipo de fútbol</label><select id="t-match-format" class="form-input"><option value="">Sin especificar</option><option value="5">Fútbol 5</option><option value="7">Fútbol 7</option><option value="11">Fútbol 11</option></select></div>
+    <div class="form-group" style="flex:1;"><label class="form-label">Tipo de fútbol</label><select id="t-match-format" class="form-input"><option value="">Sin especificar</option><option value="5">Fútbol 5</option><option value="7">Fútbol 7</option><option value="8">Fútbol 8</option><option value="11">Fútbol 11</option></select></div>
     <div class="form-group" style="flex:1;"><label class="form-label">Máx. equipos anotados</label><select id="t-max-teams" class="form-input"><option value="4">4</option><option value="8" selected>8</option><option value="12">12</option><option value="16">16</option><option value="24">24</option><option value="32">32</option><option value="48">48</option><option value="64">64</option></select></div>
   </div>
   <div style="display:flex;gap:8px;" id="t-groups-row">
@@ -277,7 +279,7 @@
     <div class="form-group" style="flex:1;"><label class="form-label">Departamento / Ciudad</label><select id="t-city" class="form-input"><option value="">Elegir…</option></select></div>
   </div>
   <!-- Dónde se juega: complejo registrado (opcional) + cancha/sede -->
-  <div class="form-group"><label class="form-label">Complejo (registrado en Canchero)</label><select id="t-complex" class="form-input" onchange="_onComplexPick()"><option value="">— Sin complejo / a definir —</option></select></div>
+  <div class="form-group"><label class="form-label">Canchas (registrado en Canchero)</label><select id="t-complex" class="form-input" onchange="_onComplexPick()"><option value="">— Sin complejo / a definir —</option></select></div>
   <div class="form-group"><label class="form-label">Cancha(s) / sede</label><input id="t-venue" type="text" class="form-input" placeholder="Ej: Cancha 1 y 2, o dirección"></div>
   <div style="display:flex;gap:8px;">
     <div class="form-group" style="flex:1;"><label class="form-label">Inicio</label><input id="t-start" type="date" class="form-input"></div>
@@ -306,15 +308,15 @@ if(!saved){window.location.href='crm.html';throw '';}
 BIZ=JSON.parse(saved);
 if(BIZ.account_status!=='activo'&&BIZ.account_status!=='active'){window.location.href='crm.html';throw '';}
 BIZ_EMAIL=BIZ.email;
-document.getElementById('biz-name').textContent=BIZ.name||'Mi Organización';
+document.getElementById('biz-name').textContent=BIZ.name||'Mi Ligas';
 
 // ── Puente con el motor de torneos (canchero-tournaments.js) ──────────────
 // CancheroTournaments espera window._sb, window.userData y window.showToast.
-// Con esto, la Organización gestiona torneos con TODAS las opciones (equipos,
+// Con esto, la Ligas gestiona torneos con TODAS las opciones (equipos,
 // fixture con cruces automáticos, tabla, jugadores, goleadores) sin duplicar código.
 try {
   window._sb = sb;
-  window.userData = { email: BIZ_EMAIL, name: BIZ.name || 'Organización', role: 'organizacion' };
+  window.userData = { email: BIZ_EMAIL, name: BIZ.name || 'Ligas', role: 'organizacion' };
   window.showToast = window.showToast || function(m,t){ try{ toast(m,t);}catch(e){} };
 } catch(e){}
 window.orgGestionarTorneo = function(id){
@@ -443,7 +445,7 @@ async function openTorneoModal(){
   // Departamentos
   const cs=document.getElementById('t-city');
   if(cs && cs.options.length<=1){ cs.innerHTML='<option value="">Elegir…</option>'+DEPARTAMENTOS_UY.map(d=>`<option value="${d}">${d}</option>`).join(''); }
-  // Complejos registrados
+  // Canchas registrados
   const xs=document.getElementById('t-complex');
   if(xs){
     // Los negocios viven en business_requests, NO en users: mirando solo users el
@@ -573,7 +575,7 @@ async function confirmInscr(id){
   try{
     const{data:t}=await sb.from('tournaments').select('name,entry_fee').eq('id',team.tournament_id).single();
     if(team&&team.captain_email){
-      await sb.from('notifications').insert({recipient_email:team.captain_email,type:'torneo_solicitud',actor_name:BIZ.name||'Organización',actor_email:BIZ_EMAIL,message:`Tu equipo ${team.team_name} fue ACEPTADO en ${t?t.name:'el torneo'}.`,post_id:team.tournament_id,read:false});
+      await sb.from('notifications').insert({recipient_email:team.captain_email,type:'torneo_solicitud',actor_name:BIZ.name||'Ligas',actor_email:BIZ_EMAIL,message:`Tu equipo ${team.team_name} fue ACEPTADO en ${t?t.name:'el torneo'}.`,post_id:team.tournament_id,read:false});
     }
     const fee=(t&&t.entry_fee)||0;
     if(fee>0 && team && team.payment_status!=='paid' && team.payment_status!=='waived'){
@@ -590,7 +592,7 @@ async function rejectInscr(id){await sb.from('tournament_teams').update({status:
 async function registrarPagoInscripcion(team, t, fee){
   try{ await sb.from('business_cashflow').insert({business_email:BIZ_EMAIL,type:'ingreso',concept:'Inscripción: '+(team.team_name||'equipo')+(t&&t.name?(' — '+t.name):''),amount:fee}); }catch(e){ toast('No se pudo registrar en Caja: '+(e.message||''),'error'); return false; }
   try{ await sb.from('tournament_teams').update({payment_status:'paid'}).eq('id',team.id); }catch(e){}
-  try{ if(team.captain_email) await sb.from('notifications').insert({recipient_email:team.captain_email,type:'torneo_pago',actor_name:BIZ.name||'Organización',actor_email:BIZ_EMAIL,message:`Recibimos el pago de inscripción de ${team.team_name}. ¡Gracias! Nos vemos en la cancha.`,post_id:team.tournament_id,read:false}); }catch(e){}
+  try{ if(team.captain_email) await sb.from('notifications').insert({recipient_email:team.captain_email,type:'torneo_pago',actor_name:BIZ.name||'Ligas',actor_email:BIZ_EMAIL,message:`Recibimos el pago de inscripción de ${team.team_name}. ¡Gracias! Nos vemos en la cancha.`,post_id:team.tournament_id,read:false}); }catch(e){}
   toast('Pago registrado en Caja.');
   return true;
 }
@@ -707,7 +709,7 @@ async function cliRemind(teamId){
   const t=_cliTeams.find(x=>String(x.id)===String(teamId)); if(!t||!t.captain_email){toast('El equipo no tiene capitán con cuenta.','error');return;}
   const{data:tor}=await sb.from('tournaments').select('name,entry_fee,payment_link').eq('id',t.tournament_id).single();
   try{
-    await sb.from('notifications').insert({recipient_email:t.captain_email,type:'torneo_pago',actor_name:BIZ.name||'Organización',actor_email:BIZ_EMAIL,message:`Recordatorio: falta el pago de inscripción de ${t.team_name} en ${tor?tor.name:'el torneo'} ($${(tor&&tor.entry_fee)||0}).${tor&&tor.payment_link?' Pagá en: '+tor.payment_link:''}`,post_id:t.tournament_id,read:false});
+    await sb.from('notifications').insert({recipient_email:t.captain_email,type:'torneo_pago',actor_name:BIZ.name||'Ligas',actor_email:BIZ_EMAIL,message:`Recordatorio: falta el pago de inscripción de ${t.team_name} en ${tor?tor.name:'el torneo'} ($${(tor&&tor.entry_fee)||0}).${tor&&tor.payment_link?' Pagá en: '+tor.payment_link:''}`,post_id:t.tournament_id,read:false});
     toast('Recordatorio enviado al capitán.');
   }catch(e){toast('No se pudo enviar: '+(e.message||''),'error');}
 }
@@ -787,15 +789,25 @@ async function sendComunicado(){
   const tName=(tInfo&&tInfo.name)||'el torneo';
   let sent=0;
   for(const em of recipients){
-    try{ await sb.from('notifications').insert({recipient_email:em,type:'torneo_comunicado',actor_name:BIZ.name||'Organización',actor_email:BIZ_EMAIL,message:`Comunicado de ${tName}: ${msg}`,post_id:tid,read:false}); sent++; }catch(e){}
+    try{ await sb.from('notifications').insert({recipient_email:em,type:'torneo_comunicado',actor_name:BIZ.name||'Ligas',actor_email:BIZ_EMAIL,message:`Comunicado de ${tName}: ${msg}`,post_id:tid,read:false}); sent++; }catch(e){}
   }
   if(document.getElementById('com-feed')?.checked){
-    try{ await sb.from('posts').insert({user_email:BIZ_EMAIL,user_name:BIZ.name||'Organización',content:'COMUNICADO OFICIAL — '+tName+'\n\n'+msg,created_at:new Date().toISOString()}); }catch(e){}
+    try{ await sb.from('posts').insert({user_email:BIZ_EMAIL,user_name:BIZ.name||'Ligas',content:'COMUNICADO OFICIAL — '+tName+'\n\n'+msg,created_at:new Date().toISOString()}); }catch(e){}
   }
   const log=document.getElementById('com-log');
   const _quien = (whoMode==='jugadores')?('jugador'+(sent===1?'':'es')):('capitán'+(sent===1?'':'es'));
   if(log) log.textContent='Enviado a '+sent+' '+_quien+' (les llega a la campana de notificaciones).';
   toast('Comunicado enviado a '+sent+' '+_quien+'.');
+}
+// Normaliza un número a formato internacional para wa.me. Uruguay por defecto (598).
+// Ej: 095639865 -> 59895639865 ; 95639865 -> 59895639865 ; 598... se deja igual.
+function _waNormUY(n){
+  n=(n||'').replace(/[^\d]/g,'');
+  if(n.startsWith('598')) return n;      // ya trae código de país UY
+  if(n.startsWith('0')) n=n.slice(1);    // saca el 0 del prefijo local
+  // Un móvil UY sin código son 8-9 dígitos; si es corto, asumimos que falta el 598.
+  if(n.length<=9) n='598'+n;
+  return n;
 }
 // WhatsApp: abre wa.me con el mensaje de arriba listo para enviar a un número puntual.
 // La organización ingresa el número y confirma el envío en WhatsApp (no se envía solo).
@@ -804,6 +816,7 @@ function comWhatsApp(){
   let phone=(document.getElementById('wa-phone')?.value||'').replace(/[^\d]/g,'');
   const msg=(document.getElementById('com-msg')?.value||'').trim();
   if(!phone){toast('Ingresá el número (con código de país).','error');return;}
+  phone=_waNormUY(phone);
   if(!msg){toast('Escribí el mensaje arriba primero.','error');return;}
   const saludo = name ? ('Hola '+name+', ') : '';
   const text = encodeURIComponent(saludo + msg);
@@ -834,7 +847,7 @@ async function saveFaq(){
 loadDashboard();
 </script>
   <script src="canchero-crm-ventas.js?v=20260624g"></script>
-<script src="crm-common.js?v=20260720j"></script>
+<script src="crm-common.js?v=20260729c"></script>
 <!-- Motor de torneos: equipos, fixture (cruces automáticos), tabla, jugadores, goleadores, vista pública -->
 <script src="canchero-tournaments.js?v=20260721f"></script>
 </body>
