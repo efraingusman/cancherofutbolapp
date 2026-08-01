@@ -111,17 +111,18 @@ WhatsApp; videos 59/62/63):
 - [x] **B6 — Caja (CRM): pone un ingreso de ejemplo y todo sigue en $0** — HECHO (v399): `crmCajaLoad` cargaba con `.eq('business_email',BIZ_EMAIL)` (exacto/case-sensitive) pero los ingresos auto de inscripciones se insertan con `organizer_email` (casing distinto) → no aparecían y total $0. Ahora `.ilike` + insert manual en minúsculas. Texto original:
 - [ ] ~~orig~~ **B6 — Caja (CRM): pone un ingreso de ejemplo y todo sigue en $0** / no encuentra dónde quedó
       (nota 4 + video 63). Bug: los ingresos no se reflejan en el total/otro lado. Revisar caja del CRM.
-- [ ] **B7 — Cambio de rol confuso / se cambia solo a jugador y no encuentra cómo volver a liga**
+- [x] **B7 — Cambio de rol confuso / se cambia solo a jugador** — HECHO (v404): `_syncRolesFromDb` sobreescribía el rol activo local con lo que trajera la DB. Si el save previo a DB falló (RLS/red) y el usuario cambió a negocio localmente, el próximo sync devolvía la app a "jugador" solo. Ahora **el sync NO pisa una identidad no-jugador con "jugador"**, y fuerza reguardar el local a DB para sincronizarlos. Falta B7-B (UI: hacer más obvio el botón de cambio de rol). Texto original:
+- [ ] ~~orig~~ **B7 — Cambio de rol confuso / se cambia solo a jugador y no encuentra cómo volver a liga**
       (recurrente, nota 5 + msg). El botón de cambiar rol de arriba no es claro y a veces cambia solo.
       Hacerlo obvio y estable. (Relacionado con el rediseño de roles y con la sesión que expira.)
-- [ ] **B8 — Notificación "te siguió" con un nombre pero el perfil decía otro; no dejaba seguir ni
+- [x] **B8 — Notificación "te siguió" con un nombre pero el perfil decía otro** — HECHO (v404): `follow()` silenciaba TODOS los errores (incluidos RLS reales) → el follow "no se concretaba" sin aviso. Ahora avisa por toast (excepto duplicados). Y la notif del follower ahora **etiqueta la identidad** ("El Sur FC (Ligas) ahora te sigue"), así el receptor entiende por qué al abrir el perfil ve el nombre base. Texto original:
+- [ ] ~~orig~~ **B8 — Notificación "te siguió" con un nombre pero el perfil decía otro; no dejaba seguir ni
       aparecía en seguidores** (video 62). Bug follows/notificaciones: nombre/identidad no coinciden
       y el follow no se concreta.
 - [x] **B9 — No puede sacar/cambiar la posición de jugador** — HECHO Y VERIFICADO EN VIVO (v400). OJO: el fix v398 fue al modal equivocado (`edit-info-modal`/`eif-pos`, camino muerto). El real es `edit-profile-modal` (`#edit-pos` en index.html, códigos POR/DC): (1) rellenado ya no fuerza `|| 'DC'`, (2) guardado escribe `pos` Y `position` respetando vacío, (3) opción "Sin definir" agregada, (4) display `info-pos` mapea código→label y cae a "—". Ver memoria [[canchero-dos-modales-editar-perfil]]. Texto original:
 - [ ] ~~orig~~ **B9 — No puede sacar/cambiar la posición de jugador** (queda en "delantero"). Menor, pero
       arreglar el selector de posición para que se pueda cambiar/vaciar.
-- [ ] **B10 — Torneos, funciones que valoran** (de copafacil): equipos+jugadores, fechas, resultados,
-      goles, **tarjetas** (agregar si falta), tablas, y **cruces al azar** (ya existe seeding — revisar).
+- [x] **B10 — Torneos, funciones que valoran** — TARJETAS YA ESTABAN: el editor de stats por jugador tiene amarillas/rojas (`ctep-yellow`, `ctep-red`, campos `yellow_cards`/`red_cards`), la ficha del jugador las muestra (canchero-tournaments.js:283), y suman al perfil global (`_bumpUserStats`). Cruces al azar ya funcionan (seeding aleatorio en generación de brackets). Todo lo demás (equipos+jugadores, fechas, resultados, goles, tablas) ya operativo.
 - [x] **B11 — Login/sesión se cierra solo** — HECHO (v399): `restoreSession` borraba `canchero_user`
       y avisaba "sesión expiró" apenas `getSession()` devolvía null (token vencido pre-refresh o
       hipo de red al arrancar). Ahora si hay sesión guardada intenta `refreshSession()` (hasta 2x
