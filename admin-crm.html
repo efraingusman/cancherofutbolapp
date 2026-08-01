@@ -4,8 +4,35 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Canchero · Admin CRM</title>
-<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+<!-- Gate de admin: oculta la página HASTA verificar sesión admin en Supabase. Sin sesión
+     válida se redirige al home. La seguridad real está en RLS del backend; esto evita que
+     el HTML del panel quede expuesto públicamente (antes: cualquiera veía todo el layout). -->
+<style>html,body{background:#070907;color:#070907;}body{visibility:hidden !important;}</style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+  const ADMIN_EMAIL = 'neurovidstudioia@gmail.com';
+  const SB_URL = 'https://dofbxgqzcvfjpnvcvdjb.supabase.co';
+  const SB_KEY = 'sb_publishable_gPwLXkMHk3HvFz9nm9hgKA_1D0IJBKA';
+  function kick(){ location.replace('/'); }
+  function wait(){
+    if (!window.supabase || !window.supabase.createClient) return setTimeout(wait, 40);
+    try {
+      const sb = window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'canchero-auth' } });
+      sb.auth.getSession().then(function(r){
+        const u = r && r.data && r.data.session && r.data.session.user;
+        const email = (u && u.email || '').toLowerCase();
+        if (email !== ADMIN_EMAIL) return kick();
+        // OK: mostrar la página
+        document.documentElement.style.background = '';
+        document.body.style.color = ''; document.body.style.visibility = 'visible';
+      }).catch(kick);
+    } catch(e) { kick(); }
+  }
+  wait();
+})();
+</script>
+<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Inter:wght@400;500;600&display=swap');
   :root {

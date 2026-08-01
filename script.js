@@ -1,5 +1,23 @@
 ﻿// v2026-05-28k
 // ============================================================
+// Seguridad: remover #view-admin del DOM lo antes posible salvo que la sesión guardada
+// sea admin. applyUserData también hace este cleanup para casos post-login/switch, pero
+// este runs ANTES (visitantes anónimos ni siquiera lo bajan en el DOM inspeccionable).
+// La seguridad real está en RLS del backend — esto solo evita exponer la UI.
+// ============================================================
+(function(){
+  function _stripAdminIfNotAdmin(){
+    try {
+      var raw = localStorage.getItem('canchero_user');
+      var em = ''; if (raw) { try { em = (JSON.parse(raw).email||'').toLowerCase(); } catch(e){} }
+      if (em === 'neurovidstudioia@gmail.com' || em === 'neurostudio.uy@gmail.com') return;
+      var va = document.getElementById('view-admin'); if (va) va.remove();
+    } catch(e){}
+  }
+  if (document.readyState !== 'loading') _stripAdminIfNotAdmin();
+  else document.addEventListener('DOMContentLoaded', _stripAdminIfNotAdmin, { once: true });
+})();
+// ============================================================
 // Anti-XSS helper global — escapa contenido de usuario antes de inyectarlo a innerHTML.
 // Usalo SIEMPRE para texto que viene de la DB o del input del usuario.
 // ============================================================
@@ -864,9 +882,24 @@ window._syncRolesFromDb = async function(){
         }
         const localActive = localStorage.getItem('canchero_active_profile');
         if (data.active_profile && data.active_profile !== localActive) {
-            localStorage.setItem('canchero_active_profile', data.active_profile);
-            if (data.active_profile === 'team' && data.active_team) localStorage.setItem('canchero_active_team', JSON.stringify(data.active_team));
-            changed = true;
+            // B7 (rol cambia solo a jugador): NO sobreescribir el rol activo LOCAL con el
+            // de la DB si el local es una identidad no-jugador (negocio/biz/team/fanático)
+            // y la DB trae 'jugador'. Ese caso ocurre cuando el save previo a DB falló por
+            // RLS/red o la fila DB nunca se actualizó desde este dispositivo — el sync
+            // barría la elección actual del usuario y la app "se cambiaba sola" a jugador.
+            const _sobreescribirOk = !(
+                data.active_profile === 'jugador' &&
+                localActive && localActive !== 'jugador' &&
+                (localActive.indexOf('biz:') === 0 || ['negocio','team','fanatico'].indexOf(localActive) !== -1)
+            );
+            if (_sobreescribirOk) {
+                localStorage.setItem('canchero_active_profile', data.active_profile);
+                if (data.active_profile === 'team' && data.active_team) localStorage.setItem('canchero_active_team', JSON.stringify(data.active_team));
+                changed = true;
+            } else {
+                // Además, forzar reguarde del local a DB para que ambos queden en sintonía.
+                try { window._persistActiveProfile && window._persistActiveProfile(); } catch(e){}
+            }
         }
         if (changed) {
             try { localStorage.setItem('canchero_user', JSON.stringify(u)); } catch(e){}
@@ -3259,6 +3292,11 @@ window.navigate = function(viewId) {
     const mobileMenuAdmin = document.getElementById('mobile-menu-admin');
     const isAdmin = userData && ['neurovidstudioia@gmail.com','neurostudio.uy@gmail.com'].includes((userData.email||'').toLowerCase());
     if (mobileMenuAdmin) mobileMenuAdmin.style.display = isAdmin ? 'flex' : 'none';
+    // Seguridad: si NO es admin, remover todo el panel #view-admin del DOM. Antes el
+    // markup completo (dashboard, jugadores, negocios, pagos, reportados...) quedaba en
+    // el HTML aunque estuviera con display:none, exponiéndolo a cualquiera que inspeccione.
+    // La seguridad real está en RLS del backend, pero no hace falta filtrar la UI de más.
+    if (!isAdmin) { try { const _va = document.getElementById('view-admin'); if (_va) _va.remove(); } catch(e){} }
     // Switch role options in mobile menu
     const mobileSwitch = document.getElementById('mobile-menu-switch-role');
     if (mobileSwitch) {
