@@ -1687,13 +1687,22 @@ window._renderProfileSwitcher = function(){
         // El pill va CENTRADO, así que su mitad no puede invadir la zona de la campana y
         // los ajustes (unos 94px a la derecha). max-width = 100vw - 200px deja ~8px de aire
         // en cualquier ancho; en pantallas chicas el texto se recorta antes que encimarse.
-        pill.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);border:1px solid #2a2a2a;border-radius:22px;padding:6px 12px;cursor:pointer;max-width:min(200px,calc(100vw - 200px));box-sizing:border-box;z-index:5;';
+        // B7-B: pill con fondo de acento (verde suave) + borde visible + halo — el pill
+        // anterior era casi transparente y los usuarios no lo veían como algo clickeable;
+        // reportaron "no encuentro cómo volver a mi liga".
+        pill.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:6px;background:rgba(186,255,0,0.12);border:1px solid rgba(186,255,0,0.5);border-radius:22px;padding:6px 12px;cursor:pointer;max-width:min(220px,calc(100vw - 200px));box-sizing:border-box;z-index:5;box-shadow:0 2px 12px rgba(186,255,0,0.15);transition:background .15s, box-shadow .15s;';
+        pill.title = 'Cambiar de rol (Jugador / Ligas / Canchas / Tienda / Equipo)';
+        pill.setAttribute('aria-label', 'Cambiar de rol');
+        pill.onmouseover = function(){ this.style.background = 'rgba(186,255,0,0.20)'; this.style.boxShadow = '0 2px 16px rgba(186,255,0,0.28)'; };
+        pill.onmouseout = function(){ this.style.background = 'rgba(186,255,0,0.12)'; this.style.boxShadow = '0 2px 12px rgba(186,255,0,0.15)'; };
         // NO tocar nav.style.position: la navbar ya es position:fixed (sirve de contenedor
         // para el pill absoluto). Sobrescribirla a relative la saca del fixed y genera un
         // espacio vacío arriba en todas las secciones.
         nav.appendChild(pill);
     }
-    pill.innerHTML = `<i class='bx ${icon}' style="font-size:16px;color:var(--accent);flex-shrink:0;"></i><span style="font-size:13px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${label}</span><i class='bx bx-chevron-down' style="font-size:16px;color:#888;flex-shrink:0;"></i>`;
+    // B7-B: chevron con color de acento (antes gris), label 900 en vez de 800 — el
+    // pill queda claramente identificable como "cambiar rol" y no como un tag pasivo.
+    pill.innerHTML = `<i class='bx ${icon}' style="font-size:16px;color:var(--accent);flex-shrink:0;"></i><span style="font-size:13px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.2px;">${label}</span><i class='bx bx-chevron-down' style="font-size:16px;color:var(--accent);flex-shrink:0;"></i>`;
     pill.style.display = 'flex';
 };
 
