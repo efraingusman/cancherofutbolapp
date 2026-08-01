@@ -370,11 +370,7 @@
                                 <span class="type-label">Jugador</span>
                                 <span class="type-sublabel">Gratis</span>
                             </div>
-                            <div class="type-card" onclick="setRegRole('fanatico', this)" data-role="fanatico">
-                                <i class='bx bx-crown'></i>
-                                <span class="type-label">Fanatico</span>
-                                <span class="type-sublabel">Gratis</span>
-                            </div>
+                            <!-- Rol "Fanatico" retirado (2026-07-31): club favorito + comunidades ahora viven en el perfil de Jugador. -->
                             <div class="type-card" onclick="setRegRole('club', this)" data-role="club">
                                 <i class='bx bx-cancha'></i>
                                 <span class="type-label">Canchas</span>
@@ -1322,10 +1318,7 @@
                                 <i class='bx bxs-user-detail'></i>
                                 <div class="bc-t">Jugadores</div><div class="bc-s">Compañeros</div>
                             </button>
-                            <button onclick="window._abrirBuscarFanaticos&&window._abrirBuscarFanaticos()" class="buscar-card" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='#1e1e1e'">
-                                <i class='bx bx-football'></i>
-                                <div class="bc-t">Fanáticos</div><div class="bc-s">Hinchas y creadores</div>
-                            </button>
+                            <!-- Buscar Fanáticos retirado: los "fanáticos" ahora son jugadores con su club marcado. -->
                             <button onclick="switchDashboardTab('jugador','buscar-clubes',null)" class="buscar-card" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='#1e1e1e'">
                                 <i class='bx bx-shield-quarter'></i>
                                 <div class="bc-t">Clubes</div><div class="bc-s">Equipos</div>
@@ -3960,7 +3953,7 @@
       </div>
     </div>
 
-    <script src="script.js?v=20260731c" charset="utf-8"></script>
+    <script src="script.js?v=20260801a" charset="utf-8"></script>
     <script src="canchero-cloud.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-avatars.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-analytics.js?v=20260714a" charset="utf-8"></script>
@@ -4089,11 +4082,11 @@
             // Se pasa el rol para que la app abra con la identidad elegida acá.
             if (typeof window._showLoginModal === 'function') window._showLoginModal('jugador');
         });
-        wireBtn('hero-btn-fanatico', function(e){
-            e.preventDefault();
-            if (typeof window._showLoginModal === 'function') window._showLoginModal('fanatico');
-        });
-        wireBtn('hero-btn-negocio', function(e){ e.preventDefault(); openNegocioInline(); });
+        // Hero rediseñado (v406): 4 accesos por rol. Fanático se retiró; Negocio genérico se abrió
+        // en 3 accesos directos (Canchas/Ligas/Tiendas), cada uno abre su ficha de login.
+        wireBtn('hero-btn-canchas', function(e){ e.preventDefault(); if (typeof window._showLoginModal === 'function') window._showLoginModal('club'); });
+        wireBtn('hero-btn-ligas',   function(e){ e.preventDefault(); if (typeof window._showLoginModal === 'function') window._showLoginModal('organizacion'); });
+        wireBtn('hero-btn-tiendas', function(e){ e.preventDefault(); if (typeof window._showLoginModal === 'function') window._showLoginModal('tienda'); });
         wireBtn('hero-btn-sponsor', function(e){ e.preventDefault(); openSponsorSurvey(); });
         wireBtn('btn-download-app', function(e){ e.preventDefault(); try{ window.smartDownload && window.smartDownload(); }catch(err){} });
 

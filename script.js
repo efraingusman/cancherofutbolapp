@@ -172,6 +172,8 @@ async function _restoreSessionNow() {
         // portada) de una sesión anterior; sin esto se veía lo viejo hasta 4 min después
         // ("volvieron a como estaban y luego se arreglaron solos"). La DB es la verdad.
         try { setTimeout(function(){ window._syncProfileLive && window._syncProfileLive(); }, 400); } catch(e){}
+        // Migración one-shot Fanático → Jugador (rol retirado; club/comunidades ahora son del jugador).
+        try { setTimeout(function(){ window._migrarFanaticoAJugador && window._migrarFanaticoAJugador(); }, 800); } catch(e){}
         return true;
     }
 
@@ -561,7 +563,31 @@ window._navAfterLogin = function(role, email) {
 // El perfil ACTIVO define la identidad (nombre, foto, bandera, rol) en
 // publicaciones, comentarios, likes, etc.
 // ============================================================
-window._PROFILE_TYPES = ['jugador','fanatico'];
+// Fanático retirado como rol (2026-07-31): antes se elegía como identidad separada;
+// ahora el club favorito + comunidades viven en el perfil del Jugador. El código de
+// migración corre al arrancar para pasar datos de linked_profiles.fanatico → jugador.
+window._PROFILE_TYPES = ['jugador'];
+// Migración one-shot: mover club/hinchada de Fanático al Jugador y limpiar el linked.
+// Corre en cada carga hasta que la cuenta ya está migrada (chequeo por presencia).
+window._migrarFanaticoAJugador = async function(){
+    try {
+        const u = window.userData; const sb = window._sb;
+        if (!u || !u.email) return;
+        let lp = u.linked_profiles;
+        try { if (typeof lp === 'string') lp = JSON.parse(lp); } catch(e){ lp = {}; }
+        if (!lp || !lp.fanatico) return;      // ya migrada / nunca tuvo
+        const fan = lp.fanatico || {};
+        // Copiar campos al jugador SI no tiene ya algo propio (no pisar).
+        if (fan.club && !u.fan_club) u.fan_club = fan.club;
+        if (fan.favTeams && !u.favTeams) u.favTeams = fan.favTeams;
+        delete lp.fanatico;
+        u.linked_profiles = lp;
+        // Si estaba actuando como fanático, volver a jugador.
+        try { if (localStorage.getItem('canchero_active_profile') === 'fanatico') localStorage.setItem('canchero_active_profile', 'jugador'); } catch(e){}
+        try { localStorage.setItem('canchero_user', JSON.stringify(u)); } catch(e){}
+        if (sb) { try { await sb.from('users').update({ linked_profiles: lp, fan_club: u.fan_club || null }).eq('email', u.email); } catch(e){} }
+    } catch(e){ console.warn('_migrarFanaticoAJugador:', e); }
+};
 window._profileMeta = {
     jugador:  { label:'Jugador',  icon:'bx-run' },
     fanatico: { label:'Fanático', icon:'bx-football' },
@@ -1305,9 +1331,9 @@ window._openProfileSwitcher = async function(){
             ${delBtn}
         </div>`;
     };
-    const fanatOnboard = `<button onclick="window._createLinkedProfile('fanatico')" style="display:flex;align-items:center;gap:12px;width:100%;background:transparent;border:1px dashed #2a2a2a;border-radius:14px;padding:12px 14px;cursor:pointer;text-align:left;margin-bottom:8px;">
-        <div style="width:44px;height:44px;border-radius:50%;background:#141414;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#666;"><i class='bx bx-crown' style="font-size:22px;"></i></div>
-        <div style="flex:1;"><div style="font-weight:800;font-size:14px;color:#ccc;">Activar perfil de Fanático</div><div style="font-size:11px;color:#666;">Comunidades, contenido e hincha</div></div></button>`;
+    // Fanático retirado: no hay más CTA para crearlo. Si la cuenta tiene uno viejo aún
+    // no migrado, la migración auto lo pasa al jugador en el próximo arranque.
+    const fanatOnboard = '';
     const createTeam = `<button onclick="document.getElementById('profile-switcher-sheet').remove();window.openClubCreator&&window.openClubCreator()" style="display:flex;align-items:center;gap:12px;width:100%;background:transparent;border:1px dashed #2a2a2a;border-radius:14px;padding:12px 14px;cursor:pointer;text-align:left;margin-bottom:8px;">
         <div style="width:44px;height:44px;border-radius:50%;background:#141414;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#666;"><i class='bx bx-plus' style="font-size:22px;"></i></div>
         <div style="flex:1;"><div style="font-weight:800;font-size:14px;color:#ccc;">Crear / registrar equipo</div><div style="font-size:11px;color:#666;">Publicá como tu club</div></div></button>`;
@@ -1320,7 +1346,9 @@ window._openProfileSwitcher = async function(){
     const teams = window._myTeamsCache || [];
     body.innerHTML =
         row('jugador') +
-        (profs.fanatico ? row('fanatico') : fanatOnboard) +
+        // Fanático se retiró: si aún hay linked_profiles.fanatico (no migrado), se
+        // sigue listando por retro-compat hasta que la migración auto lo mueva a Jugador.
+        (profs.fanatico ? row('fanatico') : '') +
         `<div style="font-size:11px;font-weight:800;color:#555;letter-spacing:1px;margin:12px 0 8px;">EQUIPOS</div>` +
         (teams.length ? teams.map(teamRow).join('') : '<div style="font-size:12px;color:#666;margin-bottom:8px;padding:0 2px;">Todavía no tenés equipos.</div>') +
         createTeam +
@@ -2426,9 +2454,10 @@ window.closeIOSModal = function() {
 window.installApp = window.smartDownload;
 
 // ─── MODAL DE ROL (ENTRAR / REGISTRARSE) ──────────────────────────────────────
+// Fanático se retiró como rol: la "hinchada" y comunidades se migran al perfil de Jugador
+// (elegir club favorito y unirse a comunidades desde ahí). Ver eliminar-fanatico Fase 1.
 const ROLES_CONFIG = [
     { id:'jugador',     icon:'bx-run',            label:'Jugador',         sub:'Gratis · Acceso inmediato',    color:'#baff00' },
-    { id:'fanatico',    icon:'bx-crown',          label:'Fanático',        sub:'Hincha · Creador de contenido · Influencer', color:'#FFD700' },
     { id:'club',        icon:'bx-cancha',  label:'Canchas',        sub:'Deportivo · Gratis', color:'#baff00' },
     { id:'organizacion',icon:'bx-trophy',          label:'Ligas',    sub:'Club, liga, escuela...',      color:'#baff00' },
     { id:'tienda',      icon:'bx-store',           label:'Tienda',          sub:'Productos deportivos',        color:'#baff00' },
