@@ -35,12 +35,17 @@ Prioridad general sugerida: (A) bugs que frenan a Liga Clandestina, (B) racha + 
 
 ## 2) ELIMINAR EL ROL FANÁTICO (rescatar lo bueno)
 
-- [ ] Eliminar todo lo de Fanático como rol/identidad.
-- [ ] **Migrar al perfil de JUGADOR**: elegir el club que te gusta (`fan_club` + `CancheroHinchada`)
-      y las **Comunidades** (`CancheroComunidades`).
-- [ ] Revisar: `ROLES_CONFIG`, `_showRoleSelectModal`, hero/onboarding de fanático, pestaña "Hinchada"
-      del vup, `_renderFanaticoInicioHero`, `t==='fanatico'`, `linked_profiles.fanatico`. Migrar cuentas
-      fanático existentes a jugador conservando club/comunidades.
+- [~] Eliminar todo lo de Fanático como rol/identidad — FASE 1 HECHA (v408): sacado de
+      `ROLES_CONFIG`, del `_showRoleSelectModal` (via ROLES_CONFIG), del hero, del switcher
+      de perfiles, de "Buscar Fanáticos" y del type-card de registro. Handlers viejos de
+      `hero-btn-fanatico`/`hero-btn-negocio` reemplazados por Canchas/Ligas/Tiendas.
+      Falta Fase 2: quitar la pestaña Hinchada del vup para no-migrados y la sección
+      "Comunidades" ligada a fanático (o convertirla en tab del jugador).
+- [x] **Migrar al perfil de JUGADOR**: elegir el club que te gusta + comunidades — MIGRACIÓN
+      AUTO HECHA (v408): `_migrarFanaticoAJugador()` corre al arranque; si hay
+      `linked_profiles.fanatico`, copia `fan_club` + `favTeams` al jugador y borra el
+      linked. Guarda en DB (columna `fan_club`). Falta UI en perfil jugador para editar
+      el club favorito (Fase 2).
 
 ## 3) INICIO DE CADA ROL (potenciar — 1ra experiencia)
 
