@@ -37,10 +37,10 @@ si ya está en nuestra liga ande buscando equipo o partidos"*.
 genérico de "buscar partidos/equipos". Su inicio debería mostrar **el estado de SU torneo**:
 próxima fecha, sus cruces, la tabla y sus resultados.
 
-- [ ] **Home contextual para jugadores de liga**: si el jugador está inscripto en un torneo
-      activo, mostrar arriba del feed un bloque "TU LIGA" con: próximo partido/fecha, mini
-      tabla de posiciones y últimos resultados, con CTA a la ficha del torneo. Detectar
-      pertenencia por `tournament_players.player_email == userData.email` (o por equipo).
+- [x] **Home contextual para jugadores de liga** — HECHO (v415): bloque "TU LIGA" en el hero
+      del inicio (`_renderInicioHero`). Si el jugador está en un torneo activo muestra próximo
+      cruce, últimos resultados y tabla (top 4, su equipo resaltado) + botón "Ver mi torneo"
+      (`openPublicView`). Detecta por `tournament_players.player_email == userData.email`.
 - [ ] **Priorizar campeonato en el panel de Ligas** (organizador): dejar fixture + tabla +
       resultados como lo primero y más accesible (ya existen; asegurar jerarquía visual).
 
