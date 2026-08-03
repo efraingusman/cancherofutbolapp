@@ -298,23 +298,26 @@ ul { list-style: none; }
 .hero-counter-lbl { color: rgba(255,255,255,0.8); font-size: 12px; font-weight: 600; }
 
 @media (max-width: 640px) {
-    .home-viewport-wrap .hero-cta-wrap { padding: 0 14px calc(14px + env(safe-area-inset-bottom)); }
-    .hero-tagline { padding-top: 10vh; }
-    .hero-tagline-txt { font-size: 18px; }
-    .home-viewport-wrap .btn-fs-action { padding: 10px 15px !important; border-radius: 14px !important; }
-    .home-viewport-wrap .btn-fs-action i { font-size: 22px !important; }
-    .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 16px !important; }
-    .btn-fs-action .fs-btn-desc { font-size: 10.5px !important; max-width: 210px; margin-top: 2px; }
-    .home-viewport-wrap .fs-side-actions { gap: 8px !important; width: 100%; max-width: 340px !important; }
+    /* Botones compactos para que ENTREN los 4 + la tagline sin cortar nada (home sin scroll). */
+    .home-viewport-wrap .hero-cta-wrap { padding: 0 14px calc(12px + env(safe-area-inset-bottom)); justify-content: flex-end !important; }
+    .hero-tagline { padding-top: 6vh; margin-bottom: 16px !important; }
+    .hero-tagline-txt { font-size: 16px; }
+    .hero-counter { margin-top: 9px; padding: 5px 12px; }
+    .home-viewport-wrap .btn-fs-action { padding: 8px 14px !important; border-radius: 13px !important; gap: 11px !important; }
+    .home-viewport-wrap .btn-fs-action i { font-size: 19px !important; }
+    .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 14.5px !important; line-height: 1.1; }
+    .btn-fs-action .fs-btn-desc { font-size: 10px !important; max-width: 205px; margin-top: 1px; line-height: 1.25; }
+    .home-viewport-wrap .fs-side-actions { gap: 7px !important; width: 100%; max-width: 330px !important; }
 }
 @media (min-width: 641px) {
-    .home-viewport-wrap .hero-cta-wrap { padding: 0 16px 5vh; }
-    .hero-tagline { padding-top: 14vh; max-width: 400px; }
-    .hero-tagline-txt { font-size: 26px; }
-    .home-viewport-wrap .fs-side-actions { max-width: 360px !important; }
-    .home-viewport-wrap .btn-fs-action { width: 100% !important; padding: 13px 20px !important; }
-    .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 19px !important; }
-    .home-viewport-wrap .btn-fs-action i { font-size: 26px !important; }
+    .home-viewport-wrap .hero-cta-wrap { padding: 0 16px 4vh; justify-content: flex-end !important; }
+    .hero-tagline { padding-top: 10vh; max-width: 400px; margin-bottom: 20px !important; }
+    .hero-tagline-txt { font-size: 24px; }
+    .home-viewport-wrap .fs-side-actions { max-width: 340px !important; gap: 9px !important; }
+    .home-viewport-wrap .btn-fs-action { width: 100% !important; padding: 11px 18px !important; }
+    .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 17px !important; }
+    .home-viewport-wrap .btn-fs-action i { font-size: 23px !important; }
+    .btn-fs-action .fs-btn-desc { font-size: 11.5px !important; }
 }
 
 /* Descripción bajo el título de cada acceso (línea explicativa). */
@@ -1502,6 +1505,28 @@ body.is-biz #p-stat-blocks { display: none !important; }
 .buscar-card > i { font-size:26px; color:var(--accent); display:block; margin-bottom:8px; }
 .buscar-card .bc-t { color:#fff; font-size:13px; font-weight:800; }
 .buscar-card .bc-s { color:#666; font-size:11px; margin-top:3px; }
+/* Card con PORTADA de fondo (foto en --cover) + degradado para leer el texto abajo. */
+.buscar-card.has-cover {
+    position:relative; overflow:hidden; padding:0; min-height:112px;
+    background:#0d0d0d var(--cover) center/cover no-repeat; border-color:#242424;
+    display:flex; flex-direction:column; justify-content:flex-end;
+}
+.buscar-card.has-cover::before {
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(7,9,7,0) 30%, rgba(7,9,7,0.55) 62%, rgba(7,9,7,0.94) 100%);
+}
+.buscar-card.has-cover:hover { border-color:var(--accent); }
+.buscar-card.has-cover .bc-t { position:relative; z-index:1; padding:0 12px; font-size:14px; text-shadow:0 1px 6px rgba(0,0,0,0.9); }
+.buscar-card.has-cover .bc-s { position:relative; z-index:1; padding:0 12px 12px; color:#c8d0c2; text-shadow:0 1px 5px rgba(0,0,0,0.9); }
+@media (max-width:640px){ .buscar-card.has-cover { min-height:96px; } .buscar-card.has-cover .bc-t { font-size:13px; } }
+/* Banner DESAFIAR con portada de fondo. */
+.desafiar-cover {
+    position:relative; overflow:hidden; border-radius:16px; cursor:pointer; min-height:120px;
+    background:#0d0d0d var(--cover) center/cover no-repeat; border:1px solid rgba(186,255,0,0.4);
+    display:flex; align-items:flex-end; padding:16px 18px; transition:border-color .15s;
+}
+.desafiar-cover::before { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(7,9,7,0) 35%,rgba(7,9,7,0.9) 100%); }
+.desafiar-cover:hover { border-color:var(--accent); }
 
 .social-profile[data-biz-role] .profile-header-row .biz-cta-btn,
 .social-profile[data-biz-role] .profile-btn-row > button,
@@ -6711,3 +6736,22 @@ i.bx.bx-cancha::before, i.bx-cancha::before { content: ''; }
 }
 .cp-dt-input:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 2px rgba(186,255,0,0.15); }
 .cp-dt .form-label { display: flex; align-items: center; gap: 6px; }
+
+/* ══════════════════════════════════════════════════════════════════
+   HEADER SIEMPRE VISIBLE en torneos / partidos (2026-08-02)
+   Los overlays full-screen de torneo/partido usaban inset:0;z-index:99999 y
+   tapaban la barra superior (logo, switcher de rol, ajustes, campana). Se los
+   baja por DEBAJO del nav (z-index 1000) y se les da un offset superior = alto
+   del nav, así el header queda siempre visible y clickeable mientras se navega
+   el torneo o el partido. El contenido del overlay scrollea por debajo.
+════════════════════════════════════════════════════════════════════ */
+#main-nav { z-index: 1000; }
+#ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal {
+    top: 70px !important;
+    z-index: 995 !important;
+}
+@media (max-width: 640px) {
+    #ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal {
+        top: 56px !important;
+    }
+}
