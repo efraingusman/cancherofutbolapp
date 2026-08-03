@@ -6005,8 +6005,16 @@ window.viewUserProfile = async function(email, forcePublic, opts) {
         // Perfil de fanático → tag 'fanatico'; jugador → 'jugador' (legacy null = jugador).
         const _vupTag = ((u && u.role) === 'fanatico') ? 'fanatico' : 'jugador';
         const _tagOf = (v) => { if (!v) return 'jugador'; return (String(v).indexOf('biz:') === 0) ? 'negocio' : v; };
-        followersRaw = (followersRaw||[]).filter(f => _tagOf(f.following_profile) === _vupTag);
-        followingRaw = (followingRaw||[]).filter(f => _tagOf(f.follower_profile) === _vupTag);
+        // FIX seguidores no suben: si el perfil es de NEGOCIO/LIGA, NO aplicar este
+        // pre-filtro (colapsaba 'biz:<id>' → 'negocio' ≠ 'jugador' y borraba TODOS los
+        // follows del negocio antes de que el branch de negocio los contara). Para negocios
+        // el filtrado por identidad exacta (biz:<id>) lo hace la rama de negocio más abajo.
+        const _bizRolesVup = ['club','organizacion','tienda','profesional','complejo','sponsor','liga','escuela','cancha'];
+        const _isBizProfileVup = _bizRolesVup.indexOf(((u&&u.role)||'').toLowerCase()) !== -1 || !!_forcedBizRole || !!_esBizIdentity;
+        if (!_isBizProfileVup) {
+            followersRaw = (followersRaw||[]).filter(f => _tagOf(f.following_profile) === _vupTag);
+            followingRaw = (followingRaw||[]).filter(f => _tagOf(f.follower_profile) === _vupTag);
+        }
         // Enrich fans
         const allFanEmails = [...(followersRaw||[]).map(f=>f.follower_email), ...(followingRaw||[]).map(f=>f.following_email)];
         let fanUsersMap = {};

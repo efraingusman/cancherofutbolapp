@@ -3916,7 +3916,9 @@ window.CancheroTournaments = (function() {
     // ── Podio 1-2-3 al estilo de Buscar → Ranking: el 1º al medio y más grande.
     // items: [{ id, nombre, equipo, valor, avatar }]
     function _podioHTML(items, unidad) {
-        if (!items || items.length < 3) return '';
+        // Antes exigía 3+ y con 1-2 jugadores caía a lista plana (se veía pobre). Ahora
+        // el podio se arma con lo que haya: 1, 2 o 3 (igual que el ranking general lindo).
+        if (!items || items.length < 1) return '';
         const [p1, p2, p3] = items;
         const medalla = { 1:'#ffd23f', 2:'#c8d2dc', 3:'#cd7f32' };
         const col = (p, puesto, alto, tam) => `
@@ -3930,8 +3932,9 @@ window.CancheroTournaments = (function() {
                 <span style="font-size:17px;font-weight:900;color:var(--accent);">${p.valor}</span>
             </div>
         </div>`;
-        return `<div style="display:flex;align-items:flex-end;gap:8px;margin:14px 0 4px;padding:16px 10px 0;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-radius:16px;backdrop-filter:blur(10px);overflow:hidden;">
-            ${col(p2, 2, 54, 50)}${col(p1, 1, 76, 66)}${col(p3, 3, 40, 46)}
+        // Con menos de 3, se omiten las columnas vacías y el 1° queda centrado.
+        return `<div style="display:flex;align-items:flex-end;justify-content:center;gap:8px;margin:14px 0 4px;padding:16px 10px 0;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-radius:16px;backdrop-filter:blur(10px);overflow:hidden;">
+            ${p2?col(p2, 2, 54, 50):''}${col(p1, 1, 76, 66)}${p3?col(p3, 3, 40, 46):''}
         </div><div style="text-align:center;font-size:10px;color:#555;margin-bottom:6px;">${unidad}</div>`;
     }
 
@@ -3991,15 +3994,15 @@ window.CancheroTournaments = (function() {
             bloquesExtra =
                 bloque('MEJORES ASISTIDORES', 'bx-run',
                     _podioHTML(aPodio, 'asistencias') +
-                    asistidores.slice(aPodio.length >= 3 ? 3 : 0).map((p,i) => fila(i + (aPodio.length >= 3 ? 3 : 0), p.player_name, p.tournament_teams?.team_name, p.assists||0, p.avatar_url)).join(''),
+                    (function(){ var n=Math.min(3,aPodio.length); return asistidores.slice(n).map((p,i) => fila(i+n, p.player_name, p.tournament_teams?.team_name, p.assists||0, p.avatar_url)).join(''); })(),
                     'Sin asistencias registradas aún.')
               + bloque('ARQUEROS · VALLAS INVICTAS', 'bx-shield',
                     _podioHTML(kPodio, 'partidos con la valla invicta') +
-                    arqueros.slice(kPodio.length >= 3 ? 3 : 0).map((x,i) => fila(i + (kPodio.length >= 3 ? 3 : 0), x.p.player_name, x.p.tournament_teams?.team_name, x.v, x.p.avatar_url)).join(''),
+                    (function(){ var n=Math.min(3,kPodio.length); return arqueros.slice(n).map((x,i) => fila(i+n, x.p.player_name, x.p.tournament_teams?.team_name, x.v, x.p.avatar_url)).join(''); })(),
                     'Todavía no hay partidos con la valla invicta.')
               + bloque('FIGURAS DEL PARTIDO', 'bx-star',
                     _podioHTML(figPodio, 'veces figura') +
-                    figuras.slice(figPodio.length >= 3 ? 3 : 0).map((x,i) => fila(i + (figPodio.length >= 3 ? 3 : 0), x.p.player_name, x.p.tournament_teams?.team_name, x.v, x.p.avatar_url)).join(''),
+                    (function(){ var n=Math.min(3,figPodio.length); return figuras.slice(n).map((x,i) => fila(i+n, x.p.player_name, x.p.tournament_teams?.team_name, x.v, x.p.avatar_url)).join(''); })(),
                     'Todavía no se eligió la figura de ningún partido. Se carga al guardar el resultado.');
         } catch(e){ console.warn('rankings extra:', e); }
 
