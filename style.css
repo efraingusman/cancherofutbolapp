@@ -6746,10 +6746,12 @@ i.bx.bx-cancha::before, i.bx-cancha::before { content: ''; }
    del nav, así el header queda siempre visible y clickeable mientras se navega
    el torneo o el partido. El contenido del overlay scrollea por debajo.
 ════════════════════════════════════════════════════════════════════ */
-#main-nav { z-index: 1000; }
+/* Header visible en torneos/partidos: los overlays mantienen su z-index ALTO (abren sobre
+   todo, como siempre) pero arrancan por DEBAJO del nav (top = alto del nav). Como el modal
+   ya no ocupa los primeros 70px, el nav (fijo arriba) queda visible ahí sin tocar su
+   z-index → el torneo abre bien Y el header se ve. Sin efectos colaterales en el switcher. */
 #ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal {
     top: 70px !important;
-    z-index: 995 !important;
 }
 @media (max-width: 640px) {
     #ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal {

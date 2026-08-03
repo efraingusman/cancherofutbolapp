@@ -4513,6 +4513,12 @@ window.switchDashboardTab = function(role, tabId, el) {
             // Movidas dentro de Buscar → resaltan "Buscar" en la barra fija
             'mis-clubes':'buscar', 'ranking':'buscar', 'juegos':'buscar', 'en-vivo':'buscar' };
         if (_r2map[tabId] && window._ruleta2SyncById) window._ruleta2SyncById(_r2map[tabId]);
+        // Re-assert: el bar a veces se re-renderiza tarde (carga async de la sección) y
+        // volvía a quedar en INICIO. Se re-sincroniza el activo al mapeo real de la sección.
+        if (_r2map[tabId] && window._ruleta2SyncById) {
+            setTimeout(function(){ try { window._ruleta2SyncById(_r2map[tabId]); } catch(e){} }, 80);
+            setTimeout(function(){ try { window._ruleta2SyncById(_r2map[tabId]); } catch(e){} }, 350);
+        }
     } catch(e) {}
 
     if (tabId === 'inicio') renderDashboardHome();
