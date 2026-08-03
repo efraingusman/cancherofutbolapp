@@ -34,16 +34,32 @@ const POSICIONES = [
   { id:'ED',  lbl:'ED',  x:80, y:20, linea:'DEL' }
 ];
 
-// ── COLORES DE CAMISETA POR PAÍS (primario, secundario para número/texto) ──────
-const KIT = {
-  'Uruguay':['#4aa3df','#ffffff'], 'Argentina':['#75aadb','#ffffff'], 'Brasil':['#f7d117','#0a8f3c'],
-  'Colombia':['#fcd116','#003893'], 'México':['#006341','#ffffff'], 'España':['#c60b1e','#ffcc00'],
-  'Francia':['#0055a4','#ffffff'], 'Inglaterra':['#ffffff','#c8102e'], 'Italia':['#0072bb','#ffffff'],
-  'Alemania':['#111111','#ffffff'], 'Portugal':['#c8102e','#006600'], 'Nigeria':['#009639','#ffffff'],
-  'Chile':['#d52b1e','#ffffff'], 'Paraguay':['#d52b1e','#0038a8'], 'Perú':['#d91023','#ffffff'],
-  'Croacia':['#c8102e','#ffffff'], 'Países Bajos':['#f36c21','#ffffff'], 'Bélgica':['#111111','#ffcc00']
+// ── KIT POR PAÍS: tipo (solid/stripes/sash), colores y color de texto/número ────
+const KITS = {
+  'Argentina':{t:'stripes',c:['#75aadb','#ffffff'],txt:'#0a3b6b'},
+  'Uruguay':{t:'solid',c:['#4aa3df'],txt:'#ffffff'},
+  'Brasil':{t:'solid',c:['#f7d117'],txt:'#0a8f3c'},
+  'Colombia':{t:'solid',c:['#fcd116'],txt:'#003893'},
+  'México':{t:'solid',c:['#0a7d3b'],txt:'#ffffff'},
+  'España':{t:'solid',c:['#c60b1e'],txt:'#ffcc00'},
+  'Francia':{t:'solid',c:['#1b3a8f'],txt:'#ffffff'},
+  'Inglaterra':{t:'solid',c:['#ffffff'],txt:'#c8102e'},
+  'Italia':{t:'solid',c:['#1666c4'],txt:'#ffffff'},
+  'Alemania':{t:'solid',c:['#ffffff'],txt:'#111111'},
+  'Portugal':{t:'solid',c:['#b81b2c'],txt:'#0b6e2e'},
+  'Nigeria':{t:'stripes',c:['#12a150','#ffffff'],txt:'#0a5a2c'},
+  'Chile':{t:'solid',c:['#d52b1e'],txt:'#ffffff'},
+  'Paraguay':{t:'stripes',c:['#d52b1e','#ffffff'],txt:'#0038a8'},
+  'Perú':{t:'sash',c:['#ffffff','#d91023'],txt:'#d91023'},
+  'Croacia':{t:'stripes',c:['#e01a2b','#ffffff'],txt:'#0a2a6b'},
+  'Países Bajos':{t:'solid',c:['#f36c21'],txt:'#ffffff'},
+  'Bélgica':{t:'solid',c:['#c8102e'],txt:'#111111'},
+  'Ecuador':{t:'solid',c:['#f7d117'],txt:'#0038a8'},
+  'Bolivia':{t:'solid',c:['#12a150'],txt:'#ffffff'},
+  'Venezuela':{t:'solid',c:['#8c1414'],txt:'#ffffff'},
+  'Estados Unidos':{t:'solid',c:['#ffffff'],txt:'#1e3a6e'}
 };
-function kitOf(pais){ return KIT[pais] || ['#1b7a3e','#ffffff']; }
+function kitOf(pais){ const k=KITS[pais]; return k?[k.c[0], k.txt]:['#1b7a3e','#ffffff']; }
 
 // ── BANDERA (flagcdn) por nombre de país ───────────────────────────────────────
 const FLAG = { 'Afganistán':'af','Albania':'al','Alemania':'de','Andorra':'ad','Angola':'ao','Anguila':'ai','Antigua y Barbuda':'ag','Arabia Saudita':'sa','Argelia':'dz','Argentina':'ar','Armenia':'am','Aruba':'aw','Australia':'au','Austria':'at','Bélgica':'be','Bolivia':'bo','Brasil':'br','Camerún':'cm','Canadá':'ca','Chile':'cl','China':'cn','Colombia':'co','Corea del Sur':'kr','Costa Rica':'cr','Croacia':'hr','Dinamarca':'dk','Ecuador':'ec','Egipto':'eg','El Salvador':'sv','Escocia':'gb-sct','Eslovaquia':'sk','Eslovenia':'si','España':'es','Estados Unidos':'us','Francia':'fr','Gales':'gb-wls','Ghana':'gh','Grecia':'gr','Guatemala':'gt','Honduras':'hn','Hungría':'hu','Inglaterra':'gb-eng','Irlanda':'ie','Islandia':'is','Israel':'il','Italia':'it','Japón':'jp','Marruecos':'ma','México':'mx','Nigeria':'ng','Noruega':'no','Países Bajos':'nl','Panamá':'pa','Paraguay':'py','Perú':'pe','Polonia':'pl','Portugal':'pt','Rumania':'ro','Rusia':'ru','Senegal':'sn','Serbia':'rs','Suecia':'se','Suiza':'ch','Turquía':'tr','Ucrania':'ua','Uruguay':'uy','Venezuela':'ve' };
@@ -96,15 +112,37 @@ function clubBadge(name, size){
   return `<div style="width:${s}px;height:${s}px;border-radius:${Math.round(s*0.28)}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:${Math.round(s*0.34)}px;color:#fff;background:linear-gradient(150deg,hsl(${hue} 55% 34%),hsl(${(hue+40)%360} 55% 22%));border:1px solid rgba(255,255,255,.14);">${ini}</div>`;
 }
 
-// ── CAMISETA SVG (con apellido y número, color por país) ───────────────────────
+// ── CAMISETA SVG (forma real: hombros, mangas, cuello; patrón por país) ────────
 function jersey(size, apellido, numero, pais){
-  const [c1,c2] = kitOf(pais);
+  const k = KITS[pais] || {t:'solid',c:['#1b7a3e'],txt:'#ffffff'};
+  const base = k.c[0]; const alt = k.c[1] || '#ffffff'; const txt = k.txt || '#111';
+  const uid = 'jk'+Math.random().toString(36).slice(2,7);
   const s = size;
-  return `<svg width="${s}" height="${s}" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" style="display:block;filter:drop-shadow(0 12px 24px rgba(0,0,0,.5));">
-    <path d="M60 34 L40 46 L20 70 L38 92 L52 82 L52 168 Q52 176 60 176 L140 176 Q148 176 148 168 L148 82 L162 92 L180 70 L160 46 L140 34 Q120 52 100 52 Q80 52 60 34 Z" fill="${c1}" stroke="rgba(0,0,0,.25)" stroke-width="2"/>
-    <path d="M60 34 Q80 52 100 52 Q120 52 140 34 L128 30 Q100 44 72 30 Z" fill="${c2}" opacity="0.85"/>
-    <text x="100" y="86" text-anchor="middle" font-family="Outfit,Arial" font-weight="800" font-size="17" fill="${c2}" style="letter-spacing:1px;">${esc((apellido||'APELLIDO').toUpperCase()).slice(0,12)}</text>
-    <text x="100" y="150" text-anchor="middle" font-family="Outfit,Arial" font-weight="900" font-size="64" fill="${c2}">${esc(String(numero||10)).slice(0,2)}</text>
+  // Silueta de camiseta (viewBox 0 0 220 210): cuerpo + mangas + cuello redondo.
+  const body = "M74 26 L58 32 L26 60 Q22 64 25 70 L44 96 Q47 100 52 97 L64 88 L64 176 Q64 186 74 186 L146 186 Q156 186 156 176 L156 88 L168 97 Q173 100 176 96 L195 70 Q198 64 194 60 L162 32 L146 26 Q135 46 110 46 Q85 46 74 26 Z";
+  // Relleno: sólido, a rayas verticales, o con banda diagonal (sash).
+  let fill;
+  if (k.t === 'stripes'){
+    const n = 6, w = 220/n; let r='';
+    for (let i=0;i<n;i++) r += `<rect x="${(i*w).toFixed(1)}" y="0" width="${(w+0.6).toFixed(1)}" height="210" fill="${i%2?alt:base}"/>`;
+    fill = `<defs><clipPath id="${uid}"><path d="${body}"/></clipPath></defs><rect x="0" y="0" width="220" height="210" fill="${base}" clip-path="url(#${uid})"/><g clip-path="url(#${uid})">${r}</g>`;
+  } else if (k.t === 'sash'){
+    fill = `<defs><clipPath id="${uid}"><path d="${body}"/></clipPath></defs><path d="${body}" fill="${base}"/><g clip-path="url(#${uid})"><path d="M0 150 L150 -10 L185 25 L35 185 Z" fill="${alt}"/></g>`;
+  } else {
+    fill = `<path d="${body}" fill="${base}"/>`;
+  }
+  return `<svg width="${s}" height="${s}" viewBox="0 0 220 210" xmlns="http://www.w3.org/2000/svg" style="display:block;filter:drop-shadow(0 10px 22px rgba(0,0,0,.5));">
+    ${fill}
+    <path d="${body}" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="2.5"/>
+    <!-- Sombra de mangas para dar volumen -->
+    <path d="M64 88 L52 97 L44 96 L48 100 L64 92 Z" fill="rgba(0,0,0,.12)"/>
+    <path d="M156 88 L168 97 L176 96 L172 100 L156 92 Z" fill="rgba(0,0,0,.12)"/>
+    <!-- Cuello redondo -->
+    <path d="M74 26 Q92 44 110 44 Q128 44 146 26 L138 24 Q110 40 82 24 Z" fill="${alt}" opacity="0.95"/>
+    <path d="M74 26 Q92 44 110 44 Q128 44 146 26" fill="none" stroke="rgba(0,0,0,.25)" stroke-width="2"/>
+    <!-- Apellido + número -->
+    <text x="110" y="92" text-anchor="middle" font-family="Outfit,Arial" font-weight="800" font-size="17" fill="${txt}" style="letter-spacing:1.5px;">${esc((apellido||'APELLIDO').toUpperCase()).slice(0,12)}</text>
+    <text x="110" y="162" text-anchor="middle" font-family="Outfit,Arial" font-weight="900" font-size="66" fill="${txt}">${esc(String(numero||10)).slice(0,2)}</text>
   </svg>`;
 }
 
@@ -136,13 +174,43 @@ function overlay(){
 window._carreraStart = function(){
   const m=overlay(); const saved=load();
   m.innerHTML=`
-  <div style="max-width:560px;margin:0 auto;padding:24px 20px calc(30px + env(safe-area-inset-bottom));min-height:100%;display:flex;flex-direction:column;align-items:center;text-align:center;">
-    <div style="width:100%;display:flex;justify-content:flex-start;"><button onclick="document.getElementById('carrera-modal').remove();window.openGamesModal&&window.openGamesModal()" style="background:rgba(255,255,255,.06);border:none;color:#aaa;font-size:13px;border-radius:20px;padding:8px 14px;cursor:pointer;"><i class='bx bx-arrow-back'></i> Juegos</button></div>
-    <div style="width:96px;height:96px;border-radius:24px;background:rgba(186,255,0,.1);border:1px solid rgba(186,255,0,.3);display:flex;align-items:center;justify-content:center;margin:16px 0 12px;"><i class='bx bx-trophy' style="font-size:50px;color:${A};"></i></div>
-    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:28px;color:#fff;">CANCHERO LEYENDA</div>
-    <div style="font-size:14px;color:#9aa0a6;margin-top:6px;max-width:380px;line-height:1.5;">Del potrero a la gloria. Elegí club, país y posición; tomá decisiones dentro y fuera de la cancha, y escribí tu historia.</div>
-    ${saved?`<button onclick="window._carreraHub()" style="width:100%;max-width:360px;margin-top:22px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:15px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;"><i class='bx bx-play'></i> CONTINUAR (${esc(saved.apellido)}, ${saved.edad} años)</button>`:''}
-    <button onclick="window._carreraLen()" style="width:100%;max-width:360px;margin-top:${saved?'10px':'22px'};background:${saved?'rgba(255,255,255,.05)':'linear-gradient(135deg,#16a34a,'+A+')'};color:${saved?'#fff':'#000'};border:${saved?'1px solid #242424':'none'};border-radius:15px;padding:15px;font-weight:900;font-size:15px;cursor:pointer;"><i class='bx bx-plus'></i> ${saved?'Nueva carrera':'NUEVA CARRERA'}</button>
+  <div style="position:relative;min-height:100%;background:radial-gradient(130% 60% at 50% 0%, #14340f 0%, #0a0c0a 55%);">
+    <div style="position:absolute;inset:0;background:repeating-linear-gradient(90deg, rgba(186,255,0,.03) 0 2px, transparent 2px 40px);pointer-events:none;"></div>
+    <div style="position:relative;max-width:560px;margin:0 auto;padding:20px 20px calc(30px + env(safe-area-inset-bottom));min-height:100%;display:flex;flex-direction:column;align-items:center;text-align:center;">
+      <div style="width:100%;display:flex;justify-content:flex-start;"><button onclick="document.getElementById('carrera-modal').remove();window.openGamesModal&&window.openGamesModal()" style="background:rgba(255,255,255,.08);border:none;color:#ccc;font-size:13px;border-radius:20px;padding:8px 14px;cursor:pointer;"><i class='bx bx-arrow-back'></i> Juegos</button></div>
+      <div style="font-size:12px;font-weight:900;letter-spacing:5px;color:${A};margin-top:26px;text-shadow:0 0 18px rgba(186,255,0,.5);">MODO CARRERA</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:46px;line-height:1;color:#fff;margin-top:4px;letter-spacing:-1px;text-shadow:0 4px 30px rgba(0,0,0,.7);">CANCHERO<br><span style="color:${A};">LEYENDA</span></div>
+      <div style="font-size:14px;color:#c4ccc0;margin-top:14px;max-width:360px;line-height:1.55;">Del potrero a la gloria. Naciste en un barrio cualquiera; tus decisiones —dentro y fuera de la cancha— escriben tu historia. ¿Llegás a leyenda?</div>
+      <div style="width:100%;max-width:360px;margin-top:26px;">
+        ${saved?`<button onclick="window._carreraHub()" style="width:100%;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:15px;padding:16px;font-family:Outfit,sans-serif;font-weight:900;font-size:16px;cursor:pointer;box-shadow:0 10px 30px rgba(80,220,110,.32);"><i class='bx bx-play-circle'></i> CONTINUAR — ${esc(saved.apellido||'')} (${saved.edad})</button>`:''}
+        <button onclick="window._carreraLen()" style="width:100%;margin-top:10px;background:${saved?'rgba(255,255,255,.06)':'linear-gradient(135deg,#16a34a,'+A+')'};color:${saved?'#fff':'#000'};border:${saved?'1px solid #2a2a2a':'none'};border-radius:15px;padding:16px;font-family:Outfit,sans-serif;font-weight:900;font-size:16px;cursor:pointer;${saved?'':'box-shadow:0 10px 30px rgba(80,220,110,.32);'}">${saved?'Nueva carrera':'EMPEZAR MI CARRERA'}</button>
+        <button onclick="window._carreraRanking()" style="width:100%;margin-top:10px;background:rgba(255,255,255,.05);color:#fff;border:1px solid #242424;border-radius:15px;padding:14px;font-weight:800;font-size:14px;cursor:pointer;"><i class='bx bx-bar-chart-alt-2' style="color:${A};"></i> Ranking de leyendas</button>
+      </div>
+    </div>
+  </div>`;
+};
+
+// ── RANKING DE CARRERAS ──────────────────────────────────────────────────────────
+function careerScore(g){ return Math.round(g.nivel*10 + g.titulos*60 + g.tot.g*3 + g.tot.a*1.5 + (g.years>=20?100:0)); }
+async function saveCareer(g){
+  try{ const c=window._sb; const u=me(); if(!c||!u.email) return;
+    await c.from('carrera_scores').upsert({ email:u.email, name:(u.name||u.email.split('@')[0]), score:careerScore(g), nivel:Math.round(g.nivel), titulos:g.titulos, club:g.club, updated_at:new Date().toISOString() }, { onConflict:'email' });
+  }catch(e){ console.warn('saveCareer', e); }
+}
+window._carreraRanking = async function(){
+  const m=overlay();
+  m.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:24px 18px;text-align:center;color:#666;"><i class='bx bx-loader-alt bx-spin' style="font-size:30px;color:${A};"></i></div>`;
+  let rows=[]; try{ const c=window._sb; if(c){ const {data}=await c.from('carrera_scores').select('name,email,score,nivel,titulos,club').order('score',{ascending:false}).limit(20); rows=data||[]; } }catch(e){}
+  const myEmail=(me().email||'').toLowerCase();
+  m.innerHTML=`
+  <div style="max-width:520px;margin:0 auto;padding:22px 18px calc(30px + env(safe-area-inset-bottom));min-height:100%;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;"><button onclick="window._carreraStart()" style="background:rgba(255,255,255,.06);border:none;color:#aaa;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button><div style="font-family:Outfit,sans-serif;font-weight:900;font-size:20px;color:#fff;">Ranking de leyendas</div></div>
+    ${rows.length?rows.map((r,i)=>`<div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;margin-bottom:6px;background:${(r.email||'').toLowerCase()===myEmail?'rgba(186,255,0,.08)':'rgba(255,255,255,.02)'};">
+        <span style="width:26px;font-weight:900;color:${i<3?A:'#888'};font-size:15px;">${i+1}</span>
+        <div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(r.name||'—')}</div><div style="font-size:10.5px;color:#777;">${esc(r.club||'')} · Niv ${r.nivel||'—'} · ${r.titulos||0} títulos</div></div>
+        <span style="font-size:15px;font-weight:900;color:${A};">${r.score}</span>
+      </div>`).join(''):`<div style="text-align:center;padding:40px;color:#666;"><i class='bx bx-trophy' style="font-size:44px;opacity:.3;display:block;margin-bottom:10px;"></i>Todavía no hay leyendas. ¡Terminá una carrera!</div>`}
+    <button onclick="window._carreraLen()" style="width:100%;margin-top:16px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:14px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">EMPEZAR MI CARRERA</button>
   </div>`;
 };
 
@@ -206,7 +274,7 @@ function renderIdent(){
         ${pitch(d.pos,'window._carreraSet.bind(null,\'pos\')')}
       </div>
     </div>
-    <div style="position:fixed;left:0;right:0;bottom:0;background:#0a0c0a;border-top:1px solid #1c1c1c;padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:flex;gap:10px;max-width:1040px;margin:0 auto;">
+    <div style="position:fixed;left:0;right:0;bottom:0;z-index:20;background:#0a0c0a;border-top:1px solid #1c1c1c;padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:flex;gap:10px;max-width:1040px;margin:0 auto;box-shadow:0 -8px 24px rgba(0,0,0,.6);">
       <button onclick="window._carreraLen()" style="flex:1;background:#161616;color:#aaa;border:1px solid #262626;border-radius:12px;padding:14px;font-weight:800;cursor:pointer;">Volver</button>
       <button onclick="window._carreraOfertas()" style="flex:2;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:12px;padding:14px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">Confirmar identidad</button>
     </div>
@@ -436,6 +504,7 @@ window._carreraElegir = function(i){
 function retiro(){
   const m=document.getElementById('carrera-modal')||overlay();
   const leyenda=G.titulos>=8||G.nivel>=88;
+  try{ saveCareer(G); }catch(e){}
   m.innerHTML=`
   <div style="max-width:520px;margin:0 auto;padding:36px 22px calc(30px + env(safe-area-inset-bottom));min-height:100%;display:flex;flex-direction:column;align-items:center;text-align:center;">
     <div style="width:88px;height:88px;border-radius:50%;background:rgba(186,255,0,.12);border:1px solid rgba(186,255,0,.35);display:flex;align-items:center;justify-content:center;margin-bottom:14px;"><i class='bx ${leyenda?'bx-crown':'bx-medal'}' style="font-size:46px;color:${A};"></i></div>
@@ -445,6 +514,7 @@ function retiro(){
       ${st2('NIVEL FINAL',Math.round(G.nivel))}${st2('TÍTULOS',G.titulos)}${st2('PARTIDOS',G.tot.pj)}${st2('GOLES',G.tot.g)}${st2('ASISTENCIAS',G.tot.a)}${st2('ÚLTIMO CLUB',G.club)}
     </div>
     <button onclick="window._carreraLen()" style="width:100%;max-width:360px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">NUEVA CARRERA</button>
+    <button onclick="window._carreraRanking()" style="width:100%;max-width:360px;margin-top:9px;background:rgba(255,255,255,.05);color:#fff;border:1px solid #242424;border-radius:14px;padding:13px;font-weight:800;font-size:14px;cursor:pointer;"><i class='bx bx-bar-chart-alt-2' style="color:${A};"></i> Ver ranking</button>
     <button onclick="document.getElementById('carrera-modal').remove();window.openGamesModal&&window.openGamesModal()" style="width:100%;max-width:360px;margin-top:9px;background:transparent;color:#888;border:none;padding:11px;font-weight:800;font-size:13px;cursor:pointer;">Volver a Juegos</button>
   </div>`;
   try{ localStorage.removeItem(LS); }catch(e){}

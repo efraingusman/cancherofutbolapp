@@ -6752,13 +6752,13 @@ i.bx.bx-cancha::before, i.bx-cancha::before { content: ''; }
    todo, como siempre) pero arrancan por DEBAJO del nav (top = alto del nav). Como el modal
    ya no ocupa los primeros 70px, el nav (fijo arriba) queda visible ahí sin tocar su
    z-index → el torneo abre bien Y el header se ve. Sin efectos colaterales en el switcher. */
-#ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal,
-#games-hub, #trivia-modal, #carrera-modal, #adivina-modal, #impostor-modal, #once-modal, #hl-modal, #game-soon-modal {
+/* Torneos/partidos SÍ mantienen el header arriba. Los JUEGOS van a pantalla completa
+   (sin el bloque superior) — el usuario prefiere que el juego ocupe todo. */
+#ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal {
     top: 72px !important;
 }
 @media (max-width: 640px) {
-    #ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal,
-    #games-hub, #trivia-modal, #carrera-modal, #adivina-modal, #impostor-modal, #once-modal, #hl-modal, #game-soon-modal {
+    #ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal {
         top: 60px !important;
     }
 }

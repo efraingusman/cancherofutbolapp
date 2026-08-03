@@ -4101,13 +4101,28 @@ window.CancheroTournaments = (function() {
     async function _ctmSolicitudes(tournamentId, organizerEmail) {
         const sb = getSb();
         const { data: teams } = await sb.from('tournament_teams').select('*').eq('tournament_id', tournamentId).eq('status','pending').order('created_at');
+        // Jugadores individuales pendientes (solicitudes de jugadores sin equipo).
+        let players = [];
+        try { const r = await sb.from('tournament_players').select('*').eq('tournament_id', tournamentId).eq('status','pending').order('created_at'); players = r.data || []; } catch(e){}
         const container = document.getElementById('ctm-content');
         if (!container) return;
-        if (!teams || !teams.length) {
-            container.innerHTML = '<div style="text-align:center;padding:40px;color:#555;"><i class="bx bx-user-plus" style="font-size:36px;color:#222;display:block;margin-bottom:10px;"></i>Sin solicitudes pendientes.<br><span style="font-size:11px;">Cuando un equipo pida unirse al torneo, aparece acá.</span></div>';
+        if ((!teams || !teams.length) && !players.length) {
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:#555;"><i class="bx bx-user-plus" style="font-size:36px;color:#222;display:block;margin-bottom:10px;"></i>Sin solicitudes pendientes.<br><span style="font-size:11px;">Cuando un equipo o jugador pida unirse, aparece acá.</span></div>';
             return;
         }
-        container.innerHTML = teams.map(team => `
+        const playersHtml = players.length ? (
+            '<div style="font-size:10px;font-weight:900;color:#666;letter-spacing:1px;margin:4px 0 8px;">JUGADORES INDIVIDUALES</div>' +
+            players.map(p => `
+            <div style="background:#111;border:1px solid #1e1e1e;border-radius:14px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <div style="width:40px;height:40px;border-radius:50%;background:rgba(186,255,0,.1);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;"><i class='bx bx-user'></i></div>
+                <div style="flex:1;min-width:130px;"><div style="font-weight:800;font-size:14px;">${_esc(p.player_name||p.player_email||'Jugador')}</div><div style="font-size:11px;color:#666;">${p.position?_esc(p.position)+' · ':''}Jugador individual</div></div>
+                <div style="display:flex;gap:6px;">
+                    <button onclick="CancheroTournaments._solicPlayerAction('${p.id}','approved','${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}' )" style="background:rgba(0,230,118,0.12);color:#00e676;border:1px solid rgba(0,230,118,0.3);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;"><i class='bx bx-check'></i> Aceptar</button>
+                    <button onclick="CancheroTournaments._solicPlayerAction('${p.id}','rejected','${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}' )" style="background:rgba(255,68,68,0.08);color:#ff4444;border:1px solid rgba(255,68,68,0.2);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;"><i class='bx bx-x'></i> Rechazar</button>
+                </div>
+            </div>`).join('')
+        ) : '';
+        container.innerHTML = (teams && teams.length ? '<div style="font-size:10px;font-weight:900;color:#666;letter-spacing:1px;margin:0 0 8px;">EQUIPOS</div>' : '') + (teams||[]).map(team => `
         <div style="background:#111;border:1px solid #1e1e1e;border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
             ${_shieldHTML(team.logo_url, team.team_name, 46)}
             <div style="flex:1;min-width:140px;">
@@ -4118,7 +4133,25 @@ window.CancheroTournaments = (function() {
                 <button onclick="CancheroTournaments._solicAction('${team.id}','approved','${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}' )" style="background:rgba(0,230,118,0.12);color:#00e676;border:1px solid rgba(0,230,118,0.3);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;"><i class='bx bx-check'></i> Aceptar</button>
                 <button onclick="CancheroTournaments._solicAction('${team.id}','rejected','${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}' )" style="background:rgba(255,68,68,0.08);color:#ff4444;border:1px solid rgba(255,68,68,0.2);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;"><i class='bx bx-x'></i> Rechazar</button>
             </div>
-        </div>`).join('');
+        </div>`).join('') + playersHtml;
+    }
+
+    // Aceptar/rechazar un JUGADOR individual pendiente.
+    async function _solicPlayerAction(playerId, status, tournamentId, organizerEmail){
+        const sb = getSb();
+        let row = null;
+        try { const r = await sb.from('tournament_players').update({ status }).eq('id', playerId).select('*').single(); row = r.data; } catch(e){}
+        toast(status==='approved'?'Jugador aceptado. Podés asignarlo a un equipo desde Jugadores.':'Solicitud rechazada.', status==='approved'?'success':'warning');
+        try {
+            if (row && row.player_email) {
+                const { data: t } = await sb.from('tournaments').select('name').eq('id', tournamentId).single();
+                await sb.from('notifications').insert({ recipient_email: row.player_email, type:'torneo_solicitud',
+                    actor_name:(t&&t.name)||'Torneo', actor_email:organizerEmail,
+                    message: status==='approved'?`¡Te aceptaron en ${t&&t.name?t.name:'el torneo'}! El organizador te va a asignar a un equipo.`:`Tu solicitud al torneo${t&&t.name?' '+t.name:''} fue rechazada.`,
+                    post_id:tournamentId, read:false });
+            }
+        } catch(e){}
+        _ctmSolicitudes(tournamentId, organizerEmail);
     }
 
     async function _solicAction(teamId, status, tournamentId, organizerEmail) {
@@ -4736,6 +4769,7 @@ window.CancheroTournaments = (function() {
         _submitCreate,
         _inscribeTeam,
         _inscribeIndividual,
+        _solicPlayerAction,
         _openAddTeam,
         _approveTeam,
         _markPaid,
