@@ -79,8 +79,14 @@ que la racha signifique algo más.
       igual pero no guarda ranking).
 - [ ] AMPLIAR: más preguntas, categorías, fotos de jugadores (cuando haya set de fotos), duelo 1v1.
 
-### 3.b) JUEGO NUEVO — Modo Carrera (tipo Copero, más adictivo)
-Portada lista (`img/games/carrera.png`). Hoy muestra "Próximamente".
+### 3.b) JUEGO NUEVO — Modo Carrera — MVP HECHO (v420)
+- [x] `canchero-carrera.js`: crear jugador (nombre/país/posición/número), arranca en el
+      potrero, banco de eventos con decisiones futbolísticas/económicas/sociales y
+      consecuencias, temporadas (envejece), ascenso de tier (Amateur→Leyenda), dinero,
+      títulos, moral/fama/habilidad, retiro/leyenda. Guardado local (continuar partida).
+- [ ] AMPLIAR: más eventos, transferencias con elección de club real-ish, guardado en
+      Supabase (career_saves) para cross-device, ranking de carreras, más ramificaciones.
+Portada lista (`img/games/carrera.webp`).
 - [ ] **Arranque desde lo amateur**: club de barrio / fútbol callejero; te descubre un
       ojeador o por un video subido. De ahí escalar (regional → profesional → internacional →
       elite → leyenda), o no, según decisiones.
