@@ -1516,13 +1516,14 @@ body.is-biz #p-stat-blocks { display: none !important; }
     background:linear-gradient(180deg, rgba(7,9,7,0) 30%, rgba(7,9,7,0.55) 62%, rgba(7,9,7,0.94) 100%);
 }
 .buscar-card.has-cover:hover { border-color:var(--accent); }
-.buscar-card.has-cover .bc-t { position:relative; z-index:1; padding:0 12px; font-size:14px; text-shadow:0 1px 6px rgba(0,0,0,0.9); }
+.buscar-card.has-cover .bc-t { position:relative; z-index:1; padding:0 12px; font-size:14px; text-shadow:0 1px 6px rgba(0,0,0,0.9); display:flex; align-items:center; gap:7px; }
+.buscar-card.has-cover .bc-t i { color:var(--accent); font-size:17px; flex-shrink:0; filter:drop-shadow(0 1px 3px rgba(0,0,0,0.8)); }
 .buscar-card.has-cover .bc-s { position:relative; z-index:1; padding:0 12px 12px; color:#c8d0c2; text-shadow:0 1px 5px rgba(0,0,0,0.9); }
 @media (max-width:640px){ .buscar-card.has-cover { min-height:96px; } .buscar-card.has-cover .bc-t { font-size:13px; } }
 /* Banner DESAFIAR con portada de fondo. */
 .desafiar-cover {
-    position:relative; overflow:hidden; border-radius:16px; cursor:pointer; min-height:120px;
-    background:#0d0d0d var(--cover) center/cover no-repeat; border:1px solid rgba(186,255,0,0.4);
+    position:relative; overflow:hidden; border-radius:16px; cursor:pointer; min-height:150px;
+    background:#0d0d0d var(--cover) center 28%/cover no-repeat; border:1px solid rgba(186,255,0,0.4);
     display:flex; align-items:flex-end; padding:16px 18px; transition:border-color .15s;
 }
 .desafiar-cover::before { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(7,9,7,0) 35%,rgba(7,9,7,0.9) 100%); }

@@ -52,12 +52,12 @@ function _coverImg(file, fallbackGrad, icon, title, sub){
   return `<div style="width:100%;height:100%;background:#0a0a0a url('img/games/${file}') center/cover no-repeat;"></div>`;
 }
 const GAME_ART = {
-  'trivia': _coverImg('trivia.png'),
-  'carrera': _coverImg('carrera.png'),
-  'adivina': _coverImg('adivina.png'),
-  'impostor': _coverImg('impostor.png'),
-  'once-ideal': _coverImg('once-ideal.png'),
-  'higher-lower': _coverImg('higher-lower.png')
+  'trivia': _coverImg('trivia.webp'),
+  'carrera': _coverImg('carrera.webp'),
+  'adivina': _coverImg('adivina.webp'),
+  'impostor': _coverImg('impostor.webp'),
+  'once-ideal': _coverImg('once-ideal.webp'),
+  'higher-lower': _coverImg('higher-lower.webp')
 };
 
 const EMBED_URLS = {
