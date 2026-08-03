@@ -70,15 +70,14 @@ que la racha signifique algo más.
       hay jugadores sin foto. `once-ideal` ya tiene fallback de iniciales. FALTA que el
       usuario diga EN QUÉ juego (Adivina / Más o Menos / etc.) para el fix exacto.
 
-### 3.a) JUEGO NUEVO — Trivia Futbolera (tipo Preguntados)
-Portada lista (`img/games/trivia.png`). Hoy muestra "Próximamente".
-- [ ] Banco de preguntas con **fotos** (escudos y jugadores). Categorías: historia, clubes,
-      selecciones, jugadores por foto, escudos por foto, records.
-- [ ] **Niveles** (dificultad progresiva) y **ranking** (tabla global, reusar el podio).
-- [ ] Modo 1 jugador (contrarreloj) y opcional 1v1/duelo.
-- [ ] Persistir puntaje/nivel por usuario en Supabase (tabla nueva `trivia_scores`).
-- [ ] Módulo nuevo `canchero-trivia.js`, exponer `window._triviaStart` (el launcher ya lo
-      llama si existe; si no, cae al "Próximamente").
+### 3.a) JUEGO NUEVO — Trivia Futbolera (tipo Preguntados) — HECHO (v417)
+- [x] `canchero-trivia.js`: 36 preguntas (texto + escudos de img/clubs + banderas flagcdn),
+      dificultad creciente (4 fáciles + 3 medias + 3 difíciles), timer 15s con bonus de
+      velocidad y racha, resultado con récord, ranking con podio.
+- [x] Ranking en Supabase (`trivia_scores`, mejor puntaje por email). **FALTA CORRER EL SQL**:
+      `sql/2026-08-02-trivia-scores.sql` en el editor SQL de Supabase (sin eso el juego se juega
+      igual pero no guarda ranking).
+- [ ] AMPLIAR: más preguntas, categorías, fotos de jugadores (cuando haya set de fotos), duelo 1v1.
 
 ### 3.b) JUEGO NUEVO — Modo Carrera (tipo Copero, más adictivo)
 Portada lista (`img/games/carrera.png`). Hoy muestra "Próximamente".
@@ -120,9 +119,13 @@ Portada lista (`img/games/carrera.png`). Hoy muestra "Próximamente".
 
 - [ ] **Panel organización**: a veces abajo se ve como si estuviera en Inicio (fuga de
       layout). FALTA REPRO: ¿siempre o al cambiar de una pestaña puntual? ¿PC o celular?
-- [ ] **Portadas con foto** (no solo icono): cambiar la de **Debates**; agregar portada a
-      las secciones de **Partido** y de **Buscar** (todas con imagen de fondo, no solo icono).
-      (Las de Juegos ya se hicieron.)
+- [x] **Portadas con foto** en Buscar y Partidos — HECHO (v416): cards `.buscar-card.has-cover`
+      + banner `.desafiar-cover` con foto de fondo + degradado (img/covers/*). FALTA la de Debates.
+- [ ] **Portada de Debates** (cambiarla). Y OPTIMIZAR: las portadas (juegos+covers) pesan ~2MB
+      c/u; pasar a webp/comprimir para bajar egress y acelerar carga de Buscar/Partidos.
+- [x] **Header siempre visible** en torneos/partidos — HECHO (v416): los overlays de torneo/
+      partido ahora van por debajo del nav (que queda fijo con logo/switcher/campana/ajustes).
+- [x] **Botones del home** más chicos, entran los 4 + tagline sin cortar (celular y PC) — v416.
 - [x] Ranking del torneo con podio (v412).
 - [x] Seguidores no suben (v412). / Doble Liga Clandestina (v413). / Cargar eventos sin
       cronómetro (v410). / Modal roles con "+" (v411).
