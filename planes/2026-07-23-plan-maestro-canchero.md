@@ -154,12 +154,12 @@ Hechos (deploy v409–v411):
 - [x] **Modal de roles: botón "+" por grupo** para crear otro rol del mismo tipo; sacadas las 3 filas grandes "Registrar mi X".
 
 Pendientes (de este feedback):
-- [ ] **Panel organización**: a veces abajo se ve como si estuviera en Inicio (fuga de layout entre #view-admin/CRM y el feed del jugador). Investigar z-index/display al cambiar de tab.
-- [ ] **Ranking del torneo con PODIO** como el ranking normal de Canchero (visualmente lindo). Reusar el componente de `generateRankingHTML`/ranking global.
-- [ ] **Fotos de jugadores que no se ven en los juegos** (avatar fallback / URL rota).
-- [ ] **Doble "Liga Clandestina"** en directorio de Ligas; una de ellas abre un **perfil de jugador** (dedupe + routing al perfil de negocio correcto).
-- [ ] **Seguidores no suben** al seguir una liga/otros roles (contar follows por identidad; revisar `following_profile` tag y el count del perfil).
-- [ ] **Portadas (foto, no solo icono)**: cambiar portada de Debates y de Juegos; agregar portada a secciones de Partido y de Buscar (todas con imagen).
+- [ ] **Panel organización**: a veces abajo se ve como si estuviera en Inicio (fuga de layout entre #view-admin/CRM y el feed del jugador). Investigar z-index/display al cambiar de tab. FALTA REPRO.
+- [x] **Ranking del torneo con PODIO** — HECHO (v412): `_podioHTML` ahora arma podio con 1-2 jugadores (antes exigía 3+ y caía a lista plana). Omite columnas vacías, 1° centrado.
+- [~] **Fotos de jugadores que no se ven en los juegos** — once-ideal YA tiene fallback de iniciales; falta que el usuario diga EN QUÉ juego puntual pasa (adivina/otros) para el fix exacto.
+- [x] **Doble "Liga Clandestina"** — HECHO (v413): dedupe por email/nombre en `generateOrganizacionesHTML`, prefiere la entrada con `_bizId` (abre el perfil de negocio correcto, no el de jugador).
+- [x] **Seguidores no suben** — HECHO (v412): el pre-filtro por identidad en `viewUserProfile` borraba los follows `biz:*` antes de contarlos en perfiles de negocio/liga. Ahora se saltea ese pre-filtro para perfiles de negocio.
+- [ ] **Portadas (foto, no solo icono)**: cambiar portada de Debates y de Juegos; agregar portada a secciones de Partido y de Buscar (todas con imagen). PENDIENTE.
 - [ ] **JUEGO Trivia** (tipo Preguntados de fútbol): preguntas con fotos de escudos y jugadores, niveles y ranking. GRANDE — sesión dedicada.
 - [ ] **JUEGO Modo Carrera** (tipo Copero pero más adictivo): arranca en fútbol amateur/potrero, ojeador/video, elegir club/país/nombre/nº/posición; dinero, fichajes, subir de edad por temporada, títulos; decisiones futbolísticas + económicas + sociales, basadas indirectamente en vidas de jugadores reales; simple y adictivo; PC + celular. MUY GRANDE — sesión dedicada, probablemente módulo `canchero-carrera.js` nuevo.
 
