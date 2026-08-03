@@ -16,26 +16,16 @@
 const R = {};
 
 // Fueguito SVG (no emoji). Tamaño y si está "prendido" (color) o "apagado" (gris).
-// v4 (rediseño 2026-08-01): pelota de fútbol VERDE con gajos negros + llama verde
-// saliendo hacia arriba-derecha, igual que el logo/racha de referencia del usuario.
-// El primer <path> es la llama: el CSS #racha-fuego svg path:first-child { rachaFlicker }
-// le da el flicker (solo la llama ondea; la pelota queda quieta abajo).
+// Solo la llama (sin pelota). El primer <path> es la lengua externa: el CSS
+// #racha-fuego svg path:first-child { rachaFlicker } le da el flicker/movimiento.
 function llama(size, activo){
-  const green = activo ? '#63e021' : '#3a3f45';   // verde lima de la pelota y la llama
-  const line  = activo ? '#000000' : '#22262b';   // gajos y aros (negros sobre el verde)
-  return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;">
-    <!-- Llama (flicker): lenguas hacia arriba y a la derecha, saliendo de la pelota -->
-    <path d="M34 8c9.5 3.2 12.8 12 10 20.4 4.2-2.4 6.9-7.2 6.4-12.4 3.8 5.2 3.4 13.6-2.8 18.9 3.6.1 7.3-1.4 9.9-4.1-.7 8.6-8.7 15-17.6 14.6-6-.3-10.6-3.6-12.9-8.2 2.2-1.2 6-3.9 6.6-9.2.7-6.2-3.4-9.8-5.2-13.4C36.6 21 40 14 34 8Z" fill="${green}"/>
-    <!-- Pelota verde con doble aro y gajos negros -->
-    <circle cx="27" cy="40" r="20" fill="${green}"/>
-    <circle cx="27" cy="40" r="20" fill="none" stroke="${line}" stroke-width="2.2"/>
-    <circle cx="27" cy="40" r="16.5" fill="none" stroke="${line}" stroke-width="1.4"/>
-    <path d="M27 32l7.6 5.5-2.9 9h-9.4l-2.9-9z" fill="${line}"/>
-    <path d="M27 26.4l3.1 2.3-1.2 3.5h-3.8l-1.2-3.5z" fill="${line}"/>
-    <path d="M42.4 36.7l1.2 3.6-2.2 3.1-3.3-2.5.9-3.7z" fill="${line}"/>
-    <path d="M11.6 36.7l-1.2 3.6 2.2 3.1 3.3-2.5-.9-3.7z" fill="${line}"/>
-    <path d="M20.3 52.7l-2.9 2-3.1-2 1.1-3.4 3.7.4z" fill="${line}"/>
-    <path d="M33.7 52.7l2.9 2 3.1-2-1.1-3.4-3.7.4z" fill="${line}"/>
+  // Solo la LLAMA, en verde (sin pelota). El primer <path> es la lengua externa: el CSS
+  // #racha-fuego svg path:first-child { rachaFlicker } le da el movimiento/flicker.
+  const c1 = activo ? '#16a34a' : '#3a3f45';   // verde base
+  const c2 = activo ? '#a3e635' : '#4a4f55';   // núcleo lima
+  return `<svg width="${size}" height="${size}" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;">
+    <path d="M24 3c1 7-4 9-8 14-3 4-4 8-4 12 0 7 5.4 13 12 13s12-6 12-13c0-6-4-10-6-14-1.6 2-3 3-4 3 1-6-1-11-2-15Z" fill="${c1}"/>
+    <path d="M24 20c.7 4-2.5 5.5-4.5 8.4-1.3 1.9-1.5 3.6-1.5 5.1 0 3.4 2.7 6 6 6s6-2.6 6-6c0-3-2.2-5-3.5-7.4-.8 1-1.6 1.5-2.2 1.5.6-3-.3-6-.3-7.6Z" fill="${c2}"/>
   </svg>`;
 }
 

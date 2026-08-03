@@ -21262,7 +21262,8 @@ window._renderJugadorInicioHero = async function() {
             <button onclick="window.switchDashboardTab&&window.switchDashboardTab('jugador','partidos',null)" style="flex:1;background:rgba(186,255,0,0.1);color:var(--accent);border:1px solid rgba(186,255,0,0.3);border-radius:11px;padding:11px;font-weight:900;font-size:12.5px;cursor:pointer;"><i class='bx bx-football'></i> Ver partidos</button>
             <button onclick="window.switchDashboardTab&&window.switchDashboardTab('jugador','crear-partido',null)" style="flex:1;background:linear-gradient(135deg,#baff00,#8fd400);color:#000;border:none;border-radius:11px;padding:11px;font-weight:900;font-size:12.5px;cursor:pointer;"><i class='bx bx-plus'></i> Crear partido</button>
         </div>
-    </div>`;
+    </div>
+    <div id="jih-liga" style="margin-top:12px;"></div>`;
 
     // Datos en vivo: partidos próximos cerca + tu próximo partido.
     (async () => {
@@ -21294,6 +21295,78 @@ window._renderJugadorInicioHero = async function() {
                 else el.innerHTML = '<i class="bx bx-info-circle" style="opacity:.5;"></i> No hay partidos cerca todavía — ¡creá el primero!';
             }
         } catch(e){}
+    })();
+
+    // ── BLOQUE "TU LIGA" ─────────────────────────────────────────────────────────
+    // Pedido de Liga Clandestina: un jugador que YA está en una liga no anda buscando
+    // partidos/equipos; quiere ver SU campeonato (próximo cruce, tabla, resultados).
+    // Si el jugador pertenece a un torneo activo, se muestra arriba del feed.
+    (async () => {
+        try {
+            const sb = window._sb; if (!sb || !u.email) return;
+            const cont = document.getElementById('jih-liga'); if (!cont) return;
+            // ¿En qué torneos está el jugador? (por su email en tournament_players)
+            const { data: tp } = await sb.from('tournament_players')
+                .select('tournament_id,team_id').eq('player_email', u.email).limit(20);
+            if (!tp || !tp.length) return;
+            const tids = [...new Set(tp.map(x => x.tournament_id).filter(Boolean))];
+            if (!tids.length) return;
+            // Elegir un torneo ACTIVO (o el más reciente).
+            const { data: torneos } = await sb.from('tournaments').select('*').in('id', tids)
+                .order('created_at', { ascending: false });
+            if (!torneos || !torneos.length) return;
+            const activo = torneos.find(t => /activ|curso|en_juego|progreso/i.test(t.status||'')) || torneos[0];
+            const miTeamId = (tp.find(x => x.tournament_id === activo.id) || {}).team_id;
+            // Tabla (top 4) y próximo cruce del equipo del jugador.
+            const [{ data: teams }, { data: matches }] = await Promise.all([
+                sb.from('tournament_teams').select('id,team_name,points,goals_for,goals_against,won,drawn,lost')
+                    .eq('tournament_id', activo.id).in('status',['approved','eliminated'])
+                    .order('points',{ascending:false}).order('goals_for',{ascending:false}).limit(20),
+                sb.from('tournament_matches').select('*').eq('tournament_id', activo.id)
+                    .order('scheduled_at',{ascending:true}).limit(200)
+            ]);
+            const teamName = id => ((teams||[]).find(t=>t.id===id)||{}).team_name || '—';
+            // Próximo cruce del jugador (sin resultado, su equipo participa).
+            const prox = (matches||[]).find(m => (m.home_score==null||m.away_score==null)
+                && (m.home_team_id===miTeamId || m.away_team_id===miTeamId));
+            // Últimos resultados del jugador (con resultado), más recientes primero.
+            const jugados = (matches||[]).filter(m => (m.home_score!=null&&m.away_score!=null)
+                && (m.home_team_id===miTeamId || m.away_team_id===miTeamId)).slice(-3).reverse();
+            const top = (teams||[]).slice(0,4);
+            const esc = s => (window.escH?window.escH(s):String(s||''));
+            const filaTabla = (t,i) => `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;${t.id===miTeamId?'background:rgba(186,255,0,0.06);border-radius:8px;padding-left:6px;padding-right:6px;':''}">
+                <span style="width:18px;font-size:11px;font-weight:900;color:${i<3?'var(--accent)':'#888'};">${i+1}</span>
+                <span style="flex:1;min-width:0;font-size:12px;font-weight:${t.id===miTeamId?'900':'700'};color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.team_name)}</span>
+                <span style="font-size:12px;font-weight:900;color:var(--accent);">${t.points||0}</span>
+            </div>`;
+            let proxHtml = '';
+            if (prox) {
+                const f = prox.scheduled_at ? new Date(prox.scheduled_at).toLocaleDateString('es-UY',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : 'A confirmar';
+                proxHtml = `<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border-radius:10px;padding:9px 11px;margin-bottom:10px;">
+                    <i class='bx bx-calendar-star' style="color:var(--accent);font-size:16px;"></i>
+                    <div style="flex:1;min-width:0;font-size:12px;color:#cbd3c2;">Próximo: <b style="color:#fff;">${esc(teamName(prox.home_team_id))}</b> vs <b style="color:#fff;">${esc(teamName(prox.away_team_id))}</b><div style="font-size:10.5px;color:#8a8f96;">${f}</div></div>
+                </div>`;
+            }
+            let ultHtml = '';
+            if (jugados.length) {
+                ultHtml = '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">' + jugados.map(m => {
+                    const mine = m.home_team_id===miTeamId;
+                    const gf = mine?m.home_score:m.away_score, gc = mine?m.away_score:m.home_score;
+                    const col = gf>gc?'#22c55e':gf<gc?'#ff4444':'#888';
+                    return `<span style="font-size:11px;font-weight:900;color:${col};background:${col}1a;border:1px solid ${col}44;border-radius:7px;padding:2px 8px;">${gf}-${gc}</span>`;
+                }).join('') + '</div>';
+            }
+            cont.innerHTML = `
+            <div style="background:linear-gradient(160deg,rgba(186,255,0,0.06),rgba(18,20,17,0.6));backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(186,255,0,0.18);border-radius:16px;padding:14px 15px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:11px;">
+                    <i class='bx bx-trophy' style="color:var(--accent);font-size:18px;"></i>
+                    <div style="flex:1;min-width:0;"><div style="font-size:9px;font-weight:900;letter-spacing:1.5px;color:var(--accent);">TU LIGA</div><div style="font-size:14px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(activo.name||'Torneo')}</div></div>
+                </div>
+                ${proxHtml}${ultHtml}
+                ${top.length ? `<div style="font-size:9px;font-weight:900;letter-spacing:1px;color:#666;margin:2px 0 4px;">TABLA</div>${top.map(filaTabla).join('')}` : ''}
+                <button onclick="window.CancheroTournaments&&window.CancheroTournaments.openPublicView('${activo.id}')" style="width:100%;margin-top:11px;background:rgba(186,255,0,0.1);color:var(--accent);border:1px solid rgba(186,255,0,0.3);border-radius:11px;padding:10px;font-weight:900;font-size:12.5px;cursor:pointer;"><i class='bx bx-list-ul'></i> Ver mi torneo</button>
+            </div>`;
+        } catch(e){ console.warn('TU LIGA block:', e); }
     })();
 };
 
