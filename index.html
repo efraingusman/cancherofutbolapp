@@ -134,7 +134,7 @@
         } catch(e) {}
     </script>
 
-    <link rel="stylesheet" href="style.css?v=20260731c">
+    <link rel="stylesheet" href="style.css?v=20260801b">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -228,6 +228,16 @@
                      Fanático se migra al perfil de Jugador (elegir club + comunidades) y cada
                      rol de negocio tiene su acceso directo (nada de "elegí tipo de negocio"). -->
                 <div class="hero-cta-wrap">
+                    <!-- Sub-frase social + contador de jugadores (estilo X/Instagram home). Va
+                         SIEMPRE visible arriba de los CTAs, para no depender de scroll. -->
+                    <div class="hero-tagline">
+                        <div class="hero-tagline-txt">La app de fútbol amateur.<br><span>Jugá, competí, sumá stats.</span></div>
+                        <div class="hero-counter">
+                            <i class='bx bx-run'></i>
+                            <span id="home-user-count">—</span>
+                            <span class="hero-counter-lbl">jugadores en Canchero</span>
+                        </div>
+                    </div>
                     <div class="fs-side-actions" style="gap:12px;">
                         <!-- JUGADOR (principal, más grande) -->
                         <button id="hero-btn-jugador" class="btn-fs-action btn-fs-primary" onclick="window._showLoginModal&&window._showLoginModal('jugador')" style="border:none;cursor:pointer;text-align:left;">
@@ -267,35 +277,6 @@
 
             </div>
         </div>
-
-        <!-- ¿QUÉ ES CANCHERO? — bloque explicativo con liquid glass debajo del hero -->
-        <section class="home-what-is" id="home-what-is">
-            <div class="hw-badge">CANCHERO</div>
-            <h2 class="hw-title">Encontrá y organizá tus <span class="hw-accent">partidos de fútbol amateur</span>.</h2>
-            <p class="hw-sub">Un lugar solo para el fútbol amateur: partidos, equipos, torneos, canchas y stats — todo en tu bolsillo.</p>
-            <div class="hw-cards">
-                <div class="hw-card">
-                    <i class='bx bx-football'></i>
-                    <div class="hw-card-title">Jugá seguido</div>
-                    <div class="hw-card-text">Encontrá partidos cerca, unite a los abiertos o armá el tuyo en minutos.</div>
-                </div>
-                <div class="hw-card">
-                    <i class='bx bx-line-chart'></i>
-                    <div class="hw-card-title">Sumá stats reales</div>
-                    <div class="hw-card-text">Goles, asistencias, MVPs y racha. Subí de nivel jugando de verdad.</div>
-                </div>
-                <div class="hw-card">
-                    <i class='bx bx-group'></i>
-                    <div class="hw-card-title">Armá tu equipo</div>
-                    <div class="hw-card-text">Convocá a tus amigos, chateá interno, cargá formaciones y desafiá a otros clubes.</div>
-                </div>
-                <div class="hw-card">
-                    <i class='bx bx-trophy'></i>
-                    <div class="hw-card-title">Torneos que corren solos</div>
-                    <div class="hw-card-text">Fixtures, resultados, tablas y tarjetas. Ideal para ligas de barrio.</div>
-                </div>
-            </div>
-        </section>
 
         <!-- SPONSORS BAND — visible sin scrollear -->
         <div class="home-sponsors-band">
@@ -3978,9 +3959,9 @@
     <script src="canchero-polls.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-geo.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-live-v2.js?v=20260714a" charset="utf-8"></script>
-    <script src="canchero-debates.js?v=20260721a" charset="utf-8"></script>
+    <script src="canchero-debates.js?v=20260801b" charset="utf-8"></script>
     <script src="canchero-games-core.js?v=20260714a" charset="utf-8"></script>
-    <script src="canchero-games.js?v=20260717" charset="utf-8"></script>
+    <script src="canchero-games.js?v=20260801b" charset="utf-8"></script>
     <script src="canchero-once-ideal.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-adivina.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-impostor.js?v=20260714a" charset="utf-8"></script>
@@ -3997,7 +3978,7 @@
     <script src="canchero-comunidades.js?v=20260724b" charset="utf-8"></script>
     <script src="canchero-hinchada.js?v=20260724a" charset="utf-8"></script>
     <script src="canchero-rating.js?v=20260721f" charset="utf-8"></script>
-    <script src="canchero-racha.js?v=20260731d" charset="utf-8"></script>
+    <script src="canchero-racha.js?v=20260801b" charset="utf-8"></script>
     <script src="canchero-gamification.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-player-card.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-social.js?v=20260724x" charset="utf-8"></script>
@@ -4087,6 +4068,19 @@
         wireBtn('hero-btn-canchas', function(e){ e.preventDefault(); if (typeof window._showLoginModal === 'function') window._showLoginModal('club'); });
         wireBtn('hero-btn-ligas',   function(e){ e.preventDefault(); if (typeof window._showLoginModal === 'function') window._showLoginModal('organizacion'); });
         wireBtn('hero-btn-tiendas', function(e){ e.preventDefault(); if (typeof window._showLoginModal === 'function') window._showLoginModal('tienda'); });
+
+        // Contador de jugadores en el home (estilo red social). Count exacto vía head+count.
+        (function(){
+            var el = document.getElementById('home-user-count'); if (!el) return;
+            function fmt(n){ return n >= 1000 ? (n/1000).toFixed(n>=10000?0:1).replace('.0','')+'k' : String(n); }
+            try {
+                var sb = window.supabase && window.supabase.createClient('https://dofbxgqzcvfjpnvcvdjb.supabase.co','sb_publishable_gPwLXkMHk3HvFz9nm9hgKA_1D0IJBKA');
+                if (!sb) return;
+                sb.from('users').select('email', { count: 'exact', head: true }).then(function(r){
+                    var c = r && r.count; if (typeof c === 'number') el.textContent = '+' + fmt(c);
+                }).catch(function(){});
+            } catch(e){}
+        })();
         wireBtn('hero-btn-sponsor', function(e){ e.preventDefault(); openSponsorSurvey(); });
         wireBtn('btn-download-app', function(e){ e.preventDefault(); try{ window.smartDownload && window.smartDownload(); }catch(err){} });
 

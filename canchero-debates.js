@@ -64,11 +64,9 @@ const COVER_IMG = {
 // Si el archivo no existe, se usa la imagen libre de COVER_IMG como respaldo.
 const SEED = [
   { title:'Messi vs Cristiano', category:'Jugadores', options:['Messi','Cristiano'], local_cover:'img/debates/messi-cristiano.jpg', cover_url:COVER_IMG.player },
-  { title:'Maradona vs Pelé', category:'Jugadores', options:['Maradona','Pelé'], local_cover:'img/debates/maradona-pele.jpg', cover_url:COVER_IMG.player },
   { title:'Peñarol vs Nacional', category:'Clubes', options:['Peñarol','Nacional'], local_cover:'img/debates/penarol-nacional.jpg', cover_url:COVER_IMG.shield },
   { title:'Barcelona vs Real Madrid', category:'Clubes', options:['Barcelona','Real Madrid'], local_cover:'img/debates/barsa-madrid.jpg', cover_url:COVER_IMG.stadium },
   { title:'Boca vs River', category:'Clubes', options:['Boca','River'], local_cover:'img/debates/boca-river.jpg', cover_url:COVER_IMG.shield },
-  { title:'Mbappé vs Haaland', category:'Jugadores', options:['Mbappé','Haaland'], local_cover:'img/debates/mbappe-haaland.jpg', cover_url:COVER_IMG.ball },
 ];
 // Resuelve la portada: la del debate, o si no tiene, la de la semilla con el mismo título (debates ya creados sin cover)
 function _debResolveCover(d){
@@ -130,6 +128,12 @@ window._renderDebatesList = async function(){
   // No se borran de la base (quedan los argumentos y los votos por si se quiere revisar),
   // simplemente dejan de mostrarse.
   rows = rows.filter(d => (d.category||'') !== 'Mundial');
+  // Debates retirados a pedido (2026-08-01): Maradona vs Pelé y Mbappé vs Haaland.
+  // Se ocultan siempre y se borran de la base una sola vez (best-effort).
+  const _retirados = ['maradona vs pelé','maradona vs pele','mbappé vs haaland','mbappe vs haaland'];
+  const _aBorrar = rows.filter(d => _retirados.indexOf((d.title||'').trim().toLowerCase()) !== -1);
+  if (_aBorrar.length) { try { sb().from('debates').delete().in('id', _aBorrar.map(d=>d.id)).then(function(){},function(){}); } catch(e){} }
+  rows = rows.filter(d => _retirados.indexOf((d.title||'').trim().toLowerCase()) === -1);
   // Dedupe reales por título (quedarse con el más reciente)
   const seen = {}; const realByTitle = {}; const realUnique = [];
   rows.forEach(d=>{ const k=(d.title||'').trim().toLowerCase(); if(!seen[k]){ seen[k]=1; realByTitle[k]=d; realUnique.push(d); } });

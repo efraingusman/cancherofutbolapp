@@ -266,32 +266,53 @@ ul { list-style: none; }
    REDISEÑO HOME (v405+): descripciones bajo cada acceso, botón JUGADOR destacado,
    bloque "¿Qué es Canchero?" con liquid glass, scroll natural del home.
 ══════════════════════════════════ */
-/* Permitir scroll en el home ahora que hay contenido adicional al hero.
-   Ver overrides después que sacan el overflow:hidden fijo. */
-.home-viewport-wrap { overflow-y: auto !important; height: auto !important; min-height: 100vh; }
-.landing-hero-full { min-height: 82vh; }
-/* Hero CTA en flow normal (no absolute) para que quepan los 4 botones con descripción
-   sin quedar apretados sobre la parte baja de la imagen del hero. Padding-top empuja
-   los botones para abajo así el jugador de fondo se ve completo por encima. */
+/* Home SIN scroll: el bloque "¿Qué es Canchero?" quedaba invisible abajo y confundía,
+   así que se sacó (ver .home-what-is display:none más abajo) y en su lugar hay una
+   sub-frase corta + contador de jugadores estilo redes sociales, siempre visible. */
+.home-viewport-wrap { overflow: hidden !important; height: 100vh !important; }
+.landing-hero-full { min-height: unset; flex: 1; min-height: 0; }
+/* Ocultar el bloque grande "¿Qué es Canchero?" (no se veía y rompía el hero). */
+.home-what-is { display: none !important; }
+/* Hero CTA en flow normal (no absolute). El wrap ocupa el alto del hero y ubica la
+   tagline+contador arriba y los 4 botones en la parte baja, todo sin scroll. */
 .home-viewport-wrap .hero-cta-wrap {
-    position: relative !important; left: auto !important; right: auto !important;
-    bottom: auto !important; transform: none !important;
-    margin: 0 auto; padding: 34vh 16px 40px;
-    display: flex; justify-content: center;
+    position: absolute !important; left: 0 !important; right: 0 !important;
+    bottom: 0 !important; top: 0 !important; transform: none !important;
+    margin: 0; padding: 0 16px;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
 }
+/* Tagline social + contador (estilo home de red social). */
+.hero-tagline { text-align: center; margin-bottom: auto; padding-top: 12vh; max-width: 340px; }
+.hero-tagline-txt {
+    font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 900; color: #fff;
+    line-height: 1.2; text-shadow: 0 2px 14px rgba(0,0,0,0.85); letter-spacing: -0.3px;
+}
+.hero-tagline-txt span { color: var(--accent); }
+.hero-counter {
+    display: inline-flex; align-items: center; gap: 7px; margin-top: 12px;
+    background: rgba(0,0,0,0.42); backdrop-filter: blur(8px);
+    border: 1px solid rgba(186,255,0,0.28); border-radius: 22px; padding: 6px 14px;
+}
+.hero-counter i { color: var(--accent); font-size: 15px; }
+.hero-counter #home-user-count { color: var(--accent); font-weight: 900; font-size: 14px; }
+.hero-counter-lbl { color: rgba(255,255,255,0.8); font-size: 12px; font-weight: 600; }
+
 @media (max-width: 640px) {
-    /* Botones un poco más chicos + más margen arriba para bajarlos en pantallas altas. */
-    .home-viewport-wrap .hero-cta-wrap { padding: 38vh 14px 24px; }
-    .home-viewport-wrap .btn-fs-action { padding: 11px 16px !important; border-radius: 14px !important; }
-    .home-viewport-wrap .btn-fs-action i { font-size: 24px !important; }
-    .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 17px !important; }
-    .btn-fs-action .fs-btn-desc { font-size: 11px !important; max-width: 220px; }
-    .home-viewport-wrap .fs-side-actions { gap: 9px !important; width: 100%; max-width: 340px !important; }
+    .home-viewport-wrap .hero-cta-wrap { padding: 0 14px calc(14px + env(safe-area-inset-bottom)); }
+    .hero-tagline { padding-top: 10vh; }
+    .hero-tagline-txt { font-size: 18px; }
+    .home-viewport-wrap .btn-fs-action { padding: 10px 15px !important; border-radius: 14px !important; }
+    .home-viewport-wrap .btn-fs-action i { font-size: 22px !important; }
+    .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 16px !important; }
+    .btn-fs-action .fs-btn-desc { font-size: 10.5px !important; max-width: 210px; margin-top: 2px; }
+    .home-viewport-wrap .fs-side-actions { gap: 8px !important; width: 100%; max-width: 340px !important; }
 }
 @media (min-width: 641px) {
-    .home-viewport-wrap .hero-cta-wrap { padding: 22vh 16px 40px; }
+    .home-viewport-wrap .hero-cta-wrap { padding: 0 16px 5vh; }
+    .hero-tagline { padding-top: 14vh; max-width: 400px; }
+    .hero-tagline-txt { font-size: 26px; }
     .home-viewport-wrap .fs-side-actions { max-width: 360px !important; }
-    .home-viewport-wrap .btn-fs-action { width: 100% !important; padding: 14px 20px !important; }
+    .home-viewport-wrap .btn-fs-action { width: 100% !important; padding: 13px 20px !important; }
     .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 19px !important; }
     .home-viewport-wrap .btn-fs-action i { font-size: 26px !important; }
 }
