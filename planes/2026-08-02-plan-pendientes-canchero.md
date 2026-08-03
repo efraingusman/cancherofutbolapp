@@ -79,7 +79,15 @@ que la racha signifique algo más.
       igual pero no guarda ranking).
 - [ ] AMPLIAR: más preguntas, categorías, fotos de jugadores (cuando haya set de fotos), duelo 1v1.
 
-### 3.b) JUEGO NUEVO — Modo Carrera — MVP HECHO (v420)
+### 3.b) JUEGO NUEVO — Modo Carrera — V2 estilo Copero HECHO (v421)
+- [x] Pantalla de IDENTIDAD (camiseta SVG con apellido+número, color por país; pierna hábil;
+      nacionalidad con banderas y buscador; POSICIÓN en la cancha con las 12 posiciones).
+- [x] DURACIÓN de carrera (10/15/20/25 años). Clubes de ligas del mundo (ARG, BRA, ESP, ING,
+      ITA, FRA, ALE, POR, MEX, MLS, Saudi, Primera UY) + INTERIOR de Uruguay. Oferta de cantera.
+- [x] HUB con puntaje "NIVEL" (renombrado del OVR), valor de mercado, línea de tiempo por edad,
+      PJ/GLS/AST, títulos. Simulación de temporadas, transferencias a clubes mejores, decisiones.
+- [ ] AMPLIAR: guardado en Supabase (career_saves) cross-device, escudos reales, selección
+      nacional/mundiales, ranking de carreras, más eventos y ramificaciones.
 - [x] `canchero-carrera.js`: crear jugador (nombre/país/posición/número), arranca en el
       potrero, banco de eventos con decisiones futbolísticas/económicas/sociales y
       consecuencias, temporadas (envejece), ascenso de tier (Amateur→Leyenda), dinero,
