@@ -1353,35 +1353,51 @@ window._openProfileSwitcher = async function(){
         (teams.length ? teams.map(teamRow).join('') : '<div style="font-size:12px;color:#666;margin-bottom:8px;padding:0 2px;">Todavía no tenés equipos.</div>') +
         createTeam +
         `<div style="font-size:11px;font-weight:800;color:#555;letter-spacing:1px;margin:12px 0 8px;">MIS NEGOCIOS</div>` +
-        // P5.2: negocios AGRUPADOS por tipo (tiendas juntas, complejos juntos, etc.),
-        // con sub-título por grupo y orden alfabético dentro del grupo.
-        ((window._myBusinesses && window._myBusinesses.length)
-            ? (function(){
-                var groups = [
-                    { roles:['tienda','store','shop'], label:'Tiendas' },
-                    { roles:['club','complejo','cancha'], label:'Canchas' },
-                    { roles:['organizacion','liga','escuela'], label:'Ligas' },
-                    { roles:['profesional'], label:'Profesionales' },
-                    { roles:['sponsor'], label:'Sponsors' }
-                ];
-                var used = {}, html = '';
-                groups.forEach(function(g){
-                    var list = (window._myBusinesses||[]).filter(function(b){
-                        return g.roles.indexOf((b.role||'').toLowerCase()) !== -1;
-                    }).sort(function(a,b2){ return (a.name||'').localeCompare(b2.name||''); });
-                    if (!list.length) return;
+        // Negocios agrupados por tipo. Cada grupo tiene un botón "+" al lado del título
+        // para crear OTRO negocio de ese tipo (antes había 3 filas grandes "Registrar mi X"
+        // abajo que ocupaban mucho; ahora el "+" está junto a cada rol ya creado). Los tipos
+        // sin ningún negocio se ofrecen en una fila compacta de chips al final.
+        (function(){
+            var groups = [
+                { roles:['tienda','store','shop'], label:'Tiendas', create:'tienda', icon:'bx-store' },
+                { roles:['club','complejo','cancha'], label:'Canchas', create:'complejo', icon:'bx-cancha' },
+                { roles:['organizacion','liga','escuela'], label:'Ligas', create:'organizacion', icon:'bx-trophy' },
+                { roles:['profesional'], label:'Profesionales', create:'profesional', icon:'bx-briefcase' },
+                { roles:['sponsor'], label:'Sponsors', create:'sponsor', icon:'bx-dollar-circle' }
+            ];
+            var addBtn = function(create, label){
+                return '<button onclick="document.getElementById(\'profile-switcher-sheet\').remove();window._registerBizFromSwitcher&&window._registerBizFromSwitcher(\'' + create + '\')" title="Agregar otro ' + label + '" aria-label="Agregar otro ' + label + '" style="margin-left:auto;width:26px;height:26px;flex-shrink:0;border-radius:50%;background:rgba(186,255,0,0.12);border:1px solid rgba(186,255,0,0.4);color:var(--accent);font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="bx bx-plus"></i></button>';
+            };
+            var used = {}, html = '', creados = [], faltantes = [];
+            groups.forEach(function(g){
+                var list = (window._myBusinesses||[]).filter(function(b){
+                    return g.roles.indexOf((b.role||'').toLowerCase()) !== -1;
+                }).sort(function(a,b2){ return (a.name||'').localeCompare(b2.name||''); });
+                if (list.length){
                     list.forEach(function(b){ used[b.id] = true; });
-                    html += '<div style="font-size:10px;font-weight:800;color:#444;letter-spacing:.5px;margin:6px 0 4px;padding-left:2px;">' + g.label.toUpperCase() + '</div>'
+                    // Header del grupo con el botón "+" para crear otro de este tipo.
+                    html += '<div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px;padding-left:2px;">'
+                          + '<span style="font-size:10px;font-weight:800;color:#444;letter-spacing:.5px;">' + g.label.toUpperCase() + '</span>'
+                          + addBtn(g.create, g.label) + '</div>'
                           + list.map(function(b){ return row('biz:'+b.id); }).join('');
-                });
-                var rest = (window._myBusinesses||[]).filter(function(b){ return !used[b.id]; });
-                if (rest.length) html += rest.map(function(b){ return row('biz:'+b.id); }).join('');
-                return html;
-              })()
-            : (profs.negocio ? row('negocio') : '')) +
-        bizRow('bx-store', 'Registrar mi Tienda', 'Vendé indumentaria y artículos de fútbol', 'tienda') +
-        bizRow('bx-cancha', 'Registrar mi Canchas', 'Canchas, reservas y torneos', 'complejo') +
-        bizRow('bx-trophy', 'Registrar mi Ligas', 'Organizá torneos, ligas y eventos', 'organizacion');
+                    creados.push(g);
+                } else {
+                    faltantes.push(g);
+                }
+            });
+            var rest = (window._myBusinesses||[]).filter(function(b){ return !used[b.id]; });
+            if (rest.length) html += rest.map(function(b){ return row('biz:'+b.id); }).join('');
+            // Tipos sin ningún negocio: chips compactos "+ Tienda / + Canchas / + Ligas".
+            if (faltantes.length){
+                html += '<div style="font-size:10px;font-weight:800;color:#444;letter-spacing:.5px;margin:10px 0 6px;padding-left:2px;">CREAR NUEVO</div>'
+                      + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+                      + faltantes.filter(function(g){ return ['tienda','complejo','organizacion'].indexOf(g.create)!==-1; }).map(function(g){
+                            return '<button onclick="document.getElementById(\'profile-switcher-sheet\').remove();window._registerBizFromSwitcher&&window._registerBizFromSwitcher(\'' + g.create + '\')" style="display:flex;align-items:center;gap:7px;background:transparent;border:1px dashed #2a2a2a;border-radius:12px;padding:9px 13px;cursor:pointer;color:#ccc;font-size:12.5px;font-weight:700;"><i class="bx ' + g.icon + '" style="color:var(--accent);font-size:16px;"></i>' + g.label + '</button>';
+                        }).join('')
+                      + '</div>';
+            }
+            return html;
+        })();
 };
 // A4: registrar/activar una identidad de NEGOCIO desde el switcher (usuario ya logueado).
 // Antes los botones abrían el login → "abría como jugador". Ahora crea el negocio
