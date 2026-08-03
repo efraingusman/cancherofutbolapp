@@ -134,7 +134,7 @@
         } catch(e) {}
     </script>
 
-    <link rel="stylesheet" href="style.css?v=20260802e">
+    <link rel="stylesheet" href="style.css?v=20260802f">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1268,9 +1268,12 @@
                         </div>
                         <!-- DESAFIAR (con portada) -->
                         <div onclick="window.openDesafiarModal&&window.openDesafiarModal()" class="desafiar-cover" style="--cover:url('img/covers/partido-desafiar.webp')">
-                            <div style="position:relative;z-index:1;">
-                                <div style="font-size:16px;font-weight:900;color:var(--accent);letter-spacing:2px;text-transform:uppercase;text-shadow:0 2px 8px rgba(0,0,0,.9);">DESAFIAR</div>
-                                <div style="font-size:11px;color:#dfe6d6;letter-spacing:1px;text-shadow:0 1px 6px rgba(0,0,0,.9);">Retá a un equipo de tu ciudad</div>
+                            <div style="position:relative;z-index:1;display:flex;align-items:center;gap:12px;">
+                                <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;filter:drop-shadow(0 2px 6px rgba(0,0,0,.9));"><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" x2="19" y1="19" y2="13"/><line x1="16" x2="20" y1="16" y2="20"/><line x1="19" x2="21" y1="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" x2="9" y1="14" y2="18"/><line x1="7" x2="4" y1="17" y2="20"/><line x1="3" x2="5" y1="19" y2="21"/></svg>
+                                <div>
+                                    <div style="font-size:16px;font-weight:900;color:var(--accent);letter-spacing:2px;text-transform:uppercase;text-shadow:0 2px 8px rgba(0,0,0,.9);">DESAFIAR</div>
+                                    <div style="font-size:11px;color:#dfe6d6;letter-spacing:1px;text-shadow:0 1px 6px rgba(0,0,0,.9);">Retá a un equipo de tu ciudad</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1291,7 +1294,7 @@
                         <div style="font-size:11px;font-weight:900;color:#666;letter-spacing:1.5px;margin:4px 0 10px;">COMUNIDAD</div>
                         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:22px;">
                             <button onclick="window._abrirBuscarJugadores&&window._abrirBuscarJugadores()" class="buscar-card has-cover" style="--cover:url('img/covers/buscar-jugadores.webp')">
-                                <div class="bc-t"><i class='bx bxs-user-detail'></i>Jugadores</div><div class="bc-s">Compañeros</div>
+                                <div class="bc-t"><i class='bx bx-run'></i>Jugadores</div><div class="bc-s">Compañeros</div>
                             </button>
                             <!-- Buscar Fanáticos retirado: los "fanáticos" ahora son jugadores con su club marcado. -->
                             <button onclick="switchDashboardTab('jugador','buscar-clubes',null)" class="buscar-card has-cover" style="--cover:url('img/covers/buscar-clubes.webp')">
@@ -1305,7 +1308,7 @@
                         <div style="font-size:11px;font-weight:900;color:#666;letter-spacing:1.5px;margin:4px 0 10px;">NEGOCIOS Y LUGARES</div>
                         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:22px;">
                             <button onclick="switchDashboardTab('jugador','complejos',null)" class="buscar-card has-cover" style="--cover:url('img/covers/buscar-canchas.webp')">
-                                <div class="bc-t"><i class='bx bx-target-lock'></i>Canchas</div><div class="bc-s">Canchas</div>
+                                <div class="bc-t"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" style="flex-shrink:0;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8));"><rect x="2.5" y="4.5" width="19" height="15" rx="1.5"/><line x1="12" y1="4.5" x2="12" y2="19.5"/><circle cx="12" cy="12" r="2.6"/><rect x="2.5" y="8.5" width="3" height="7"/><rect x="18.5" y="8.5" width="3" height="7"/></svg>Canchas</div><div class="bc-s">Canchas</div>
                             </button>
                             <button onclick="switchDashboardTab('jugador','tiendas',null)" class="buscar-card has-cover" style="--cover:url('img/covers/buscar-tiendas.webp')">
                                 <div class="bc-t"><i class='bx bx-store'></i>Tiendas</div><div class="bc-s">Indumentaria</div>
@@ -3952,7 +3955,7 @@
     <script src="canchero-impostor.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-higher-lower.js?v=20260717e" charset="utf-8"></script>
     <script src="canchero-trivia.js?v=20260802a" charset="utf-8"></script>
-    <script src="canchero-carrera.js?v=20260802a" charset="utf-8"></script>
+    <script src="canchero-carrera.js?v=20260802b" charset="utf-8"></script>
     <script src="canchero-video-trim.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-momentos.js?v=20260717c" charset="utf-8"></script>
     <script src="canchero-momentos-editor.js?v=20260717b" charset="utf-8"></script>
