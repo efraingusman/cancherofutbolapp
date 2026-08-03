@@ -861,6 +861,9 @@ window.CancheroNotif = (function() {
         // Pedir permiso de notificaciones solo si nunca se pidió antes
         setTimeout(() => {
             try {
+                // NUNCA pedir notificaciones sin sesión (en el home). El aviso solo tiene sentido
+                // adentro, logueado — antes salía en la landing sin haber entrado.
+                if (!(window.userData && window.userData.email)) return;
                 // Los intentos de push al ENTRAR son automáticos → nunca mostrar el toast de error
                 // (el error solo se muestra si el usuario lo activa a mano desde Ajustes).
                 window._pushManualRequest = false;
@@ -870,7 +873,11 @@ window.CancheroNotif = (function() {
                 const _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
                 const _isStandalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
                 if (_isIOS && _isStandalone && 'Notification' in window && Notification.permission === 'default') {
-                    _showIOSEnableBanner();
+                    // El banner iOS solo una vez (antes reaparecía en cada carga).
+                    if (!localStorage.getItem('canchero_ios_banner_shown')) {
+                        localStorage.setItem('canchero_ios_banner_shown', '1');
+                        _showIOSEnableBanner();
+                    }
                     return;
                 }
                 if (_isIOS && _isStandalone && 'Notification' in window && Notification.permission === 'granted') {

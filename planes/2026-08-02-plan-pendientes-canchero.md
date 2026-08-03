@@ -165,3 +165,57 @@ cuenta joelviettro.
 4. **Modo Carrera** (MVP, el más grande).
 5. Racha por actividad + recompensas.
 6. Vista PC + Fanático Fase 2 + panel organización (repro).
+
+---
+
+# ADDENDUM 2026-08-02 (tarde) — Pedidos nuevos del usuario
+
+## A) QUICK WINS / BUGS (prioridad)
+- [ ] Home: cambiar "X jugadores" por **usuarios registrados / perfiles creados**.
+- [ ] Home: botones **más chicos y menos largos**; texto "qué es Canchero" **mejor y un poco más grande**.
+- [ ] **Header (logo/switcher/campana/ajustes) un poco más abajo** en TODOS lados donde aparece.
+- [ ] **Header visible en los JUEGOS** (y en celular) — igual que en torneos.
+- [ ] **Nav barra inferior**: sigue marcando mal la sección (persistente). Revisar a fondo.
+- [ ] **Ligas: Liga Clandestina DUPLICADA**; una de las dos da ERROR al entrar. Deduplicar + arreglar.
+- [ ] Popup **"activar notificaciones"** NO debe salir en el home (sin login) ni **más de una vez**.
+- [ ] **Campana de notificaciones**: que funcionen y **dirijan bien** a donde corresponde.
+- [ ] **Registro por rol**: si me registro/entro como tienda/jugador/cancha/liga, crear **SOLO ese
+      perfil** (no jugador por defecto) y **entrar en ese rol**.
+- [ ] Switcher de rol: "añadir equipo" con **signo +** al lado (como los otros), no bloque abajo.
+- [ ] **Google OAuth**: no exponer el proyecto Supabase (dofbxgqz...supabase.co) en la pantalla de
+      consentimiento → requiere **custom domain de Supabase Auth** (config del dashboard, no código).
+
+## B) MODO INVITADO (importante)
+- [ ] Entrar **sin registrarse** a ver TODO (confianza). Al querer acción → registro.
+- [ ] Sección PERFIL sin registro: mostrar **candado**, en gris, bien redactado
+      ("Creá tu perfil para desbloquear tus stats, equipos y logros"), con CTA a registrarse.
+
+## C) JUEGO "CANCHERO LEYENDA" (renombrar Modo Carrera) — REBUILD grande
+- [ ] Renombrar a **Canchero Leyenda**. Narrar la historia del jugador (dinámico, no aburrido).
+- [ ] **Escudos REALES** de cada club (no bloques de color). Trofeos REALES por liga/competición (png/icono).
+- [ ] **Camiseta mucho mejor** (se ve fea); colores fieles al país/club.
+- [ ] **Lógica de origen**: elegir país + **ciudad de origen**, y ciudad/país donde EMPIEZA (ej: un tío
+      te lleva a probarte a otro país). Clubes amateur **del país/ciudad que corresponde** (un brasileño
+      NO empieza en Salto). Nada de pases ilógicos sin justificación.
+- [ ] **Pacing configurable**: temporada a temporada, o por etapas (cada 2 / 4 años).
+- [ ] **Selección nacional**: citaciones, competiciones, impacto en clubes y valor de mercado. Jugar en
+      la selección de mi ciudad. Ojeadores que me ven (bien/mal) y afectan la carrera.
+- [ ] **Decisiones ricas** con IMAGEN cada una (futbolística, social, familiar, económica, prensa,
+      representante, técnico que cambia mi posición, hincha que me invita a pelear, etc.). Invertir,
+      casarme, préstamos, fichajes, renovaciones — con resultados + o −. NO repetir eventos.
+- [ ] **Transferencias/préstamos/renovaciones**: mostrar clubes con escudo + oferta; poder **negociar**
+      (pedir más o aceptar), ver por cuánto se renueva.
+- [ ] **Métricas completas**: goles, partidos, asistencias, valor de mercado, puntuación, en clubes Y
+      selección. Vitrina de trofeos reales.
+- [ ] **Animación** buena al ganar título / logro importante (trofeo).
+- [ ] **Simulación realista** (muy perfecta): decisiones basadas en carreras reales, sin ilogismos.
+- [ ] Visualmente muy bueno en **PC y celular**; arreglar **botones que no se ven** (mala optimización).
+
+## D) TRIVIA — rehacer estilo Preguntados
+- [ ] **Elegir dificultad**. Presentación mucho más llamativa y adictiva, mejor cronómetro.
+- [ ] **Fotos de jugadores / escudos** en las preguntas.
+- [ ] Framing futbolero: los puntos son **goles**; momentos decisivos (penal en la final: si errás la
+      respuesta, la errás; me va a fichar X; un hincha me invitó a pelear; etc.).
+
+## E) DÓNDE DEPLOYAR
+Igual que arriba: editar en Downloads → `git push` → Vercel (cancherofutbolapp.vercel.app) auto.

@@ -28,7 +28,7 @@ function _cgTop(){
 // Modo Carrera (tipo Copero, más adictivo) — implementación nativa en progreso.
 const GAMES = [
   { id:'trivia', name:'Trivia Futbolera', emoji:'🧠', desc:'Preguntados de fútbol: escudos, jugadores y datos. Niveles y ranking.', badges:['Nuevo','Online'], type:'native' },
-  { id:'carrera', name:'Modo Carrera', emoji:'🌟', desc:'Empezá en el potrero y llegá a lo más alto. Decisiones, fichajes y títulos.', badges:['Nuevo','Online'], type:'native' },
+  { id:'carrera', name:'Canchero Leyenda', emoji:'🌟', desc:'Empezá en el potrero y llegá a lo más alto. Decisiones, fichajes y títulos.', badges:['Nuevo','Online'], type:'native' },
   { id:'adivina', name:'Adivina el Jugador', emoji:'🕵️', desc:'¿Quién es? Adiviná por las pistas. Duelo de conocimiento.', badges:['Jugable','Solo / Presencial'], type:'native' },
   { id:'impostor', name:'Impostor Futbolero', emoji:'🎭', desc:'Encontrá al impostor. Mínimo 4 jugadores (presencial).', badges:['Beta','Presencial'], type:'native' },
   { id:'once-ideal', name:'11 Ideal', emoji:'📋', desc:'Armá tu once ideal y compará.', badges:['Beta','Presencial'], type:'native' },

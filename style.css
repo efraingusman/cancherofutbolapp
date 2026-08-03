@@ -298,16 +298,17 @@ ul { list-style: none; }
 .hero-counter-lbl { color: rgba(255,255,255,0.8); font-size: 12px; font-weight: 600; }
 
 @media (max-width: 640px) {
-    /* Botones compactos para que ENTREN los 4 + la tagline sin cortar nada (home sin scroll). */
+    /* Botones compactos (más chicos y menos largos) + tagline más grande. Home sin scroll. */
     .home-viewport-wrap .hero-cta-wrap { padding: 0 14px calc(12px + env(safe-area-inset-bottom)); justify-content: flex-end !important; }
-    .hero-tagline { padding-top: 6vh; margin-bottom: 16px !important; }
-    .hero-tagline-txt { font-size: 16px; }
-    .hero-counter { margin-top: 9px; padding: 5px 12px; }
-    .home-viewport-wrap .btn-fs-action { padding: 8px 14px !important; border-radius: 13px !important; gap: 11px !important; }
-    .home-viewport-wrap .btn-fs-action i { font-size: 19px !important; }
-    .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 14.5px !important; line-height: 1.1; }
-    .btn-fs-action .fs-btn-desc { font-size: 10px !important; max-width: 205px; margin-top: 1px; line-height: 1.25; }
-    .home-viewport-wrap .fs-side-actions { gap: 7px !important; width: 100%; max-width: 330px !important; }
+    .hero-tagline { padding-top: 5vh; margin-bottom: 18px !important; max-width: 320px; }
+    .hero-tagline-txt { font-size: 19px; line-height: 1.22; }
+    .hero-tagline-txt span { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.72); display:inline-block; margin-top:5px; }
+    .hero-counter { margin-top: 11px; padding: 5px 12px; }
+    .home-viewport-wrap .btn-fs-action { padding: 8px 13px !important; border-radius: 12px !important; gap: 10px !important; }
+    .home-viewport-wrap .btn-fs-action i { font-size: 18px !important; }
+    .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 14px !important; line-height: 1.05; }
+    .btn-fs-action .fs-btn-desc { font-size: 9.5px !important; max-width: 190px; margin-top: 1px; line-height: 1.2; }
+    .home-viewport-wrap .fs-side-actions { gap: 7px !important; width: 100%; max-width: 300px !important; }
 }
 @media (min-width: 641px) {
     .home-viewport-wrap .hero-cta-wrap { padding: 0 16px 4vh; justify-content: flex-end !important; }
@@ -6751,11 +6752,15 @@ i.bx.bx-cancha::before, i.bx-cancha::before { content: ''; }
    todo, como siempre) pero arrancan por DEBAJO del nav (top = alto del nav). Como el modal
    ya no ocupa los primeros 70px, el nav (fijo arriba) queda visible ahí sin tocar su
    z-index → el torneo abre bien Y el header se ve. Sin efectos colaterales en el switcher. */
-#ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal {
-    top: 70px !important;
+#ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal,
+#games-hub, #trivia-modal, #carrera-modal, #adivina-modal, #impostor-modal, #once-modal, #hl-modal, #game-soon-modal {
+    top: 72px !important;
 }
 @media (max-width: 640px) {
-    #ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal {
-        top: 56px !important;
+    #ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal,
+    #games-hub, #trivia-modal, #carrera-modal, #adivina-modal, #impostor-modal, #once-modal, #hl-modal, #game-soon-modal {
+        top: 60px !important;
     }
 }
+/* Header (nav) apenas más abajo del borde: respeta el notch/safe-area y da aire arriba. */
+#main-nav { padding-top: calc(env(safe-area-inset-top, 0px) + 4px) !important; }

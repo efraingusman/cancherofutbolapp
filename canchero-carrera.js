@@ -67,6 +67,24 @@ const LIGAS = [
   { liga:'MLS (USA)', pais:'Estados Unidos', clubs:[['Inter Miami',78],['LA Galaxy',76],['LAFC',78],['Atlanta United',75]] },
   { liga:'Saudi Pro League', pais:'Arabia Saudita', clubs:[['Al-Nassr',80],['Al-Hilal',82],['Al-Ittihad',80],['Al-Ahli',78]] }
 ];
+// Ciudades por país para generar clubes amateur locales lógicos.
+const CIUDADES = {
+  'Uruguay':['Salto','Paysandú','Maldonado','Tacuarembó','Rivera','Melo','Colonia','Durazno','Rocha','Minas'],
+  'Argentina':['Rosario','Córdoba','Mendoza','La Plata','Mar del Plata','Tucumán','Salta','Santa Fe','Bahía Blanca'],
+  'Brasil':['São Paulo','Río','Belo Horizonte','Porto Alegre','Curitiba','Salvador','Recife','Fortaleza'],
+  'España':['Madrid','Sevilla','Bilbao','Valencia','Málaga','Zaragoza','Vigo','Granada'],
+  'Inglaterra':['Londres','Mánchester','Liverpool','Birmingham','Leeds','Newcastle','Bristol'],
+  'Italia':['Roma','Milán','Nápoles','Turín','Florencia','Génova','Palermo'],
+  'Francia':['París','Marsella','Lyon','Lille','Burdeos','Niza','Toulouse'],
+  'Alemania':['Berlín','Múnich','Hamburgo','Colonia','Frankfurt','Dortmund','Stuttgart'],
+  'Colombia':['Bogotá','Medellín','Cali','Barranquilla','Cartagena','Bucaramanga'],
+  'México':['Ciudad de México','Guadalajara','Monterrey','Puebla','Tijuana','León'],
+  'Chile':['Santiago','Valparaíso','Concepción','Antofagasta','Temuco'],
+  'Paraguay':['Asunción','Ciudad del Este','Encarnación','Luque'],
+  'Perú':['Lima','Arequipa','Trujillo','Cusco','Piura'],
+  'Portugal':['Lisboa','Oporto','Braga','Coímbra','Faro'],
+  'Estados Unidos':['Nueva York','Los Ángeles','Miami','Chicago','Dallas','Atlanta']
+};
 const TIERS_ORDER = ['Interior Uruguay','Primera Nacional (ARG)','Primera Uruguay','Liga MX (MEX)','MLS (USA)','Primeira (POR)','Liga Profesional (ARG)','Saudi Pro League','Ligue 1 (FRA)','Serie A (ITA)','Bundesliga (ALE)','Premier (ING)','LaLiga (ESP)','Brasileirão'];
 function ligaNivel(liga){ const i = TIERS_ORDER.indexOf(liga); return i<0?0:i; }
 function todosClubs(){ const out=[]; LIGAS.forEach(L=>L.clubs.forEach(c=>out.push({name:c[0],str:c[1],liga:L.liga,pais:L.pais}))); return out; }
@@ -121,7 +139,7 @@ window._carreraStart = function(){
   <div style="max-width:560px;margin:0 auto;padding:24px 20px calc(30px + env(safe-area-inset-bottom));min-height:100%;display:flex;flex-direction:column;align-items:center;text-align:center;">
     <div style="width:100%;display:flex;justify-content:flex-start;"><button onclick="document.getElementById('carrera-modal').remove();window.openGamesModal&&window.openGamesModal()" style="background:rgba(255,255,255,.06);border:none;color:#aaa;font-size:13px;border-radius:20px;padding:8px 14px;cursor:pointer;"><i class='bx bx-arrow-back'></i> Juegos</button></div>
     <div style="width:96px;height:96px;border-radius:24px;background:rgba(186,255,0,.1);border:1px solid rgba(186,255,0,.3);display:flex;align-items:center;justify-content:center;margin:16px 0 12px;"><i class='bx bx-trophy' style="font-size:50px;color:${A};"></i></div>
-    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:28px;color:#fff;">MODO CARRERA</div>
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:28px;color:#fff;">CANCHERO LEYENDA</div>
     <div style="font-size:14px;color:#9aa0a6;margin-top:6px;max-width:380px;line-height:1.5;">Del potrero a la gloria. Elegí club, país y posición; tomá decisiones dentro y fuera de la cancha, y escribí tu historia.</div>
     ${saved?`<button onclick="window._carreraHub()" style="width:100%;max-width:360px;margin-top:22px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:15px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;"><i class='bx bx-play'></i> CONTINUAR (${esc(saved.apellido)}, ${saved.edad} años)</button>`:''}
     <button onclick="window._carreraLen()" style="width:100%;max-width:360px;margin-top:${saved?'10px':'22px'};background:${saved?'rgba(255,255,255,.05)':'linear-gradient(135deg,#16a34a,'+A+')'};color:${saved?'#fff':'#000'};border:${saved?'1px solid #242424':'none'};border-radius:15px;padding:15px;font-weight:900;font-size:15px;cursor:pointer;"><i class='bx bx-plus'></i> ${saved?'Nueva carrera':'NUEVA CARRERA'}</button>
@@ -206,8 +224,19 @@ function inp(){ return 'width:100%;background:#161616;border:1px solid #262626;c
 // ── OFERTAS DE CANTERA ───────────────────────────────────────────────────────────
 window._carreraOfertas = function(){
   const d=_draft;
-  // 3 clubes juveniles: str bajo (interior UY / primera nacional / primera UY chicos).
-  const cantera = todosClubs().filter(c=>c.str>=50 && c.str<=68).sort(()=>Math.random()-0.5).slice(0,3);
+  // Clubes de cantera DEL PAÍS del jugador (un brasileño no arranca en Salto). Se prioriza
+  // clubes reales de ese país con str bajo/medio; si no alcanzan 3, se generan clubes
+  // amateur/barrio de ciudades de ese país. Así el arranque es lógico y local.
+  let cantera = todosClubs().filter(c=>c.pais===d.pais && c.str>=50 && c.str<=72).sort(()=>Math.random()-0.5).slice(0,3);
+  if (cantera.length < 3){
+    const faltan = 3 - cantera.length;
+    const ciudades = (CIUDADES[d.pais] || ['Central','Norte','Sur','Unión','Juventud','Barrio']).slice().sort(()=>Math.random()-0.5);
+    const sufijos = ['FC','Atlético','Juventud','Deportivo','United','Sporting'];
+    for (let i=0;i<faltan;i++){
+      const nom = pick(sufijos)+' '+ciudades[i%ciudades.length];
+      cantera.push({ name:nom, str:ri(48,56), liga:'Amateur '+d.pais, pais:d.pais });
+    }
+  }
   d._ofertas = cantera;
   const m=document.getElementById('carrera-modal')||overlay();
   m.innerHTML=`
