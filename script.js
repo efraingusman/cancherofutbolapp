@@ -5609,6 +5609,21 @@ async function generateOrganizacionesHTML(query) {
                 });
             }
         } catch(e){ console.warn('dir organizaciones biz:', e); }
+        // Dedup: una misma liga puede venir de users (role organizacion) y de
+        // business_requests. La entrada SIN _bizId abre el perfil de JUGADOR base (mal);
+        // la que tiene _bizId abre el perfil de negocio correcto. Se agrupa por email o
+        // nombre y se PREFIERE la que tiene _bizId. Elimina la "doble Liga Clandestina".
+        (function(){
+            const keyOf = o => ((o.email||'').toLowerCase() || ('name:'+(o.name||'').trim().toLowerCase()));
+            const byKey = {};
+            data.forEach(o => {
+                const k = keyOf(o);
+                if (!byKey[k]) { byKey[k] = o; return; }
+                // Ya hay una: quedarse con la que tiene _bizId (routing correcto).
+                if (!byKey[k]._bizId && o._bizId) byKey[k] = o;
+            });
+            data = Object.values(byKey);
+        })();
         if (!data || data.length === 0) return header + searchBar + emptyDirectoryHTML('bx-buildings', 'SIN LIGAS', 'Todavía no hay organizaciones registradas con esos filtros.') + '</div>';
         return header + searchBar + `<div style="display:flex;flex-direction:column;gap:0;">${data.map(o => {
             const name = (o.name || 'Ligas');
