@@ -143,7 +143,29 @@ WhatsApp; videos 59/62/63):
 
 ---
 
-## Recordatorio de deploy
-- Código real en la RAÍZ de `canchero app/` (Downloads). Deploy: `npx vercel --prod --yes`.
+## 11) PEDIDOS 2026-08-01 (feedback en vivo del usuario)
+
+Hechos (deploy v409–v411):
+- [x] Home SIN scroll otra vez, con **tagline social + contador de jugadores** (query count a users). El bloque "¿Qué es Canchero?" se ocultó (no se veía).
+- [x] **Racha: pelota rediseñada** (v3, pelota clásica blanca+pentágonos+aro lima con llama degradé). La anterior se veía fea.
+- [x] **Eliminar juego Tiros Libres**; agregar **Trivia** y **Modo Carrera** como tarjetas "Próximamente" (teaser).
+- [x] **Borrar debates** Maradona vs Pelé y Mbappé vs Haaland (de seed + de DB + filtro).
+- [x] **Torneo: cargar goles/asistencias/tarjetas SIN iniciar el cronómetro** (botones ya no se deshabilitan con crono sin empezar).
+- [x] **Modal de roles: botón "+" por grupo** para crear otro rol del mismo tipo; sacadas las 3 filas grandes "Registrar mi X".
+
+Pendientes (de este feedback):
+- [ ] **Panel organización**: a veces abajo se ve como si estuviera en Inicio (fuga de layout entre #view-admin/CRM y el feed del jugador). Investigar z-index/display al cambiar de tab.
+- [ ] **Ranking del torneo con PODIO** como el ranking normal de Canchero (visualmente lindo). Reusar el componente de `generateRankingHTML`/ranking global.
+- [ ] **Fotos de jugadores que no se ven en los juegos** (avatar fallback / URL rota).
+- [ ] **Doble "Liga Clandestina"** en directorio de Ligas; una de ellas abre un **perfil de jugador** (dedupe + routing al perfil de negocio correcto).
+- [ ] **Seguidores no suben** al seguir una liga/otros roles (contar follows por identidad; revisar `following_profile` tag y el count del perfil).
+- [ ] **Portadas (foto, no solo icono)**: cambiar portada de Debates y de Juegos; agregar portada a secciones de Partido y de Buscar (todas con imagen).
+- [ ] **JUEGO Trivia** (tipo Preguntados de fútbol): preguntas con fotos de escudos y jugadores, niveles y ranking. GRANDE — sesión dedicada.
+- [ ] **JUEGO Modo Carrera** (tipo Copero pero más adictivo): arranca en fútbol amateur/potrero, ojeador/video, elegir club/país/nombre/nº/posición; dinero, fichajes, subir de edad por temporada, títulos; decisiones futbolísticas + económicas + sociales, basadas indirectamente en vidas de jugadores reales; simple y adictivo; PC + celular. MUY GRANDE — sesión dedicada, probablemente módulo `canchero-carrera.js` nuevo.
+
+## Recordatorio de deploy (ACTUALIZADO 2026-08-01)
+- **Deploy ahora es por GitHub**: repo `github.com/efraingusman/cancherofutbolapp`. Cada `git push` a `main` deploya solo en Vercel (cuenta de joelviettro). URL: **cancherofutbolapp.vercel.app**.
 - Al tocar js/css: subir `?v=` en el HTML y `CACHE_NAME` en `sw.js`.
-- Verificar en prod con `Invoke-WebRequest` (no hay sesión logueada en las sesiones de Claude).
+- Verificar en prod con `curl` a cancherofutbolapp.vercel.app.
+- El Vercel viejo (canchero-app.vercel.app, cuenta neurovidstudioia) quedó pausado — NO usar.
+- Supabase Auth: Site URL + Redirect URLs deben apuntar a cancherofutbolapp.vercel.app (ya corregido por el usuario).
