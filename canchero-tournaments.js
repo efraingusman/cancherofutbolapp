@@ -734,6 +734,49 @@ window.CancheroTournaments = (function() {
         _ctmEquipos(tournamentId, organizerEmail);
     }
 
+    // Solicitud de un JUGADOR individual (sin equipo). Se registra como jugador del torneo
+    // en estado pendiente; el organizador lo ubica en un equipo o lista de espera.
+    async function _inscribeIndividual(tournamentId, organizerEmail){
+        const sb = getSb(); const user = getUser();
+        if (!sb || !user || !user.email) { toast('Iniciá sesión.', 'warning'); return; }
+        const role = _activeRole();
+        if (['tienda','complejo','organizacion','sponsor','profesional'].indexOf(role) !== -1) {
+            toast('Cambiá a tu identidad de jugador para anotarte.', 'warning'); return;
+        }
+        // Evitar duplicado.
+        try {
+            const { data: ya } = await sb.from('tournament_players').select('id').eq('tournament_id', tournamentId).eq('player_email', user.email).limit(1);
+            if (ya && ya.length) { toast('Ya enviaste tu solicitud.', 'info'); return; }
+        } catch(e){}
+        const fila = {
+            tournament_id: tournamentId,
+            player_email: user.email,
+            player_name: user.name || user.email.split('@')[0],
+            position: user.pos || user.position || null,
+            status: 'pending',
+            team_id: null
+        };
+        let { error } = await sb.from('tournament_players').insert(fila);
+        if (error) {
+            // Esquema sin 'status'/'team_id': reintentar mínimo.
+            const bare = { tournament_id:tournamentId, player_email:user.email, player_name:fila.player_name };
+            const r2 = await sb.from('tournament_players').insert(bare); error = r2.error;
+        }
+        if (error) { toast('Error: ' + (error.message||''), 'error'); return; }
+        try {
+            const { data: t } = await sb.from('tournaments').select('name,organizer_email').eq('id', tournamentId).single();
+            const orgEmail = (t && t.organizer_email) || organizerEmail;
+            if (orgEmail) await sb.from('notifications').insert({
+                recipient_email: orgEmail, type:'torneo_solicitud',
+                actor_name: fila.player_name, actor_email: user.email,
+                message: `${fila.player_name} solicitó anotarse como jugador individual en tu torneo${t&&t.name?' '+t.name:''}.`,
+                post_id: tournamentId, read:false
+            });
+        } catch(e){}
+        toast('¡Listo! Te anotaste como jugador. El organizador te va a ubicar.', 'success');
+        openPublicView(tournamentId);
+    }
+
     // Modal para agregar/registrar un equipo (manual o vinculando un club registrado).
     async function _openAddTeam(tournamentId) {
         window.__ctTeam = { logo_url:null, club_email:null };
@@ -4166,7 +4209,7 @@ window.CancheroTournaments = (function() {
                 <button class="ctp-tab" onclick="CancheroTournaments._ctpTab('goleadores','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:transparent;color:#666;border:1px solid #222;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;"><i class='bx bx-football'></i> Goleadores</button>
                 <button class="ctp-tab" onclick="CancheroTournaments._ctpTab('jugadores','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:transparent;color:#666;border:1px solid #222;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;"><i class='bx bx-group'></i> Jugadores</button>
                 <button class="ctp-tab" onclick="CancheroTournaments._ctpTab('info','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:transparent;color:#666;border:1px solid #222;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;"><i class='bx bx-info-circle'></i> Info</button>
-                ${t.status === 'registration' && !isOrg ? `<button class="ctp-tab" onclick="CancheroTournaments._ctpTab('inscribir','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:rgba(186,255,0,0.05);color:var(--accent);border:1px solid rgba(186,255,0,0.2);border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;"><i class='bx bx-edit'></i> Inscribirme</button>` : ''}
+                ${(t.status !== 'finished' && t.status !== 'cancelled') && !isOrg ? `<button class="ctp-tab" onclick="CancheroTournaments._ctpTab('inscribir','${tournamentId}','${(t.organizer_email||'').replace(/'/g,"\\'")}',this)" style="background:rgba(186,255,0,0.12);color:var(--accent);border:1px solid rgba(186,255,0,0.35);border-radius:10px;padding:7px 14px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;"><i class='bx bx-edit'></i> Inscribirme</button>` : ''}
             </div>
             <div id="ctp-content" style="min-height:200px;"></div>
             ${t.rules ? `<div style="margin-top:16px;padding:14px;background:#111;border:1px solid #1e1e1e;border-radius:12px;"><div style="font-size:10px;font-weight:900;color:#555;letter-spacing:1px;margin-bottom:8px;">REGLAMENTO</div><p style="font-size:12px;color:#888;line-height:1.6;white-space:pre-wrap;">${t.rules}</p></div>` : ''}
@@ -4240,6 +4283,11 @@ window.CancheroTournaments = (function() {
         const disponibles = míos.filter(c => !yaAnotados.has(c.id));
 
         el.innerHTML = `
+        <div style="${caja}margin-bottom:12px;">
+            <div style="font-weight:900;font-size:14px;margin-bottom:4px;"><i class='bx bx-user' style="color:var(--accent);"></i> Anotarme como jugador</div>
+            <div style="font-size:11.5px;color:#888;line-height:1.5;margin-bottom:10px;">¿No tenés equipo? Enviá tu solicitud como jugador individual y la organización te ubica en un equipo o lista de espera.</div>
+            <button onclick="CancheroTournaments._inscribeIndividual('${tournamentId}','${(organizerEmail||'').replace(/'/g,"\\'")}' )" style="width:100%;background:rgba(186,255,0,0.1);color:var(--accent);border:1px solid rgba(186,255,0,0.35);border-radius:12px;padding:12px;font-weight:900;font-size:14px;cursor:pointer;"><i class='bx bx-paper-plane'></i> Solicitar como jugador individual</button>
+        </div>
         <div style="${caja}margin-bottom:12px;">
             <div style="font-weight:900;font-size:14px;margin-bottom:4px;"><i class='bx bx-shield-quarter' style="color:var(--accent);"></i> Inscribir mi equipo</div>
             <div style="font-size:11.5px;color:#888;line-height:1.5;margin-bottom:12px;">Elegí un equipo que ya tengas en Canchero — se lleva el escudo y el plantel — o cargá uno nuevo.</div>
@@ -4687,6 +4735,7 @@ window.CancheroTournaments = (function() {
         _ctpTab,
         _submitCreate,
         _inscribeTeam,
+        _inscribeIndividual,
         _openAddTeam,
         _approveTeam,
         _markPaid,
