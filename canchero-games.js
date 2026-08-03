@@ -52,14 +52,12 @@ function _coverImg(file, fallbackGrad, icon, title, sub){
   return `<div style="width:100%;height:100%;background:#0a0a0a url('img/games/${file}') center/cover no-repeat;"></div>`;
 }
 const GAME_ART = {
-  'trivia': _cover('linear-gradient(135deg,#1a0f3d,#0f2a1e)','bx-brain','TRIVIA','FUTBOLERA'),
-  'carrera': _cover('linear-gradient(135deg,#0d2b45,#123a1e)','bx-trophy','MODO CARRERA','DEL POTRERO A LA ELITE'),
-  'adivina': _coverImg('adivina.jpg'),
-  'impostor': _coverImg('impostor.jpg'),
-  'once-ideal': _coverImg('once-ideal.jpg'),
-  // Portada diseñada (gradiente + icono, estilo de los demás juegos). Si dejás una foto en
-  // img/games/higher-lower.jpg se usa esa; si no existe, queda la portada diseñada.
-  'higher-lower': `<div style="width:100%;height:100%;position:relative;">${_cover('linear-gradient(135deg,#0f3443,#123a1e)','bx-trending-up','MÁS O MENOS','FÚTBOL')}<img src="img/games/higher-lower.jpg" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" onerror="this.remove()"></div>`
+  'trivia': _coverImg('trivia.png'),
+  'carrera': _coverImg('carrera.png'),
+  'adivina': _coverImg('adivina.png'),
+  'impostor': _coverImg('impostor.png'),
+  'once-ideal': _coverImg('once-ideal.png'),
+  'higher-lower': _coverImg('higher-lower.png')
 };
 
 const EMBED_URLS = {

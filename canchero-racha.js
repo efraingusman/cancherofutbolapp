@@ -16,43 +16,26 @@
 const R = {};
 
 // Fueguito SVG (no emoji). Tamaño y si está "prendido" (color) o "apagado" (gris).
-// v3 (rediseño 2026-08-01): pelota de fútbol prendida fuego, prolija. La llama tiene
-// degradé (verde→lima) y la pelota es una clásica blanca con pentágonos oscuros y aro
-// de acento. El primer <path> es la llama externa: el CSS
-// #racha-fuego svg path:first-child { animation: rachaFlicker } le da el flicker.
-// `size` escala todo; usamos un id único de gradiente por si hay varias en la página.
+// v4 (rediseño 2026-08-01): pelota de fútbol VERDE con gajos negros + llama verde
+// saliendo hacia arriba-derecha, igual que el logo/racha de referencia del usuario.
+// El primer <path> es la llama: el CSS #racha-fuego svg path:first-child { rachaFlicker }
+// le da el flicker (solo la llama ondea; la pelota queda quieta abajo).
 function llama(size, activo){
-  const gid = 'rf' + Math.random().toString(36).slice(2, 8);
-  const fA = activo ? '#22c55e' : '#3a3f45';   // base llama
-  const fB = activo ? '#a3e635' : '#4a4f55';   // punta llama (lima)
-  const ballBase = activo ? '#ffffff' : '#3a3f45';
-  const panel    = activo ? '#0b1220' : '#22262b';
-  const ring     = activo ? '#a3e635' : '#5a6068';
+  const green = activo ? '#63e021' : '#3a3f45';   // verde lima de la pelota y la llama
+  const line  = activo ? '#000000' : '#22262b';   // gajos y aros (negros sobre el verde)
   return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;">
-    <defs>
-      <linearGradient id="${gid}" x1="32" y1="2" x2="32" y2="34" gradientUnits="userSpaceOnUse">
-        <stop offset="0" stop-color="${fB}"/><stop offset="1" stop-color="${fA}"/>
-      </linearGradient>
-      <radialGradient id="${gid}b" cx="0.38" cy="0.32" r="0.75">
-        <stop offset="0" stop-color="${ballBase}"/><stop offset="1" stop-color="${activo?'#c7d0cf':'#2b2f34'}"/>
-      </radialGradient>
-    </defs>
-    <!-- Llama externa (flicker) con degradé -->
-    <path d="M32 1c2.4 7.2-4.6 11-9 17-3.4 4.6-5 9-5 13.4 0 1.9.28 3.7.8 5.4C22 33 26.5 31 32 31s10 2 13.2 5.8c.52-1.7.8-3.5.8-5.4 0-6.6-4.4-10.8-7-15-1.9 2.5-3.6 3.7-4.9 3.7C35.6 13.5 33.7 6.7 32 1Z" fill="url(#${gid})"/>
-    <!-- Núcleo claro de la llama -->
-    <path d="M32 13c1.3 5-3 7.6-5.4 11.4-1.5 2.4-2.2 4.6-2.3 6.8C26.2 30 29 29 32 29s5.8 1 7.7 2.2c-.1-2.4-1-4.7-2.4-7C35.2 21 33.7 19 33 16c-.5 1.2-1.2 1.9-2 1.9.4-1.9-.1-3.6-.1-5Z" fill="${fB}" opacity="${activo?0.85:0.4}"/>
-    <!-- Pelota clásica -->
-    <circle cx="32" cy="44" r="15" fill="url(#${gid}b)" stroke="${ring}" stroke-width="1.6"/>
-    <!-- Pentágono central -->
-    <path d="M32 37.4l5.2 3.8-2 6.1h-6.4l-2-6.1z" fill="${panel}"/>
-    <!-- Pentágonos parciales en el borde (gajos) -->
-    <path d="M32 29.2l3.1 2.4-1.3 1.9h-3.6l-1.3-1.9z" fill="${panel}" opacity="0.92"/>
-    <path d="M45.6 39.4l-1.1 3.6-2.6-.4-1-3 2.3-1.9z" fill="${panel}" opacity="0.92"/>
-    <path d="M18.4 39.4l1.1 3.6 2.6-.4 1-3-2.3-1.9z" fill="${panel}" opacity="0.92"/>
-    <path d="M27.5 53.6l-2.6 1.3-1.9-2 1.3-2.4 3.2.5z" fill="${panel}" opacity="0.92"/>
-    <path d="M36.5 53.6l2.6 1.3 1.9-2-1.3-2.4-3.2.5z" fill="${panel}" opacity="0.92"/>
-    <!-- Brillo superior de la pelota -->
-    <ellipse cx="27" cy="38" rx="4.5" ry="2.6" fill="#ffffff" opacity="${activo?0.35:0}"/>
+    <!-- Llama (flicker): lenguas hacia arriba y a la derecha, saliendo de la pelota -->
+    <path d="M34 8c9.5 3.2 12.8 12 10 20.4 4.2-2.4 6.9-7.2 6.4-12.4 3.8 5.2 3.4 13.6-2.8 18.9 3.6.1 7.3-1.4 9.9-4.1-.7 8.6-8.7 15-17.6 14.6-6-.3-10.6-3.6-12.9-8.2 2.2-1.2 6-3.9 6.6-9.2.7-6.2-3.4-9.8-5.2-13.4C36.6 21 40 14 34 8Z" fill="${green}"/>
+    <!-- Pelota verde con doble aro y gajos negros -->
+    <circle cx="27" cy="40" r="20" fill="${green}"/>
+    <circle cx="27" cy="40" r="20" fill="none" stroke="${line}" stroke-width="2.2"/>
+    <circle cx="27" cy="40" r="16.5" fill="none" stroke="${line}" stroke-width="1.4"/>
+    <path d="M27 32l7.6 5.5-2.9 9h-9.4l-2.9-9z" fill="${line}"/>
+    <path d="M27 26.4l3.1 2.3-1.2 3.5h-3.8l-1.2-3.5z" fill="${line}"/>
+    <path d="M42.4 36.7l1.2 3.6-2.2 3.1-3.3-2.5.9-3.7z" fill="${line}"/>
+    <path d="M11.6 36.7l-1.2 3.6 2.2 3.1 3.3-2.5-.9-3.7z" fill="${line}"/>
+    <path d="M20.3 52.7l-2.9 2-3.1-2 1.1-3.4 3.7.4z" fill="${line}"/>
+    <path d="M33.7 52.7l2.9 2 3.1-2-1.1-3.4-3.7.4z" fill="${line}"/>
   </svg>`;
 }
 
