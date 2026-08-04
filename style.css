@@ -298,17 +298,17 @@ ul { list-style: none; }
 .hero-counter-lbl { color: rgba(255,255,255,0.8); font-size: 12px; font-weight: 600; }
 
 @media (max-width: 640px) {
-    /* Botones compactos (más chicos y menos largos) + tagline más grande. Home sin scroll. */
-    .home-viewport-wrap .hero-cta-wrap { padding: 0 14px calc(12px + env(safe-area-inset-bottom)); justify-content: flex-end !important; }
-    .hero-tagline { padding-top: 5vh; margin-bottom: 18px !important; max-width: 320px; }
+    /* Botones más chicos y ubicados un poco más ARRIBA (no pegados al fondo). Home sin scroll. */
+    .home-viewport-wrap .hero-cta-wrap { padding: 0 14px calc(11vh + env(safe-area-inset-bottom)); justify-content: flex-end !important; }
+    .hero-tagline { padding-top: 4vh; margin-bottom: 16px !important; max-width: 320px; }
     .hero-tagline-txt { font-size: 19px; line-height: 1.22; }
     .hero-tagline-txt span { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.72); display:inline-block; margin-top:5px; }
-    .hero-counter { margin-top: 11px; padding: 5px 12px; }
-    .home-viewport-wrap .btn-fs-action { padding: 8px 13px !important; border-radius: 12px !important; gap: 10px !important; }
-    .home-viewport-wrap .btn-fs-action i { font-size: 18px !important; }
-    .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 14px !important; line-height: 1.05; }
-    .btn-fs-action .fs-btn-desc { font-size: 9.5px !important; max-width: 190px; margin-top: 1px; line-height: 1.2; }
-    .home-viewport-wrap .fs-side-actions { gap: 7px !important; width: 100%; max-width: 300px !important; }
+    .hero-counter { margin-top: 10px; padding: 5px 12px; }
+    .home-viewport-wrap .btn-fs-action { padding: 7px 12px !important; border-radius: 12px !important; gap: 9px !important; }
+    .home-viewport-wrap .btn-fs-action i { font-size: 17px !important; }
+    .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 13.5px !important; line-height: 1.05; }
+    .btn-fs-action .fs-btn-desc { font-size: 9px !important; max-width: 185px; margin-top: 1px; line-height: 1.18; }
+    .home-viewport-wrap .fs-side-actions { gap: 6px !important; width: 100%; max-width: 290px !important; }
 }
 @media (min-width: 641px) {
     .home-viewport-wrap .hero-cta-wrap { padding: 0 16px 4vh; justify-content: flex-end !important; }
@@ -6752,14 +6752,16 @@ i.bx.bx-cancha::before, i.bx-cancha::before { content: ''; }
    todo, como siempre) pero arrancan por DEBAJO del nav (top = alto del nav). Como el modal
    ya no ocupa los primeros 70px, el nav (fijo arriba) queda visible ahí sin tocar su
    z-index → el torneo abre bien Y el header se ve. Sin efectos colaterales en el switcher. */
-/* Torneos/partidos SÍ mantienen el header arriba. Los JUEGOS van a pantalla completa
-   (sin el bloque superior) — el usuario prefiere que el juego ocupe todo. */
-#ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal {
-    top: 72px !important;
+/* Torneos/partidos Y juegos arrancan por debajo del header (que queda visible, sin
+   cortarse). El offset = alto del nav para que ni el header ni el contenido se corten. */
+#ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal,
+#games-hub, #trivia-modal, #carrera-modal, #adivina-modal, #impostor-modal, #once-modal, #hl-modal, #game-soon-modal {
+    top: 74px !important;
 }
 @media (max-width: 640px) {
-    #ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal {
-        top: 60px !important;
+    #ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal,
+    #games-hub, #trivia-modal, #carrera-modal, #adivina-modal, #impostor-modal, #once-modal, #hl-modal, #game-soon-modal {
+        top: 62px !important;
     }
 }
 /* Header (nav) apenas más abajo del borde: respeta el notch/safe-area y da aire arriba. */

@@ -104,12 +104,37 @@ const CIUDADES = {
 const TIERS_ORDER = ['Interior Uruguay','Primera Nacional (ARG)','Primera Uruguay','Liga MX (MEX)','MLS (USA)','Primeira (POR)','Liga Profesional (ARG)','Saudi Pro League','Ligue 1 (FRA)','Serie A (ITA)','Bundesliga (ALE)','Premier (ING)','LaLiga (ESP)','Brasileirão'];
 function ligaNivel(liga){ const i = TIERS_ORDER.indexOf(liga); return i<0?0:i; }
 function todosClubs(){ const out=[]; LIGAS.forEach(L=>L.clubs.forEach(c=>out.push({name:c[0],str:c[1],liga:L.liga,pais:L.pais}))); return out; }
+// Nombre de club → slug del escudo (img/clubs). Los que no están usan iniciales.
+const NAMESLUG = {
+  'Nacional':'nacional','Peñarol':'penarol','Defensor Sporting':'defensor-sporting','Danubio':'danubio',
+  'Montevideo City':'montevideo-city','Boston River':'boston-river','Cerro':'cerro',
+  'Boca Juniors':'boca','River Plate':'river','Racing':'racing','Independiente':'independiente','San Lorenzo':'san-lorenzo',
+  'Rosario Central':'rosario-central',"Newell's":'newells','Vélez':'velez','Estudiantes':'estudiantes','Talleres':'talleres',
+  'Flamengo':'flamengo','Palmeiras':'palmeiras','São Paulo':'sao-paulo','Corinthians':'corinthians','Grêmio':'gremio',
+  'Internacional':'internacional','Santos':'santos','Fluminense':'fluminense',
+  'Real Madrid':'real-madrid','Barcelona':'barcelona','Atlético':'atletico','Sevilla':'sevilla','Valencia':'valencia',
+  'Real Sociedad':'real-sociedad','Villarreal':'villarreal','Betis':'betis',
+  'Man City':'man-city','Liverpool':'liverpool','Arsenal':'arsenal','Man United':'man-united','Chelsea':'chelsea','Tottenham':'tottenham','Newcastle':'newcastle',
+  'Juventus':'juventus','Inter':'inter','Milan':'milan','Napoli':'napoli','Roma':'roma','Lazio':'lazio',
+  'PSG':'psg','Marsella':'marsella','Mónaco':'monaco','Lyon':'lyon','Lille':'lille',
+  'Bayern':'bayern','Dortmund':'dortmund','Leipzig':'leipzig','Leverkusen':'leverkusen','Frankfurt':'frankfurt',
+  'Benfica':'benfica','Porto':'porto','Sporting':'sporting','Braga':'braga',
+  'América':'america-mx','Monterrey':'monterrey','Tigres':'tigres','Cruz Azul':'cruz-azul',
+  'Inter Miami':'inter-miami','LA Galaxy':'la-galaxy','Atlanta United':'atlanta-united'
+};
 function clubBadge(name, size){
-  // Escudo genérico con iniciales y color por hash del nombre.
+  const s=size||44;
   const ini = name.replace(/[^A-Za-zÁÉÍÓÚÑ ]/g,'').split(' ').map(w=>w[0]).join('').slice(0,3).toUpperCase();
   let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))>>>0;
-  const hue=h%360; const s=size||44;
-  return `<div style="width:${s}px;height:${s}px;border-radius:${Math.round(s*0.28)}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:${Math.round(s*0.34)}px;color:#fff;background:linear-gradient(150deg,hsl(${hue} 55% 34%),hsl(${(hue+40)%360} 55% 22%));border:1px solid rgba(255,255,255,.14);">${ini}</div>`;
+  const hue=h%360;
+  const fb = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:${Math.round(s*0.34)}px;color:#fff;background:linear-gradient(150deg,hsl(${hue} 55% 34%),hsl(${(hue+40)%360} 55% 22%));border-radius:${Math.round(s*0.24)}px;">${ini}</div>`;
+  const slug = NAMESLUG[name];
+  if (!slug) return `<div style="width:${s}px;height:${s}px;flex-shrink:0;border:1px solid rgba(255,255,255,.14);border-radius:${Math.round(s*0.24)}px;overflow:hidden;">${fb}</div>`;
+  // Escudo real con fallback a iniciales si la imagen no existe.
+  return `<div style="width:${s}px;height:${s}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative;">
+    <img src="img/clubs/${slug}.webp" alt="" style="max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+    <div style="display:none;position:absolute;inset:0;">${fb}</div>
+  </div>`;
 }
 
 // ── CAMISETA SVG (forma real: hombros, mangas, cuello; patrón por país) ────────
@@ -118,31 +143,43 @@ function jersey(size, apellido, numero, pais){
   const base = k.c[0]; const alt = k.c[1] || '#ffffff'; const txt = k.txt || '#111';
   const uid = 'jk'+Math.random().toString(36).slice(2,7);
   const s = size;
-  // Silueta de camiseta (viewBox 0 0 220 210): cuerpo + mangas + cuello redondo.
-  const body = "M74 26 L58 32 L26 60 Q22 64 25 70 L44 96 Q47 100 52 97 L64 88 L64 176 Q64 186 74 186 L146 186 Q156 186 156 176 L156 88 L168 97 Q173 100 176 96 L195 70 Q198 64 194 60 L162 32 L146 26 Q135 46 110 46 Q85 46 74 26 Z";
-  // Relleno: sólido, a rayas verticales, o con banda diagonal (sash).
+  // Piezas separadas: manga izq, manga der (con PUÑO), y cuerpo. viewBox 0 0 240 236.
+  const slL = "M78 50 L40 60 L22 104 L58 118 L82 74 Z";      // manga izquierda
+  const slR = "M162 50 L200 60 L218 104 L182 118 L158 74 Z";  // manga derecha
+  const cuffL = "M22 104 L58 118 L52 132 L18 118 Z";           // puño izq
+  const cuffR = "M218 104 L182 118 L188 132 L222 118 Z";       // puño der
+  const body = "M78 50 Q100 68 120 68 Q140 68 162 50 L168 74 L164 82 L164 208 Q164 216 156 216 L84 216 Q76 216 76 208 L76 82 L72 74 Z";
+  // Relleno del cuerpo: sólido / rayas / banda.
   let fill;
   if (k.t === 'stripes'){
-    const n = 6, w = 220/n; let r='';
-    for (let i=0;i<n;i++) r += `<rect x="${(i*w).toFixed(1)}" y="0" width="${(w+0.6).toFixed(1)}" height="210" fill="${i%2?alt:base}"/>`;
-    fill = `<defs><clipPath id="${uid}"><path d="${body}"/></clipPath></defs><rect x="0" y="0" width="220" height="210" fill="${base}" clip-path="url(#${uid})"/><g clip-path="url(#${uid})">${r}</g>`;
+    const n = 6, w = 240/n; let r='';
+    for (let i=0;i<n;i++) r += `<rect x="${(i*w).toFixed(1)}" y="0" width="${(w+0.6).toFixed(1)}" height="236" fill="${i%2?alt:base}"/>`;
+    fill = `<defs><clipPath id="${uid}"><path d="${body}"/></clipPath></defs><rect width="240" height="236" fill="${base}" clip-path="url(#${uid})"/><g clip-path="url(#${uid})">${r}</g>`;
   } else if (k.t === 'sash'){
-    fill = `<defs><clipPath id="${uid}"><path d="${body}"/></clipPath></defs><path d="${body}" fill="${base}"/><g clip-path="url(#${uid})"><path d="M0 150 L150 -10 L185 25 L35 185 Z" fill="${alt}"/></g>`;
+    fill = `<defs><clipPath id="${uid}"><path d="${body}"/></clipPath></defs><path d="${body}" fill="${base}"/><g clip-path="url(#${uid})"><path d="M40 200 L180 20 L210 50 L70 230 Z" fill="${alt}"/></g>`;
   } else {
     fill = `<path d="${body}" fill="${base}"/>`;
   }
-  return `<svg width="${s}" height="${s}" viewBox="0 0 220 210" xmlns="http://www.w3.org/2000/svg" style="display:block;filter:drop-shadow(0 10px 22px rgba(0,0,0,.5));">
+  return `<svg width="${s}" height="${s}" viewBox="0 0 240 236" xmlns="http://www.w3.org/2000/svg" style="display:block;filter:drop-shadow(0 12px 22px rgba(0,0,0,.5));">
+    <!-- Mangas (con sombra interna) -->
+    <path d="${slL}" fill="${base}" stroke="rgba(0,0,0,.28)" stroke-width="2.5"/>
+    <path d="${slR}" fill="${base}" stroke="rgba(0,0,0,.28)" stroke-width="2.5"/>
+    <path d="M82 74 L58 118 L52 106 Z" fill="rgba(0,0,0,.10)"/>
+    <path d="M158 74 L182 118 L188 106 Z" fill="rgba(0,0,0,.10)"/>
+    <!-- Puños (color secundario) -->
+    <path d="${cuffL}" fill="${alt}" stroke="rgba(0,0,0,.28)" stroke-width="2"/>
+    <path d="${cuffR}" fill="${alt}" stroke="rgba(0,0,0,.28)" stroke-width="2"/>
+    <!-- Cuerpo -->
     ${fill}
-    <path d="${body}" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="2.5"/>
-    <!-- Sombra de mangas para dar volumen -->
-    <path d="M64 88 L52 97 L44 96 L48 100 L64 92 Z" fill="rgba(0,0,0,.12)"/>
-    <path d="M156 88 L168 97 L176 96 L172 100 L156 92 Z" fill="rgba(0,0,0,.12)"/>
-    <!-- Cuello redondo -->
-    <path d="M74 26 Q92 44 110 44 Q128 44 146 26 L138 24 Q110 40 82 24 Z" fill="${alt}" opacity="0.95"/>
-    <path d="M74 26 Q92 44 110 44 Q128 44 146 26" fill="none" stroke="rgba(0,0,0,.25)" stroke-width="2"/>
-    <!-- Apellido + número -->
-    <text x="110" y="92" text-anchor="middle" font-family="Outfit,Arial" font-weight="800" font-size="17" fill="${txt}" style="letter-spacing:1.5px;">${esc((apellido||'APELLIDO').toUpperCase()).slice(0,12)}</text>
-    <text x="110" y="162" text-anchor="middle" font-family="Outfit,Arial" font-weight="900" font-size="66" fill="${txt}">${esc(String(numero||10)).slice(0,2)}</text>
+    <path d="${body}" fill="none" stroke="rgba(0,0,0,.30)" stroke-width="2.5"/>
+    <!-- Cuello redondo con trim -->
+    <path d="M78 50 Q100 68 120 68 Q140 68 162 50 L154 46 Q120 62 86 46 Z" fill="${alt}"/>
+    <path d="M78 50 Q100 68 120 68 Q140 68 162 50" fill="none" stroke="rgba(0,0,0,.30)" stroke-width="2.5"/>
+    <!-- Ribete inferior -->
+    <path d="M76 206 L164 206" stroke="rgba(0,0,0,.18)" stroke-width="3"/>
+    <!-- Apellido (arriba) + número (centrado) -->
+    <text x="120" y="112" text-anchor="middle" font-family="Outfit,Arial" font-weight="800" font-size="18" fill="${txt}" style="letter-spacing:2px;">${esc((apellido||'APELLIDO').toUpperCase()).slice(0,11)}</text>
+    <text x="120" y="184" text-anchor="middle" font-family="Outfit,Arial" font-weight="900" font-size="72" fill="${txt}">${esc(String(numero||10)).slice(0,2)}</text>
   </svg>`;
 }
 
@@ -422,7 +459,10 @@ function resumenTemporada(r){
     <div style="text-align:center;margin-bottom:18px;">
       <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};">TEMPORADA ${G.temporada-1} · ${G.edad-1} AÑOS</div>
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;color:#fff;margin-top:4px;">${esc(G.club)}</div>
-      ${r.gano?`<div style="margin-top:8px;font-size:13px;font-weight:900;color:${A};"><i class='bx bx-trophy'></i> ¡CAMPEÓN! Sumaste un título</div>`:''}
+      ${r.gano?`<div style="margin-top:12px;display:flex;flex-direction:column;align-items:center;">
+        <img src="img/trofeos/${trofeoDe(G.liga)}.webp" alt="" style="height:96px;object-fit:contain;filter:drop-shadow(0 8px 20px rgba(186,255,0,.35));animation:crTrophy .7s cubic-bezier(.2,1.4,.4,1) both;" onerror="this.style.display='none'">
+        <div style="margin-top:6px;font-size:14px;font-weight:900;color:${A};letter-spacing:1px;"><i class='bx bx-trophy'></i> ¡CAMPEÓN!</div>
+      </div><style>@keyframes crTrophy{0%{transform:scale(.3) rotate(-12deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}</style>`:''}
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;">
       ${st('PJ',r.pj)}${st('GOLES',r.g)}${st('ASIST',r.a)}${st('NIVEL',(r.dN>=0?'+':'')+r.dN)}
@@ -443,7 +483,8 @@ function mostrarEvento(){
     const c=pick(mejores);
     wrap.innerHTML=`
     <div style="background:linear-gradient(160deg,rgba(186,255,0,.06),rgba(20,22,18,.5));border:1px solid #242424;border-radius:16px;padding:16px;">
-      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:17px;color:#fff;margin-bottom:6px;">Oferta de ${esc(c.name)}</div>
+      ${decoImg('fichaje')}
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">${clubBadge(c.name,40)}<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:17px;color:#fff;">Oferta de ${esc(c.name)}</div></div>
       <div style="font-size:13.5px;color:#c4ccc0;line-height:1.5;margin-bottom:14px;">${esc(c.name)} (${esc(c.liga)}) te quiere. Más nivel, más presión, más plata. ¿Das el salto?</div>
       <div style="display:flex;flex-direction:column;gap:10px;">
         <button onclick="window._carreraTransfer(1,'${c.name.replace(/'/g,"\\'")}',${c.str},'${c.liga.replace(/'/g,"\\'")}','${c.pais.replace(/'/g,"\\'")}')" style="${btn(true)}">Fichar por ${esc(c.name)} (€${(c.str*90000/1e6).toFixed(1)}M)</button>
@@ -456,6 +497,7 @@ function mostrarEvento(){
   const ev=eventoRandom(); G._ev=ev;
   wrap.innerHTML=`
     <div style="background:linear-gradient(160deg,rgba(186,255,0,.05),rgba(20,22,18,.5));border:1px solid #242424;border-radius:16px;padding:16px;">
+      ${decoImg(ev.img)}
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:17px;color:#fff;margin-bottom:6px;">${esc(ev.t)}</div>
       <div style="font-size:13.5px;color:#c4ccc0;line-height:1.5;margin-bottom:14px;">${esc(ev.d)}</div>
       <div style="display:flex;flex-direction:column;gap:10px;">
@@ -464,6 +506,13 @@ function mostrarEvento(){
     </div>`;
 }
 function btn(prim){ return prim?`background:rgba(186,255,0,.1);border:1.5px solid rgba(186,255,0,.4);color:${A};border-radius:13px;padding:14px 15px;font-weight:800;font-size:14px;text-align:left;cursor:pointer;`:'background:rgba(255,255,255,.04);border:1.5px solid #262626;color:#fff;border-radius:13px;padding:14px 15px;font-weight:800;font-size:14px;text-align:left;cursor:pointer;'; }
+// Imagen ilustrativa de una decisión (img/carrera/decisiones/<tipo>.webp). Se oculta si no existe.
+function decoImg(tipo){ if(!tipo) return ''; return `<div style="height:120px;border-radius:12px;overflow:hidden;margin-bottom:12px;background:#0d0d0d;"><img src="img/carrera/decisiones/${tipo}.webp" alt="" style="width:100%;height:100%;object-fit:cover;opacity:.92;" onerror="this.parentElement.style.display='none'"></div>`; }
+// Trofeo ilustrativo según la liga (img/trofeos/<n>.webp).
+function trofeoDe(liga){
+  const map={ 'LaLiga (ESP)':'laliga','Premier (ING)':'premier','Ligue 1 (FRA)':'ligue1','Primera Uruguay':'liga-uy','Liga Profesional (ARG)':'copa-argentina','Brasileirão':'copa-brasil' };
+  return map[liga] || 'champions';
+}
 
 window._carreraTransfer = function(go,name,str,liga,pais){
   if(go){ G.club=name; G.clubStr=str; G.liga=liga; G.clubPais=pais; G.fama+=8; G.moral+=4; G.dinero+=str*3000; }
@@ -475,21 +524,27 @@ window._carreraTransfer = function(go,name,str,liga,pais){
 
 // Banco de eventos (impronta Canchero).
 const EVENTOS=[
-  { t:'Noche de joda antes del partido', d:'Te invitan a salir la noche previa a un partido clave.', opts:[
+  { t:'Noche de joda antes del partido', img:'joda', d:'Te invitan a salir la noche previa a un partido clave.', opts:[
     { txt:'Salir con los pibes', ef:g=>{ const mal=Math.random()<.6; g.moral+=4; g.nivel+=mal?-2:0; return mal?'Rendiste mal, el DT te marcó.':'Zafaste, pero fue un riesgo.'; } },
     { txt:'Quedarme descansando', ef:g=>{ g.nivel+=1; return 'Profesionalismo puro. Rendís mejor.'; } } ] },
-  { t:'Tentación fácil', d:'Te ofrecen un negocio turbio para ganar plata rápida.', opts:[
+  { t:'Tentación fácil', img:'prensa', d:'Te ofrecen un negocio turbio para ganar plata rápida.', opts:[
     { txt:'Aceptar (riesgoso)', ef:g=>{ const mal=Math.random()<.5; g.dinero+=mal?0:50000; g.fama+=mal?-15:0; g.moral+=mal?-14:2; return mal?'Se supo todo. Escándalo.':'Salió bien... esta vez.'; } },
     { txt:'Rechazar y seguir limpio', ef:g=>{ g.moral+=6; return 'Buena decisión. Tu carrera va por buen camino.'; } } ] },
-  { t:'Molestia física', d:'Sentís una molestia fuerte en el entrenamiento.', opts:[
+  { t:'Molestia física', img:'lesion', d:'Sentís una molestia fuerte en el entrenamiento.', opts:[
     { txt:'Parar y recuperarte', ef:g=>{ g.moral-=4; return 'Te perdés unos partidos pero volvés entero.'; } },
     { txt:'Jugar infiltrado', ef:g=>{ const peor=Math.random()<.5; g.nivel+=peor?-4:1; g.moral-=peor?8:0; g.fama+=peor?0:4; return peor?'La lesión empeoró.':'Aguantaste y fuiste figura.'; } } ] },
-  { t:'Mentoría a un juvenil', d:'Un pibe del club te admira y te pide consejos.', opts:[
+  { t:'Mentoría a un juvenil', img:'mentoria', d:'Un pibe del club te admira y te pide consejos.', opts:[
     { txt:'Ayudarlo y guiarlo', ef:g=>{ g.moral+=8; g.fama+=4; return 'Te ganás el respeto del vestuario.'; } },
     { txt:'Cada uno a lo suyo', ef:g=>{ g.moral-=3; return 'Fría decisión. Algunos lo notan.'; } } ] },
-  { t:'La prensa te apunta', d:'Los medios te critican tras una mala racha.', opts:[
+  { t:'La prensa te apunta', img:'prensa', d:'Los medios te critican tras una mala racha.', opts:[
     { txt:'Responder en la cancha', ef:g=>{ g.moral+=3; g.nivel+=2; return 'Callaste bocas jugando. Respeto.'; } },
-    { txt:'Contestar en redes', ef:g=>{ const mal=Math.random()<.5; g.fama+=mal?-6:6; g.moral+=mal?-4:2; return mal?'Se te fue de las manos.':'La gente te bancó.'; } } ] }
+    { txt:'Contestar en redes', ef:g=>{ const mal=Math.random()<.5; g.fama+=mal?-6:6; g.moral+=mal?-4:2; return mal?'Se te fue de las manos.':'La gente te bancó.'; } } ] },
+  { t:'Te cita la Selección', img:'seleccion', d:'El entrenador de tu selección te llama para los amistosos. Es un salto de vitrina.', opts:[
+    { txt:'Ir con todo a la Selección', ef:g=>{ const bien=Math.random()<.6; g.fama+=bien?12:4; g.nivel+=bien?2:0; g.valor=Math.round(g.valor*(bien?1.15:1.03)); return bien?'Jugaste bárbaro con tu país. Todos hablan de vos.':'Sumaste minutos, seguís en el radar.'; } },
+    { txt:'Priorizar el club (rechazar)', ef:g=>{ g.moral-=3; g.nivel+=1; return 'Descansaste y rendís en el club, pero el hincha lo cuestiona.'; } } ] },
+  { t:'El técnico te cambia de posición', img:'prensa', d:'El DT te quiere probar en otra función del campo.', opts:[
+    { txt:'Adaptarme y aprender', ef:g=>{ g.nivel+=2; g.moral+=2; return 'Te volvés más completo. Buena decisión.'; } },
+    { txt:'Negarme, es mi puesto', ef:g=>{ g.moral-=5; g.fama-=2; return 'Roce con el cuerpo técnico. Riesgoso.'; } } ] }
 ];
 function eventoRandom(){ return pick(EVENTOS); }
 window._carreraElegir = function(i){
