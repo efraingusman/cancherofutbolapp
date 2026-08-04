@@ -31,7 +31,9 @@
       "Bash(sed -i \"s/const CACHE_NAME = 'canchero-v434'/const CACHE_NAME = 'canchero-v435'/\" sw.js)",
       "Bash(node -e \"1\")",
       "Bash(grep -n '\\\\${shareBtn}\\\\|shareBtn}' script.js)",
-      "Bash(curl -s \"https://cancherofutbolapp.vercel.app/index.html?cb=$\\(date +%s\\)\")"
+      "Bash(curl -s \"https://cancherofutbolapp.vercel.app/index.html?cb=$\\(date +%s\\)\")",
+      "Bash(sed -i 's/canchero-carrera.js?v=20260803e/canchero-carrera.js?v=20260804g/' index.html)",
+      "Bash(sed -i \"s/const CACHE_NAME = 'canchero-v439'/const CACHE_NAME = 'canchero-v440'/\" sw.js)"
     ]
   }
 }
