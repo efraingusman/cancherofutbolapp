@@ -3955,7 +3955,7 @@
     <script src="canchero-impostor.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-higher-lower.js?v=20260717e" charset="utf-8"></script>
     <script src="canchero-trivia.js?v=20260802a" charset="utf-8"></script>
-    <script src="canchero-carrera.js?v=20260803c" charset="utf-8"></script>
+    <script src="canchero-carrera.js?v=20260803d" charset="utf-8"></script>
     <script src="canchero-video-trim.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-momentos.js?v=20260717c" charset="utf-8"></script>
     <script src="canchero-momentos-editor.js?v=20260717b" charset="utf-8"></script>
@@ -4069,10 +4069,10 @@
                 if (!sb) return;
                 sb.from('analytics_events').select('id', { count: 'exact', head: true }).then(function(r){
                     var c = r && r.count;
-                    if (typeof c === 'number' && c > 0) { el.textContent = '+' + fmt(c); return; }
-                    // Fallback: si analytics_events aún no tiene datos, mostrar #usuarios × 45 (aprox usos por usuario).
+                    if (!r.error && typeof c === 'number' && c > 0) { el.textContent = '+' + fmt(c); return; }
+                    // Fallback HONESTO: conteo REAL de usuarios (sin multiplicar por nada).
                     sb.from('users').select('email', { count: 'exact', head: true }).then(function(r2){
-                        var c2 = r2 && r2.count; if (typeof c2 === 'number') el.textContent = '+' + fmt(c2 * 45);
+                        var c2 = r2 && r2.count; if (typeof c2 === 'number') el.textContent = '+' + fmt(c2);
                     }).catch(function(){});
                 }).catch(function(){});
             } catch(e){}

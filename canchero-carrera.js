@@ -460,24 +460,39 @@ function resumenTemporada(r){
 }
 function st(l,v){ return `<div style="background:rgba(255,255,255,.04);border:1px solid #1e1e1e;border-radius:12px;padding:11px 4px;text-align:center;"><div style="font-size:9px;color:#666;font-weight:800;">${l}</div><div style="font-size:19px;font-weight:900;color:${A};">${esc(v)}</div></div>`; }
 
-// Eventos de decisión (reusa impronta anterior + transferencias reales).
+// Sueldo/años/prima de una oferta según fuerza del club y azar (da variedad entre ofertas).
+function ofertaDe(c){
+  const sueldo=Math.round(c.str*rnd(9,16))*10000;      // €/año aprox
+  const anios=ri(2,5);
+  const prima=Math.round(c.str*rnd(20,60))*1000;        // prima de fichaje
+  return { name:c.name, str:c.str, liga:c.liga, pais:c.pais, sueldo, anios, prima };
+}
+// Eventos de decisión (reusa impronta anterior + transferencias reales con VARIAS ofertas).
 function mostrarEvento(){
   const wrap=document.getElementById('cr-evwrap'); if(!wrap) return;
-  // A veces: oferta de transferencia a un club mejor.
-  const mejores = todosClubs().filter(c=>c.str>G.clubStr+3 && ligaNivel(c.liga)>=ligaNivel(G.liga) && G.nivel>=c.str-8);
-  const ofertaTransfer = mejores.length && Math.random()<0.5 && G.edad<33;
+  // A veces: ofertas de transferencia (hasta 4 clubes distintos para ELEGIR).
+  const mejores = todosClubs().filter(c=>c.str>G.clubStr+2 && ligaNivel(c.liga)>=ligaNivel(G.liga) && G.nivel>=c.str-9 && c.name!==G.club);
+  const ofertaTransfer = mejores.length && Math.random()<0.5 && G.edad<34;
   if(ofertaTransfer){
-    const c=pick(mejores);
-    wrap.innerHTML=`
-    <div style="background:linear-gradient(160deg,rgba(186,255,0,.06),rgba(20,22,18,.5));border:1px solid #242424;border-radius:16px;padding:16px;">
-      ${decoImg('fichaje')}
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">${clubBadge(c.name,40)}<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:17px;color:#fff;">Oferta de ${esc(c.name)}</div></div>
-      <div style="font-size:13.5px;color:#c4ccc0;line-height:1.5;margin-bottom:14px;">${esc(c.name)} (${esc(c.liga)}) te quiere. Más nivel, más presión, más plata. ¿Das el salto?</div>
-      <div style="display:flex;flex-direction:column;gap:10px;">
-        <button onclick="window._carreraTransfer(1,'${c.name.replace(/'/g,"\\'")}',${c.str},'${c.liga.replace(/'/g,"\\'")}','${c.pais.replace(/'/g,"\\'")}')" style="${btn(true)}">Fichar por ${esc(c.name)} (€${(c.str*90000/1e6).toFixed(1)}M)</button>
-        <button onclick="window._carreraTransfer(0)" style="${btn(false)}">Quedarme en ${esc(G.club)}</button>
-      </div>
-    </div>`;
+    // Barajar y tomar hasta 4 clubes únicos.
+    const shuffled = mejores.slice().sort(()=>Math.random()-0.5);
+    const seen={}; const picks=[];
+    for(const c of shuffled){ if(seen[c.name])continue; seen[c.name]=1; picks.push(c); if(picks.length>=4)break; }
+    G._offers = picks.map(ofertaDe); save();
+    mostrarOfertas('transfer');
+    return;
+  }
+  // A veces: renovación con el club actual (varias condiciones para elegir).
+  const ofertaRenov = Math.random()<0.28 && G.edad<36;
+  if(ofertaRenov){
+    const base={ name:G.club, str:G.clubStr, liga:G.liga, pais:G.clubPais };
+    // 3 variantes de renovación: conservadora, ambiciosa, larga.
+    G._renov = [
+      Object.assign(ofertaDe(base), { _v:'Oferta base', sueldo:Math.round(G.clubStr*11)*10000, anios:2, prima:0 }),
+      Object.assign(ofertaDe(base), { _v:'Pedir aumento', sueldo:Math.round(G.clubStr*17)*10000, anios:3, prima:Math.round(G.clubStr*30)*1000, _riesgo:true }),
+      Object.assign(ofertaDe(base), { _v:'Contrato largo', sueldo:Math.round(G.clubStr*13)*10000, anios:5, prima:Math.round(G.clubStr*15)*1000 })
+    ];
+    save(); mostrarOfertas('renov');
     return;
   }
   // Si no hay transferencia, evento de decisión clásico.
@@ -501,12 +516,68 @@ function trofeoDe(liga){
   return map[liga] || 'champions';
 }
 
+function eur(n){ return n>=1e6 ? '€'+(n/1e6).toFixed(1).replace('.0','')+'M' : '€'+Math.round(n/1000)+'k'; }
+// Tarjeta de una oferta (escudo + club + liga + sueldo/años/prima).
+function ofertaCard(o, i, kind){
+  const sub = kind==='renov' ? (o._v||'Renovación') : esc(o.liga);
+  const riesgo = o._riesgo ? `<div style="font-size:10px;color:#ffb454;margin-top:2px;">⚠ El club puede ofenderse si pedís de más</div>` : '';
+  return `<button onclick="window._carreraElegirOferta('${kind}',${i})" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:rgba(255,255,255,.04);border:1.5px solid #262626;border-radius:14px;padding:12px;cursor:pointer;">
+    ${clubBadge(o.name,42)}
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:14.5px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(o.name)}</div>
+      <div style="font-size:11px;color:#8a8f86;margin-top:1px;">${sub} · Nivel club ${o.str}</div>
+      <div style="font-size:11.5px;color:${A};font-weight:800;margin-top:3px;">${eur(o.sueldo)}/año · ${o.anios} años${o.prima?' · prima '+eur(o.prima):''}</div>
+      ${riesgo}
+    </div>
+    <i class='bx bx-chevron-right' style="color:#444;font-size:20px;"></i>
+  </button>`;
+}
+function mostrarOfertas(kind){
+  const wrap=document.getElementById('cr-evwrap'); if(!wrap) return;
+  const list = kind==='renov' ? (G._renov||[]) : (G._offers||[]);
+  const titulo = kind==='renov' ? 'Tu club te quiere renovar' : 'Tenés ofertas sobre la mesa';
+  const sub = kind==='renov' ? `Elegí cómo negociar tu continuidad en ${esc(G.club)}.` : 'Varios clubes te quieren. Elegí tu próximo destino... o quedate.';
+  wrap.innerHTML=`
+  <div style="background:linear-gradient(160deg,rgba(186,255,0,.06),rgba(20,22,18,.5));border:1px solid #242424;border-radius:16px;padding:16px;">
+    ${decoImg('fichaje')}
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:17px;color:#fff;margin-bottom:4px;">${titulo}</div>
+    <div style="font-size:13px;color:#c4ccc0;line-height:1.5;margin-bottom:14px;">${sub}</div>
+    <div style="display:flex;flex-direction:column;gap:9px;">
+      ${list.map((o,i)=>ofertaCard(o,i,kind)).join('')}
+      <button onclick="window._carreraElegirOferta('quedarme',-1)" style="${btn(false)}"><i class='bx bx-home-heart' style="margin-right:6px;color:#8a8f86;"></i>${kind==='renov'?'Rechazar y escuchar ofertas después':'Quedarme en '+esc(G.club)}</button>
+    </div>
+  </div>`;
+}
+window._carreraElegirOferta = function(kind, i){
+  let msg;
+  if(kind==='quedarme'){
+    G.moral+=8; G.fama+=3; msg='Te quedás. La hinchada lo valora.';
+  } else {
+    const o = (kind==='renov' ? (G._renov||[]) : (G._offers||[]))[i];
+    if(!o){ window._carreraHub(); return; }
+    if(kind==='renov'){
+      if(o._riesgo && Math.random()<0.4){ G.moral-=6; G.fama-=2; msg='El club se ofendió con tu pedido. Renovación fría, pero seguís.'; }
+      else { G.dinero+=o.prima+Math.round(o.sueldo*0.15); G.moral+=6; msg='Renovaste con '+esc(G.club)+' por '+o.anios+' años ('+eur(o.sueldo)+'/año).'; }
+      G.clubStr=Math.min(99,G.clubStr+1);
+    } else {
+      G.club=o.name; G.clubStr=o.str; G.liga=o.liga; G.clubPais=o.pais;
+      G.fama+=8; G.moral+=4; G.dinero+=o.prima+Math.round(o.sueldo*0.15);
+      G.valor=Math.round((G.valor||o.str*90000)*1.1);
+      msg='¡Nuevo club: '+esc(o.name)+'! Firmaste por '+o.anios+' años ('+eur(o.sueldo)+'/año).';
+    }
+  }
+  G.fama=clamp(G.fama,0,100); G.moral=clamp(G.moral,0,100); G.dinero=Math.max(0,G.dinero);
+  G._offers=null; G._renov=null; save();
+  const wrap=document.getElementById('cr-evwrap');
+  if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:10px 0;"><div style="font-size:15px;color:#fff;font-weight:700;margin-bottom:16px;line-height:1.5;">${msg}</div><button onclick="window._carreraHub()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 28px;font-weight:900;cursor:pointer;">Continuar</button></div>`;
+};
+// Compat: viejos guardados que quedaron a mitad de camino.
 window._carreraTransfer = function(go,name,str,liga,pais){
   if(go){ G.club=name; G.clubStr=str; G.liga=liga; G.clubPais=pais; G.fama+=8; G.moral+=4; G.dinero+=str*3000; }
   else { G.moral+=8; G.fama+=3; }
   save();
   const wrap=document.getElementById('cr-evwrap');
-  if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:10px 0;"><div style="font-size:15px;color:#fff;font-weight:700;margin-bottom:16px;">${go?'¡Nuevo club: '+esc(name)+'!':'Te quedás. La hinchada lo valora.'}</div><button onclick="window._carreraHub()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 28px;font-weight:900;cursor:pointer;">Continuar</button></div>`;
+  if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:10px 0;"><div style="font-size:15px;color:#fff;font-weight:700;margin-bottom:16px;">${go?'¡Nuevo club: '+esc(name)+'!':'Te quedás.'}</div><button onclick="window._carreraHub()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 28px;font-weight:900;cursor:pointer;">Continuar</button></div>`;
 };
 
 // Banco de eventos (impronta Canchero).
