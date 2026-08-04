@@ -177,9 +177,10 @@ function jersey(size, apellido, numero, pais){
     <path d="M78 50 Q100 68 120 68 Q140 68 162 50" fill="none" stroke="rgba(0,0,0,.30)" stroke-width="2.5"/>
     <!-- Ribete inferior -->
     <path d="M76 206 L164 206" stroke="rgba(0,0,0,.18)" stroke-width="3"/>
-    <!-- Apellido (arriba) + número (centrado) -->
-    <text x="120" y="112" text-anchor="middle" font-family="Outfit,Arial" font-weight="800" font-size="18" fill="${txt}" style="letter-spacing:2px;">${esc((apellido||'APELLIDO').toUpperCase()).slice(0,11)}</text>
-    <text x="120" y="184" text-anchor="middle" font-family="Outfit,Arial" font-weight="900" font-size="72" fill="${txt}">${esc(String(numero||10)).slice(0,2)}</text>
+    <!-- Apellido (arriba) + número (centrado). textLength fuerza a que SIEMPRE entre
+         dentro de la camiseta (no se sale con nombres largos). -->
+    <text x="120" y="110" text-anchor="middle" font-family="Outfit,Arial" font-weight="800" font-size="17" fill="${txt}" textLength="${Math.min(120, 11*(esc((apellido||'APELLIDO')).length))}" lengthAdjust="spacingAndGlyphs" style="letter-spacing:1px;">${esc((apellido||'APELLIDO').toUpperCase()).slice(0,14)}</text>
+    <text x="120" y="182" text-anchor="middle" font-family="Outfit,Arial" font-weight="900" font-size="70" fill="${txt}" textLength="${String(Math.abs(parseInt(numero)||10)).length>=2?78:44}" lengthAdjust="spacingAndGlyphs">${esc(String(numero||10)).slice(0,2)}</text>
   </svg>`;
 }
 
