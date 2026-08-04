@@ -394,7 +394,18 @@ async function loadDashboard(){
     const{data:tt}=await sb.from('tournament_teams').select('id,tournament_id,status').in('tournament_id',ids);
     (tt||[]).forEach(x=>{teamsByT[x.tournament_id]=(teamsByT[x.tournament_id]||0)+1;});
     document.getElementById('kpi-inscr').textContent=(tt||[]).length;
-  } else { document.getElementById('kpi-inscr').textContent=0; }
+    // KPI Pendientes = inscripciones sin aprobar (antes quedaba en "—").
+    const _pend=(tt||[]).filter(x=>{const s=(x.status||'').toLowerCase();return s==='pending'||s==='pendiente';}).length;
+    document.getElementById('kpi-pend').textContent=_pend;
+  } else { document.getElementById('kpi-inscr').textContent=0; document.getElementById('kpi-pend').textContent=0; }
+  // KPI Ingresos: NUNCA se calculaba → el dashboard quedaba en $0 aunque cargaras
+  // ingresos en Caja (bug reportado por la liga). Suma los ingresos de business_cashflow.
+  try{
+    const{data:cf}=await sb.from('business_cashflow').select('type,amount').ilike('business_email',BIZ_EMAIL).limit(1000);
+    let _in=0;(cf||[]).forEach(x=>{if(x.type==='ingreso')_in+=Number(x.amount)||0;});
+    const _elRev=document.getElementById('kpi-rev');
+    if(_elRev)_elRev.textContent='$'+_in.toLocaleString('es-UY',{maximumFractionDigits:0});
+  }catch(e){}
   const tbody=document.getElementById('dash-torneos');
   if(!_torneos.length){tbody.innerHTML=`<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);">Sin torneos activos</td></tr>`;return;}
   const fmt={league:'Liga',elimination:'Eliminatoria',groups:'Copa',liga:'Liga',eliminatoria:'Eliminatoria',copa:'Copa'};
