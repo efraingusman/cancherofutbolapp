@@ -159,13 +159,13 @@ function jersey(size, apellido, numero, pais){
   const num   = esc(String(numero||10)).slice(0,2);
   const apeLen = Math.min(160, 12*apeUp.length);
   const numLen = num.length>=2 ? 110 : 60;
-  return `<div style="position:relative;width:${s}px;height:${s}px;display:inline-block;filter:drop-shadow(0 10px 18px rgba(0,0,0,.45));">
+  return `<div style="position:relative;width:${s}px;height:${s}px;display:inline-block;">
     <div style="position:absolute;inset:0;background:${base};${maskCSS}"></div>
     ${pattern}
     <img src="${JERSEY_PNG}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;pointer-events:none;">
     <svg viewBox="0 0 240 240" width="${s}" height="${s}" style="position:absolute;inset:0;pointer-events:none;" xmlns="http://www.w3.org/2000/svg">
-      <text x="120" y="98" text-anchor="middle" font-family="Outfit,Arial" font-weight="800" font-size="18" fill="${txt}" textLength="${apeLen}" lengthAdjust="spacingAndGlyphs" style="letter-spacing:1.5px;paint-order:stroke;stroke:rgba(0,0,0,.35);stroke-width:.6;">${apeUp}</text>
-      <text x="120" y="165" text-anchor="middle" font-family="Outfit,Arial" font-weight="900" font-size="72" fill="${txt}" textLength="${numLen}" lengthAdjust="spacingAndGlyphs" style="paint-order:stroke;stroke:rgba(0,0,0,.35);stroke-width:1;">${num}</text>
+      <text x="120" y="78" text-anchor="middle" font-family="Outfit,Arial" font-weight="800" font-size="18" fill="${txt}" textLength="${apeLen}" lengthAdjust="spacingAndGlyphs" style="letter-spacing:1.5px;paint-order:stroke;stroke:rgba(0,0,0,.35);stroke-width:.6;">${apeUp}</text>
+      <text x="120" y="140" text-anchor="middle" font-family="Outfit,Arial" font-weight="900" font-size="64" fill="${txt}" textLength="${numLen}" lengthAdjust="spacingAndGlyphs" style="paint-order:stroke;stroke:rgba(0,0,0,.35);stroke-width:1;">${num}</text>
     </svg>
   </div>`;
 }
