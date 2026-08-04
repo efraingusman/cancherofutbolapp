@@ -137,51 +137,37 @@ function clubBadge(name, size){
   </div>`;
 }
 
-// ── CAMISETA SVG (forma real: hombros, mangas, cuello; patrón por país) ────────
+// ── CAMISETA (template PNG real + tinte con mask + rayas + texto encima) ───────
+// Estrategia: 1) capa base tintada usando la silueta del PNG como CSS mask; 2) patrón
+// (rayas/sash) con la MISMA máscara y color secundario; 3) el PNG encima con
+// mix-blend-mode: multiply para preservar pliegues/costuras/sombras del template;
+// 4) apellido y número por SVG absoluto (textLength garantiza que entren SIEMPRE).
+const JERSEY_PNG = 'img/carrera/jersey-back.png?v=1';
 function jersey(size, apellido, numero, pais){
   const k = KITS[pais] || {t:'solid',c:['#1b7a3e'],txt:'#ffffff'};
   const base = k.c[0]; const alt = k.c[1] || '#ffffff'; const txt = k.txt || '#111';
-  const uid = 'jk'+Math.random().toString(36).slice(2,7);
   const s = size;
-  // Piezas separadas: manga izq, manga der (con PUÑO), y cuerpo. viewBox 0 0 240 236.
-  const slL = "M78 50 L40 60 L22 104 L58 118 L82 74 Z";      // manga izquierda
-  const slR = "M162 50 L200 60 L218 104 L182 118 L158 74 Z";  // manga derecha
-  const cuffL = "M22 104 L58 118 L52 132 L18 118 Z";           // puño izq
-  const cuffR = "M218 104 L182 118 L188 132 L222 118 Z";       // puño der
-  const body = "M78 50 Q100 68 120 68 Q140 68 162 50 L168 74 L164 82 L164 208 Q164 216 156 216 L84 216 Q76 216 76 208 L76 82 L72 74 Z";
-  // Relleno del cuerpo: sólido / rayas / banda.
-  let fill;
+  const maskCSS = `-webkit-mask:url('${JERSEY_PNG}') center/contain no-repeat;mask:url('${JERSEY_PNG}') center/contain no-repeat;`;
+  let pattern = '';
   if (k.t === 'stripes'){
-    const n = 6, w = 240/n; let r='';
-    for (let i=0;i<n;i++) r += `<rect x="${(i*w).toFixed(1)}" y="0" width="${(w+0.6).toFixed(1)}" height="236" fill="${i%2?alt:base}"/>`;
-    fill = `<defs><clipPath id="${uid}"><path d="${body}"/></clipPath></defs><rect width="240" height="236" fill="${base}" clip-path="url(#${uid})"/><g clip-path="url(#${uid})">${r}</g>`;
+    // Franjas verticales del color secundario sobre base.
+    pattern = `<div style="position:absolute;inset:0;background:repeating-linear-gradient(90deg,${alt} 0 ${(s/6).toFixed(1)}px,transparent ${(s/6).toFixed(1)}px ${(s/3).toFixed(1)}px);${maskCSS}"></div>`;
   } else if (k.t === 'sash'){
-    fill = `<defs><clipPath id="${uid}"><path d="${body}"/></clipPath></defs><path d="${body}" fill="${base}"/><g clip-path="url(#${uid})"><path d="M40 200 L180 20 L210 50 L70 230 Z" fill="${alt}"/></g>`;
-  } else {
-    fill = `<path d="${body}" fill="${base}"/>`;
+    pattern = `<div style="position:absolute;inset:0;background:linear-gradient(120deg,transparent 42%,${alt} 42%,${alt} 58%,transparent 58%);${maskCSS}"></div>`;
   }
-  return `<svg width="${s}" height="${s}" viewBox="0 0 240 236" xmlns="http://www.w3.org/2000/svg" style="display:block;filter:drop-shadow(0 12px 22px rgba(0,0,0,.5));">
-    <!-- Mangas (con sombra interna) -->
-    <path d="${slL}" fill="${base}" stroke="rgba(0,0,0,.28)" stroke-width="2.5"/>
-    <path d="${slR}" fill="${base}" stroke="rgba(0,0,0,.28)" stroke-width="2.5"/>
-    <path d="M82 74 L58 118 L52 106 Z" fill="rgba(0,0,0,.10)"/>
-    <path d="M158 74 L182 118 L188 106 Z" fill="rgba(0,0,0,.10)"/>
-    <!-- Puños (color secundario) -->
-    <path d="${cuffL}" fill="${alt}" stroke="rgba(0,0,0,.28)" stroke-width="2"/>
-    <path d="${cuffR}" fill="${alt}" stroke="rgba(0,0,0,.28)" stroke-width="2"/>
-    <!-- Cuerpo -->
-    ${fill}
-    <path d="${body}" fill="none" stroke="rgba(0,0,0,.30)" stroke-width="2.5"/>
-    <!-- Cuello redondo con trim -->
-    <path d="M78 50 Q100 68 120 68 Q140 68 162 50 L154 46 Q120 62 86 46 Z" fill="${alt}"/>
-    <path d="M78 50 Q100 68 120 68 Q140 68 162 50" fill="none" stroke="rgba(0,0,0,.30)" stroke-width="2.5"/>
-    <!-- Ribete inferior -->
-    <path d="M76 206 L164 206" stroke="rgba(0,0,0,.18)" stroke-width="3"/>
-    <!-- Apellido (arriba) + número (centrado). textLength fuerza a que SIEMPRE entre
-         dentro de la camiseta (no se sale con nombres largos). -->
-    <text x="120" y="110" text-anchor="middle" font-family="Outfit,Arial" font-weight="800" font-size="17" fill="${txt}" textLength="${Math.min(120, 11*(esc((apellido||'APELLIDO')).length))}" lengthAdjust="spacingAndGlyphs" style="letter-spacing:1px;">${esc((apellido||'APELLIDO').toUpperCase()).slice(0,14)}</text>
-    <text x="120" y="182" text-anchor="middle" font-family="Outfit,Arial" font-weight="900" font-size="70" fill="${txt}" textLength="${String(Math.abs(parseInt(numero)||10)).length>=2?78:44}" lengthAdjust="spacingAndGlyphs">${esc(String(numero||10)).slice(0,2)}</text>
-  </svg>`;
+  const apeUp = esc((apellido||'APELLIDO').toUpperCase()).slice(0,14);
+  const num   = esc(String(numero||10)).slice(0,2);
+  const apeLen = Math.min(160, 12*apeUp.length);
+  const numLen = num.length>=2 ? 110 : 60;
+  return `<div style="position:relative;width:${s}px;height:${s}px;display:inline-block;filter:drop-shadow(0 10px 18px rgba(0,0,0,.45));">
+    <div style="position:absolute;inset:0;background:${base};${maskCSS}"></div>
+    ${pattern}
+    <img src="${JERSEY_PNG}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;pointer-events:none;">
+    <svg viewBox="0 0 240 240" width="${s}" height="${s}" style="position:absolute;inset:0;pointer-events:none;" xmlns="http://www.w3.org/2000/svg">
+      <text x="120" y="98" text-anchor="middle" font-family="Outfit,Arial" font-weight="800" font-size="18" fill="${txt}" textLength="${apeLen}" lengthAdjust="spacingAndGlyphs" style="letter-spacing:1.5px;paint-order:stroke;stroke:rgba(0,0,0,.35);stroke-width:.6;">${apeUp}</text>
+      <text x="120" y="165" text-anchor="middle" font-family="Outfit,Arial" font-weight="900" font-size="72" fill="${txt}" textLength="${numLen}" lengthAdjust="spacingAndGlyphs" style="paint-order:stroke;stroke:rgba(0,0,0,.35);stroke-width:1;">${num}</text>
+    </svg>
+  </div>`;
 }
 
 // ── CANCHA (para elegir posición) ──────────────────────────────────────────────

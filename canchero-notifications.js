@@ -525,6 +525,9 @@ window.CancheroNotif = (function() {
     function routeNotifData(n) {
         n = n || {};
         const t = n.type || '';
+        // Rol activo: si estoy en negocio/team/fanatico, respetarlo (antes hardcodeaba 'jugador'
+        // y te sacaba del panel al tocar la campana).
+        const _role = (window.userData && window.userData.role) || 'jugador';
         const actor = n.actor_email || n.sender_email || n.from_email;
         const postId = n.post_id || n.target_id || n.entity_id;
         const isMatchType = ['match','match_invite','match_accept','request_accepted','desafio'].includes(t);
@@ -532,17 +535,17 @@ window.CancheroNotif = (function() {
         try {
             if (t === 'dm' || t === 'message' || t === 'mensaje' || t === 'reserva' || t === 'compra' || t === 'venta' || t === 'purchase') {
                 // Mensajes y reservas → abrir el chat con esa persona/negocio
-                if (typeof switchDashboardTab === 'function') switchDashboardTab('jugador','mensajes',null);
+                if (typeof switchDashboardTab === 'function') switchDashboardTab(_role,'mensajes',null);
                 setTimeout(()=>{ if (actor && typeof window.openChatWith === 'function') window.openChatWith(actor, n.actor_name); }, 250);
             } else if (t === 'match_request') {
                 // Solicitud de un jugador → pantalla de aprobación estilo Tinder.
                 // El id del partido viene en post_id (así lo guarda CancheroNotif.create).
                 var mid = n.post_id || matchId || n.ref_id || n.match_id;
                 if (mid && typeof window.renderMatchRequestsTinder === 'function') {
-                    if (typeof switchDashboardTab === 'function') switchDashboardTab('jugador','mis-partidos',null);
+                    if (typeof switchDashboardTab === 'function') switchDashboardTab(_role,'mis-partidos',null);
                     setTimeout(()=>{ try { if (typeof switchMisPartidosTab === 'function') switchMisPartidosTab('solicitudes', document.getElementById('mpt-solicitudes')); } catch(e){} window.renderMatchRequestsTinder(mid); }, 350);
                 } else if (typeof switchDashboardTab === 'function') {
-                    switchDashboardTab('jugador','mis-partidos',null);
+                    switchDashboardTab(_role,'mis-partidos',null);
                 }
             } else if (t === 'desafio' || t === 'match_challenge') {
                 // Desafío entrante → mostrar aceptar / rechazar
@@ -557,13 +560,13 @@ window.CancheroNotif = (function() {
                 if (actor && typeof window.viewUserProfile === 'function') window.viewUserProfile(actor);
                 else if (actor && typeof window.openUserProfile === 'function') window.openUserProfile(actor);
             } else if (t === 'achievement') {
-                if (typeof switchDashboardTab === 'function') { switchDashboardTab('jugador','perfil',null); setTimeout(()=>{ if(typeof switchProfileTab==='function') switchProfileTab('jugador','logros',null); },300); }
+                if (typeof switchDashboardTab === 'function') { switchDashboardTab(_role,'perfil',null); setTimeout(()=>{ if(typeof switchProfileTab==='function') switchProfileTab(_role,'logros',null); },300); }
             } else if (t === 'like' || t === 'comment') {
                 if (postId && typeof window.openPostById === 'function') window.openPostById(postId);
                 else if (postId && typeof window.openComments === 'function') window.openComments(postId);
-                else if (typeof switchDashboardTab === 'function') switchDashboardTab('jugador','feed',null);
+                else if (typeof switchDashboardTab === 'function') switchDashboardTab(_role,'feed',null);
             } else if (t === 'chicana') {
-                if (actor && typeof window.openChatWith === 'function') { if(typeof switchDashboardTab==='function') switchDashboardTab('jugador','mensajes',null); setTimeout(()=>window.openChatWith(actor, n.actor_name),250); }
+                if (actor && typeof window.openChatWith === 'function') { if(typeof switchDashboardTab==='function') switchDashboardTab(_role,'mensajes',null); setTimeout(()=>window.openChatWith(actor, n.actor_name),250); }
             } else if (t === 'game_challenge') {
                 // Llevarlo DIRECTO a jugar el desafío pendiente más nuevo
                 (async () => {
@@ -585,11 +588,11 @@ window.CancheroNotif = (function() {
                 if (cid && typeof window.renderClubRequestsTinder === 'function') {
                     window.renderClubRequestsTinder(cid);
                 } else if (typeof switchDashboardTab === 'function') {
-                    switchDashboardTab('jugador', 'club-gestion', null);
+                    switchDashboardTab(_role, 'club-gestion', null);
                     setTimeout(() => { try { window.switchClubGestionTab && switchClubGestionTab('planilla', null); } catch(e) {} }, 400);
                 }
             } else if (t === 'club_accept' || t === 'club_reject') {
-                if (typeof switchDashboardTab === 'function') switchDashboardTab('jugador', 'mis-clubes', null);
+                if (typeof switchDashboardTab === 'function') switchDashboardTab(_role, 'mis-clubes', null);
             } else if (t === 'biz_approved') {
                 if (window._showBizActivation && window.userData) window._showBizActivation(window.userData.email);
             } else if (t === 'torneo_solicitud' || t === 'torneo_comunicado' || t === 'torneo_pago') {
@@ -617,7 +620,7 @@ window.CancheroNotif = (function() {
                 if (window.MatchDashboard && typeof window.MatchDashboard.open === 'function') window.MatchDashboard.open(matchId);
                 else if (typeof window.viewMatchDetails === 'function') window.viewMatchDetails(matchId);
             } else if (typeof switchDashboardTab === 'function') {
-                switchDashboardTab('jugador','feed',null);
+                switchDashboardTab(_role,'feed',null);
             }
         } catch(e) { console.warn('[notif] openNotif route error', e); }
     }
@@ -790,7 +793,7 @@ window.CancheroNotif = (function() {
                         const preview = m.media_type === 'image' ? '📷 Foto' : (m.media_type === 'audio' ? '🎤 Audio' : (m.content || 'Nuevo mensaje'));
                         if (settings.inApp !== false && !isMuted(m.sender_email || '')) {
                             showToast('message', senderName, preview, () => {
-                                if (typeof window.switchDashboardTab === 'function') window.switchDashboardTab('jugador', 'mensajes', null);
+                                if (typeof window.switchDashboardTab === 'function') window.switchDashboardTab(((window.userData&&window.userData.role)||'jugador'), 'mensajes', null);
                                 setTimeout(() => { if (window.CancheroMessaging) window.CancheroMessaging.openThread('dm', null, m.sender_email, senderName); }, 300);
                             });
                         }
@@ -822,7 +825,7 @@ window.CancheroNotif = (function() {
             const n = new Notification(title, { body: body, icon: '/logo-oficial.png', tag: 'msg-' + (senderEmail||''), badge: '/logo-oficial.png' });
             n.onclick = function() {
                 window.focus();
-                if (typeof window.switchDashboardTab === 'function') window.switchDashboardTab('jugador', 'mensajes', null);
+                if (typeof window.switchDashboardTab === 'function') window.switchDashboardTab(((window.userData&&window.userData.role)||'jugador'), 'mensajes', null);
                 setTimeout(() => { if (window.CancheroMessaging) window.CancheroMessaging.openThread('dm', null, senderEmail, senderName); }, 300);
                 n.close();
             };

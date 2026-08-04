@@ -4499,28 +4499,35 @@ window.switchDashboardTab = function(role, tabId, el) {
     }
     localStorage.setItem('canchero_last_tab', JSON.stringify({dashboard: role, tab: tabId, menuIndex: _savedMenuIndex}));
 
-    // Sync active state for bottom nav items
+    // Sync active state for bottom nav items — comparación exacta ('feed' no debe
+    // encender items cuyo onclick incluye 'feed-otro'; 'buscar' no debe encender 'buscar-clubes').
     document.querySelectorAll('.mobile-nav-item').forEach(item => {
         item.classList.remove('active');
-        if (item.onclick && item.onclick.toString().includes(tabId)) {
-            item.classList.add('active');
+        if (item.onclick) {
+            var s = item.onclick.toString();
+            var re = new RegExp("['\"]" + tabId.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&') + "['\"]");
+            if (re.test(s)) item.classList.add('active');
         }
     });
 
     // Sincronizar la ruleta/barra inferior con la sección real (fix: la barra
     // marcaba una sección distinta a la visible)
     try {
-        var _r2map = { 'partidos':'partidos', 'mis-partidos':'partidos', 'crear-partido':'partidos', 'buscar-partidos':'partidos',
+        var _r2map = { 'partidos':'partidos', 'mis-partidos':'partidos', 'crear-partido':'partidos', 'buscar-partidos':'partidos', 'crear-torneo':'partidos',
             'buscar':'buscar', 'buscar-clubes':'buscar', 'buscar-canchas':'buscar', 'complejos':'buscar', 'tiendas':'buscar', 'profesionales':'buscar', 'organizaciones':'buscar',
-            'feed':'feed', 'amigos':'feed', 'mensajes':'mensajes', 'perfil':'perfil',
+            'feed':'feed', 'inicio':'feed', 'amigos':'feed', 'mensajes':'mensajes', 'perfil':'perfil',
             // Movidas dentro de Buscar → resaltan "Buscar" en la barra fija
-            'mis-clubes':'buscar', 'ranking':'buscar', 'juegos':'buscar', 'en-vivo':'buscar' };
-        if (_r2map[tabId] && window._ruleta2SyncById) window._ruleta2SyncById(_r2map[tabId]);
+            'mis-clubes':'buscar', 'ranking':'buscar', 'juegos':'buscar', 'en-vivo':'buscar',
+            // Roles negocio / fanatico / team (primer item de su ruleta)
+            'panel':'panel', 'comunidades':'comunidades', 'gestion':'gestion' };
+        // Fallback: si el tabId coincide con un id de la ruleta directamente, úsalo.
+        var _r2target = _r2map[tabId] || tabId;
+        if (window._ruleta2SyncById) window._ruleta2SyncById(_r2target);
         // Re-assert: el bar a veces se re-renderiza tarde (carga async de la sección) y
         // volvía a quedar en INICIO. Se re-sincroniza el activo al mapeo real de la sección.
-        if (_r2map[tabId] && window._ruleta2SyncById) {
-            setTimeout(function(){ try { window._ruleta2SyncById(_r2map[tabId]); } catch(e){} }, 80);
-            setTimeout(function(){ try { window._ruleta2SyncById(_r2map[tabId]); } catch(e){} }, 350);
+        if (window._ruleta2SyncById) {
+            setTimeout(function(){ try { window._ruleta2SyncById(_r2target); } catch(e){} }, 80);
+            setTimeout(function(){ try { window._ruleta2SyncById(_r2target); } catch(e){} }, 350);
         }
     } catch(e) {}
 
@@ -5623,15 +5630,25 @@ async function generateOrganizacionesHTML(query) {
         // la que tiene _bizId abre el perfil de negocio correcto. Se agrupa por email o
         // nombre y se PREFIERE la que tiene _bizId. Elimina la "doble Liga Clandestina".
         (function(){
-            const keyOf = o => ((o.email||'').toLowerCase() || ('name:'+(o.name||'').trim().toLowerCase()));
-            const byKey = {};
+            // Pase 1: dedup por email. Pase 2: dedup por NOMBRE normalizado (aunque el
+            // email difiera — multi-identidad, mismo nombre "Liga Clandestina" en users y
+            // en business_requests). Siempre se prefiere la entrada con _bizId (abre el
+            // perfil de negocio correcto; la otra tira "usuario no encontrado").
+            const normName = s => (s||'').toLowerCase().trim().replace(/\s+/g,' ');
+            const byEmail = {};
             data.forEach(o => {
-                const k = keyOf(o);
-                if (!byKey[k]) { byKey[k] = o; return; }
-                // Ya hay una: quedarse con la que tiene _bizId (routing correcto).
-                if (!byKey[k]._bizId && o._bizId) byKey[k] = o;
+                const k = (o.email||'').toLowerCase() || ('__nm:'+normName(o.name));
+                if (!byEmail[k]) { byEmail[k] = o; return; }
+                if (!byEmail[k]._bizId && o._bizId) byEmail[k] = o;
             });
-            data = Object.values(byKey);
+            const byName = {};
+            Object.values(byEmail).forEach(o => {
+                const k = normName(o.name);
+                if (!k) { byName['__ne:'+(o.email||Math.random())] = o; return; }
+                if (!byName[k]) { byName[k] = o; return; }
+                if (!byName[k]._bizId && o._bizId) byName[k] = o;
+            });
+            data = Object.values(byName);
         })();
         if (!data || data.length === 0) return header + searchBar + emptyDirectoryHTML('bx-buildings', 'SIN LIGAS', 'Todavía no hay organizaciones registradas con esos filtros.') + '</div>';
         return header + searchBar + `<div style="display:flex;flex-direction:column;gap:0;">${data.map(o => {
