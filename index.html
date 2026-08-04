@@ -271,6 +271,10 @@
                                 <div class="fs-btn-desc">Publicá productos y llegá a jugadores cercanos.</div>
                             </div>
                         </button>
+                        <!-- ENTRAR SIN REGISTRARSE (modo invitado) -->
+                        <button id="hero-btn-guest" onclick="window._enterGuest&&window._enterGuest()" style="margin-top:4px;background:transparent;border:1px solid rgba(255,255,255,0.16);color:#cfe5b0;border-radius:14px;padding:12px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                            <i class='bx bx-glasses'></i> Explorar sin registrarme
+                        </button>
                     </div>
                 </div>
                 </div>
@@ -629,7 +633,7 @@
                     </ul>
                     <li class="menu-item" onclick="openTorneosModal()"><i class='bx bx-trophy'></i> Torneos y Ligas</li>
                     <li class="menu-item" onclick="switchDashboardTab('jugador', 'ranking', this)"><i class='bx bx-bar-chart-alt-2'></i> Ranking Global</li>
-                    <li class="menu-item" onclick="launchGame('tiros-libres')"><i class='bx bx-football'></i> Juego</li>
+                    <li class="menu-item" onclick="window.openGamesModal&&window.openGamesModal()"><i class='bx bx-joystick'></i> Juegos</li>
                     <li class="menu-item" onclick="deleteAccount()" style="font-size:11px; opacity:0.5;"><i class='bx bx-trash'></i> Eliminar Cuenta</li>
                 </ul>
             </aside>
@@ -2054,6 +2058,7 @@
                     <li class="menu-item" onclick="switchDashboardTab('club', 'directo', this)"><i class='bx bx-broadcast' style="color: #ff4d4d; animation: pulse 1s infinite;"></i> Hacer Directo <span style="background:#ff4d4d; color:white; font-size:8px; padding:2px 5px; border-radius:3px; font-weight:bold; margin-left:5px; vertical-align:middle;">LIVE</span></li>
                     <li class="menu-item" onclick="switchDashboardTab('club', 'chat', this)"><i class='bx bx-message-rounded-dots'></i> Chat IA WhatsApp</li>
                     <li class="menu-item" onclick="switchDashboardTab('club', 'mensualidad', this)"><i class='bx bx-wallet'></i> Mensualidad y Pagos</li>
+                    <li class="menu-item" onclick="window.openGamesModal&&window.openGamesModal()"><i class='bx bx-joystick'></i> Juegos</li>
                     <li class="menu-item" onclick="logout()" style="margin-top: 20px; color: #ff4d4d;"><i class='bx bx-log-out'></i> Cerrar Sesión</li>
                     <li class="menu-item" onclick="deleteAccount()" style="font-size: 11px; opacity: 0.5;"><i class='bx bx-trash'></i> Eliminar Cuenta</li>
 
@@ -3922,7 +3927,7 @@
       </div>
     </div>
 
-    <script src="script.js?v=20260804d" charset="utf-8"></script>
+    <script src="script.js?v=20260804e" charset="utf-8"></script>
     <script src="canchero-cloud.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-avatars.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-analytics.js?v=20260714a" charset="utf-8"></script>

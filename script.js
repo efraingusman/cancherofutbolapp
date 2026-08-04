@@ -516,6 +516,43 @@ window._primaryRole = function(){
 };
 
 // Navegación post-login centralizada: negocios activos → CRM, resto → jugador/admin
+// ── MODO INVITADO ─────────────────────────────────────────────────────────────
+// Entrar SIN registrarse a ver el feed, buscar, juegos, torneos. El Perfil queda con
+// candado y CTA a registrarse; las acciones que necesitan cuenta piden registro.
+window._isGuest = false;
+window._enterGuest = function(){
+    window._isGuest = true;
+    // Identidad mínima de invitado (sin email → las acciones de escritura piden cuenta).
+    window.userData = { name:'Invitado', role:'jugador', _guest:true, email:null, stats:{}, photo:'' };
+    try { document.body.classList.add('is-guest'); } catch(e){}
+    try { navigate('jugador'); } catch(e){}
+    try { if (window._rebuildBottomNav) window._rebuildBottomNav(); } catch(e){}
+    setTimeout(function(){ try { switchDashboardTab('jugador','feed',null); } catch(e){} }, 60);
+};
+// ¿La acción necesita cuenta? En invitado, muestra el registro y corta. Devuelve true si
+// puede seguir (hay cuenta real).
+window._requireAccount = function(accion){
+    if (!window._isGuest && window.userData && window.userData.email) return true;
+    window._promptRegister(accion);
+    return false;
+};
+window._promptRegister = function(accion){
+    try { window._isGuest = false; document.body.classList.remove('is-guest'); } catch(e){}
+    // Reusar el flujo de registro/login existente.
+    if (window._showLoginModal) window._showLoginModal('jugador');
+    else { try { navigate('register'); } catch(e){} }
+    if (window.showToast && accion) showToast('Creá tu perfil gratis para ' + accion + '.', 'info');
+};
+window._guestLockedProfileHTML = function(){
+    return '<div style="max-width:440px;margin:0 auto;padding:40px 22px;text-align:center;display:flex;flex-direction:column;align-items:center;">'
+      + '<div style="width:96px;height:96px;border-radius:50%;background:rgba(255,255,255,0.05);border:1px solid #2a2a2a;display:flex;align-items:center;justify-content:center;margin-bottom:18px;"><i class="bx bx-lock-alt" style="font-size:46px;color:#666;"></i></div>'
+      + '<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;color:#fff;">Tu perfil está bloqueado</div>'
+      + '<div style="font-size:14px;color:#9aa0a6;margin:10px 0 22px;line-height:1.6;max-width:340px;">Creá tu perfil gratis para desbloquear tus <b style="color:#fff;">stats</b>, tus <b style="color:#fff;">equipos</b>, tus <b style="color:#fff;">logros</b> y jugar partidos y torneos.</div>'
+      + '<button onclick="window._promptRegister(\'desbloquear tu perfil\')" style="width:100%;max-width:320px;background:linear-gradient(135deg,#16a34a,#baff00);color:#000;border:none;border-radius:15px;padding:16px;font-family:Outfit,sans-serif;font-weight:900;font-size:16px;cursor:pointer;box-shadow:0 10px 30px rgba(80,220,110,.28);"><i class="bx bx-rocket"></i> CREAR MI PERFIL GRATIS</button>'
+      + '<div style="font-size:12px;color:#666;margin-top:14px;">Mientras tanto podés mirar el feed, buscar jugadores/canchas y jugar los juegos.</div>'
+      + '</div>';
+};
+
 window._navAfterLogin = function(role, email) {
     // Si el usuario eligio un rol en el home, esa eleccion gana sobre users.role.
     try { var _it = window._applyLoginIntent(); if (_it) role = _it; } catch(e){}
@@ -4547,8 +4584,14 @@ window.switchDashboardTab = function(role, tabId, el) {
     if (tabId === 'buscar-canchas') { try { loadCanchasFromSupabase(); } catch(e) { var cg=document.getElementById('canchas-cards-list'); if(cg) cg.innerHTML='<div style="padding:30px;text-align:center;color:#f44;font-size:12px;">Error. <button onclick="loadCanchasFromSupabase()" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:5px 12px;cursor:pointer;font-weight:700;">Reintentar</button></div>'; } }
     if (tabId === 'buscar-partidos') { try { if(typeof renderBuscarPartidos==='function') renderBuscarPartidos(); } catch(e) { var pl=document.getElementById('partidos-list'); if(pl) pl.innerHTML='<div style="padding:30px;text-align:center;color:#f44;font-size:12px;">Error. <button onclick="renderBuscarPartidos&&renderBuscarPartidos()" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:5px 12px;cursor:pointer;font-weight:700;">Reintentar</button></div>'; } }
     if (tabId === 'perfil') {
-        renderUserPosts(role);
-        setTimeout(() => { try { loadProfilePosts(); } catch(e) {} }, 200);
+        // MODO INVITADO: sin cuenta no hay perfil → candado + CTA a registrarse.
+        if (window._isGuest) {
+            var _pcont = document.getElementById(role + '-perfil');
+            if (_pcont) _pcont.innerHTML = window._guestLockedProfileHTML();
+        } else {
+            renderUserPosts(role);
+            setTimeout(() => { try { loadProfilePosts(); } catch(e) {} }, 200);
+        }
     }
     if (tabId === 'feed') {
         setTimeout(() => {
