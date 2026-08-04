@@ -8863,7 +8863,7 @@ window.publishClubUrgent = async function(clubId) {
       '<div style="display:flex;flex-direction:column;gap:8px;">'+
         '<button onclick="window._cunShareFeed();this.closest(\'div[style*=fixed]\').remove();" style="background:var(--accent);color:#000;border:none;border-radius:12px;padding:12px;font-weight:900;font-size:13px;cursor:pointer;"><i class="bx bx-broadcast"></i> Publicar al feed de Canchero</button>'+
         '<button onclick="window._cunShareExternal();this.closest(\'div[style*=fixed]\').remove();" style="background:rgba(37,211,102,0.10);color:#25d366;border:1px solid rgba(37,211,102,0.3);border-radius:12px;padding:12px;font-weight:900;font-size:13px;cursor:pointer;"><i class="bx bxl-whatsapp"></i> Compartir fuera (WhatsApp/X/IG…)</button>'+
-        '<button onclick="window._cunShareChat();this.closest(\'div[style*=fixed]\').remove();" style="background:rgba(100,180,255,0.10);color:#64b4ff;border:1px solid rgba(100,180,255,0.3);border-radius:12px;padding:12px;font-weight:900;font-size:13px;cursor:pointer;"><i class="bx bx-chat"></i> Copiar para chat</button>'+
+        '<button onclick="window._cunShareChat();this.closest(\'div[style*=fixed]\').remove();" style="background:rgba(100,180,255,0.10);color:#64b4ff;border:1px solid rgba(100,180,255,0.3);border-radius:12px;padding:12px;font-weight:900;font-size:13px;cursor:pointer;"><i class="bx bx-chat"></i> Enviar por chat interno</button>'+
         '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="background:transparent;color:#888;border:none;padding:8px;font-size:12px;cursor:pointer;">Cerrar</button>'+
       '</div></div>';
     document.body.appendChild(pick);
@@ -8898,13 +8898,96 @@ window._cunShareExternal = async function(){
     var c = window._cunCtx; if (!c) return;
     var txt = window._buildClubNeedText(c.club, c.clubId, c.count, c.urg, c.pos, c.msg);
     var url = 'https://cancherofutbolapp.vercel.app/#club/' + c.clubId;
-    try { if (navigator.share){ await navigator.share({ title:'Faltan jugadores en el club', text:txt, url:url }); return; } } catch(e){}
-    try { await navigator.clipboard.writeText(txt); window.showToast && showToast('Aviso copiado','success'); } catch(e){ alert(txt); }
+    var full = txt + '\n\n👉 ' + url;
+    // En móvil: hoja nativa (WhatsApp/IG/X/…). Si no hay o falla, deep-link directo de WhatsApp.
+    try { if (navigator.share){ await navigator.share({ title:'Faltan jugadores en el club', text:txt, url:url }); return; } } catch(e){ if(e && e.name==='AbortError') return; }
+    try { window.open('https://wa.me/?text=' + encodeURIComponent(full), '_blank'); window.showToast && showToast('Abriendo WhatsApp…','success'); }
+    catch(e){ try { await navigator.clipboard.writeText(full); window.showToast && showToast('Aviso copiado','success'); } catch(e2){ alert(full); } }
 };
+// CHAT INTERNO: selector de jugadores para ENVIAR el aviso como mensaje real (antes solo copiaba).
 window._cunShareChat = async function(){
-    var c = window._cunCtx; if (!c) return;
+    var c = window._cunCtx;
+    if (!c) return;
     var txt = window._buildClubNeedText(c.club, c.clubId, c.count, c.urg, c.pos, c.msg);
-    try { await navigator.clipboard.writeText(txt); window.showToast && showToast('Texto copiado — pegalo en cualquier chat','success'); } catch(e){ alert(txt); }
+    var url = 'https://cancherofutbolapp.vercel.app/#club/' + c.clubId;
+    window._openChatSharePicker(txt + '\n\n👉 Ver club: ' + url, {
+        senderName: (c.club && c.club.name) || (window.userData && window.userData.name),
+        notifText: 'Te invitaron a jugar: faltan jugadores en '+((c.club && c.club.name)||'un club')+'.'
+    });
+};
+// Selector GENÉRICO de jugadores para enviar un texto por chat interno (aviso o partido).
+window._openChatSharePicker = async function(text, opts){
+    opts = opts || {};
+    var sb = window._sb; var me = window.userData;
+    if (!sb || !me || !me.email){ window.showToast && showToast('Iniciá sesión para enviar por chat.','warning'); return; }
+    window._chatShareText = text; window._chatShareOpts = opts;
+    var ex = document.getElementById('cun-chat-picker'); if (ex) ex.remove();
+    var box = document.createElement('div'); box.id = 'cun-chat-picker';
+    box.style.cssText = 'position:fixed;inset:0;z-index:30200;background:rgba(0,0,0,0.92);display:flex;align-items:flex-end;justify-content:center;';
+    box.innerHTML = '<div style="background:#0d100d;border:1px solid #1f2a14;border-radius:18px 18px 0 0;width:100%;max-width:440px;max-height:82vh;display:flex;flex-direction:column;padding:16px;">'+
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><i class="bx bx-chat" style="color:#64b4ff;font-size:20px;"></i><div style="font-weight:900;font-size:15px;color:#fff;">Enviar por chat de Canchero</div></div>'+
+        '<input id="cun-chat-search" type="text" placeholder="Buscar jugador por nombre…" style="width:100%;background:#151a15;border:1px solid #263;border-radius:12px;padding:11px 12px;color:#fff;font-size:13px;box-sizing:border-box;margin-bottom:10px;" oninput="var v=this.value;clearTimeout(window._cunChatDeb);window._cunChatDeb=setTimeout(function(){window._cunChatSearch(v)},300)">'+
+        '<div id="cun-chat-results" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;"></div>'+
+        '<div style="display:flex;gap:8px;margin-top:12px;">'+
+          '<button id="cun-chat-send" onclick="window._cunChatSend()" disabled style="flex:2;background:#243;color:#7c8;border:none;border-radius:12px;padding:13px;font-weight:900;font-size:14px;cursor:not-allowed;">Elegí jugadores</button>'+
+          '<button onclick="document.getElementById(\'cun-chat-picker\').remove()" style="flex:1;background:#1a1a1a;color:#888;border:1px solid #333;border-radius:12px;padding:13px;font-weight:700;cursor:pointer;">Cerrar</button>'+
+        '</div></div>';
+    box.onclick = function(e){ if(e.target===box) box.remove(); };
+    document.body.appendChild(box);
+    window._cunChatSel = {};
+    window._cunChatSearch('');
+};
+window._cunChatSearch = async function(q){
+    var sb = window._sb; var me = window.userData;
+    var cont = document.getElementById('cun-chat-results'); if(!cont) return;
+    cont.innerHTML = '<div style="padding:18px;text-align:center;color:#555;"><i class="bx bx-loader-alt bx-spin"></i></div>';
+    try {
+        var query = sb.from('users').select('email,name,photo').neq('email', me.email).limit(30);
+        if (q && q.trim()) query = query.ilike('name', '%'+q.trim()+'%');
+        var r = await query;
+        var rows = r.data || [];
+        if (!rows.length){ cont.innerHTML = '<div style="padding:20px;text-align:center;color:#666;font-size:12px;">Sin resultados.</div>'; return; }
+        cont.innerHTML = rows.map(function(u){
+            var em = (u.email||'').replace(/'/g,"\\'");
+            var nm = (u.name||u.email||'Jugador').replace(/</g,'&lt;');
+            var sel = !!window._cunChatSel[u.email];
+            var ph = u.photo && !String(u.photo).includes('ui-avatars');
+            return '<div onclick="window._cunChatToggle(\''+em+'\',\''+nm.replace(/'/g,"\\'")+'\',this)" data-em="'+em+'" style="display:flex;align-items:center;gap:11px;padding:10px 6px;border-bottom:1px solid #141814;cursor:pointer;">'+
+                '<div style="width:40px;height:40px;border-radius:50%;flex-shrink:0;'+(ph?("background:center/cover url('"+u.photo+"');"):'background:rgba(186,255,0,0.12);')+'display:flex;align-items:center;justify-content:center;font-weight:900;color:var(--accent);">'+(ph?'':nm[0].toUpperCase())+'</div>'+
+                '<div style="flex:1;min-width:0;font-size:14px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+nm+'</div>'+
+                '<i class="bx '+(sel?'bxs-check-circle':'bx-circle')+'" style="font-size:22px;color:'+(sel?'var(--accent)':'#444')+';"></i>'+
+            '</div>';
+        }).join('');
+    } catch(e){ cont.innerHTML = '<div style="padding:20px;text-align:center;color:#f55;font-size:12px;">Error al buscar.</div>'; }
+};
+window._cunChatToggle = function(email, name, el){
+    if (!window._cunChatSel) window._cunChatSel = {};
+    if (window._cunChatSel[email]) delete window._cunChatSel[email]; else window._cunChatSel[email] = name;
+    var ic = el.querySelector('i'); var on = !!window._cunChatSel[email];
+    if (ic){ ic.className = 'bx '+(on?'bxs-check-circle':'bx-circle'); ic.style.color = on?'var(--accent)':'#444'; }
+    var n = Object.keys(window._cunChatSel).length;
+    var btn = document.getElementById('cun-chat-send');
+    if (btn){ btn.disabled = n===0; btn.style.cursor = n?'pointer':'not-allowed'; btn.style.background = n?'#64b4ff':'#243'; btn.style.color = n?'#001b33':'#7c8'; btn.textContent = n? ('Enviar a '+n) : 'Elegí jugadores'; }
+};
+window._cunChatSend = async function(){
+    var sb = window._sb; var me = window.userData;
+    var sel = window._cunChatSel || {};
+    var emails = Object.keys(sel); if (!emails.length || !sb || !me) return;
+    var opts = window._chatShareOpts || {};
+    var full = window._chatShareText || '';
+    var senderName = opts.senderName || me.name || me.email;
+    var btn = document.getElementById('cun-chat-send'); if(btn){ btn.disabled=true; btn.textContent='Enviando…'; }
+    var rows = emails.map(function(em){ return { sender_email: me.email, sender_name: senderName, recipient_email: em, content: full }; });
+    var okCount = 0;
+    try {
+        var r = await sb.from('messages').insert(rows);
+        if (r.error) {
+            for (var i=0;i<rows.length;i++){ try { var ri = await sb.from('messages').insert(rows[i]); if(!ri.error) okCount++; } catch(e){} }
+        } else { okCount = rows.length; }
+    } catch(e){}
+    try { if (window.CancheroNotif) emails.forEach(function(em){ CancheroNotif.create(em, 'dm', senderName, opts.notifText || 'Te compartieron algo en Canchero.'); }); } catch(e){}
+    document.getElementById('cun-chat-picker')?.remove();
+    window.showToast && showToast(okCount? ('Enviado a '+okCount+' jugador'+(okCount!==1?'es':'')+' por chat ✓') : 'No se pudo enviar.', okCount?'success':'error');
 };
 
 // ── Editor de perfil de club — mismo estilo lindo que el de jugador ──────────
@@ -28612,14 +28695,10 @@ window._shareMatchTo = async function(dest, matchId, btn) {
             if(typeof showToast==='function') showToast('¡Partido en tu historia!', 'success');
             try { if (typeof social !== 'undefined' && social.loadStories) social.loadStories(); } catch(e){}
         } else if (dest === 'dm') {
-            // Reutilizar el flujo de mensajería para elegir contacto
+            // Selector de jugadores → envía el partido como DM real (no solo copiar).
             document.getElementById('share-match-modal')?.remove();
-            if (window.CancheroMessaging && typeof window.CancheroMessaging.init === 'function') {
-                window.CancheroMessaging.init();
-                if (typeof switchDashboardTab === 'function') switchDashboardTab(me.role||'jugador','mensajes',null);
-                window._pendingMatchShareText = content;
-                if(typeof showToast==='function') showToast('Elegí un chat y pegá el partido (copiado).', 'info');
-                if (navigator.clipboard) navigator.clipboard.writeText(content);
+            if (window._openChatSharePicker) {
+                window._openChatSharePicker(content, { senderName: me.name || me.email, notifText: '⚽ Te invitaron a un partido: ' + (d.name||'Partido') });
             } else if (navigator.clipboard) {
                 navigator.clipboard.writeText(content);
                 if(typeof showToast==='function') showToast('Texto del partido copiado.', 'success');
