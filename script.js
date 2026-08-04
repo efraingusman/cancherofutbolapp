@@ -1737,15 +1737,17 @@ window._renderProfileSwitcher = function(){
         // El pill va INLINE, alineado en la misma fila que el logo, la campana y ajustes
         // (antes iba absolute centrado y se veía "flotando"/desalineado). Se inserta dentro
         // de la barra de acciones (a la izquierda de campana/ajustes).
-        pill.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:rgba(186,255,0,0.12);border:1px solid rgba(186,255,0,0.5);border-radius:22px;padding:6px 12px;cursor:pointer;max-width:min(200px,44vw);box-sizing:border-box;box-shadow:0 2px 12px rgba(186,255,0,0.15);transition:background .15s, box-shadow .15s;margin-right:8px;';
+        // El pill va CENTRADO en el header (position absolute + left 50% + translateX).
+        // Antes iba dentro de .nav-actions (derecha) y quedaba muy pegado a la campana.
+        // Ahora queda en el centro exacto de la barra, sin importar el ancho.
+        pill.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;display:inline-flex;align-items:center;gap:6px;background:rgba(186,255,0,0.12);border:1px solid rgba(186,255,0,0.5);border-radius:22px;padding:6px 12px;cursor:pointer;max-width:min(200px,44vw);box-sizing:border-box;box-shadow:0 2px 12px rgba(186,255,0,0.15);transition:background .15s, box-shadow .15s;';
         pill.title = 'Cambiar de rol (Jugador / Ligas / Canchas / Tienda / Equipo)';
         pill.setAttribute('aria-label', 'Cambiar de rol');
         pill.onmouseover = function(){ this.style.background = 'rgba(186,255,0,0.20)'; this.style.boxShadow = '0 2px 16px rgba(186,255,0,0.28)'; };
         pill.onmouseout = function(){ this.style.background = 'rgba(186,255,0,0.12)'; this.style.boxShadow = '0 2px 12px rgba(186,255,0,0.15)'; };
-        // Insertarlo dentro de la barra de acciones (campana/ajustes) para que quede alineado.
-        var _actions = nav.querySelector('.nav-actions') || nav.querySelector('#notif-bell-wrap')?.parentElement;
-        if (_actions) _actions.insertBefore(pill, _actions.firstChild);
-        else nav.appendChild(pill);
+        // Insertarlo en el nav (relative) para poder centrarlo de forma absoluta.
+        try { if (getComputedStyle(nav).position === 'static') nav.style.position = 'relative'; } catch(e){}
+        nav.appendChild(pill);
     }
     // B7-B: chevron con color de acento (antes gris), label 900 en vez de 800 — el
     // pill queda claramente identificable como "cambiar rol" y no como un tag pasivo.
