@@ -12,7 +12,12 @@
       "Bash(git config *)",
       "Bash(echo \"credential helper: $\\(git config --global credential.helper\\)\")",
       "Bash(echo \"credential.helper = $\\(git config --global credential.helper\\)\")",
-      "Bash(node -c canchero-carrera.js)"
+      "Bash(node -c canchero-carrera.js)",
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "Bash(gh auth *)",
+      "Bash(env)",
+      "Bash(node -e ' *)"
     ]
   }
 }

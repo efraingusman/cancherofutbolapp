@@ -508,8 +508,32 @@ function mostrarEvento(){
     </div>`;
 }
 function btn(prim){ return prim?`background:rgba(186,255,0,.1);border:1.5px solid rgba(186,255,0,.4);color:${A};border-radius:13px;padding:14px 15px;font-weight:800;font-size:14px;text-align:left;cursor:pointer;`:'background:rgba(255,255,255,.04);border:1.5px solid #262626;color:#fff;border-radius:13px;padding:14px 15px;font-weight:800;font-size:14px;text-align:left;cursor:pointer;'; }
-// Imagen ilustrativa de una decisión (img/carrera/decisiones/<tipo>.webp). Se oculta si no existe.
-function decoImg(tipo){ if(!tipo) return ''; return `<div style="height:120px;border-radius:12px;overflow:hidden;margin-bottom:12px;background:#0d0d0d;"><img src="img/carrera/decisiones/${tipo}.webp" alt="" style="width:100%;height:100%;object-fit:cover;opacity:.92;" onerror="this.parentElement.style.display='none'"></div>`; }
+// Fotos reales disponibles en img/carrera/decisiones/<tipo>.webp
+const DECO_FOTOS = ['fichaje','final','joda','lesion','mentoria','ojeador','potrero','prensa','seleccion','titulo'];
+// Categorías SIN foto → banner con ícono + gradiente propio (así cada decisión tiene una
+// imagen que CORRESPONDE, en vez de reutilizar una foto genérica que no pega).
+const DECO_ICON = {
+  dinero:   { i:'bx-dollar-circle', c:['#2b220a','#c9a227'] },
+  sponsor:  { i:'bx-purchase-tag',  c:['#082726','#14b8a6'] },
+  familia:  { i:'bx-home-heart',    c:['#2a160a','#f97316'] },
+  pelea:    { i:'bx-shield-x',      c:['#2a0a0a','#ef4444'] },
+  redes:    { i:'bx-trending-up',   c:['#1a0a2a','#a855f7'] },
+  agente:   { i:'bx-briefcase-alt', c:['#0f1622','#3b82f6'] },
+  capitan:  { i:'bxs-star',         c:['#241a05','#eab308'] },
+  tactica:  { i:'bx-clipboard',     c:['#0a2216','#22c55e'] }
+};
+// Banner ilustrativo de una decisión: foto real si existe la categoría, si no ícono temático.
+function decoImg(tipo){
+  if(!tipo) return '';
+  if(DECO_ICON[tipo]){
+    const k=DECO_ICON[tipo];
+    return `<div style="height:120px;border-radius:12px;overflow:hidden;margin-bottom:12px;background:linear-gradient(135deg,${k.c[0]},#0d0d0d);display:flex;align-items:center;justify-content:center;position:relative;">
+      <div style="position:absolute;inset:0;background:radial-gradient(120% 80% at 30% 20%, ${k.c[1]}22, transparent 60%);"></div>
+      <i class='bx ${k.i}' style="font-size:56px;color:${k.c[1]};filter:drop-shadow(0 4px 14px ${k.c[1]}66);z-index:1;"></i>
+    </div>`;
+  }
+  return `<div style="height:120px;border-radius:12px;overflow:hidden;margin-bottom:12px;background:#0d0d0d;"><img src="img/carrera/decisiones/${tipo}.webp" alt="" style="width:100%;height:100%;object-fit:cover;opacity:.92;" onerror="this.parentElement.style.display='none'"></div>`;
+}
 // Trofeo ilustrativo según la liga (img/trofeos/<n>.webp).
 function trofeoDe(liga){
   const map={ 'LaLiga (ESP)':'laliga','Premier (ING)':'premier','Ligue 1 (FRA)':'ligue1','Primera Uruguay':'liga-uy','Liga Profesional (ARG)':'copa-argentina','Brasileirão':'copa-brasil' };
@@ -585,7 +609,7 @@ const EVENTOS=[
   { t:'Noche de joda antes del partido', img:'joda', d:'Te invitan a salir la noche previa a un partido clave.', opts:[
     { txt:'Salir con los pibes', ef:g=>{ const mal=Math.random()<.6; g.moral+=4; g.nivel+=mal?-2:0; return mal?'Rendiste mal, el DT te marcó.':'Zafaste, pero fue un riesgo.'; } },
     { txt:'Quedarme descansando', ef:g=>{ g.nivel+=1; return 'Profesionalismo puro. Rendís mejor.'; } } ] },
-  { t:'Tentación fácil', img:'prensa', d:'Te ofrecen un negocio turbio para ganar plata rápida.', opts:[
+  { t:'Tentación fácil', img:'dinero', d:'Te ofrecen un negocio turbio para ganar plata rápida.', opts:[
     { txt:'Aceptar (riesgoso)', ef:g=>{ const mal=Math.random()<.5; g.dinero+=mal?0:50000; g.fama+=mal?-15:0; g.moral+=mal?-14:2; return mal?'Se supo todo. Escándalo.':'Salió bien... esta vez.'; } },
     { txt:'Rechazar y seguir limpio', ef:g=>{ g.moral+=6; return 'Buena decisión. Tu carrera va por buen camino.'; } } ] },
   { t:'Molestia física', img:'lesion', d:'Sentís una molestia fuerte en el entrenamiento.', opts:[
@@ -600,21 +624,21 @@ const EVENTOS=[
   { t:'Te cita la Selección', img:'seleccion', d:'El entrenador de tu selección te llama para los amistosos. Es un salto de vitrina.', opts:[
     { txt:'Ir con todo a la Selección', ef:g=>{ const bien=Math.random()<.6; g.fama+=bien?12:4; g.nivel+=bien?2:0; g.valor=Math.round(g.valor*(bien?1.15:1.03)); return bien?'Jugaste bárbaro con tu país. Todos hablan de vos.':'Sumaste minutos, seguís en el radar.'; } },
     { txt:'Priorizar el club (rechazar)', ef:g=>{ g.moral-=3; g.nivel+=1; return 'Descansaste y rendís en el club, pero el hincha lo cuestiona.'; } } ] },
-  { t:'El técnico te cambia de posición', img:'prensa', d:'El DT te quiere probar en otra función del campo.', opts:[
+  { t:'El técnico te cambia de posición', img:'tactica', d:'El DT te quiere probar en otra función del campo.', opts:[
     { txt:'Adaptarme y aprender', ef:g=>{ g.nivel+=2; g.moral+=2; return 'Te volvés más completo. Buena decisión.'; } },
     { txt:'Negarme, es mi puesto', ef:g=>{ g.moral-=5; g.fama-=2; return 'Roce con el cuerpo técnico. Riesgoso.'; } } ] },
 
   // ── REPRESENTANTE / CONTRATO / DINERO ─────────────────────────────────────
-  { t:'Cambio de representante', img:'fichaje', d:'Un agente top te quiere manejar la carrera, pero pide el 15% de todo.', opts:[
+  { t:'Cambio de representante', img:'agente', d:'Un agente top te quiere manejar la carrera, pero pide el 15% de todo.', opts:[
     { txt:'Firmar con el crack', ef:g=>{ const bien=Math.random()<.6; g.fama+=bien?10:2; g.valor=Math.round(g.valor*(bien?1.2:0.98)); return bien?'Te consigue vidriera y sponsors. Gran movida.':'Prometió mucho y cumplió poco.'; } },
     { txt:'Seguir con el de siempre', ef:g=>{ g.moral+=4; return 'Lealtad. El entorno te lo agradece.'; } } ] },
   { t:'Renovación con negociación', img:'fichaje', d:'El club quiere renovarte. Tu representante dice que pidas más.', opts:[
     { txt:'Pedir aumento y cláusula alta', ef:g=>{ const ok=Math.random()<.55; g.dinero+=ok?80000:0; g.moral+=ok?4:-6; g.fama+=ok?0:-3; return ok?'Renovaste con mejor sueldo. Bien jugado.':'La dirigencia se ofendió. Frío el vínculo.'; } },
     { txt:'Aceptar lo que ofrecen', ef:g=>{ g.dinero+=30000; g.moral+=3; return 'Renovación tranquila. El club feliz.'; } } ] },
-  { t:'Oferta de un sponsor', img:'prensa', d:'Una marca deportiva te ofrece ser su cara. Mucha exposición.', opts:[
+  { t:'Oferta de un sponsor', img:'sponsor', d:'Una marca deportiva te ofrece ser su cara. Mucha exposición.', opts:[
     { txt:'Firmar el contrato', ef:g=>{ g.dinero+=60000; g.fama+=8; return 'Tu cara en todos lados. La billetera engorda.'; } },
     { txt:'Enfocarme solo en jugar', ef:g=>{ g.nivel+=2; return 'Menos ruido, más fútbol. El DT lo nota.'; } } ] },
-  { t:'Inversión que te ofrecen', img:'prensa', d:'Un conocido te propone invertir tus ahorros en su negocio.', opts:[
+  { t:'Inversión que te ofrecen', img:'dinero', d:'Un conocido te propone invertir tus ahorros en su negocio.', opts:[
     { txt:'Invertir fuerte', ef:g=>{ const bien=Math.random()<.5; g.dinero+=bien?120000:-70000; return bien?'El negocio explotó. Gran retorno.':'Se fundió todo. Dura lección.'; } },
     { txt:'Guardar la plata', ef:g=>{ g.dinero+=10000; return 'Conservador. Tus ahorros siguen ahí.'; } } ] },
   { t:'Préstamo para tener minutos', img:'fichaje', d:'No estás jugando. Te ofrecen salir a préstamo a un club más chico para sumar rodaje.', opts:[
@@ -625,10 +649,10 @@ const EVENTOS=[
     { txt:'Quedarme donde soy figura', ef:g=>{ g.nivel+=2; g.moral+=5; return 'Seguís siendo el ídolo. La hinchada te ama.'; } } ] },
 
   // ── FAMILIA / VIDA PERSONAL ───────────────────────────────────────────────
-  { t:'Casamiento en puerta', img:'mentoria', d:'Tu pareja quiere casarse esta temporada. Coincide con un momento clave del equipo.', opts:[
+  { t:'Casamiento en puerta', img:'familia', d:'Tu pareja quiere casarse esta temporada. Coincide con un momento clave del equipo.', opts:[
     { txt:'Casarme, la familia primero', ef:g=>{ g.moral+=12; g.nivel-=1; return 'Feliz y equilibrado. Rendís tranquilo.'; } },
     { txt:'Posponer por el fútbol', ef:g=>{ g.moral-=6; g.nivel+=1; return 'Enfocado, pero hay tensión en casa.'; } } ] },
-  { t:'Nace tu hijo', img:'mentoria', d:'Vas a ser padre. Las noches de poco sueño se vienen.', opts:[
+  { t:'Nace tu hijo', img:'familia', d:'Vas a ser padre. Las noches de poco sueño se vienen.', opts:[
     { txt:'Vivirlo a pleno', ef:g=>{ g.moral+=14; return 'La motivación más grande. Jugás con el alma.'; } },
     { txt:'Contratar ayuda y descansar', ef:g=>{ g.dinero-=15000; g.nivel+=1; return 'Descansás bien y rendís. Cuesta plata.'; } } ] },
   { t:'La familia quiere que vuelvas', img:'potrero', d:'Tus viejos te piden que juegues cerca de casa. Hay una oferta del club del barrio.', opts:[
@@ -636,10 +660,10 @@ const EVENTOS=[
     { txt:'Seguir mi camino afuera', ef:g=>{ g.moral-=4; g.fama+=3; return 'Duro, pero tu carrera sigue en alza.'; } } ] },
 
   // ── HINCHADA / CONFLICTOS ─────────────────────────────────────────────────
-  { t:'Un hincha te invita a pelear', img:'prensa', d:'Tras una derrota, un hincha te encara en la calle y te provoca.', opts:[
+  { t:'Un hincha te invita a pelear', img:'pelea', d:'Tras una derrota, un hincha te encara en la calle y te provoca.', opts:[
     { txt:'Ignorarlo y seguir', ef:g=>{ g.moral+=4; g.fama+=2; return 'Madurez total. Buena imagen.'; } },
     { txt:'Contestarle mal', ef:g=>{ const mal=Math.random()<.7; g.fama+=mal?-10:2; g.moral-=mal?6:0; return mal?'Alguien lo filmó. Se hizo viral, mala prensa.':'Zafaste, nadie lo grabó.'; } } ] },
-  { t:'La barra te aprieta', img:'prensa', d:'Un referente de la barra te pide entradas y "colaboración". Se pone denso.', opts:[
+  { t:'La barra te aprieta', img:'pelea', d:'Un referente de la barra te pide entradas y "colaboración". Se pone denso.', opts:[
     { txt:'Plantarme y avisar al club', ef:g=>{ g.moral+=6; g.fama+=4; return 'El club te respalda. Hiciste lo correcto.'; } },
     { txt:'Ceder para evitar quilombo', ef:g=>{ g.moral-=8; g.dinero-=10000; return 'Compraste paz, pero te sentís pésimo.'; } } ] },
   { t:'Gesto con la tribuna popular', img:'titulo', d:'Después de un gol, podés ir a festejar con la popular.', opts:[
@@ -650,7 +674,7 @@ const EVENTOS=[
   { t:'Rumor de prensa sobre tu futuro', img:'prensa', d:'Sale una nota diciendo que te querés ir. No es verdad.', opts:[
     { txt:'Desmentir con un comunicado', ef:g=>{ g.moral+=4; g.fama+=2; return 'Aclaraste todo. El vestuario tranquilo.'; } },
     { txt:'No decir nada', ef:g=>{ const mal=Math.random()<.5; g.moral+=mal?-5:2; return mal?'El silencio alimentó el rumor.':'Se desinfló solo.'; } } ] },
-  { t:'Video viral tuyo', img:'prensa', d:'Un jueguito tuyo en el entrenamiento se hace viral en redes.', opts:[
+  { t:'Video viral tuyo', img:'redes', d:'Un jueguito tuyo en el entrenamiento se hace viral en redes.', opts:[
     { txt:'Subirlo a mis redes', ef:g=>{ g.fama+=10; return 'Millones de views. Sos tendencia.'; } },
     { txt:'Mantener perfil bajo', ef:g=>{ g.moral+=3; g.nivel+=1; return 'Preferís que hablen tus partidos.'; } } ] },
   { t:'Entrevista polémica', img:'prensa', d:'Un periodista te tira preguntas para que critiques al DT.', opts:[
@@ -664,7 +688,7 @@ const EVENTOS=[
   { t:'Chance de golazo o pase', img:'final', d:'Encarás solo, pero tenés un compañero mejor ubicado.', opts:[
     { txt:'Definir yo (egoísta)', ef:g=>{ const gol=Math.random()<.5; g.fama+=gol?8:-3; g.moral+=gol?4:-4; return gol?'¡Golazo! Todos lo gritan.':'Erraste y el banco se agarró la cabeza.'; } },
     { txt:'Asistir al compañero', ef:g=>{ const gol=Math.random()<.7; g.moral+=gol?6:0; g.fama+=gol?4:0; return gol?'Asistencia y gol. Juego colectivo.':'No la metió, pero mostraste generosidad.'; } } ] },
-  { t:'Capitanía vacante', img:'mentoria', d:'Se fue el capitán. El plantel podría elegirte a vos.', opts:[
+  { t:'Capitanía vacante', img:'capitan', d:'Se fue el capitán. El plantel podría elegirte a vos.', opts:[
     { txt:'Postularme de líder', ef:g=>{ const si=Math.random()<.55; g.fama+=si?8:0; g.moral+=si?8:-4; return si?'Te dieron la cinta. Referente del grupo.':'Eligieron a otro. Golpe al ego.'; } },
     { txt:'No buscar el rol', ef:g=>{ g.nivel+=1; return 'Preferís liderar dentro de la cancha, callado.'; } } ] },
   { t:'Sondeo de la Selección mayor', img:'seleccion', d:'El técnico de la mayor te sigue. Hay un amistoso y podrías debutar.', opts:[
@@ -673,7 +697,7 @@ const EVENTOS=[
   { t:'Eliminatorias importantes', img:'seleccion', d:'Te citan para un partido decisivo de Eliminatorias.', opts:[
     { txt:'Jugar aunque estés cansado', ef:g=>{ const bien=Math.random()<.55; g.fama+=bien?12:2; g.nivel+=bien?1:-2; return bien?'Figura con la Selección. Vidriera mundial.':'Se te notó el cansancio, partido flojo.'; } },
     { txt:'Cuidarme para el club', ef:g=>{ g.moral-=4; g.nivel+=1; return 'El hincha de la Selección lo cuestiona.'; } } ] },
-  { t:'DT nuevo, borrón y cuenta nueva', img:'prensa', d:'Llega un técnico que no te tiene en sus planes iniciales.', opts:[
+  { t:'DT nuevo, borrón y cuenta nueva', img:'tactica', d:'Llega un técnico que no te tiene en sus planes iniciales.', opts:[
     { txt:'Ganarme el puesto entrenando', ef:g=>{ const ok=Math.random()<.6; g.nivel+=ok?3:0; g.moral+=ok?6:-4; return ok?'Lo convenciste. Titular de nuevo.':'Sigue sin verte. Difícil.'; } },
     { txt:'Pedir salir', ef:g=>{ g.moral+=2; g.fama-=3; return 'Buscás nuevos aires. Riesgo de banca.'; } } ] },
   { t:'Molestia muscular en la previa', img:'lesion', d:'Sentís una pequeña sobrecarga antes de un clásico.', opts:[
@@ -685,7 +709,7 @@ const EVENTOS=[
   { t:'Amistad vs competencia', img:'mentoria', d:'Tu mejor amigo del plantel pelea tu mismo puesto.', opts:[
     { txt:'Competencia sana', ef:g=>{ g.nivel+=2; g.moral+=4; return 'Se exigen mutuamente y crecen los dos.'; } },
     { txt:'Marcar territorio', ef:g=>{ g.moral-=5; g.nivel+=1; return 'Ganaste el puesto pero perdiste un amigo.'; } } ] },
-  { t:'Fundación o causa benéfica', img:'mentoria', d:'Podés armar una fundación en tu barrio con parte de tus ingresos.', opts:[
+  { t:'Fundación o causa benéfica', img:'potrero', d:'Podés armar una fundación en tu barrio con parte de tus ingresos.', opts:[
     { txt:'Devolverle al barrio', ef:g=>{ g.dinero-=40000; g.fama+=10; g.moral+=10; return 'Sos ejemplo. El barrio te lleva en el corazón.'; } },
     { txt:'Todavía no es momento', ef:g=>{ g.dinero+=5000; return 'Lo dejás para más adelante.'; } } ] }
 ];
