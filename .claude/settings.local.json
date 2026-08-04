@@ -26,7 +26,9 @@
       "Read(//c/tmp/**)",
       "Bash(sort -t: -k3 -n)",
       "Bash(awk 'NR>=11950 && NR<=12061 && /function|=> ?\\\\{|window\\\\.[A-Za-z_]+ ?=/' script.js)",
-      "Bash(node -c canchero-tournaments.js)"
+      "Bash(node -c canchero-tournaments.js)",
+      "Bash(sed -i 's/script.js?v=20260804b/script.js?v=20260804c/' index.html)",
+      "Bash(sed -i \"s/const CACHE_NAME = 'canchero-v434'/const CACHE_NAME = 'canchero-v435'/\" sw.js)"
     ]
   }
 }

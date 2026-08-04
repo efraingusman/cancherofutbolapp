@@ -9534,6 +9534,12 @@ function applyUserData() {
             if (rs2) rs2.textContent = rating;
         }
 
+        // Un NEGOCIO (tienda/canchas/ligas/etc.) o FANÁTICO no juega: no debe ver
+        // goles/asist/partidos/MVP ni el rating de jugador en SU perfil (bug reportado
+        // por la liga: "tengo perfil de negocio y aun así me muestra goles, asist, part").
+        var _apt = (window._activeProfileType && window._activeProfileType()) || 'jugador';
+        var _bizR = ['negocio','club','complejo','tienda','organizacion','sponsor','profesional','cancha','liga','escuela'];
+        var _esNegocio = _apt === 'fanatico' || _bizR.indexOf(_apt) !== -1 || (String(_apt).indexOf('biz:') === 0) || (window._isBizAccount && window._isBizAccount() && _apt !== 'jugador' && _apt !== 'team');
         // Mini-bloques de stats (G/A/PJ/MVP) — al lado del 50/100, grises y compactos
         let statRow = document.getElementById('p-stat-blocks');
         const sGoals = (userData.stats && userData.stats.goals) || 0;
@@ -9547,7 +9553,14 @@ function applyUserData() {
             statRow.style.cssText = 'display:flex;gap:6px;align-items:stretch;';
             rbadge.insertAdjacentElement('afterend', statRow);
         }
-        statRow.innerHTML = _statBlk(sGoals,'GOLES') + _statBlk(sAssists,'ASIST.') + _statBlk(sMatches,'PART.') + _statBlk(sMvp,'MVP');
+        if (_esNegocio) {
+            // Negocio/fanático: sin stats de jugador ni rating.
+            statRow.style.display = 'none'; statRow.innerHTML = '';
+            if (rbadge) rbadge.style.display = 'none';
+        } else {
+            statRow.style.display = 'flex';
+            statRow.innerHTML = _statBlk(sGoals,'GOLES') + _statBlk(sAssists,'ASIST.') + _statBlk(sMatches,'PART.') + _statBlk(sMvp,'MVP');
+        }
 
         // Cargar logros desbloqueados como mini-badges (async, después de 500ms)
         setTimeout(function() {
