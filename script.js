@@ -523,7 +523,10 @@ window._isGuest = false;
 window._enterGuest = function(){
     window._isGuest = true;
     // Identidad mínima de invitado (sin email → las acciones de escritura piden cuenta).
-    window.userData = { name:'Invitado', role:'jugador', _guest:true, email:null, stats:{}, photo:'' };
+    // OJO: hay que asignar la variable de MÓDULO `userData` (no solo window.userData),
+    // porque navigate()/switchDashboardTab leen la local; si no, navigate rebota a home.
+    userData = { name:'Invitado', role:'jugador', _guest:true, email:null, stats:{}, photo:'' };
+    window.userData = userData;
     try { document.body.classList.add('is-guest'); } catch(e){}
     try { navigate('jugador'); } catch(e){}
     try { if (window._rebuildBottomNav) window._rebuildBottomNav(); } catch(e){}
