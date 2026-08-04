@@ -4883,6 +4883,8 @@ window._postRegisterCloudUpload = async function(){
 
 window.populateSocialFeed = async function() {
     await social.loadFeed('amigos-feed');
+    // Reconciliar botones "postularme" con el estado real (no volver a POSTULARME al recargar).
+    try { setTimeout(function(){ window._reconcileUrgentButtons && window._reconcileUrgentButtons(); }, 300); } catch(e){}
 };
 
 window.renderUserPosts = async function(role) {
@@ -6684,9 +6686,12 @@ window._loadVupEquipos = async function(email, container) {
         const isOwnProfile = window.userData && window.userData.email === email;
         // Clubes propios
         const { data: ownedClubs } = await sb.from('clubs').select('id,name,city,logo_url,logo,email,owner_email').eq('owner_email', email).limit(10);
-        // Clubes como miembro
-        const { data: memberships } = await sb.from('club_members').select('club_id,role').eq('player_email', email).limit(20);
-        const memberTeamIds = (memberships || []).map(m => m.club_id).filter(Boolean);
+        // Clubes como miembro — SOLO membresías aceptadas/activas (una solicitud
+        // 'pendiente' o 'rechazado' NO te hace parte del equipo).
+        const { data: memberships } = await sb.from('club_members').select('club_id,role,status').eq('player_email', email).limit(20);
+        const memberTeamIds = (memberships || [])
+            .filter(m => { const s=(m.status||'activo'); return s!=='pendiente' && s!=='rechazado'; })
+            .map(m => m.club_id).filter(Boolean);
         let memberClubs = [];
         if (memberTeamIds.length > 0) {
             const { data: mc } = await sb.from('clubs').select('id,name,city,logo_url,logo,email,owner_email').in('id', memberTeamIds);
@@ -8742,19 +8747,56 @@ window._mustBeJugador = function(accion){
     if (window.showToast) showToast('Solo los JUGADORES pueden ' + (accion || 'jugar') + '. Cambiá a tu identidad de jugador.', 'warning');
     return false;
 };
+// Estado local de clubes a los que me postulé / soy parte (para que el botón NO vuelva
+// a "POSTULARME" al recargar). Se reconcilia con el servidor en cada carga del feed.
+window._clubStatusMap = function(){
+    try { return JSON.parse(localStorage.getItem('canchero_club_status')||'{}'); } catch(e){ return {}; }
+};
+window._setClubStatus = function(clubId, status){
+    try { var m = window._clubStatusMap(); m[String(clubId)] = status; localStorage.setItem('canchero_club_status', JSON.stringify(m)); } catch(e){}
+};
+// Pinta un botón de "faltan jugadores" según el estado del jugador en ese club.
+window._paintUrgentBtn = function(btn, status){
+    if (!btn) return;
+    if (status === 'activo' || status === 'aceptado') {
+        btn.disabled = true; btn.style.cursor = 'default';
+        btn.style.background = 'rgba(0,230,118,0.14)'; btn.style.color = '#00e676';
+        btn.style.boxShadow = 'none'; btn.style.border = '1px solid rgba(0,230,118,0.4)';
+        btn.innerHTML = "<i class='bx bx-check'></i> SOS PARTE";
+    } else if (status === 'pendiente') {
+        btn.disabled = true; btn.style.cursor = 'default';
+        btn.style.background = 'rgba(186,255,0,0.18)'; btn.style.color = 'var(--accent)';
+        btn.style.boxShadow = 'none'; btn.style.border = '1px solid rgba(186,255,0,0.4)';
+        btn.innerHTML = "<i class='bx bx-check-double'></i> POSTULADO";
+    }
+};
 // Postularse desde la tarjeta "faltan jugadores": valida identidad, envía la solicitud
 // y deja el botón en estado POSTULADO (pedido 2026-07-09).
 window._urgentApply = async function(btn, clubId, clubName){
     if (!window._mustBeJugador('postularse para jugar')) return;
     try { if (window._requestJoinClub) await window._requestJoinClub(clubId, clubName); } catch(e){}
-    if (btn) {
-        btn.disabled = true;
-        btn.style.background = 'rgba(186,255,0,0.18)';
-        btn.style.color = 'var(--accent)';
-        btn.style.boxShadow = 'none';
-        btn.style.border = '1px solid rgba(186,255,0,0.4)';
-        btn.innerHTML = "<i class='bx bx-check-double'></i> POSTULADO";
-    }
+    window._setClubStatus(clubId, 'pendiente');
+    window._paintUrgentBtn(btn, 'pendiente');
+};
+// Reconcilia TODOS los botones "postularme" visibles con el estado real del servidor.
+// Evita el bug: al recargar la página el botón volvía a "POSTULARME" aunque ya te
+// hubieras postulado (o ya fueras parte del club).
+window._reconcileUrgentButtons = async function(){
+    var btns = Array.prototype.slice.call(document.querySelectorAll('.urgent-apply-btn[data-clubid]'));
+    if (!btns.length) return;
+    // 1) Pintado instantáneo con lo que haya en localStorage.
+    var map = window._clubStatusMap();
+    btns.forEach(function(b){ var st = map[b.getAttribute('data-clubid')]; if (st) window._paintUrgentBtn(b, st); });
+    // 2) Verdad del servidor.
+    var sb = window._sb; var me = window.userData;
+    if (!sb || !me || !me.email) return;
+    var ids = btns.map(function(b){ return b.getAttribute('data-clubid'); }).filter(Boolean);
+    if (!ids.length) return;
+    try {
+        var r = await sb.from('club_members').select('club_id,status').eq('player_email', me.email).in('club_id', ids);
+        var srv = {}; (r.data||[]).forEach(function(row){ srv[String(row.club_id)] = row.status || 'activo'; });
+        btns.forEach(function(b){ var id = b.getAttribute('data-clubid'); var st = srv[id]; if (st) { window._setClubStatus(id, st); window._paintUrgentBtn(b, st); } });
+    } catch(e){}
 };
 // Tarjeta LIQUID GLASS para el aviso "faltan jugadores" en el feed (pedido 2026-07-08):
 // reemplaza el texto plano por un CTA moderno con botón para postularse.
@@ -8784,7 +8826,7 @@ window._urgentPostHTML = function(p){
             + (chips.length ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">' + chips.join('') + '</div>' : '')
             + (mMsg ? '<div style="font-size:12.5px;color:#bbb;line-height:1.5;margin-bottom:12px;">' + mMsg.replace(/</g,'&lt;') + '</div>' : '<div style="height:4px;"></div>')
             + '<div style="display:flex;gap:8px;">'
-            + (clubId ? ('<button onclick="event.stopPropagation();window._urgentApply(this,\'' + clubId + '\',\'' + clubNameSafe + '\')" style="flex:2;background:var(--accent);color:#000;border:none;border-radius:12px;padding:12px;font-weight:900;font-size:13px;cursor:pointer;box-shadow:0 0 18px rgba(186,255,0,0.25);"><i class=\'bx bx-run\'></i> POSTULARME</button>'
+            + (clubId ? ('<button class="urgent-apply-btn" data-clubid="' + clubId + '" onclick="event.stopPropagation();window._urgentApply(this,\'' + clubId + '\',\'' + clubNameSafe + '\')" style="flex:2;background:var(--accent);color:#000;border:none;border-radius:12px;padding:12px;font-weight:900;font-size:13px;cursor:pointer;box-shadow:0 0 18px rgba(186,255,0,0.25);"><i class=\'bx bx-run\'></i> POSTULARME</button>'
                 + '<button onclick="event.stopPropagation();window.viewClubProfile&&window.viewClubProfile(\'' + clubId + '\')" style="flex:1;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.16);border-radius:12px;padding:12px;font-weight:800;font-size:12px;cursor:pointer;">Ver club</button>') : '')
             + '</div></div>';
     } catch(e){ return null; }
