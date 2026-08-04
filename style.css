@@ -300,15 +300,17 @@ ul { list-style: none; }
 @media (max-width: 640px) {
     /* Botones más chicos y ubicados un poco más ARRIBA (no pegados al fondo). Home sin scroll. */
     .home-viewport-wrap .hero-cta-wrap { padding: 0 14px calc(11vh + env(safe-area-inset-bottom)); justify-content: flex-end !important; }
-    .hero-tagline { padding-top: 4vh; margin-bottom: 16px !important; max-width: 320px; }
-    .hero-tagline-txt { font-size: 19px; line-height: 1.22; }
-    .hero-tagline-txt span { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.72); display:inline-block; margin-top:5px; }
+    .hero-tagline { padding-top: 4vh; margin-bottom: 16px !important; max-width: 340px; }
+    .hero-tagline-txt { font-size: 23px; line-height: 1.2; }
+    .hero-tagline-txt span { font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.72); display:inline-block; margin-top:5px; }
     .hero-counter { margin-top: 10px; padding: 5px 12px; }
-    .home-viewport-wrap .btn-fs-action { padding: 7px 12px !important; border-radius: 12px !important; gap: 9px !important; }
+    /* Botones más CORTOS en celular: no ocupan todo el ancho, centrados. */
+    .home-viewport-wrap .btn-fs-action { padding: 7px 12px !important; border-radius: 12px !important; gap: 9px !important; margin-left:auto !important; margin-right:auto !important; }
     .home-viewport-wrap .btn-fs-action i { font-size: 17px !important; }
     .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 13.5px !important; line-height: 1.05; }
     .btn-fs-action .fs-btn-desc { font-size: 9px !important; max-width: 185px; margin-top: 1px; line-height: 1.18; }
-    .home-viewport-wrap .fs-side-actions { gap: 6px !important; width: 100%; max-width: 290px !important; }
+    .home-viewport-wrap .fs-side-actions { gap: 6px !important; width: 100%; max-width: 240px !important; margin-left:auto !important; margin-right:auto !important; align-items:center !important; }
+    .home-viewport-wrap .fs-side-actions .btn-fs-action { width: 100% !important; max-width: 240px !important; }
 }
 @media (min-width: 641px) {
     .home-viewport-wrap .hero-cta-wrap { padding: 0 16px 4vh; justify-content: flex-end !important; }

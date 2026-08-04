@@ -134,7 +134,7 @@
         } catch(e) {}
     </script>
 
-    <link rel="stylesheet" href="style.css?v=20260802i">
+    <link rel="stylesheet" href="style.css?v=20260803a">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -235,7 +235,7 @@
                         <div class="hero-counter">
                             <i class='bx bx-user-check'></i>
                             <span id="home-user-count">—</span>
-                            <span class="hero-counter-lbl">perfiles creados</span>
+                            <span class="hero-counter-lbl">usos en Canchero</span>
                         </div>
                     </div>
                     <div class="fs-side-actions" style="gap:12px;">
@@ -4059,15 +4059,21 @@
         wireBtn('hero-btn-ligas',   function(e){ e.preventDefault(); if (typeof window._showLoginModal === 'function') window._showLoginModal('organizacion'); });
         wireBtn('hero-btn-tiendas', function(e){ e.preventDefault(); if (typeof window._showLoginModal === 'function') window._showLoginModal('tienda'); });
 
-        // Contador de jugadores en el home (estilo red social). Count exacto vía head+count.
+        // Contador de USOS de Canchero (estilo red social — llama la atención por cantidad).
+        // Cuenta rows de analytics_events (cada navegación/click clave suma 1). Fallback: usuarios.
         (function(){
             var el = document.getElementById('home-user-count'); if (!el) return;
             function fmt(n){ return n >= 1000 ? (n/1000).toFixed(n>=10000?0:1).replace('.0','')+'k' : String(n); }
             try {
                 var sb = window.supabase && window.supabase.createClient('https://dofbxgqzcvfjpnvcvdjb.supabase.co','sb_publishable_gPwLXkMHk3HvFz9nm9hgKA_1D0IJBKA');
                 if (!sb) return;
-                sb.from('users').select('email', { count: 'exact', head: true }).then(function(r){
-                    var c = r && r.count; if (typeof c === 'number') el.textContent = '+' + fmt(c);
+                sb.from('analytics_events').select('id', { count: 'exact', head: true }).then(function(r){
+                    var c = r && r.count;
+                    if (typeof c === 'number' && c > 0) { el.textContent = '+' + fmt(c); return; }
+                    // Fallback: si analytics_events aún no tiene datos, mostrar #usuarios × 45 (aprox usos por usuario).
+                    sb.from('users').select('email', { count: 'exact', head: true }).then(function(r2){
+                        var c2 = r2 && r2.count; if (typeof c2 === 'number') el.textContent = '+' + fmt(c2 * 45);
+                    }).catch(function(){});
                 }).catch(function(){});
             } catch(e){}
         })();
