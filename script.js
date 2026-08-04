@@ -11811,6 +11811,13 @@ window._respondClubJoin = async function(rowId, clubId, accept) {
         showToast(accept ? 'Jugador aceptado en el plantel.' : 'Solicitud rechazada.', accept ? 'success' : 'default');
         window._loadClubJoinRequests(clubId);
         if (window._loadClubPlanilla) window._loadClubPlanilla(clubId);
+        // Refrescar la CANCHA + lista del perfil del club si está abierto, para que el
+        // jugador recién aceptado aparezca al toque en su posición (no solo tras recargar).
+        try {
+            if (accept && document.getElementById('club-profile-modal') && window._clubProfileTab) {
+                window._clubProfileTab('jugadores', clubId, null);
+            }
+        } catch(e){}
     } catch(e) { showToast('Error: ' + (e.message || ''), 'error'); }
 };
 

@@ -83,15 +83,20 @@ window.CancheroTournaments = (function() {
             ['vup-modal-overlay', 'club-profile-modal'].forEach(id => {
                 const ov = doc.getElementById(id);
                 if (ov) {
-                    ov.style.zIndex = '100011';   // debajo del match-detail forzado (100012)
+                    // Por ENCIMA de TODO lo del torneo (que llega a z 100012). Antes se subía
+                    // a 100011 y quedaba empatado/debajo de la ficha del equipo → el perfil
+                    // aparecía "atrás" y solo se veía tras retroceder. Ahora va arriba de todo.
+                    ov.style.zIndex = '2147483000';
                     ov.style.top = '0px';         // arriba de todo: el header del torneo no aplica
+                    ov.style.position = 'fixed';
                     algo = true;
                 }
             });
             return algo;
         };
-        if (subir()) return;
-        const iv = setInterval(() => { if (subir() || ++intentos > 20) clearInterval(iv); }, 60);
+        // Reintenta más tiempo: viewClubProfile es async y el modal puede tardar en crearse.
+        if (subir()) { setTimeout(subir, 250); return; }
+        const iv = setInterval(() => { if (subir() || ++intentos > 40) clearInterval(iv); }, 60);
     }
     // El visor de perfiles vive en script.js (la app). Pero el módulo de torneos también
     // corre DENTRO del iframe del panel de negocio (crm-organizacion.html), donde esas

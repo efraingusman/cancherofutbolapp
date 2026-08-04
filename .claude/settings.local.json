@@ -18,7 +18,15 @@
       "Bash(gh auth *)",
       "Bash(env)",
       "Bash(node -e ' *)",
-      "Bash(node -c script.js)"
+      "Bash(node -c script.js)",
+      "Bash(cd \"/c/Users/Cliente/AppData/Local/Temp/claude/C--Users-Cliente-Downloads-espacio-de-trabajo-claude---copia-salidas-canchero-app/7425ec71-828f-4d4e-89c2-464e41bacf0c/scratchpad\" 2>/dev/null || mkdir -p /tmp/wachat; cd /tmp/wachat 2>/dev/null; unzip -o \"/c/Users/Cliente/Downloads/WhatsApp Chat - Liga Clandestina.zip\" -d /tmp/wachat 2>&1 | head; echo \"---\"; ls /tmp/wachat)",
+      "Read(//tmp/**)",
+      "Bash(ls -la /tmp/wachat/ | tail -20)",
+      "Bash(cygpath -w /tmp/wachat/00000050-PHOTO-2026-07-27-00-21-33.jpg)",
+      "Read(//c/tmp/**)",
+      "Bash(sort -t: -k3 -n)",
+      "Bash(awk 'NR>=11950 && NR<=12061 && /function|=> ?\\\\{|window\\\\.[A-Za-z_]+ ?=/' script.js)",
+      "Bash(node -c canchero-tournaments.js)"
     ]
   }
 }
