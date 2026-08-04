@@ -1004,6 +1004,7 @@ window.CancheroMessaging = (function() {
         }
 
         if (!msgContent && !mediaUrl) return;
+        if (window._isGuest) { if (window._promptRegister) window._promptRegister('enviar mensajes'); return; }
         if (!_activeThread || !getSb() || !_myEmail) return;
         if (input) { input.value = ''; input.style.height = 'auto'; }
 

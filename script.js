@@ -520,12 +520,44 @@ window._primaryRole = function(){
 // Entrar SIN registrarse a ver el feed, buscar, juegos, torneos. El Perfil queda con
 // candado y CTA a registrarse; las acciones que necesitan cuenta piden registro.
 window._isGuest = false;
-window._enterGuest = function(){
+// Etiquetas por rol para el modal de entrada.
+window._ROLE_INFO = {
+    jugador:      { label:'Jugador',  icon:'bx-run',     desc:'Encontrá partidos, armá tu equipo y sumá stats.' },
+    club:         { label:'Canchas',  icon:'bx-cancha',  desc:'Cargá tus canchas, gestioná reservas y torneos.' },
+    organizacion: { label:'Ligas',    icon:'bx-trophy',  desc:'Organizá torneos y ligas con fixture y tabla.' },
+    tienda:       { label:'Tienda',   icon:'bx-store',   desc:'Vendé indumentaria y artículos de fútbol.' }
+};
+// Al tocar un rol en el home: elegir REGISTRARSE/ACCEDER (crea SOLO ese rol) o ENTRAR SIN
+// REGISTRARSE (modo invitado). Cada opción entra en ESE rol, no en jugador por defecto.
+window._roleEntry = function(role){
+    role = role || 'jugador';
+    var info = window._ROLE_INFO[role] || window._ROLE_INFO.jugador;
+    try { if (window._setLoginIntent) window._setLoginIntent(role); } catch(e){}   // el registro creará ESTE rol
+    var ex = document.getElementById('role-entry-modal'); if (ex) ex.remove();
+    var m = document.createElement('div'); m.id = 'role-entry-modal';
+    m.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,0.9);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;';
+    m.innerHTML = '<div style="background:#0f110f;border:1px solid #1e201e;border-radius:20px;width:100%;max-width:400px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.9);">'
+      + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;"><div style="width:48px;height:48px;border-radius:14px;background:rgba(186,255,0,0.12);display:flex;align-items:center;justify-content:center;"><i class="bx ' + info.icon + '" style="font-size:26px;color:var(--accent);"></i></div>'
+      + '<div><div style="font-family:Outfit,sans-serif;font-weight:900;font-size:20px;color:#fff;">' + info.label + '</div><div style="font-size:11px;color:#8a8f86;">' + info.desc + '</div></div></div>'
+      + '<div style="display:flex;flex-direction:column;gap:10px;margin-top:18px;">'
+      + '<button onclick="document.getElementById(\'role-entry-modal\').remove();window._showLoginModal&&window._showLoginModal(\'' + role + '\')" style="background:linear-gradient(135deg,#16a34a,#baff00);color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;"><i class="bx bx-log-in-circle"></i> Registrarme o acceder a mi perfil</button>'
+      + '<button onclick="document.getElementById(\'role-entry-modal\').remove();window._enterGuest&&window._enterGuest(\'' + role + '\')" style="background:transparent;border:1px solid rgba(255,255,255,0.16);color:#cfe5b0;border-radius:14px;padding:14px;font-weight:800;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;"><i class="bx bx-glasses"></i> Entrar sin registrarme</button>'
+      + '<button onclick="document.getElementById(\'role-entry-modal\').remove()" style="background:transparent;color:#666;border:none;padding:6px;font-size:12px;cursor:pointer;">Cancelar</button>'
+      + '</div>'
+      + '<div style="text-align:center;font-size:11px;color:#555;margin-top:12px;line-height:1.5;">Sin registrarte podés mirar y explorar. Para publicar, comentar, mensajear o jugar partidos necesitás crear tu perfil.</div>'
+      + '</div>';
+    m.addEventListener('click', function(e){ if(e.target===m) m.remove(); });
+    document.body.appendChild(m);
+};
+window._enterGuest = function(role){
+    role = role || 'jugador';
     window._isGuest = true;
+    window._guestRole = role;                 // rol elegido (para registrar en ESE rol si lo hace)
+    try { if (window._setLoginIntent) window._setLoginIntent(role); } catch(e){}
     // Identidad mínima de invitado (sin email → las acciones de escritura piden cuenta).
     // OJO: hay que asignar la variable de MÓDULO `userData` (no solo window.userData),
     // porque navigate()/switchDashboardTab leen la local; si no, navigate rebota a home.
-    userData = { name:'Invitado', role:'jugador', _guest:true, email:null, stats:{}, photo:'' };
+    userData = { name:'Invitado', role:'jugador', _guest:true, _guestRole:role, email:null, stats:{}, photo:'' };
     window.userData = userData;
     try { document.body.classList.add('is-guest'); } catch(e){}
     try { navigate('jugador'); } catch(e){}
@@ -540,9 +572,10 @@ window._requireAccount = function(accion){
     return false;
 };
 window._promptRegister = function(accion){
+    var role = window._guestRole || 'jugador';
     try { window._isGuest = false; document.body.classList.remove('is-guest'); } catch(e){}
-    // Reusar el flujo de registro/login existente.
-    if (window._showLoginModal) window._showLoginModal('jugador');
+    // Reusar el flujo de registro/login existente — crea el rol que el invitado eligió.
+    if (window._showLoginModal) window._showLoginModal(role);
     else { try { navigate('register'); } catch(e){} }
     if (window.showToast && accion) showToast('Creá tu perfil gratis para ' + accion + '.', 'info');
 };
@@ -8569,6 +8602,7 @@ window._autoSyncProfile = async function() {
 };
 
 window._toggleFollowBtn = async function(btnId, targetEmail, targetProfile) {
+    if (window._isGuest) { window._promptRegister('seguir'); return; }
     const btn = document.getElementById(btnId);
     if (!btn) return;
     btn.disabled = true;
@@ -11450,6 +11484,7 @@ window.clearPostMedia = function() {
 }
 
 window.createPost = async function(role) {
+    if (window._isGuest) { window._promptRegister('publicar'); return; }
     await social.createPost(role);
     try { if (window.CancheroXP) CancheroXP.add('publicar_post'); } catch(e){}
 }
@@ -18405,6 +18440,7 @@ const social = (() => {
         const text = input.value.trim();
         if (!text) return;
         const me = getUser();
+        if (window._isGuest) { window._promptRegister('comentar'); return; }
         if (!me || !me.email) { if (typeof showToast === 'function') showToast('Iniciá sesión para comentar.', 'warning'); return; }
         // Usar sbAdmin cuando esté disponible para evitar bloqueos de RLS en comentarios
         const sb = window._sb;
@@ -19052,6 +19088,7 @@ const social = (() => {
     }
 
     async function toggleFollow(el, targetEmail, targetName) {
+        if (window._isGuest) { if (window._promptRegister) window._promptRegister('seguir'); return; }
         const isFollowing = el.dataset.following === 'true';
         el.disabled = true;
         if (isFollowing) {
@@ -20077,6 +20114,7 @@ setTimeout(function(){
 // Patch social.toggleLike to also create notification
 const _origToggleLike = window.likePost;
 window.likePost = async function(el) {
+    if (window._isGuest) { window._promptRegister('dar me gusta'); return; }
     const postId = el.dataset ? el.dataset.postId : null;
     await social.toggleLike(el);
     // Notify post owner usando el cliente compartido
@@ -20324,6 +20362,8 @@ window._wizardShow = function(panel, tabId) {
 
 // ── Composer fino estilo X: colapsado por defecto, se expande al tocar ──
 window._composerExpand = function(open) {
+    // Invitado: no puede publicar → al tocar el compositor, pedir registro.
+    if (open && window._isGuest) { try { var _t=document.getElementById('feed-post-text'); if(_t) _t.blur(); } catch(e){} window._promptRegister('publicar'); return; }
     const box = document.getElementById('feed-composer-box');
     const actions = document.getElementById('feed-composer-actions');
     const ta = document.getElementById('feed-post-text');

@@ -231,7 +231,7 @@
                     <!-- Sub-frase social + contador de jugadores (estilo X/Instagram home). Va
                          SIEMPRE visible arriba de los CTAs, para no depender de scroll. -->
                     <div class="hero-tagline">
-                        <div class="hero-tagline-txt" style="white-space:nowrap;">La App del Fútbol Amateur<br><span style="white-space:normal;">Encontrá partido, armá tu equipo y jugá torneos — con tus stats de verdad.</span></div>
+                        <div class="hero-tagline-txt" style="white-space:nowrap;">La App del Fútbol Amateur<br><span style="white-space:normal;">Encontrá partidos y rivales, armá tu equipo, jugá torneos y ligas con fixture y tabla, reservá canchas, seguí tus stats, chateá y comprá en tiendas de fútbol. Todo tu fútbol, en un solo lugar.</span></div>
                         <div class="hero-counter">
                             <i class='bx bx-user-check'></i>
                             <span id="home-user-count">—</span>
@@ -240,7 +240,7 @@
                     </div>
                     <div class="fs-side-actions" style="gap:12px;">
                         <!-- JUGADOR (principal, más grande) -->
-                        <button id="hero-btn-jugador" class="btn-fs-action btn-fs-primary" onclick="window._showLoginModal&&window._showLoginModal('jugador')" style="border:none;cursor:pointer;text-align:left;">
+                        <button id="hero-btn-jugador" class="btn-fs-action btn-fs-primary" onclick="window._roleEntry&&window._roleEntry('jugador')" style="border:none;cursor:pointer;text-align:left;">
                             <i class='bx bx-run'></i>
                             <div class="fs-btn-text">
                                 <div class="fs-btn-title">JUGADOR</div>
@@ -248,7 +248,7 @@
                             </div>
                         </button>
                         <!-- CANCHAS -->
-                        <button id="hero-btn-canchas" class="btn-fs-action" onclick="window._showLoginModal&&window._showLoginModal('club')" style="border:none;cursor:pointer;text-align:left;">
+                        <button id="hero-btn-canchas" class="btn-fs-action" onclick="window._roleEntry&&window._roleEntry('club')" style="border:none;cursor:pointer;text-align:left;">
                             <i class='bx bx-cancha'></i>
                             <div class="fs-btn-text">
                                 <div class="fs-btn-title">CANCHAS</div>
@@ -256,7 +256,7 @@
                             </div>
                         </button>
                         <!-- LIGAS -->
-                        <button id="hero-btn-ligas" class="btn-fs-action" onclick="window._showLoginModal&&window._showLoginModal('organizacion')" style="border:none;cursor:pointer;text-align:left;">
+                        <button id="hero-btn-ligas" class="btn-fs-action" onclick="window._roleEntry&&window._roleEntry('organizacion')" style="border:none;cursor:pointer;text-align:left;">
                             <i class='bx bx-trophy'></i>
                             <div class="fs-btn-text">
                                 <div class="fs-btn-title">LIGAS</div>
@@ -264,16 +264,12 @@
                             </div>
                         </button>
                         <!-- TIENDAS (al final) -->
-                        <button id="hero-btn-tiendas" class="btn-fs-action" onclick="window._showLoginModal&&window._showLoginModal('tienda')" style="border:none;cursor:pointer;text-align:left;">
+                        <button id="hero-btn-tiendas" class="btn-fs-action" onclick="window._roleEntry&&window._roleEntry('tienda')" style="border:none;cursor:pointer;text-align:left;">
                             <i class='bx bx-store'></i>
                             <div class="fs-btn-text">
                                 <div class="fs-btn-title">TIENDAS</div>
                                 <div class="fs-btn-desc">Publicá productos y llegá a jugadores cercanos.</div>
                             </div>
-                        </button>
-                        <!-- ENTRAR SIN REGISTRARSE (modo invitado) -->
-                        <button id="hero-btn-guest" onclick="window._enterGuest&&window._enterGuest()" style="margin-top:4px;background:transparent;border:1px solid rgba(255,255,255,0.16);color:#cfe5b0;border-radius:14px;padding:12px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
-                            <i class='bx bx-glasses'></i> Explorar sin registrarme
                         </button>
                     </div>
                 </div>
@@ -3927,7 +3923,7 @@
       </div>
     </div>
 
-    <script src="script.js?v=20260804f" charset="utf-8"></script>
+    <script src="script.js?v=20260804h" charset="utf-8"></script>
     <script src="canchero-cloud.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-avatars.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-analytics.js?v=20260714a" charset="utf-8"></script>
@@ -3936,7 +3932,7 @@
     <script src="canchero-app.js?v=20260724x" charset="utf-8"></script>
     <script src="canchero-fase3.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-notifications.js?v=20260803a" charset="utf-8"></script>
-    <script src="canchero-messaging.js?v=20260724x" charset="utf-8"></script>
+    <script src="canchero-messaging.js?v=20260804a" charset="utf-8"></script>
     <script src="canchero-live.js?v=20260714a" charset="utf-8"></script>
     <!-- Seccion MUNDIAL retirada (2026-07-18): la competencia termino. El modulo queda
          en el repo (canchero-mundial.js) para reactivarlo descomentando esta linea y
@@ -3962,7 +3958,7 @@
     <script src="canchero-trivia.js?v=20260802a" charset="utf-8"></script>
     <script src="canchero-carrera.js?v=20260804g" charset="utf-8"></script>
     <script src="canchero-video-trim.js?v=20260714a" charset="utf-8"></script>
-    <script src="canchero-momentos.js?v=20260717c" charset="utf-8"></script>
+    <script src="canchero-momentos.js?v=20260804a" charset="utf-8"></script>
     <script src="canchero-momentos-editor.js?v=20260717b" charset="utf-8"></script>
     <script src="canchero-match-feed.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-fixes-v3.js?v=20260714a" charset="utf-8"></script>

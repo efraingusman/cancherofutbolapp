@@ -590,6 +590,7 @@ function _momGridItem(m){
    CREAR MOMENTO — categoría requerida y prominente
 ══════════════════════════════════════════════════════════════ */
 window._openCrearMomento = function(defaultCat){
+  if (window._isGuest){ if (window._promptRegister) window._promptRegister('subir un momento'); return; }
   if (!me()){ toast('Iniciá sesión para crear un momento','error'); return; }
   let m = document.getElementById('crear-momento-modal'); if(m) m.remove();
   m = document.createElement('div'); m.id = 'crear-momento-modal';
