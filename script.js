@@ -15749,6 +15749,9 @@ window.viewMatchDetails = async function(matchId, opts) {
 
         const shareBtn = `<button onclick="shareMatch('${matchId}','${(m.name||'').replace(/'/g,"\\'")}','${(m.venue||'').replace(/'/g,"\\'")}','${dateStr}')" style="width:100%;background:#1a1a1a;color:#888;border:1px solid #222;border-radius:12px;padding:12px;font-weight:700;font-size:13px;cursor:pointer;margin-top:8px;"><i class='bx bx-share-alt'></i> COMPARTIR PARTIDO</button>`;
 
+        // Invitar jugadores con página pública (Voy/No voy) — por WhatsApp o chat interno.
+        const inviteBtn = `<button onclick="window._openMatchInvite('${matchId}')" style="width:100%;background:linear-gradient(135deg,#16a34a,${'#22c55e'});color:#fff;border:none;border-radius:12px;padding:13px;font-weight:900;font-size:13px;cursor:pointer;margin-top:8px;"><i class='bx bx-user-voice'></i> INVITAR JUGADORES (Voy / No voy)</button>`;
+
         const managePlayers = isCaptain ? `
             <button onclick="window.CancheroMatchPlayers&&window.CancheroMatchPlayers.openPlayersPanel('${matchId}')"
                 style="width:100%;background:rgba(186,255,0,0.08);color:var(--accent);border:1px solid rgba(186,255,0,0.3);border-radius:12px;padding:12px;font-weight:700;font-size:13px;cursor:pointer;margin-top:8px;">
@@ -15853,6 +15856,7 @@ window.viewMatchDetails = async function(matchId, opts) {
 
             <!-- ACCIÓN PRINCIPAL -->
             ${joinBtn}${leaveBtn}
+            ${inviteBtn}
 
             <!-- ACCIONES SECUNDARIAS (grid, sin amontonar) -->
             ${secondaryTiles.length ? `<div style="display:grid;grid-template-columns:repeat(${Math.min(secondaryTiles.length,4)},1fr);gap:8px;margin-top:12px;">${secondaryTiles.join('')}</div>` : ''}
@@ -28627,6 +28631,52 @@ window.submitPrediction = async function(matchId) {
     if(typeof showToast==='function') showToast('Prediccion enviada!', 'success');
     var mod = document.getElementById('prediction-modal');
     if (mod) mod.remove();
+};
+
+// ============================================================
+// INVITAR JUGADORES A UN PARTIDO — página pública Voy/No voy
+// ============================================================
+// Link público (partido.html) que abre SIN login, muestra rival/lugar/hora/precio/premio
+// y tiene botones Voy/No voy. Se comparte por WhatsApp (externos) o chat interno (Canchero).
+window._matchPublicUrl = function(matchId){ return location.origin + '/partido.html?id=' + encodeURIComponent(matchId); };
+window._openMatchInvite = async function(matchId){
+    var sb = window._sb;
+    var m = {};
+    try { if (sb){ var r = await sb.from('matches').select('name,home_club_name,away_club_name,venue,scheduled_at,price').eq('id', matchId).single(); m = (r && r.data) || {}; } } catch(e){}
+    var url = window._matchPublicUrl(matchId);
+    var titulo = (m.home_club_name || m.name || 'Partido') + (m.away_club_name ? (' vs ' + m.away_club_name) : '');
+    var cuando = m.scheduled_at ? new Date(m.scheduled_at).toLocaleString('es-UY',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : 'a confirmar';
+    var texto = '⚽ Te invito a jugar: ' + titulo + '\n📍 ' + (m.venue||'a definir') + '\n🗓 ' + cuando + '\n\n¿Vas o no vas? Confirmá acá 👇\n' + url;
+    window._matchInviteText = texto; window._matchInviteUrl = url;
+    var ex = document.getElementById('match-invite-modal'); if (ex) ex.remove();
+    var box = document.createElement('div'); box.id = 'match-invite-modal';
+    box.style.cssText = 'position:fixed;inset:0;z-index:100060;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;padding:18px;';
+    box.innerHTML = '<div style="background:#0d100d;border:1px solid #1f2a14;border-radius:18px;padding:20px;max-width:400px;width:100%;">'+
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><i class="bx bx-user-voice" style="color:var(--accent);font-size:22px;"></i><div style="font-family:Outfit,sans-serif;font-weight:900;font-size:16px;color:#fff;">Invitar jugadores</div></div>'+
+        '<div style="font-size:12px;color:#8a8f86;margin-bottom:14px;line-height:1.5;">Mandá el link del partido. Cada uno confirma <b style="color:#fff;">Voy / No voy</b> y vos ves quiénes van — aunque no tengan Canchero.</div>'+
+        '<div style="display:flex;flex-direction:column;gap:9px;">'+
+          '<button onclick="window._matchInviteWhatsapp()" style="display:flex;align-items:center;gap:10px;background:rgba(37,211,102,0.10);color:#25d366;border:1px solid rgba(37,211,102,0.3);border-radius:13px;padding:13px;font-weight:900;font-size:13.5px;cursor:pointer;"><i class="bx bxl-whatsapp" style="font-size:20px;"></i> Enviar por WhatsApp</button>'+
+          '<button onclick="window._matchInviteChat()" style="display:flex;align-items:center;gap:10px;background:rgba(100,180,255,0.10);color:#64b4ff;border:1px solid rgba(100,180,255,0.3);border-radius:13px;padding:13px;font-weight:900;font-size:13.5px;cursor:pointer;"><i class="bx bx-chat" style="font-size:20px;"></i> Enviar por chat de Canchero</button>'+
+          '<button onclick="window._matchInviteCopy()" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.05);color:#ddd;border:1px solid #2a2a2a;border-radius:13px;padding:13px;font-weight:800;font-size:13.5px;cursor:pointer;"><i class="bx bx-link" style="font-size:20px;"></i> Copiar link del partido</button>'+
+          '<button onclick="window.open(window._matchInviteUrl,\'_blank\')" style="display:flex;align-items:center;gap:10px;background:transparent;color:#888;border:none;border-radius:13px;padding:8px;font-weight:700;font-size:12.5px;cursor:pointer;"><i class="bx bx-show" style="font-size:18px;"></i> Ver la página pública</button>'+
+          '<button onclick="document.getElementById(\'match-invite-modal\').remove()" style="background:transparent;color:#666;border:none;padding:6px;font-size:12px;cursor:pointer;">Cerrar</button>'+
+        '</div></div>';
+    box.onclick = function(e){ if(e.target===box) box.remove(); };
+    document.body.appendChild(box);
+};
+window._matchInviteWhatsapp = function(){
+    var t = window._matchInviteText || '';
+    try { if (navigator.share){ navigator.share({ title:'Partido · Canchero', text:t }).catch(function(){}); return; } } catch(e){}
+    window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank');
+};
+window._matchInviteChat = function(){
+    document.getElementById('match-invite-modal')?.remove();
+    if (window._openChatSharePicker) window._openChatSharePicker(window._matchInviteText || '', { senderName: (window.userData&&window.userData.name)||'', notifText: '⚽ Te invitaron a un partido en Canchero.' });
+    else if (window.showToast) showToast('Chat no disponible.', 'error');
+};
+window._matchInviteCopy = async function(){
+    try { await navigator.clipboard.writeText(window._matchInviteUrl || ''); window.showToast && showToast('Link del partido copiado ✓','success'); }
+    catch(e){ try { prompt('Copiá el link del partido:', window._matchInviteUrl||''); } catch(e2){} }
 };
 
 // ============================================================

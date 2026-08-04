@@ -29,7 +29,8 @@
       "Bash(node -c canchero-tournaments.js)",
       "Bash(sed -i 's/script.js?v=20260804b/script.js?v=20260804c/' index.html)",
       "Bash(sed -i \"s/const CACHE_NAME = 'canchero-v434'/const CACHE_NAME = 'canchero-v435'/\" sw.js)",
-      "Bash(node -e \"1\")"
+      "Bash(node -e \"1\")",
+      "Bash(grep -n '\\\\${shareBtn}\\\\|shareBtn}' script.js)"
     ]
   }
 }

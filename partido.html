@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Partido · Canchero</title>
+<meta name="description" content="Confirmá si vas al partido. Mirá rival, cancha, hora, precio y premio. Sin login.">
+<meta property="og:type" content="website">
+<meta property="og:title" id="og-title" content="Partido · Canchero">
+<meta property="og:description" id="og-desc" content="¿Vas o no vas? Confirmá tu lugar.">
+<meta property="og:image" content="og-black.jpg">
+<meta name="theme-color" content="#070907">
+<link rel="icon" href="icon-black-192.png">
+<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Inter:wght@400;500;600&display=swap');
+  :root{--accent:#baff00;--bg:#070907;--bg2:#0f110f;--border:#1e201e;--text:#fff;--muted:#666;--font:'Outfit',sans-serif;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;min-height:100%;}
+  a{color:var(--accent);text-decoration:none;}
+  .wrap{max-width:560px;margin:0 auto;padding:16px 16px 60px;}
+  .pubbar{position:sticky;top:0;z-index:20;background:rgba(7,9,7,0.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:10px 16px;}
+  .pubbar .brand{display:flex;align-items:center;gap:8px;font-family:var(--font);font-weight:900;font-size:16px;color:var(--accent);letter-spacing:-.5px;}
+  .pubbar .brand img{height:26px;width:auto;}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:12px;padding:10px 16px;font-family:var(--font);font-weight:900;font-size:13px;letter-spacing:.3px;cursor:pointer;transition:.15s;}
+  .btn-accent{background:linear-gradient(135deg,#baff00,#8fd400);color:#000;box-shadow:0 3px 14px rgba(186,255,0,.3);}
+  .btn-glass{background:rgba(255,255,255,.05);border:1px solid var(--border);color:#fff;}
+  .btn i{font-size:17px;}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:18px;margin-bottom:14px;}
+  .vs{display:flex;align-items:center;justify-content:center;gap:14px;margin:6px 0 4px;}
+  .team{display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;min-width:0;}
+  .shield{width:64px;height:64px;border-radius:16px;background:#0a0a0a;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--font);font-weight:900;font-size:24px;color:var(--accent);background-size:cover;background-position:center;}
+  .team-name{font-family:var(--font);font-weight:800;font-size:14px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+  .vs-sep{font-family:var(--font);font-weight:900;color:var(--muted);font-size:14px;}
+  .meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;}
+  .meta .m{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:10px 12px;}
+  .meta .m .l{font-size:9px;color:var(--muted);font-weight:800;letter-spacing:.5px;text-transform:uppercase;margin-bottom:3px;}
+  .meta .m .v{font-size:13px;font-weight:700;color:#fff;}
+  .meta .m .v i{color:var(--accent);margin-right:5px;}
+  .sect-title{font-family:var(--font);font-weight:900;font-size:13px;color:#888;letter-spacing:.5px;margin:4px 2px 10px;}
+  .rsvp-btns{display:flex;gap:10px;margin-top:6px;}
+  .rsvp-btns .btn{flex:1;padding:14px;font-size:14px;}
+  .btn-yes{background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;}
+  .btn-no{background:rgba(255,80,80,0.12);color:#ff6666;border:1px solid rgba(255,80,80,0.3);}
+  .person{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid #141614;}
+  .person .av{width:32px;height:32px;border-radius:50%;background:rgba(186,255,0,.12);display:flex;align-items:center;justify-content:center;font-weight:900;color:var(--accent);flex-shrink:0;}
+  .foot{margin-top:30px;padding-top:18px;border-top:1px solid var(--border);text-align:center;color:#555;font-size:12px;}
+  .center-msg{text-align:center;padding:48px 16px;color:var(--muted);}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);opacity:0;background:#111;border:1px solid var(--border);color:#fff;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:600;z-index:9999;transition:.25s;pointer-events:none;max-width:90vw;}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .modal-bg{position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:18px;}
+  .modal{background:#0d100d;border:1px solid #1f2a14;border-radius:18px;padding:20px;max-width:380px;width:100%;}
+  .modal input{width:100%;background:#151a15;border:1px solid #263;border-radius:12px;padding:12px;color:#fff;font-size:14px;box-sizing:border-box;margin:8px 0 14px;}
+</style>
+</head>
+<body>
+<div class="pubbar">
+  <a class="brand" href="index.html"><img src="logo.png" alt="Canchero" onerror="this.style.display='none'"> CANCHERO</a>
+  <button class="btn btn-accent" onclick="sharePage()"><i class='bx bx-share-alt'></i> Compartir</button>
+</div>
+
+<div class="wrap">
+  <div id="p-header"><div class="center-msg"><i class='bx bx-loader-alt bx-spin' style="font-size:26px;"></i><div style="margin-top:10px;">Cargando partido…</div></div></div>
+  <div id="p-body" style="display:none;">
+    <div class="card">
+      <div class="sect-title">¿VAS A JUGAR?</div>
+      <div class="rsvp-btns">
+        <button class="btn btn-yes" onclick="openRsvp('voy')"><i class='bx bx-check-circle'></i> VOY</button>
+        <button class="btn btn-no" onclick="openRsvp('no_voy')"><i class='bx bx-x-circle'></i> NO VOY</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="sect-title" id="voy-title">CONFIRMADOS</div>
+      <div id="voy-list"></div>
+    </div>
+  </div>
+  <div class="foot">Página pública del partido · <a href="index.html">Armá el tuyo gratis en Canchero</a></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const SUPA_URL='https://dofbxgqzcvfjpnvcvdjb.supabase.co';
+const SUPA_KEY='sb_publishable_gPwLXkMHk3HvFz9nm9hgKA_1D0IJBKA';
+const sb=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+function toast(m,t){ var el=document.getElementById('toast'); if(!el)return; el.textContent=m; el.className='show'; clearTimeout(window.__tt); window.__tt=setTimeout(function(){el.className='';},2600); }
+function esc(s){return String(s==null?'':s).replace(/[<>&"]/g,function(c){return{'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];});}
+
+const params=new URLSearchParams(location.search);
+const MID=params.get('id')||params.get('m')||params.get('invite')||'';
+let MATCH=null;
+
+async function boot(){
+  if(!MID){ err404('Falta el identificador del partido en el link.'); return; }
+  let m=null,e=null;
+  try{ const r=await sb.from('matches').select('*').eq('id',MID).single(); m=r.data; e=r.error; }catch(ex){ e=ex; }
+  if(e||!m){ err404('No pudimos cargar este partido. El link puede ser incorrecto.'); return; }
+  MATCH=m;
+  renderHeader(m);
+  document.getElementById('p-body').style.display='block';
+  loadRsvps();
+}
+function err404(msg){
+  document.getElementById('p-header').innerHTML='<div class="center-msg"><i class="bx bx-error-circle" style="font-size:30px;color:#ff4444;"></i><div style="margin-top:10px;">'+esc(msg)+'</div><div style="margin-top:14px;"><a href="index.html">Ir a Canchero</a></div></div>';
+}
+function shield(logo,name){
+  if(logo) return '<div class="shield" style="background-image:url(\''+esc(logo)+'\');border-color:var(--accent);"></div>';
+  return '<div class="shield">'+esc((name||'?').charAt(0).toUpperCase())+'</div>';
+}
+function renderHeader(m){
+  const home=m.home_club_name||m.team_home_name||'Local';
+  const away=m.away_club_name||m.team_away_name||(String(m.match_type||m.modality||'').toLowerCase().indexOf('abiert')>=0?'Abierto':'Rival');
+  const when=m.scheduled_at?new Date(m.scheduled_at):null;
+  const dateStr=when?when.toLocaleDateString('es-UY',{weekday:'long',day:'numeric',month:'long'}):'Por confirmar';
+  const timeStr=when?when.toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'}):'';
+  const fmt=((m.name&&(m.name.match(/5v5|7v7|8v8|11v11|f\s?5|f\s?7|f\s?11/i)||[''])[0])||m.field_type||m.format||'').toString().toUpperCase();
+  const price=(m.price!=null&&Number(m.price)>0)?('$'+m.price):(m.price===0?'Gratis':null);
+  const prize=m.prize||m.premio||(m.bet_text)||null;
+  const meta=[];
+  meta.push('<div class="m"><div class="l">Cancha / Lugar</div><div class="v"><i class="bx bx-map"></i>'+esc(m.venue||'A definir')+'</div></div>');
+  meta.push('<div class="m"><div class="l">Fecha</div><div class="v"><i class="bx bx-calendar"></i>'+esc(dateStr)+(timeStr?(' · '+timeStr):'')+'</div></div>');
+  if(price)meta.push('<div class="m"><div class="l">Precio</div><div class="v"><i class="bx bx-dollar-circle"></i>'+esc(price)+'</div></div>');
+  if(fmt)meta.push('<div class="m"><div class="l">Formato</div><div class="v"><i class="bx bx-football"></i>'+esc(fmt)+'</div></div>');
+  if(prize)meta.push('<div class="m"><div class="l">Premio</div><div class="v"><i class="bx bx-trophy"></i>'+esc(prize)+'</div></div>');
+  if(m.city)meta.push('<div class="m"><div class="l">Ciudad</div><div class="v"><i class="bx bx-map-pin"></i>'+esc(m.city)+'</div></div>');
+  document.getElementById('p-header').innerHTML=
+    '<div class="card"><div class="vs">'+
+      '<div class="team">'+shield(m.home_club_logo||m.home_logo,home)+'<div class="team-name">'+esc(home)+'</div></div>'+
+      '<div class="vs-sep">VS</div>'+
+      '<div class="team">'+shield(m.away_club_logo||m.away_logo,away)+'<div class="team-name">'+esc(away)+'</div></div>'+
+    '</div>'+
+    '<div class="meta">'+meta.join('')+'</div></div>';
+  document.title=home+' vs '+away+' · Canchero';
+  try{ document.getElementById('og-title').content=home+' vs '+away+' · Canchero'; document.getElementById('og-desc').content='¿Vas o no vas? '+esc(m.venue||'')+' '+dateStr; }catch(e){}
+}
+
+async function loadRsvps(){
+  const list=document.getElementById('voy-list');
+  try{
+    const r=await sb.from('match_rsvp').select('guest_name,status,created_at').eq('match_id',MID).order('created_at',{ascending:true});
+    const rows=r.data||[];
+    // Dedup por nombre (última confirmación gana)
+    const byName={}; rows.forEach(x=>{ byName[(x.guest_name||'').toLowerCase()]=x; });
+    const arr=Object.values(byName);
+    const voy=arr.filter(x=>x.status==='voy');
+    const noVoy=arr.filter(x=>x.status==='no_voy');
+    document.getElementById('voy-title').textContent='CONFIRMADOS ('+voy.length+' VAN'+(noVoy.length?(' · '+noVoy.length+' NO'):'')+')';
+    if(!arr.length){ list.innerHTML='<div style="color:#666;font-size:13px;padding:8px 2px;">Todavía nadie confirmó. ¡Sé el primero!</div>'; return; }
+    const row=x=>'<div class="person"><div class="av" style="'+(x.status==='voy'?'':'background:rgba(255,80,80,.12);color:#ff6666;')+'">'+esc((x.guest_name||'?').charAt(0).toUpperCase())+'</div><div style="flex:1;font-weight:700;">'+esc(x.guest_name)+'</div><div style="font-size:11px;font-weight:800;color:'+(x.status==='voy'?'var(--accent)':'#ff6666')+';">'+(x.status==='voy'?'VOY':'NO VOY')+'</div></div>';
+    list.innerHTML=voy.map(row).join('')+noVoy.map(row).join('');
+  }catch(e){ list.innerHTML='<div style="color:#f66;font-size:12px;">No se pudo cargar la lista.</div>'; }
+}
+
+let _rsvpStatus='voy';
+function openRsvp(status){
+  _rsvpStatus=status;
+  const prev=localStorage.getItem('canchero_rsvp_name')||'';
+  const bg=document.createElement('div'); bg.className='modal-bg'; bg.id='rsvp-modal';
+  bg.innerHTML='<div class="modal"><div style="font-family:var(--font);font-weight:900;font-size:16px;margin-bottom:4px;">'+(status==='voy'?'✅ Confirmar que VAS':'❌ Avisar que NO vas')+'</div>'+
+    '<div style="font-size:12px;color:#888;margin-bottom:6px;">Poné tu nombre para que te vean en la lista.</div>'+
+    '<input id="rsvp-name" type="text" placeholder="Tu nombre" value="'+esc(prev)+'" maxlength="40">'+
+    '<div style="display:flex;gap:8px;"><button class="btn btn-glass" style="flex:1;" onclick="document.getElementById(\'rsvp-modal\').remove()">Cancelar</button>'+
+    '<button class="btn btn-accent" style="flex:2;" onclick="sendRsvp()">Confirmar</button></div></div>';
+  bg.onclick=function(e){ if(e.target===bg) bg.remove(); };
+  document.body.appendChild(bg);
+  setTimeout(()=>{ try{ document.getElementById('rsvp-name').focus(); }catch(e){} },80);
+}
+async function sendRsvp(){
+  const name=(document.getElementById('rsvp-name').value||'').trim();
+  if(!name){ toast('Poné tu nombre.'); return; }
+  localStorage.setItem('canchero_rsvp_name',name);
+  try{
+    await sb.from('match_rsvp').insert({ match_id:MID, guest_name:name, status:_rsvpStatus });
+    document.getElementById('rsvp-modal')?.remove();
+    toast(_rsvpStatus==='voy'?'¡Anotado! Nos vemos en la cancha ⚽':'Avisaste que no vas. ¡Gracias!');
+    loadRsvps();
+  }catch(e){ toast('No se pudo confirmar. Probá de nuevo.'); }
+}
+
+function sharePage(){
+  const url=location.href;
+  const txt=(MATCH?((MATCH.home_club_name||'Partido')+(MATCH.away_club_name?(' vs '+MATCH.away_club_name):'')):'Partido')+' — ¿vas? Confirmá acá:';
+  if(navigator.share){ navigator.share({title:'Partido · Canchero',text:txt,url:url}).catch(()=>{}); return; }
+  window.open('https://wa.me/?text='+encodeURIComponent(txt+' '+url),'_blank');
+}
+boot();
+</script>
+</body>
+</html>
