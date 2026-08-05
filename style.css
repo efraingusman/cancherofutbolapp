@@ -434,11 +434,10 @@ ul { list-style: none; }
        inset:0 !important, que ganaba. */
     .home-viewport-wrap .hero-cta-wrap,
     .hero-cta-wrap {
+        top: 50% !important;
         left: 7% !important;
         right: auto !important;
         bottom: auto !important;
-        top: 50% !important;
-        inset: auto !important;
         transform: translateY(-50%) !important;
         max-width: 440px !important;
         width: min(440px, 44vw) !important;

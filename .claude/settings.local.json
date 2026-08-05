@@ -35,7 +35,8 @@
       "Bash(sed -i 's/canchero-carrera.js?v=20260803e/canchero-carrera.js?v=20260804g/' index.html)",
       "Bash(sed -i \"s/const CACHE_NAME = 'canchero-v439'/const CACHE_NAME = 'canchero-v440'/\" sw.js)",
       "Bash(node -c canchero-messaging.js)",
-      "Bash(node -c canchero-momentos.js)"
+      "Bash(node -c canchero-momentos.js)",
+      "Bash(curl -s \"https://cancherofutbolapp.vercel.app/style.css?v=20260804c&cb=$\\(date +%s\\)\")"
     ]
   }
 }
