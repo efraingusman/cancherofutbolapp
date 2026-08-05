@@ -822,7 +822,36 @@ const EVENTOS=[
     { txt:'Marcar territorio', ef:g=>{ g.moral-=5; g.nivel+=1; return 'Ganaste el puesto pero perdiste un amigo.'; } } ] },
   { t:'Fundación o causa benéfica', img:'potrero', d:'Podés armar una fundación en tu barrio con parte de tus ingresos.', opts:[
     { txt:'Devolverle al barrio', ef:g=>{ g.dinero-=40000; g.fama+=10; g.moral+=10; return 'Sos ejemplo. El barrio te lleva en el corazón.'; } },
-    { txt:'Todavía no es momento', ef:g=>{ g.dinero+=5000; return 'Lo dejás para más adelante.'; } } ] }
+    { txt:'Todavía no es momento', ef:g=>{ g.dinero+=5000; return 'Lo dejás para más adelante.'; } } ] },
+
+  // ── AMATEUR / VIDA (con consecuencias reales, buenas Y malas) ──────────────
+  { t:'El clásico del barrio por un lechón', img:'potrero', d:'Se juega el clásico del barrio y la apuesta es un lechón entero. Media cuadra vino a verte.', opts:[
+    { txt:'Jugar con todo por el honor', ef:g=>{ const gana=Math.random()<.55; g.moral+=gana?10:-8; g.fama+=gana?4:-2; return gana?'Metiste el gol del triunfo. Comés lechón como un rey y el barrio te aúpa.':'Erraste el penal decisivo. Te comen los asados ajenos y la cargada dura meses.'; } },
+    { txt:'No arriesgar, es solo un picado', ef:g=>{ g.moral-=4; return 'Jugaste tibio. Perdieron y algunos te miran de reojo: "se cree profesional".'; } } ] },
+  { t:'Trabajo en la construcción', img:'potrero', d:'No te alcanza la plata. Te ofrecen changas en una obra, pero el esfuerzo físico te puede pasar factura.', opts:[
+    { txt:'Aceptar la changa', ef:g=>{ g.dinero+=8000; const cansado=Math.random()<.5; g.nivel+=cansado?-2:0; return cansado?'Llegás muerto a los entrenamientos. El técnico nota que rendís menos.':'Te ganás unos pesos y mantenés la humildad. Todo bajo control.'; } },
+    { txt:'Apostar todo al fútbol', ef:g=>{ g.dinero-=3000; g.moral+=3; g.nivel+=1; return 'La pasás justo de plata, pero descansás y entrenás enfocado.'; } } ] },
+  { t:'Un ojeador en la tribuna', img:'ojeador', d:'Corre el rumor de que hay un ojeador de un club grande mirando el partido de hoy.', opts:[
+    { txt:'Salir a comerme la cancha', ef:g=>{ const bien=Math.random()<.5; g.fama+=bien?12:-2; g.nivel+=bien?2:-1; g.valor=Math.round((g.valor||100000)*(bien?1.2:0.95)); return bien?'Jugaste el partido de tu vida. El ojeador pidió tu teléfono.':'Quisiste hacer de más, forzaste jugadas y te fue mal. El ojeador ni te anotó.'; } },
+    { txt:'Jugar tranquilo, lo mío', ef:g=>{ g.nivel+=1; return 'Partido sobrio y prolijo. Ni brillás ni fallás; quedás en un cajón de "a seguir".'; } } ] },
+  { t:'Pelea en un boliche', img:'joda', d:'Salís de joda y un desconocido te busca pelea de la nada, filmando con el celular.', opts:[
+    { txt:'Irme sin dar bola', ef:g=>{ g.moral+=3; g.fama+=2; return 'Te fuiste digno. Al otro día nadie habla de vos, y eso está perfecto.'; } },
+    { txt:'Encararlo', ef:g=>{ const escandalo=Math.random()<.65; g.fama+=escandalo?-14:1; g.moral-=escandalo?8:0; g.dinero-=escandalo?15000:0; return escandalo?'El video se hizo viral. El club te multa y sale en todos lados. Papelón.':'No pasó a mayores, pero fue una imprudencia.'; } } ] },
+  { t:'Conocés a tu ídolo', img:'seleccion', d:'En un evento aparece tu ídolo de la infancia y te da unos minutos de charla.', opts:[
+    { txt:'Pedirle consejos y escuchar', ef:g=>{ g.moral+=10; g.nivel+=1; return 'Sus palabras te marcan. Entrenás con otra mentalidad, más profesional.'; } },
+    { txt:'Solo la foto para redes', ef:g=>{ g.fama+=5; return 'Buena foto, muchos likes. Pero sentís que desaprovechaste el momento.'; } } ] },
+  { t:'Oferta turbia de un apostador', img:'dinero', d:'Un apostador te ofrece una fortuna por "aflojar" en un partido puntual.', opts:[
+    { txt:'Aceptar (muy riesgoso)', ef:g=>{ const cae=Math.random()<.6; g.dinero+=cae?0:200000; g.fama+=cae?-40:0; g.moral-=cae?30:6; return cae?'Te descubrieron. Suspensión, escándalo y tu carrera al borde del final.':'Nadie se enteró... pero no podés ni mirarte al espejo.'; } },
+    { txt:'Rechazar y denunciarlo', ef:g=>{ g.fama+=8; g.moral+=8; return 'Hiciste lo correcto. La AFA y la prensa te ponen de ejemplo.'; } } ] },
+  { t:'Sobrepeso en la pretemporada', img:'lesion', d:'Volviste de vacaciones con unos kilos de más y el preparador físico te marca.', opts:[
+    { txt:'Ponerme a full con la dieta', ef:g=>{ g.nivel+=2; g.moral+=2; return 'Te pusiste en forma rápido. El cuerpo técnico valora tu compromiso.'; } },
+    { txt:'Ya lo bajo jugando', ef:g=>{ const mal=Math.random()<.6; g.nivel+=mal?-3:0; return mal?'Arrancaste lento y pesado. Perdiste la titularidad las primeras fechas.':'Zafaste, lo fuiste bajando de a poco.'; } } ] },
+  { t:'Descubren un abuelo extranjero', img:'seleccion', d:'Un periodista descubre que tu abuelo era de otro país: podrías jugar para OTRA selección.', opts:[
+    { txt:'Cambiar de selección (más chances)', ef:g=>{ g.fama+=10; g.moral-=4; return 'Te aseguran más minutos internacionales, pero parte del país te lo cuestiona.'; } },
+    { txt:'Defender la de siempre', ef:g=>{ g.moral+=8; g.fama+=3; return 'Fidelidad a tus colores. El hincha te lo agradece de por vida.'; } } ] },
+  { t:'Amague de retiro anticipado', img:'prensa', d:'Venís golpeado y frustrado. Se te cruza por la cabeza colgar los botines antes de tiempo.', opts:[
+    { txt:'Seguir peleándola', ef:g=>{ g.moral+=6; g.nivel+=1; return 'Sacaste fuerzas. La resiliencia te devuelve al primer plano.'; } },
+    { txt:'Bajar un cambio y priorizar salud', ef:g=>{ g.moral+=4; g.nivel-=1; return 'Te cuidás más. Rendís un poco menos pero disfrutás de nuevo.'; } } ] }
 ];
 // No repetir: mezcla los eventos aún NO vistos en esta carrera; cuando se agotan, resetea.
 function eventoRandom(){
@@ -836,13 +865,32 @@ function eventoRandom(){
     return EVENTOS[chosen];
   }catch(e){ return pick(EVENTOS); }
 }
+// Chip de cambio de stat (verde si sube, rojo si baja).
+function deltaChip(lbl, d, money){
+  if(!d) return '';
+  const up = d>0; const col = up?'#4ade80':'#ff6b6b';
+  const val = money ? (up?'+':'−')+'€'+(Math.abs(d)>=1000?(Math.abs(d)/1000|0)+'k':Math.abs(d)) : (up?'+':'−')+Math.abs(d);
+  return `<span style="display:inline-flex;align-items:center;gap:3px;background:${up?'rgba(74,222,128,.12)':'rgba(255,107,107,.12)'};border:1px solid ${col}55;color:${col};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;"><i class='bx ${up?'bx-up-arrow-alt':'bx-down-arrow-alt'}'></i>${lbl} ${val}</span>`;
+}
 window._carreraElegir = function(i){
   const ev=G._ev; const o=ev.opts[i]; if(!o) return;
+  // Snapshot para medir el IMPACTO real de la decisión.
+  const b={ nivel:G.nivel, moral:G.moral, fama:G.fama, dinero:G.dinero, valor:G.valor||0 };
   const res=o.ef(G);
   G.nivel=clamp(G.nivel,30,99); G.fama=clamp(G.fama,0,100); G.moral=clamp(G.moral,0,100); G.dinero=Math.max(0,G.dinero);
+  const chips = [
+    deltaChip('Nivel', Math.round(G.nivel-b.nivel)),
+    deltaChip('Moral', Math.round(G.moral-b.moral)),
+    deltaChip('Fama', Math.round(G.fama-b.fama)),
+    deltaChip('$', Math.round(G.dinero-b.dinero), true)
+  ].filter(Boolean).join('');
   G.hist.push({t:ev.t,res}); save();
   const wrap=document.getElementById('cr-evwrap');
-  if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:6px 0;"><div style="font-size:15px;color:#fff;font-weight:700;line-height:1.5;margin-bottom:16px;">${esc(res)}</div><button onclick="window._carreraContinuar()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 28px;font-weight:900;cursor:pointer;">Continuar</button></div>`;
+  if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:6px 0;">
+    <div style="font-size:15px;color:#fff;font-weight:700;line-height:1.55;margin-bottom:12px;">${esc(res)}</div>
+    ${chips?`<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:16px;">${chips}</div>`:'<div style="height:6px;"></div>'}
+    <button onclick="window._carreraContinuar()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 28px;font-weight:900;cursor:pointer;">Continuar</button>
+  </div>`;
 };
 
 function retiro(){
