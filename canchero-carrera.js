@@ -652,11 +652,60 @@ window._carreraContinuar = function(){
 function posLabel(pos){ return pos===1?'1º 🏆':(pos+'º'); }
 function st(l,v){ return `<div style="background:rgba(255,255,255,.04);border:1px solid #1e1e1e;border-radius:12px;padding:11px 4px;text-align:center;"><div style="font-size:9px;color:#666;font-weight:800;">${l}</div><div style="font-size:19px;font-weight:900;color:${A};">${esc(v)}</div></div>`; }
 
-// Sueldo/años/prima de una oferta según fuerza del club y azar (da variedad entre ofertas).
+// ── LÓGICA REALISTA DE OFERTAS ─────────────────────────────────────────────────
+// Barcelona no ofrece lo mismo que Peñarol. Y por un jugador de 20 no ofrecen lo
+// mismo que por uno de 34. Factores:
+//   • edadMult: pico económico 24-28. Menor 22 tiene proyección pero menos sueldo
+//     inmediato; mayor 30 baja fuerte y contratos cortos.
+//   • clubMult: prestigio del club × liga tier. Un club top-5 europeo paga 6-8x
+//     más que un club de Interior. Todo escalado a la moneda del juego.
+//   • nivelMult: si sos figura (nivel muy alto) todos pagan más; si estás en tu
+//     media, ofertas estándar.
+function _edadMult(edad){
+  if (edad <= 19) return 0.55;       // proyecto: sueldo bajo, contrato largo
+  if (edad <= 22) return 0.85;
+  if (edad <= 27) return 1.30;       // pico
+  if (edad <= 30) return 1.10;
+  if (edad <= 33) return 0.75;
+  if (edad <= 35) return 0.50;
+  return 0.30;                        // veterano: contratos cortos y magros
+}
+function _edadAnios(edad){
+  if (edad <= 20) return [4, 6];      // ligan al proyecto
+  if (edad <= 27) return [3, 5];
+  if (edad <= 32) return [2, 4];
+  if (edad <= 35) return [1, 3];
+  return [1, 2];
+}
+function _clubMult(c){
+  // Escalón por tier de liga (LaLiga/Premier/Brasileirão top; Interior UY piso).
+  const tier = ligaNivel(c.liga);     // 0 = interior UY, 13 = Brasileirão
+  const ligaBoost = 1 + tier * 0.32;  // hasta ~5.2× por top-league
+  // Fuerza intrínseca del club (Real Madrid 90 vs Salto FC 52).
+  const strBoost = Math.max(0.3, (c.str - 45) / 30); // rango ~0.3 a 1.8
+  return ligaBoost * strBoost;
+}
+function _nivelMult(nivelJugador){
+  // Sobre 78 empieza a pagarse extra; ídolo (>90) multiplica por 1.6.
+  if (nivelJugador >= 90) return 1.7;
+  if (nivelJugador >= 84) return 1.35;
+  if (nivelJugador >= 78) return 1.15;
+  return 1.0;
+}
 function ofertaDe(c){
-  const sueldo=Math.round(c.str*rnd(9,16))*10000;      // €/año aprox
-  const anios=ri(2,5);
-  const prima=Math.round(c.str*rnd(20,60))*1000;        // prima de fichaje
+  const edadM = _edadMult(G ? G.edad : 22);
+  const clubM = _clubMult(c);
+  const nivM  = _nivelMult(G ? G.nivel : 60);
+  // Sueldo base: club grande × edad pico × jugador figura → 6M+/año
+  // Club chico × veterano → 40k-80k/año (realista)
+  const baseSueldo = 25000; // €/año min para un club de nivel 50
+  const sueldo = Math.round(baseSueldo * clubM * edadM * nivM * rnd(0.85, 1.20) / 500) * 500;
+  const [aMin, aMax] = _edadAnios(G ? G.edad : 22);
+  const anios = ri(aMin, aMax);
+  // Prima: los clubes GRANDES pagan prima gorda (compra). Los chicos, casi nada.
+  const prima = clubM >= 3 ? Math.round(sueldo * rnd(0.6, 1.2) / 1000) * 1000
+              : clubM >= 1.5 ? Math.round(sueldo * rnd(0.2, 0.6) / 1000) * 1000
+              : 0;
   return { name:c.name, str:c.str, liga:c.liga, pais:c.pais, sueldo, anios, prima };
 }
 // Eventos de decisión (reusa impronta anterior + transferencias reales con VARIAS ofertas).
@@ -664,7 +713,19 @@ function mostrarEvento(){
   const wrap=document.getElementById('cr-evwrap'); if(!wrap) return;
   if(G) G._evLeft = Math.max(0, (G._evLeft||1) - 1);   // consume una decisión de la temporada
   // A veces: ofertas de transferencia (hasta 4 clubes distintos para ELEGIR).
-  const mejores = todosClubs().filter(c=>c.str>G.clubStr+2 && ligaNivel(c.liga)>=ligaNivel(G.liga) && G.nivel>=c.str-9 && c.name!==G.club);
+  // FILTRO REALISTA: los clubes grandes (str>82) NO miran a jugadores viejos ni de bajo
+  // nivel. Los clubes chicos SÍ pueden querer a un veterano figura.
+  const mejores = todosClubs().filter(c => {
+    if (c.name === G.club) return false;
+    if (c.str <= G.clubStr + 2) return false;                    // solo si mejora
+    if (ligaNivel(c.liga) < ligaNivel(G.liga)) return false;      // no bajar de liga
+    if (G.nivel < c.str - 9) return false;                        // no te alcanza el nivel
+    // Un club grande (str>82) NO ficha veteranos (edad>32) salvo que seas top mundial.
+    if (c.str > 82 && G.edad > 32 && G.nivel < 88) return false;
+    // Un club grande NO ficha proyectos flojos (edad<20 y nivel<70).
+    if (c.str > 85 && G.edad < 20 && G.nivel < 70) return false;
+    return true;
+  });
   const ofertaTransfer = mejores.length && Math.random()<0.5 && G.edad<34;
   if(ofertaTransfer){
     // Barajar y tomar hasta 4 clubes únicos.
@@ -679,11 +740,13 @@ function mostrarEvento(){
   const ofertaRenov = Math.random()<0.28 && G.edad<36;
   if(ofertaRenov){
     const base={ name:G.club, str:G.clubStr, liga:G.liga, pais:G.clubPais };
-    // 3 variantes de renovación: conservadora, ambiciosa, larga.
+    // 3 variantes de renovación calibradas por edad/nivel/club.
+    const baseO = ofertaDe(base);
+    const _anios = _edadAnios(G.edad);
     G._renov = [
-      Object.assign(ofertaDe(base), { _v:'Oferta base', sueldo:Math.round(G.clubStr*11)*10000, anios:2, prima:0 }),
-      Object.assign(ofertaDe(base), { _v:'Pedir aumento', sueldo:Math.round(G.clubStr*17)*10000, anios:3, prima:Math.round(G.clubStr*30)*1000, _riesgo:true }),
-      Object.assign(ofertaDe(base), { _v:'Contrato largo', sueldo:Math.round(G.clubStr*13)*10000, anios:5, prima:Math.round(G.clubStr*15)*1000 })
+      Object.assign({}, baseO, { _v:'Oferta base', anios: Math.max(1, _anios[0]) }),
+      Object.assign({}, baseO, { _v:'Pedir aumento', sueldo: Math.round(baseO.sueldo * 1.55 / 500)*500, prima: Math.round(baseO.sueldo * 0.35 / 1000)*1000, _riesgo:true }),
+      Object.assign({}, baseO, { _v:'Contrato largo', sueldo: Math.round(baseO.sueldo * 1.15 / 500)*500, anios: _anios[1] })
     ];
     save(); mostrarOfertas('renov');
     return;
