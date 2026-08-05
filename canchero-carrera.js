@@ -1001,24 +1001,116 @@ window._carreraElegir = function(i){
   </div>`;
 };
 
+// ── RESUMEN FINAL TIPO COPERO ──────────────────────────────────────────────────
+// Pantalla de retiro: hero con camiseta + país, honores, stats totales, vitrina
+// de trofeos (imagen real), timeline por temporada con escudo real del club y sus
+// stats. Todo scrolleable, con animación de entrada.
 function retiro(){
   const m=document.getElementById('carrera-modal')||overlay();
-  const leyenda=G.titulos>=8||G.nivel>=88;
   try{ saveCareer(G); }catch(e){}
-  m.innerHTML=`
-  <div style="max-width:520px;margin:0 auto;padding:36px 22px calc(30px + env(safe-area-inset-bottom));min-height:100%;display:flex;flex-direction:column;align-items:center;text-align:center;">
-    <div style="width:88px;height:88px;border-radius:50%;background:rgba(186,255,0,.12);border:1px solid rgba(186,255,0,.35);display:flex;align-items:center;justify-content:center;margin-bottom:14px;"><i class='bx ${leyenda?'bx-crown':'bx-medal'}' style="font-size:46px;color:${A};"></i></div>
-    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:24px;color:#fff;">${esc(G.apellido)} #${G.num}</div>
-    <div style="font-size:13px;color:#9aa0a6;margin:4px 0 18px;">${leyenda?'¡Te retirás como LEYENDA del fútbol!':'Colgaste los botines. Gran carrera.'}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:360px;margin-bottom:20px;">
-      ${st2('NIVEL FINAL',Math.round(G.nivel))}${st2('TÍTULOS',G.titulos)}${st2('PARTIDOS',G.tot.pj)}${st2('GOLES',G.tot.g)}${st2('ASISTENCIAS',G.tot.a)}${st2('ÚLTIMO CLUB',G.club)}
+  const nivelF = Math.round(G.nivel);
+  const anios = (G.timeline||[]).length || G.years || 0;
+  const promedio = G.tot.pj>0 ? ((G.tot.g/G.tot.pj)*100).toFixed(0) : 0;   // goles/100PJ
+  const leyenda = G.titulos>=8 || nivelF>=88;
+  const grande  = G.titulos>=4 || nivelF>=80;
+  const rangoTxt = leyenda ? 'LEYENDA DEL FÚTBOL' : (grande?'GRAN CARRERA':'CARRERA COMPLETA');
+  const rangoColor = leyenda ? '#facc15' : grande ? A : '#94a3b8';
+  const rangoIcon = leyenda ? 'bx-crown' : grande ? 'bx-medal' : 'bx-shield';
+  const scoreN = careerScore(G);
+  // Honores adicionales (badges dinámicos)
+  const honores = [];
+  if (G.tot.g >= 200) honores.push({i:'bx-football', c:'#22c55e', t:'+200 goles'});
+  if (G.tot.a >= 100) honores.push({i:'bx-target-lock', c:'#22d3ee', t:'+100 asist.'});
+  if (G.titulos >= 10) honores.push({i:'bx-crown', c:'#facc15', t:'Multicampeón'});
+  if (anios >= 18)    honores.push({i:'bx-time', c:'#a78bfa', t:'Longevidad'});
+  if (nivelF >= 90)   honores.push({i:'bxs-star', c:'#f59e0b', t:'Élite mundial'});
+  if (G.tot.pj >= 400) honores.push({i:'bx-calendar-check', c:'#60a5fa', t:'+400 PJ'});
+  // Vitrina: agrupa por trofeo y cuenta (Champions ×2, etc.)
+  const grupTrof = {};
+  (G.vitrina||[]).forEach(v=>{ const k=v.nombre; grupTrof[k]=(grupTrof[k]||{n:v.nombre,slug:trofeoImgSlug(v.nombre),count:0}); grupTrof[k].count++; });
+  const trofArr = Object.values(grupTrof).sort((a,b)=>b.count-a.count);
+  // Timeline: fila por temporada
+  const timelineHtml = (G.timeline||[]).slice().reverse().map(t=>{
+    const tit = t.titulo ? `<div style="display:inline-flex;align-items:center;gap:4px;background:rgba(250,204,21,.14);border:1px solid rgba(250,204,21,.35);color:#facc15;border-radius:8px;padding:2px 8px;font-size:10px;font-weight:800;margin-top:3px;"><i class='bx bx-trophy'></i>${esc(t.titulo)}</div>`:'';
+    return `<div style="display:flex;align-items:center;gap:11px;padding:10px 4px;border-bottom:1px solid #141614;">
+      ${clubBadge(t.club, 38)}
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:10px;color:#666;font-weight:800;">${t.edad} años</span>
+          <span style="font-size:13.5px;color:#fff;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.club)}</span>
+        </div>
+        <div style="font-size:11px;color:#aaa;margin-top:2px;">Nv <b style="color:#fff;">${t.niv}</b> · ${t.pj} PJ · <b style="color:${A};">${t.g}</b>G · ${t.a}A</div>
+        ${tit}
+      </div>
+    </div>`;
+  }).join('');
+  // Camiseta grande al centro (con país)
+  const jerseyHtml = jersey(140, G.apellido, G.num, G.pais);
+  m.innerHTML = `
+  <style>@keyframes crFadeUp{0%{transform:translateY(18px);opacity:0}100%{transform:none;opacity:1}}
+   .cr-fade{animation:crFadeUp .6s cubic-bezier(.2,1,.3,1) both}
+   .cr-fade-d1{animation-delay:.12s}.cr-fade-d2{animation-delay:.24s}.cr-fade-d3{animation-delay:.36s}.cr-fade-d4{animation-delay:.48s}</style>
+  <div style="max-width:640px;margin:0 auto;padding:24px 18px calc(40px + env(safe-area-inset-bottom));min-height:100%;">
+    <!-- HERO -->
+    <div class="cr-fade" style="position:relative;background:radial-gradient(120% 90% at 50% 0%,${leyenda?'#3a2a06':'#14340f'} 0%,#0a0c0a 60%);border:1px solid ${rangoColor}55;border-radius:22px;padding:22px 18px 20px;overflow:hidden;text-align:center;">
+      <div style="position:absolute;inset:0;background-image:radial-gradient(circle at 20% 20%, ${rangoColor}22, transparent 55%),radial-gradient(circle at 80% 80%, ${rangoColor}22, transparent 55%);pointer-events:none;"></div>
+      <div style="position:relative;">
+        <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(0,0,0,.35);border:1px solid ${rangoColor}88;border-radius:99px;padding:5px 14px;font-size:11px;font-weight:900;letter-spacing:2px;color:${rangoColor};margin-bottom:14px;"><i class='bx ${rangoIcon}'></i>${rangoTxt}</div>
+        <div style="display:flex;justify-content:center;margin-bottom:10px;">${jerseyHtml}</div>
+        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:30px;color:#fff;letter-spacing:-.5px;">${esc(G.apellido)} <span style="color:${A};">#${G.num}</span></div>
+        <div style="font-size:12.5px;color:#c4ccc0;margin-top:4px;display:inline-flex;align-items:center;gap:6px;">${flagImg(G.pais,18)} ${esc(G.pais)} · <span style="color:#888;">${anios} temp. · ${anios+16-G.years+G.years}—</span></div>
+      </div>
     </div>
-    <button onclick="window._carreraLen()" style="width:100%;max-width:360px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">NUEVA CARRERA</button>
-    <button onclick="window._carreraRanking()" style="width:100%;max-width:360px;margin-top:9px;background:rgba(255,255,255,.05);color:#fff;border:1px solid #242424;border-radius:14px;padding:13px;font-weight:800;font-size:14px;cursor:pointer;"><i class='bx bx-bar-chart-alt-2' style="color:${A};"></i> Ver ranking</button>
-    <button onclick="document.getElementById('carrera-modal').remove();window.openGamesModal&&window.openGamesModal()" style="width:100%;max-width:360px;margin-top:9px;background:transparent;color:#888;border:none;padding:11px;font-weight:800;font-size:13px;cursor:pointer;">Volver a Juegos</button>
+
+    <!-- STATS TOTALES -->
+    <div class="cr-fade cr-fade-d1" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px;">
+      ${cell('NIVEL FINAL', nivelF, A)}
+      ${cell('TEMPORADAS', anios)}
+      ${cell('PARTIDOS', G.tot.pj)}
+      ${cell('TÍTULOS', G.titulos, '#facc15')}
+    </div>
+    <div class="cr-fade cr-fade-d1" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;">
+      ${cell('GOLES', G.tot.g, A)}
+      ${cell('ASIST.', G.tot.a, '#22d3ee')}
+      ${cell('SCORE', scoreN, '#f59e0b')}
+    </div>
+
+    ${honores.length?`<div class="cr-fade cr-fade-d2" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;justify-content:center;">
+      ${honores.map(h=>`<span style="display:inline-flex;align-items:center;gap:5px;background:${h.c}18;border:1px solid ${h.c}55;color:${h.c};border-radius:20px;padding:5px 11px;font-size:11px;font-weight:800;"><i class='bx ${h.i}'></i>${h.t}</span>`).join('')}
+    </div>`:''}
+
+    <!-- VITRINA DE TROFEOS -->
+    ${trofArr.length ? `<div class="cr-fade cr-fade-d2" style="margin-top:20px;">
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:#facc15;margin-bottom:10px;padding-left:2px;"><i class='bx bx-trophy'></i> VITRINA DE TÍTULOS · ${G.titulos}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(88px,1fr));gap:10px;">
+        ${trofArr.map(t=>`<div style="background:linear-gradient(160deg,rgba(250,204,21,.10),rgba(20,22,18,.6));border:1px solid rgba(250,204,21,.28);border-radius:14px;padding:10px 6px;text-align:center;">
+          <div style="position:relative;height:64px;display:flex;align-items:center;justify-content:center;">
+            <img src="img/trofeos/${t.slug}.webp" alt="" style="max-height:60px;max-width:100%;object-fit:contain;filter:drop-shadow(0 4px 12px rgba(250,204,21,.35));" onerror="this.style.display='none'">
+            ${t.count>1?`<span style="position:absolute;top:-4px;right:-4px;background:${A};color:#000;font-size:10px;font-weight:900;border-radius:11px;padding:2px 7px;">×${t.count}</span>`:''}
+          </div>
+          <div style="font-size:9.5px;color:#eee;font-weight:800;margin-top:6px;line-height:1.2;">${esc(t.n)}</div>
+        </div>`).join('')}
+      </div>
+    </div>` : ''}
+
+    <!-- TIMELINE POR TEMPORADA -->
+    ${timelineHtml ? `<div class="cr-fade cr-fade-d3" style="margin-top:20px;">
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:${A};margin-bottom:6px;padding-left:2px;"><i class='bx bx-timer'></i> LÍNEA DE TIEMPO</div>
+      <div style="background:#0d100d;border:1px solid #1c1c1c;border-radius:14px;padding:6px 12px;">
+        ${timelineHtml}
+      </div>
+    </div>` : ''}
+
+    <!-- ACCIONES -->
+    <div class="cr-fade cr-fade-d4" style="display:flex;flex-direction:column;gap:9px;margin-top:22px;">
+      <button onclick="window._carreraLen()" style="width:100%;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;box-shadow:0 10px 30px rgba(80,220,110,.28);">EMPEZAR NUEVA CARRERA</button>
+      <button onclick="window._carreraRanking()" style="width:100%;background:rgba(255,255,255,.05);color:#fff;border:1px solid #242424;border-radius:14px;padding:13px;font-weight:800;font-size:14px;cursor:pointer;"><i class='bx bx-bar-chart-alt-2' style="color:${A};"></i> Ver ranking global</button>
+      <button onclick="document.getElementById('carrera-modal').remove();window.openGamesModal&&window.openGamesModal()" style="width:100%;background:transparent;color:#888;border:none;padding:11px;font-weight:800;font-size:13px;cursor:pointer;">Volver a Juegos</button>
+    </div>
   </div>`;
   try{ localStorage.removeItem(LS); }catch(e){}
 }
+function cell(l, v, col){ col = col || '#fff'; return `<div style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:11px 4px;text-align:center;"><div style="font-size:20px;font-weight:900;color:${col};line-height:1;">${esc(v)}</div><div style="font-size:9px;color:#666;font-weight:800;letter-spacing:1px;margin-top:5px;">${l}</div></div>`; }
 function st2(l,v){ return `<div style="background:rgba(255,255,255,.04);border:1px solid #1e1e1e;border-radius:12px;padding:12px;"><div style="font-size:9px;color:#666;font-weight:800;letter-spacing:1px;">${l}</div><div style="font-size:16px;font-weight:900;color:${A};margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(v)}</div></div>`; }
 
 console.log('[canchero-carrera] v2 cargado');
