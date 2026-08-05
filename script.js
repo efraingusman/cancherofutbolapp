@@ -557,7 +557,10 @@ window._enterGuest = function(role){
     // Identidad mínima de invitado (sin email → las acciones de escritura piden cuenta).
     // OJO: hay que asignar la variable de MÓDULO `userData` (no solo window.userData),
     // porque navigate()/switchDashboardTab leen la local; si no, navigate rebota a home.
-    userData = { name:'Invitado', role:'jugador', _guest:true, _guestRole:role, email:null, stats:{}, photo:'' };
+    // Avatar del invitado: candado SVG inline (evita que aparezca la "I" de "Invitado"
+    // en los circulitos de perfil/momentos/composer). name vacio para no colorear con letra.
+    var _guestAvatar = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#1a1a1a"/><path d="M35 45 v-8 a15 15 0 0 1 30 0 v8" fill="none" stroke="#666" stroke-width="6" stroke-linecap="round"/><rect x="30" y="45" width="40" height="30" rx="4" fill="#666"/></svg>');
+    userData = { name:'', role:'jugador', _guest:true, _guestRole:role, email:null, stats:{}, photo:_guestAvatar };
     window.userData = userData;
     try { document.body.classList.add('is-guest'); } catch(e){}
     try { navigate('jugador'); } catch(e){}
@@ -579,6 +582,16 @@ window._promptRegister = function(accion){
     else { try { navigate('register'); } catch(e){} }
     if (window.showToast && accion) showToast('Creá tu perfil gratis para ' + accion + '.', 'info');
 };
+// Candado genérico para secciones bloqueadas en invitado (chats, debates, etc.).
+window._guestLockedSectionHTML = function(titulo, texto, accion){
+    return '<div style="max-width:440px;margin:0 auto;padding:60px 22px;text-align:center;display:flex;flex-direction:column;align-items:center;">'
+      + '<div style="width:88px;height:88px;border-radius:50%;background:rgba(255,255,255,0.05);border:1px solid #2a2a2a;display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><i class="bx bx-lock-alt" style="font-size:42px;color:#666;"></i></div>'
+      + '<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:20px;color:#fff;">' + (titulo||'Sección bloqueada') + '</div>'
+      + '<div style="font-size:13.5px;color:#9aa0a6;margin:8px 0 20px;line-height:1.55;max-width:320px;">' + (texto||'Creá tu perfil gratis para desbloquear esta sección.') + '</div>'
+      + '<button onclick="window._promptRegister(\'' + (accion||'usar esta sección') + '\')" style="width:100%;max-width:300px;background:linear-gradient(135deg,#16a34a,#baff00);color:#000;border:none;border-radius:14px;padding:14px;font-family:Outfit,sans-serif;font-weight:900;font-size:14px;cursor:pointer;"><i class="bx bx-rocket"></i> CREAR MI PERFIL GRATIS</button>'
+      + '</div>';
+};
+
 window._guestLockedProfileHTML = function(){
     return '<div style="max-width:440px;margin:0 auto;padding:40px 22px;text-align:center;display:flex;flex-direction:column;align-items:center;">'
       + '<div style="width:96px;height:96px;border-radius:50%;background:rgba(255,255,255,0.05);border:1px solid #2a2a2a;display:flex;align-items:center;justify-content:center;margin-bottom:18px;"><i class="bx bx-lock-alt" style="font-size:46px;color:#666;"></i></div>'
@@ -4645,7 +4658,18 @@ window.switchDashboardTab = function(role, tabId, el) {
         // En Vivo fue reemplazado por la sección Mundial
         if (window.CancheroMundial && CancheroMundial.render) { try { CancheroMundial.render(); } catch(e){} }
     }
-    if (tabId === 'mensajes') { setTimeout(function(){ if (window.CancheroMessaging) window.CancheroMessaging.init(); }, 50); }
+    if (tabId === 'mensajes') {
+        if (window._isGuest) {
+            var _mc = document.getElementById(role + '-mensajes');
+            if (_mc) _mc.innerHTML = window._guestLockedSectionHTML('Chats bloqueados', 'Creá tu perfil gratis para chatear con jugadores, clubes y ligas de Canchero.', 'chatear');
+        } else {
+            setTimeout(function(){ if (window.CancheroMessaging) window.CancheroMessaging.init(); }, 50);
+        }
+    }
+    if (tabId === 'debates' && window._isGuest) {
+        var _dc = document.getElementById(role + '-debates');
+        if (_dc) _dc.innerHTML = window._guestLockedSectionHTML('Debates bloqueados', 'Creá tu perfil gratis para participar en los debates del fútbol.', 'debatir');
+    }
     if (tabId === 'complejos')     { loadSectionTab('complejos'); }
     if (tabId === 'tiendas')       { loadSectionTab('tiendas'); }
     if (tabId === 'profesionales') { loadSectionTab('profesionales'); }
@@ -14589,11 +14613,21 @@ window.openDM = window.openDM || function(email, name) {
 // Tap en el LOGO → INICIO (feed) del rol activo, SIEMPRE. No restaura "última pestaña"
 // (eso abría un menú raro que el usuario no reconocía) ni desloguea si hay sesión local.
 window.goHomeFeed = function() {
+    // Invitado: el logo VUELVE AL HOME real (para poder registrarse), no al feed.
+    if (window._isGuest) { try { window._exitGuest && window._exitGuest(); } catch(e){} navigate('home'); return; }
     const u = window.userData || (() => { try { return JSON.parse(localStorage.getItem('canchero_user')); } catch(e) { return null; } })();
     if (!u || !u.role) { navigate('home'); return; }
     const role = u.role === 'admin' ? 'admin' : u.role === 'club' ? 'club' : 'jugador';
     navigate(role);
     setTimeout(() => { try { if (typeof switchDashboardTab === 'function') switchDashboardTab(role, 'feed', null); } catch(e){} }, 100);
+};
+// Salir del modo invitado y volver al home limpio.
+window._exitGuest = function(){
+    try {
+        window._isGuest = false;
+        userData = null; window.userData = null;
+        document.body.classList.remove('is-guest');
+    } catch(e){}
 };
 window.navigateToMyProfile = function() {
     const u = window.userData || (() => { try { return JSON.parse(localStorage.getItem('canchero_user')); } catch(e) { return null; } })();

@@ -429,15 +429,21 @@ ul { list-style: none; }
         padding: 0 !important;
     }
     /* PC: panel a la IZQUIERDA, centrado vertical — deja ver la cara del jugador
-       (antes iba pegado a la derecha y los textos tapaban la cara). */
+       (antes iba pegado a la derecha y los textos tapaban la cara). Se necesita
+       especificidad + !important porque `.home-viewport-wrap .hero-cta-wrap` usa
+       inset:0 !important, que ganaba. */
+    .home-viewport-wrap .hero-cta-wrap,
     .hero-cta-wrap {
-        left: 7%;
-        right: auto;
-        bottom: auto;
-        top: 50%;
-        transform: translateY(-50%);
-        max-width: 440px;
-        width: min(440px, 44vw);
+        left: 7% !important;
+        right: auto !important;
+        bottom: auto !important;
+        top: 50% !important;
+        inset: auto !important;
+        transform: translateY(-50%) !important;
+        max-width: 440px !important;
+        width: min(440px, 44vw) !important;
+        justify-content: flex-start !important;
+        align-items: stretch !important;
     }
     /* Scrim para que el texto se lea sobre la foto sin taparla del todo */
     .home-viewport-wrap .landing-hero-full::before {
