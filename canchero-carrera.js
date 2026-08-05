@@ -111,6 +111,49 @@ const CIUDADES = {
 };
 const TIERS_ORDER = ['Interior Uruguay','Primera Nacional (ARG)','Primera Chile','Primera Colombia','HNL (Croacia)','Bundesliga (AUT)','Primera Uruguay','J-League (JPN)','Liga MX (MEX)','MLS (USA)','Süper Lig (TUR)','Jupiler Pro (BEL)','Eredivisie (NED)','Primeira (POR)','Liga Profesional (ARG)','Saudi Pro League','Ligue 1 (FRA)','Serie A (ITA)','Bundesliga (ALE)','Premier (ING)','LaLiga (ESP)','Brasileirão'];
 function ligaNivel(liga){ const i = TIERS_ORDER.indexOf(liga); return i<0?0:i; }
+// Título de LIGA por país + copas nacionales/internacionales COHERENTES (nada de Champions
+// con un club chileno). Cada liga define su torneo local, su copa nacional y a qué copa
+// internacional clasifican sus mejores. Amateur no tiene copas internacionales.
+const LIGA_TROFEOS = {
+  'Primera Uruguay':      { local:'Campeonato Uruguayo', copaNac:'Copa AUF', inter:'Copa Libertadores', interLite:'Copa Sudamericana' },
+  'Interior Uruguay':     { local:'Liga del Interior', copaNac:'Copa Nacional' },
+  'Primera Nacional (ARG)':{ local:'Primera Nacional', copaNac:'Copa Argentina' },
+  'Liga Profesional (ARG)':{ local:'Liga Profesional', copaNac:'Copa Argentina', inter:'Copa Libertadores', interLite:'Copa Sudamericana' },
+  'Brasileirão':          { local:'Brasileirão', copaNac:'Copa do Brasil', inter:'Copa Libertadores', interLite:'Copa Sudamericana' },
+  'LaLiga (ESP)':         { local:'LaLiga', copaNac:'Copa del Rey', inter:'Champions League', interLite:'Europa League' },
+  'Premier (ING)':        { local:'Premier League', copaNac:'FA Cup', inter:'Champions League', interLite:'Europa League' },
+  'Serie A (ITA)':        { local:'Serie A', copaNac:'Copa Italia', inter:'Champions League', interLite:'Europa League' },
+  'Ligue 1 (FRA)':        { local:'Ligue 1', copaNac:'Copa de Francia', inter:'Champions League', interLite:'Europa League' },
+  'Bundesliga (ALE)':     { local:'Bundesliga', copaNac:'DFB-Pokal', inter:'Champions League', interLite:'Europa League' },
+  'Primeira (POR)':       { local:'Primeira Liga', copaNac:'Copa de Portugal', inter:'Champions League', interLite:'Europa League' },
+  'Eredivisie (NED)':     { local:'Eredivisie', copaNac:'KNVB Beker', inter:'Champions League', interLite:'Europa League' },
+  'Jupiler Pro (BEL)':    { local:'Jupiler Pro League', copaNac:'Copa de Bélgica', inter:'Champions League', interLite:'Conference League' },
+  'Süper Lig (TUR)':      { local:'Süper Lig', copaNac:'Copa de Turquía', inter:'Champions League', interLite:'Europa League' },
+  'Liga MX (MEX)':        { local:'Liga MX', copaNac:'Copa MX', inter:'Concachampions' },
+  'MLS (USA)':            { local:'MLS Cup', copaNac:'US Open Cup', inter:'Concachampions' },
+  'Primera Chile':        { local:'Primera División de Chile', copaNac:'Copa Chile', inter:'Copa Libertadores', interLite:'Copa Sudamericana' },
+  'Primera Colombia':     { local:'Liga Colombiana', copaNac:'Copa Colombia', inter:'Copa Libertadores', interLite:'Copa Sudamericana' },
+  'HNL (Croacia)':        { local:'HNL', copaNac:'Copa de Croacia', inter:'Champions League', interLite:'Conference League' },
+  'Bundesliga (AUT)':     { local:'Bundesliga Austríaca', copaNac:'Copa de Austria', inter:'Champions League', interLite:'Europa League' },
+  'J-League (JPN)':       { local:'J1 League', copaNac:'Copa del Emperador', inter:'Champions League de Asia' },
+  'Saudi Pro League':     { local:'Saudi Pro League', copaNac:"King's Cup", inter:'Champions League de Asia' }
+};
+function trofeosDe(liga){ return LIGA_TROFEOS[liga] || { local: liga, copaNac: 'Copa Nacional' }; }
+// Slug de imagen de trofeo (img/trofeos) según nombre. Fallback a un genérico.
+function trofeoImgSlug(nombre){
+  const n = (nombre||'').toLowerCase();
+  if (n.includes('champions')) return 'champions';
+  if (n.includes('libertadores')) return 'libertadores';
+  if (n.includes('europa')) return 'europa';
+  if (n.includes('sudamericana')) return 'sudamericana';
+  if (n.includes('laliga')) return 'laliga';
+  if (n.includes('premier')) return 'premier';
+  if (n.includes('ligue')) return 'ligue1';
+  if (n.includes('brasil')) return 'copa-brasil';
+  if (n.includes('argentin')) return 'copa-argentina';
+  if (n.includes('uruguay')) return 'liga-uy';
+  return 'trofeo';
+}
 function todosClubs(){ const out=[]; LIGAS.forEach(L=>L.clubs.forEach(c=>out.push({name:c[0],str:c[1],liga:L.liga,pais:L.pais}))); return out; }
 // Nombre de club → slug del escudo (img/clubs). Los que no están usan iniciales.
 const NAMESLUG = {
@@ -264,13 +307,24 @@ window._carreraLen = function(){
         <div style="font-size:10px;color:#666;margin-top:3px;">hasta los ${16+y}</div>
       </button>`).join('')}
     </div>
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:16px;color:#fff;margin:22px 0 4px;">Intensidad de decisiones</div>
+    <div style="font-size:12px;color:#8a8f96;margin-bottom:12px;">Cuántas decisiones vas a tomar por temporada.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;" id="cr-dif-row">
+      ${[['intenso','Intenso','4 por temporada','#ff5555'],['normal','Normal','1 por temporada',A],['leve','Leve','1 cada 2 años','#4fc3f7']].map(d=>`<button data-dif="${d[0]}" onclick="window._crDif='${d[0]}';document.querySelectorAll('#cr-dif-row button').forEach(function(b){b.style.borderColor='#262626';b.style.background='rgba(255,255,255,.04)'});this.style.borderColor='${d[3]}';this.style.background='rgba(255,255,255,.08)';" style="background:${'rgba(255,255,255,.04)'};border:1.5px solid ${'#262626'};border-radius:14px;padding:12px 8px;cursor:pointer;text-align:center;">
+        <div style="font-weight:900;font-size:14px;color:${d[3]};">${d[1]}</div>
+        <div style="font-size:10px;color:#999;margin-top:3px;">${d[2]}</div>
+      </button>`).join('')}
+    </div>
   </div>`;
+  if(!window._crDif) window._crDif='normal';
+  setTimeout(function(){ var b=document.querySelector('#cr-dif-row button[data-dif="'+(window._crDif)+'"]'); if(b){ b.style.borderColor=A; b.style.background='rgba(255,255,255,.08)'; } },30);
 };
 
 // ── IDENTIDAD ───────────────────────────────────────────────────────────────────
 let _draft=null;
 window._carreraIdent = function(years){
   _draft = _draft || { years, apellido:(me().name||'').split(' ').slice(-1)[0]||'', num:10, pie:'Derecha', pais:(me().nat||me().country||'Uruguay'), pos:'DC', filtro:'' };
+  _draft.dif = window._crDif || 'normal';
   _draft.years = years;
   renderIdent();
 };
@@ -367,7 +421,8 @@ window._carreraFichar = function(i){
     apellido:d.apellido, num:d.num, pie:d.pie, pais:d.pais, pos:d.pos, years:d.years,
     edad:16, nivel:base, club:c.name, liga:c.liga, clubStr:c.str, clubPais:c.pais,
     dinero:0, valor:100000, fama:5, moral:72, titulos:0, temporada:1,
-    tot:{pj:0,g:0,a:0}, timeline:[], hist:[], creado:Date.now()
+    tot:{pj:0,g:0,a:0}, timeline:[], hist:[], vitrina:[], clasificadoInter:false,
+    dif:(d.dif||'normal'), creado:Date.now()
   };
   save(); window._carreraHub();
 };
@@ -377,8 +432,7 @@ window._carreraHub = function(){
   if(!G) G=load(); if(!G){ window._carreraStart(); return; }
   const m=document.getElementById('carrera-modal')||overlay();
   const [c1,c2]=kitOf(G.pais);
-  const rows=[]; for(let e=16;e<=16+G.years;e+=2){ rows.push(e); }
-  const tl = {}; (G.timeline||[]).forEach(t=>{ tl[t.edad]=t; });
+  const tline = (G.timeline||[]).slice().sort((a,b)=>a.edad-b.edad);
   m.innerHTML=`
   <div style="max-width:1040px;margin:0 auto;padding:16px 16px calc(96px + env(safe-area-inset-bottom));">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
@@ -405,18 +459,24 @@ window._carreraHub = function(){
         </div>
         <button onclick="window._carreraTemporada()" style="width:100%;margin-top:14px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:12px;padding:14px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">${G.edad>=16+G.years?'VER RETIRO':'JUGAR TEMPORADA '+G.temporada}  <i class='bx bx-right-arrow-alt'></i></button>
       </div>
-      <!-- Línea de tiempo -->
+      <!-- Línea de tiempo: TODAS las temporadas jugadas, con posición y trofeo -->
       <div style="background:rgba(255,255,255,.03);border:1px solid #1c1c1c;border-radius:16px;padding:8px 14px;">
-        <div style="display:flex;font-size:10px;font-weight:800;color:#666;padding:8px 0;border-bottom:1px solid #1c1c1c;"><span style="width:34px;">EDAD</span><span style="flex:1;">CLUB</span><span style="width:38px;text-align:center;">NIV</span><span style="width:32px;text-align:center;">PJ</span><span style="width:32px;text-align:center;">GLS</span><span style="width:32px;text-align:center;">AST</span></div>
-        ${rows.map(e=>{ const t=tl[e]; return `<div style="display:flex;align-items:center;font-size:12px;padding:9px 0;border-bottom:1px solid #131313;color:${t?'#fff':'#3a3a3a'};">
-          <span style="width:34px;font-weight:800;">${e}</span>
-          <span style="flex:1;display:flex;align-items:center;gap:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t?clubBadge(t.club,20)+' '+esc(t.club):'—'}</span>
-          <span style="width:38px;text-align:center;font-weight:900;color:${t?A:'#3a3a3a'};">${t?t.niv:''}</span>
-          <span style="width:32px;text-align:center;">${t?t.pj:''}</span>
-          <span style="width:32px;text-align:center;">${t?t.g:''}</span>
-          <span style="width:32px;text-align:center;">${t?t.a:''}</span>
-        </div>`; }).join('')}
+        <div style="font-size:11px;font-weight:900;color:#9aa0a6;letter-spacing:.5px;padding:4px 0 8px;">HISTORIAL POR TEMPORADA</div>
+        <div style="display:flex;font-size:10px;font-weight:800;color:#666;padding:6px 0;border-bottom:1px solid #1c1c1c;"><span style="width:30px;">EDAD</span><span style="flex:1;">CLUB</span><span style="width:34px;text-align:center;">POS</span><span style="width:30px;text-align:center;">NIV</span><span style="width:28px;text-align:center;">PJ</span><span style="width:28px;text-align:center;">GLS</span><span style="width:28px;text-align:center;">AST</span></div>
+        ${tline.length?tline.map(t=>`<div style="display:flex;align-items:center;font-size:12px;padding:9px 0;border-bottom:1px solid #131313;color:#fff;">
+          <span style="width:30px;font-weight:800;">${t.edad}</span>
+          <span style="flex:1;display:flex;align-items:center;gap:7px;min-width:0;"><span style="flex-shrink:0;">${clubBadge(t.club,20)}</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.club)}</span>${t.titulo?`<i class='bx bxs-trophy' title="${esc(t.titulo)}" style="color:${A};font-size:13px;flex-shrink:0;"></i>`:''}</span>
+          <span style="width:34px;text-align:center;font-weight:800;color:${t.pos===1?A:t.pos<=4?'#4fc3f7':'#999'};">${t.pos?t.pos+'º':'—'}</span>
+          <span style="width:30px;text-align:center;font-weight:900;color:${A};">${t.niv}</span>
+          <span style="width:28px;text-align:center;">${t.pj}</span>
+          <span style="width:28px;text-align:center;">${t.g}</span>
+          <span style="width:28px;text-align:center;">${t.a}</span>
+        </div>`).join(''):`<div style="text-align:center;padding:24px;color:#555;font-size:12px;">Jugá tu primera temporada para ver tu historial.</div>`}
       </div>
+      ${(G.vitrina&&G.vitrina.length)?`<div style="background:rgba(255,255,255,.03);border:1px solid #1c1c1c;border-radius:16px;padding:14px;">
+        <div style="font-size:11px;font-weight:900;color:#9aa0a6;letter-spacing:.5px;margin-bottom:10px;"><i class='bx bxs-trophy' style="color:${A};"></i> VITRINA · ${G.vitrina.length} título${G.vitrina.length!==1?'s':''}</div>
+        <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;">${G.vitrina.map(v=>`<div style="flex-shrink:0;width:78px;text-align:center;"><img src="img/trofeos/${trofeoImgSlug(v.nombre)}.webp" onerror="this.onerror=null;this.src='img/trofeos/champions.webp'" style="height:54px;object-fit:contain;filter:drop-shadow(0 4px 10px rgba(186,255,0,.25));"><div style="font-size:9px;color:#ccc;font-weight:700;margin-top:4px;line-height:1.2;">${esc(v.nombre)}</div><div style="font-size:8px;color:#666;">${v.edad} años</div></div>`).join('')}</div>
+      </div>`:''}
     </div>
   </div>`;
 };
@@ -424,30 +484,50 @@ window._carreraHub = function(){
 // ── TEMPORADA (simulación + decisión) ────────────────────────────────────────────
 window._carreraTemporada = function(){
   if(G.edad>=16+G.years) return retiro();
-  // Simular rendimiento de la temporada según nivel, posición y fuerza del club.
-  const pj = ri(22,34);
+  // ── Rendimiento individual ──
+  const pj = ri(24,36);
   const atk = {POR:0.02,DFC:0.05,LI:0.08,LD:0.08,MCD:0.12,MI:0.35,MD:0.35,MC:0.25,MCO:0.5,EI:0.55,ED:0.55,DC:0.75}[G.pos]||0.3;
   const factor = (G.nivel/100) * (0.7+Math.random()*0.6);
   const g = Math.round(pj*atk*factor);
   const a = Math.round(pj*(atk*0.6+0.1)*factor);
   G.tot.pj+=pj; G.tot.g+=g; G.tot.a+=a;
-  // Crecimiento/decadencia por edad.
-  let dN; if(G.edad<24) dN=ri(2,5); else if(G.edad<30) dN=ri(0,3); else if(G.edad<33) dN=ri(-1,2); else dN=ri(-4,0);
-  // Bonus por buena temporada.
-  const rend=(g+a)/pj; if(rend>0.6) dN+=2; else if(rend>0.35) dN+=1;
+  const rend=(g+a)/pj;                        // rendimiento 0..~1.3
+  // ── Nivel: CURVA por edad (sube joven, se estanca, baja de grande) + rendimiento ──
+  let dN;
+  if(G.edad<=20) dN=ri(2,5); else if(G.edad<=24) dN=ri(1,4); else if(G.edad<=28) dN=ri(0,2);
+  else if(G.edad<=31) dN=ri(-1,1); else if(G.edad<=34) dN=ri(-3,0); else dN=ri(-5,-1);
+  if(rend>0.6) dN+=2; else if(rend>0.35) dN+=1; else if(rend<0.15) dN-=1;   // el bajo rendimiento penaliza
   G.nivel=clamp(G.nivel+dN,30,99);
-  // Título (probabilidad por fuerza del club y nivel).
-  const gano = Math.random() < clamp((G.clubStr-55)/100 + (G.nivel-50)/200, 0.05, 0.6);
-  if(gano) G.titulos++;
-  // Valor de mercado.
-  const edadFactor = G.edad<28?1.2:G.edad<32?0.8:0.4;
-  G.valor = Math.round((G.nivel**2.4)*edadFactor*20);
-  // Registrar en timeline.
-  G.timeline.push({ edad:G.edad, club:G.club, niv:Math.round(G.nivel), pj, g, a, titulo:gano });
+  // ── POSICIÓN en la liga: depende de fuerza del club + tu aporte + azar ──
+  const clubs = (LIGAS.find(L=>L.liga===G.liga)||{}).clubs || [];
+  const totalEq = Math.max(6, clubs.length);
+  // Fuerza esperada del club (ranking) + tu aporte relativo → posición.
+  const strengths = clubs.map(c=>c[1]).sort((a,b)=>b-a);
+  let baseRank = strengths.indexOf(G.clubStr); if(baseRank<0) baseRank = Math.floor(totalEq/2);
+  const aporte = clamp((rend-0.3)*4 + (G.nivel-G.clubStr)/12, -2.5, 2.5);   // buen jugador sube al equipo
+  let pos = Math.round(baseRank+1 - aporte + rnd(-1.5,1.5));
+  pos = clamp(pos, 1, totalEq);
+  // ── TÍTULOS coherentes con la liga ──
+  const T = trofeosDe(G.liga);
+  let titulo=null, copa=null;
+  if(pos===1){ titulo=T.local; }                                            // campeón de liga
+  // Copa nacional: chance según fuerza del club, independiente de la posición.
+  else if(T.copaNac && Math.random() < clamp((G.clubStr-60)/120,0.03,0.35)){ titulo=T.copaNac; }
+  // Copa internacional: solo si el club es grande Y clasificó (salió arriba el año pasado).
+  if(G.clasificadoInter && T.inter && Math.random() < clamp((G.clubStr-72)/90,0,0.35)){ titulo = titulo||T.inter; }
+  if(titulo){ G.titulos++; if(!G.vitrina) G.vitrina=[]; G.vitrina.push({ nombre:titulo, edad:G.edad, club:G.club, img:trofeoImgSlug(titulo) }); }
+  // Clasificación a copa internacional del PRÓXIMO año según puesto.
+  G.clasificadoInter = (pos<=4 && ligaNivel(G.liga)>=6);
+  const clasifText = (T.inter && pos<=4 && ligaNivel(G.liga)>=6) ? ('Clasificaste a '+T.inter)
+                   : (T.interLite && pos<=6 && ligaNivel(G.liga)>=6) ? ('Clasificaste a '+T.interLite) : null;
+  // ── Valor de mercado ──
+  const edadFactor = G.edad<28?1.25:G.edad<32?0.85:0.45;
+  G.valor = Math.round((G.nivel**2.4)*edadFactor*20 + G.titulos*80000);
+  // ── Timeline COMPLETO (una fila por temporada, con posición y trofeo) ──
+  G.timeline.push({ edad:G.edad, temporada:G.temporada, club:G.club, liga:G.liga, niv:Math.round(G.nivel), pj, g, a, dN, pos, totalEq, titulo, clasif:clasifText });
   G.temporada++; G.edad++;
   save();
-  // Mostrar resumen de temporada + evento de decisión.
-  resumenTemporada({pj,g,a,gano,dN});
+  resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText});
 };
 
 function resumenTemporada(r){
@@ -456,19 +536,38 @@ function resumenTemporada(r){
   <div style="max-width:520px;margin:0 auto;padding:30px 22px calc(30px + env(safe-area-inset-bottom));min-height:100%;display:flex;flex-direction:column;">
     <div style="text-align:center;margin-bottom:18px;">
       <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};">TEMPORADA ${G.temporada-1} · ${G.edad-1} AÑOS</div>
-      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;color:#fff;margin-top:4px;">${esc(G.club)}</div>
-      ${r.gano?`<div style="margin-top:12px;display:flex;flex-direction:column;align-items:center;">
-        <img src="img/trofeos/${trofeoDe(G.liga)}.webp" alt="" style="height:96px;object-fit:contain;filter:drop-shadow(0 8px 20px rgba(186,255,0,.35));animation:crTrophy .7s cubic-bezier(.2,1.4,.4,1) both;" onerror="this.style.display='none'">
-        <div style="margin-top:6px;font-size:14px;font-weight:900;color:${A};letter-spacing:1px;"><i class='bx bx-trophy'></i> ¡CAMPEÓN!</div>
-      </div><style>@keyframes crTrophy{0%{transform:scale(.3) rotate(-12deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}</style>`:''}
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px;">${clubBadge(G.club,26)}<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:20px;color:#fff;">${esc(G.club)}</div></div>
+      <div style="font-size:12px;color:#9aa0a6;margin-top:2px;">${esc(G.liga)} · ${posLabel(r.pos)} de ${r.totalEq}</div>
+      ${r.titulo?`<div style="margin-top:14px;display:flex;flex-direction:column;align-items:center;">
+        <img src="img/trofeos/${trofeoImgSlug(r.titulo)}.webp" alt="" style="height:100px;object-fit:contain;filter:drop-shadow(0 8px 22px rgba(186,255,0,.4));animation:crTrophy .7s cubic-bezier(.2,1.4,.4,1) both;" onerror="this.onerror=null;this.src='img/trofeos/champions.webp';this.style.opacity=.9">
+        <div style="margin-top:8px;font-size:16px;font-weight:900;color:${A};letter-spacing:.5px;animation:crPop .5s .2s both;"><i class='bx bxs-trophy'></i> ¡${esc(r.titulo)}!</div>
+        <div style="font-size:11px;color:#8a8f96;margin-top:2px;">Campeón con ${esc(G.club)}</div>
+      </div><style>@keyframes crTrophy{0%{transform:scale(.3) rotate(-12deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}@keyframes crPop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}</style>`:''}
+      ${r.clasif?`<div style="margin-top:12px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#4fc3f7;background:rgba(79,195,247,.1);border:1px solid rgba(79,195,247,.3);border-radius:20px;padding:5px 12px;"><i class='bx bx-star'></i> ${esc(r.clasif)}</div>`:''}
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;">
       ${st('PJ',r.pj)}${st('GOLES',r.g)}${st('ASIST',r.a)}${st('NIVEL',(r.dN>=0?'+':'')+r.dN)}
     </div>
     <div id="cr-evwrap"></div>
   </div>`;
-  setTimeout(()=>mostrarEvento(),50);
+  // Decisiones de esta temporada según dificultad.
+  G._evLeft = decisionsForSeason();
+  if(G._evLeft>0){ setTimeout(()=>mostrarEvento(),50); }
+  else { const w=document.getElementById('cr-evwrap'); if(w) w.innerHTML=contBtn(); }
 }
+function decisionsForSeason(){
+  const d=(G&&G.dif)||'normal';
+  if(d==='intenso') return 4;
+  if(d==='leve') return (G.temporada%2===0)?1:0;
+  return 1;
+}
+function contBtn(){ return `<div style="text-align:center;padding:6px 0;"><button onclick="window._carreraHub()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 30px;font-weight:900;cursor:pointer;">Continuar <i class='bx bx-right-arrow-alt'></i></button></div>`; }
+// Tras resolver una decisión: si quedan decisiones esta temporada, mostrar otra; si no, al hub.
+window._carreraContinuar = function(){
+  if(G && G._evLeft>0){ mostrarEvento(); }
+  else { window._carreraHub(); }
+};
+function posLabel(pos){ return pos===1?'1º 🏆':(pos+'º'); }
 function st(l,v){ return `<div style="background:rgba(255,255,255,.04);border:1px solid #1e1e1e;border-radius:12px;padding:11px 4px;text-align:center;"><div style="font-size:9px;color:#666;font-weight:800;">${l}</div><div style="font-size:19px;font-weight:900;color:${A};">${esc(v)}</div></div>`; }
 
 // Sueldo/años/prima de una oferta según fuerza del club y azar (da variedad entre ofertas).
@@ -481,6 +580,7 @@ function ofertaDe(c){
 // Eventos de decisión (reusa impronta anterior + transferencias reales con VARIAS ofertas).
 function mostrarEvento(){
   const wrap=document.getElementById('cr-evwrap'); if(!wrap) return;
+  if(G) G._evLeft = Math.max(0, (G._evLeft||1) - 1);   // consume una decisión de la temporada
   // A veces: ofertas de transferencia (hasta 4 clubes distintos para ELEGIR).
   const mejores = todosClubs().filter(c=>c.str>G.clubStr+2 && ligaNivel(c.liga)>=ligaNivel(G.liga) && G.nivel>=c.str-9 && c.name!==G.club);
   const ofertaTransfer = mejores.length && Math.random()<0.5 && G.edad<34;
@@ -604,7 +704,7 @@ window._carreraElegirOferta = function(kind, i){
   G.fama=clamp(G.fama,0,100); G.moral=clamp(G.moral,0,100); G.dinero=Math.max(0,G.dinero);
   G._offers=null; G._renov=null; save();
   const wrap=document.getElementById('cr-evwrap');
-  if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:10px 0;"><div style="font-size:15px;color:#fff;font-weight:700;margin-bottom:16px;line-height:1.5;">${msg}</div><button onclick="window._carreraHub()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 28px;font-weight:900;cursor:pointer;">Continuar</button></div>`;
+  if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:10px 0;"><div style="font-size:15px;color:#fff;font-weight:700;margin-bottom:16px;line-height:1.5;">${msg}</div><button onclick="window._carreraContinuar()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 28px;font-weight:900;cursor:pointer;">Continuar</button></div>`;
 };
 // Compat: viejos guardados que quedaron a mitad de camino.
 window._carreraTransfer = function(go,name,str,liga,pais){
@@ -742,7 +842,7 @@ window._carreraElegir = function(i){
   G.nivel=clamp(G.nivel,30,99); G.fama=clamp(G.fama,0,100); G.moral=clamp(G.moral,0,100); G.dinero=Math.max(0,G.dinero);
   G.hist.push({t:ev.t,res}); save();
   const wrap=document.getElementById('cr-evwrap');
-  if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:6px 0;"><div style="font-size:15px;color:#fff;font-weight:700;line-height:1.5;margin-bottom:16px;">${esc(res)}</div><button onclick="window._carreraHub()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 28px;font-weight:900;cursor:pointer;">Continuar</button></div>`;
+  if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:6px 0;"><div style="font-size:15px;color:#fff;font-weight:700;line-height:1.5;margin-bottom:16px;">${esc(res)}</div><button onclick="window._carreraContinuar()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 28px;font-weight:900;cursor:pointer;">Continuar</button></div>`;
 };
 
 function retiro(){
