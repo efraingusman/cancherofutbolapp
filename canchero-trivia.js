@@ -96,7 +96,7 @@ let S = null; // estado de la partida
 function _overlay(){
   let m = document.getElementById('trivia-modal'); if (m) m.remove();
   m = document.createElement('div'); m.id = 'trivia-modal';
-  m.style.cssText = 'position:fixed;inset:0;z-index:100060;background:radial-gradient(120% 90% at 50% 0%,#0e1a0a,#070707 70%);overflow-y:auto;-webkit-overflow-scrolling:touch;';
+  m.style.cssText = "position:fixed;inset:0;z-index:100060;background:linear-gradient(rgba(7,7,7,0.72),rgba(7,7,7,0.88)),url('img/games-bg/trivia.webp') center/cover no-repeat;overflow-y:auto;-webkit-overflow-scrolling:touch;";
   document.body.appendChild(m);
   return m;
 }

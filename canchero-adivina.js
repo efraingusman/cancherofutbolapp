@@ -114,7 +114,7 @@ window._advToggleDuel = function(btn){
 window._advPickLevel = function(){
   let m=document.getElementById('adv-level'); if(m)m.remove();
   m=document.createElement('div'); m.id='adv-level';
-  m.style.cssText='position:fixed;left:0;right:0;bottom:0;top:'+(window._navH?window._navH():0)+'px;z-index:9958;background:#0a0a0a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:10px;';
+  m.style.cssText='position:fixed;left:0;right:0;bottom:0;top:'+(window._navH?window._navH():0)+'px;z-index:9958;background:linear-gradient(rgba(10,10,10,0.72),rgba(10,10,10,0.90)),url(img/games-bg/adivina.webp) center/cover no-repeat;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:10px;';
   const NAMES=['Aficionado','Hincha','Canchero','Crack','Leyenda'];
   m.innerHTML='<div style="font-size:11px;color:var(--accent);font-weight:900;letter-spacing:2px;">ADIVINA EL JUGADOR</div>'+
     '<div style="font-size:19px;font-weight:900;color:#fff;margin-bottom:2px;">Elegí la dificultad</div>'+
@@ -274,7 +274,7 @@ async function _advEnd(){
   }
   let m=document.getElementById('adivina-pro'); if(m)m.remove();
   m=document.createElement('div'); m.id='adivina-pro';
-  m.style.cssText='position:fixed;left:0;right:0;bottom:0;top:'+(window._navH?window._navH():0)+'px;z-index:9960;background:#0a0a0a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;overflow-y:auto;';
+  m.style.cssText='position:fixed;left:0;right:0;bottom:0;top:'+(window._navH?window._navH():0)+'px;z-index:9960;background:linear-gradient(rgba(10,10,10,0.72),rgba(10,10,10,0.90)),url(img/games-bg/adivina.webp) center/cover no-repeat;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;overflow-y:auto;';
   m.innerHTML=`
     <div style="font-size:64px;">${A.score>=max*0.6?'🏆':A.score>=max*0.35?'⚽':'🧤'}</div>
     <div style="font-size:13px;color:#888;letter-spacing:1px;">PUNTAJE FINAL</div>

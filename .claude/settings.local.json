@@ -41,7 +41,20 @@
       "Bash(sed -i 's/canchero-carrera.js?v=20260804l/canchero-carrera.js?v=20260805a/' index.html)",
       "Bash(sed -i \"s/const CACHE_NAME = 'canchero-v447'/const CACHE_NAME = 'canchero-v448'/\" sw.js)",
       "Bash(cp img/clubs/barcelona.webp img/clubs/barcelona-sc-ecuador.webp)",
-      "Bash(cp img/clubs/barcelona.png img/clubs/barcelona-sc-ecuador.png)"
+      "Bash(cp img/clubs/barcelona.png img/clubs/barcelona-sc-ecuador.png)",
+      "Bash(ls /tmp/escudos/laliga/ | grep -v MACOSX; echo \"---\"; ls /tmp/escudos/bundesliga/ | grep -v MACOSX | head -20; echo \"---\"; ls /tmp/escudos/ligue1/ | grep -v MACOSX | head -20; echo \"---\"; ls /tmp/escudos/eredivisie/ | grep -v MACOSX | head -12; echo \"---j1---\"; ls /tmp/escudos/j1league/ | grep -v MACOSX | head -20; echo \"---ligamx---\"; ls /tmp/escudos/ligamx/ | grep -v MACOSX | head -20)",
+      "Bash(ls /tmp/escudos/ligapremier/ 2>/dev/null | grep -v MACOSX | head -25; echo \"---sudam?---\"; ls \"/c/Users/Cliente/Downloads/assets canchero leyenda/escudos/\" | grep -iE \"^copadeprim|^ligamayor|^liga1\" | head)",
+      "Bash(unzip -l \"/c/Users/Cliente/Downloads/assets canchero leyenda/escudos/copadeprimera.zip\")",
+      "Bash(unzip -l \"/c/Users/Cliente/Downloads/assets canchero leyenda/escudos/ligamayor.zip\")",
+      "Bash(unzip -l \"/c/Users/Cliente/Downloads/assets canchero leyenda/escudos/liga1.zip\")",
+      "Bash(node _dev/import-crests.js)",
+      "Bash(ls /tmp/escudos/ 2>&1 | head; echo \"---laliga---\"; ls /tmp/escudos/laliga/ 2>&1 | head -3)",
+      "Bash(ls \"/tmp/escudos/primeradivision\" 2>&1 | head; echo \"---\"; ls \"/tmp/escudos/premier\" 2>&1 | head -3)",
+      "Bash(node -e 'const fs=require\\(\"fs\"\\); console.log\\(\"cwd\",process.cwd\\(\\)\\); console.log\\(\"exists /tmp/escudos/laliga/barcelona.png\",fs.existsSync\\(\"/tmp/escudos/laliga/barcelona.png\"\\)\\); const p=require\\(\"path\"\\).resolve\\(\"/tmp/escudos\"\\); console.log\\(\"resolved\",p\\);')",
+      "Bash(mkdir -p _dev/escudos_tmp)",
+      "Bash(cp -r /tmp/escudos/* _dev/escudos_tmp/)",
+      "Bash(node -e 'console.log\\(require\\(\"fs\"\\).existsSync\\(require\\(\"path\"\\).resolve\\(\"_dev/escudos_tmp/laliga/barcelona.png\"\\)\\)\\)')",
+      "Bash(node _dev/import-assets.js)"
     ]
   }
 }

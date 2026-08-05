@@ -29,7 +29,7 @@ window._onceStart = function(challenge){
   if (!challenge && !window.__onceModePicked){
     let mm=document.getElementById('once-mode'); if(mm)mm.remove();
     mm=document.createElement('div'); mm.id='once-mode';
-    mm.style.cssText='position:fixed;left:0;right:0;bottom:0;top:'+(window._navH?window._navH():0)+'px;z-index:9958;background:#0a0a0a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:12px;';
+    mm.style.cssText="position:fixed;left:0;right:0;bottom:0;top:"+(window._navH?window._navH():0)+"px;z-index:9958;background:linear-gradient(rgba(10,10,10,0.75),rgba(10,10,10,0.92)),url('img/games-bg/once-ideal.webp') center/cover no-repeat;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:12px;";
     mm.innerHTML='<div style="font-size:11px;color:var(--accent);font-weight:900;letter-spacing:2px;">11 IDEAL</div>'+
       '<div style="font-size:19px;font-weight:900;color:#fff;margin-bottom:8px;">¿Cómo querés jugar?</div>'+
       '<button onclick="this.parentElement.remove();window.__onceModePicked=1;window._onceStart();window.__onceModePicked=0;" style="width:100%;max-width:320px;background:var(--accent);color:#000;border:none;border-radius:14px;padding:16px;font-weight:900;font-size:15px;cursor:pointer;font-family:inherit;">🎮 JUGAR SOLO (vs IA)</button>'+

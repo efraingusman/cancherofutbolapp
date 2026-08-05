@@ -140,19 +140,47 @@ const LIGA_TROFEOS = {
 };
 function trofeosDe(liga){ return LIGA_TROFEOS[liga] || { local: liga, copaNac: 'Copa Nacional' }; }
 // Slug de imagen de trofeo (img/trofeos) según nombre. Fallback a un genérico.
+// Cada nombre de torneo → slug del PNG real que subió el usuario a img/trofeos/.
+// Ojo: mapping estricto (evita "Champions con Cobreloa"). Se resuelve por incluir keywords
+// específicas del torneo, en orden de PRIORIDAD (más específicas primero).
 function trofeoImgSlug(nombre){
   const n = (nombre||'').toLowerCase();
+  // Internacionales
+  if (n.includes('mundial de clubes') || n.includes('mundial clubes')) return 'mundial-clubes';
+  if (n.includes('intercontinental')) return 'intercontinental';
   if (n.includes('champions')) return 'champions';
   if (n.includes('libertadores')) return 'libertadores';
-  if (n.includes('europa')) return 'europa';
+  if (n.includes('europa league') || n.includes('europa')) return 'europa';
   if (n.includes('sudamericana')) return 'sudamericana';
-  if (n.includes('laliga')) return 'laliga';
+  // Selecciones
+  if (n.includes('mundial')) return 'mundial';
+  if (n.includes('eurocopa') || n.includes('eurocup')) return 'eurocopa';
+  if (n.includes('copa américa') || n.includes('copa america')) return 'copa-america';
+  if (n.includes('olímpico') || n.includes('olimpic')) return 'oro-olimpico';
+  // Ligas nacionales
+  if (n.includes('laliga') || n.includes('la liga')) return 'laliga';
   if (n.includes('premier')) return 'premier';
-  if (n.includes('ligue')) return 'ligue1';
+  if (n.includes('ligue') || n.includes('francia')) return 'ligue1';
+  if (n.includes('serie a') || n.includes('coppa italia') || n.includes('copa italia')) return 'coppa-italia';
+  if (n.includes('portugal')) return 'copa-portugal';
+  if (n.includes('bundesliga') || n.includes('alemana')) return 'coppa-italia'; // fallback
   if (n.includes('brasil')) return 'copa-brasil';
+  if (n.includes('copa argentina') || n.includes('copa arg')) return 'copa-argentina';
   if (n.includes('argentin')) return 'copa-argentina';
-  if (n.includes('uruguay')) return 'liga-uy';
-  return 'trofeo';
+  if (n.includes('chile')) return 'copa-chile';
+  if (n.includes('uruguay') || n.includes('uruguayo')) return 'liga-uy';
+  return 'champions';
+}
+// Premios individuales — se mostrarán como logros aparte.
+function premioImgSlug(nombre){
+  const n = (nombre||'').toLowerCase();
+  if (n.includes('balón de oro') || n.includes('balon de oro')) return 'balon-oro';
+  if (n.includes('the best')) return 'the-best';
+  if (n.includes('fifa mejor') || n.includes('mejor jugador de la fifa')) return 'fifa-mejor';
+  if (n.includes('bota de oro')) return 'bota-oro';
+  if (n.includes('guante')) return 'guante-oro';
+  if (n.includes('joven')) return 'mejor-joven';
+  return null;
 }
 function todosClubs(){ const out=[]; LIGAS.forEach(L=>L.clubs.forEach(c=>out.push({name:c[0],str:c[1],liga:L.liga,pais:L.pais}))); return out; }
 // Nombre de club → slug del escudo (img/clubs). Los que no están usan iniciales.
@@ -255,15 +283,17 @@ function jersey(size, apellido, numero, pais){
   }
   const apeUp = esc((apellido||'APELLIDO').toUpperCase()).slice(0,14);
   const num   = esc(String(numero||10)).slice(0,2);
-  const apeLen = Math.min(120, 10*apeUp.length);
-  const numLen = num.length>=2 ? 62 : 34;
-  return `<div style="position:relative;width:${s}px;height:${s}px;display:inline-block;">
+  const apeLen = Math.min(140, 11*apeUp.length);
+  const numLen = num.length>=2 ? 92 : 50;
+  // Sin ningún background alrededor (transparent). Nombre MÁS ARRIBA (y=82) y número
+  // MÁS GRANDE (font 76) — más parecido a camiseta real.
+  return `<div style="position:relative;width:${s}px;height:${s}px;display:inline-block;background:transparent;">
     <div style="position:absolute;inset:0;background:${base};${maskCSS}"></div>
     ${pattern}
-    <img src="${JERSEY_PNG}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;pointer-events:none;">
-    <svg viewBox="0 0 240 240" width="${s}" height="${s}" style="position:absolute;inset:0;pointer-events:none;" xmlns="http://www.w3.org/2000/svg">
-      <text x="120" y="96" text-anchor="middle" font-family="Outfit,Arial" font-weight="800" font-size="14" fill="${txt}" textLength="${apeLen}" lengthAdjust="spacingAndGlyphs" style="letter-spacing:1px;paint-order:stroke;stroke:rgba(0,0,0,.28);stroke-width:.5;">${apeUp}</text>
-      <text x="120" y="152" text-anchor="middle" font-family="Outfit,Arial" font-weight="900" font-size="46" fill="${txt}" textLength="${numLen}" lengthAdjust="spacingAndGlyphs" style="paint-order:stroke;stroke:rgba(0,0,0,.28);stroke-width:.8;">${num}</text>
+    <img src="${JERSEY_PNG}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;pointer-events:none;background:transparent;">
+    <svg viewBox="0 0 240 240" width="${s}" height="${s}" style="position:absolute;inset:0;pointer-events:none;background:transparent;" xmlns="http://www.w3.org/2000/svg">
+      <text x="120" y="82" text-anchor="middle" font-family="Outfit,Arial" font-weight="800" font-size="16" fill="${txt}" textLength="${apeLen}" lengthAdjust="spacingAndGlyphs" style="letter-spacing:1.2px;paint-order:stroke;stroke:rgba(0,0,0,.28);stroke-width:.5;">${apeUp}</text>
+      <text x="120" y="168" text-anchor="middle" font-family="Outfit,Arial" font-weight="900" font-size="76" fill="${txt}" textLength="${numLen}" lengthAdjust="spacingAndGlyphs" style="paint-order:stroke;stroke:rgba(0,0,0,.30)  ;stroke-width:1;">${num}</text>
     </svg>
   </div>`;
 }
@@ -469,6 +499,9 @@ window._carreraFichar = function(i){
   G = {
     apellido:d.apellido, num:d.num, pie:d.pie, pais:d.pais, pos:d.pos, years:d.years,
     edad:16, nivel:base, club:c.name, liga:c.liga, clubStr:c.str, clubPais:c.pais,
+    // Frecuencia REAL: la carrera arranca en 2026 (año del debut). Cada temporada +1 año.
+    // Mundial 2030, Copa América 2028, Eurocopa 2028, JJOO 2028/2032.
+    anio:2026,
     dinero:0, valor:100000, fama:5, moral:72, titulos:0, temporada:1,
     tot:{pj:0,g:0,a:0}, timeline:[], hist:[], vitrina:[], clasificadoInter:false,
     dif:(d.dif||'normal'), creado:Date.now()
@@ -574,7 +607,7 @@ window._carreraTemporada = function(){
   G.valor = Math.round((G.nivel**2.4)*edadFactor*20 + G.titulos*80000);
   // ── Timeline COMPLETO (una fila por temporada, con posición y trofeo) ──
   G.timeline.push({ edad:G.edad, temporada:G.temporada, club:G.club, liga:G.liga, niv:Math.round(G.nivel), pj, g, a, dN, pos, totalEq, titulo, clasif:clasifText });
-  G.temporada++; G.edad++;
+  G.temporada++; G.edad++; G.anio = (G.anio||2026) + 1;
   save();
   resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText});
 };
@@ -656,14 +689,28 @@ function mostrarEvento(){
     return;
   }
   // Si no hay transferencia, evento de decisión clásico.
-  const ev=eventoRandom(); G._ev=ev;
+  let ev=eventoRandom();
+  // Eventos DINÁMICOS (opciones generadas al momento — ej: nacionalidad del abuelo).
+  if (ev && ev._dyn && ev.t.indexOf('abuelo')>=0){
+    // Elegir hasta 2 nacionalidades DISTINTAS al azar (ojo: opciones concretas, no "cambiar").
+    const candidatas = PAISES.filter(p => p !== G.pais).sort(()=>Math.random()-0.5).slice(0, 2);
+    const flagOf = p => flagImg(p, 18) + '&nbsp;';
+    const dText = `Un periodista descubre que tu abuelo era de <b>${esc(candidatas[0])}</b>` + (candidatas[1]?` y también hay linaje de <b>${esc(candidatas[1])}</b>`:'') + `. Podés elegir para qué selección jugar.`;
+    const opts = [
+      { txt: flagOf(G.pais) + 'Seguir defendiendo a ' + G.pais, ef:g=>{ g.moral+=8; g.fama+=3; return 'Fidelidad a tus colores. El hincha te lo agradece de por vida.'; } },
+      { txt: flagOf(candidatas[0]) + 'Jugar para ' + candidatas[0], ef:g=>{ g.pais = candidatas[0]; g.fama+=10; g.moral-=3; return 'Aceptaste la convocatoria de '+g.pais+'. Nuevo himno, nueva historia.'; } }
+    ];
+    if (candidatas[1]) opts.push({ txt: flagOf(candidatas[1]) + 'Jugar para ' + candidatas[1], ef:g=>{ g.pais = candidatas[1]; g.fama+=10; g.moral-=3; return 'Elegiste ' + g.pais + '. Debut internacional en camino.'; } });
+    ev = { t: ev.t, img: ev.img, d: dText, opts };
+  }
+  G._ev=ev;
   wrap.innerHTML=`
     <div style="background:linear-gradient(160deg,rgba(186,255,0,.05),rgba(20,22,18,.5));border:1px solid #242424;border-radius:16px;padding:16px;">
       ${decoImg(ev.img)}
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:17px;color:#fff;margin-bottom:6px;">${esc(ev.t)}</div>
-      <div style="font-size:13.5px;color:#c4ccc0;line-height:1.5;margin-bottom:14px;">${esc(ev.d)}</div>
+      <div style="font-size:13.5px;color:#c4ccc0;line-height:1.5;margin-bottom:14px;">${ev.d}</div>
       <div style="display:flex;flex-direction:column;gap:10px;">
-        ${ev.opts.map((o,i)=>`<button onclick="window._carreraElegir(${i})" style="${btn(i===0)}">${esc(o.txt)}</button>`).join('')}
+        ${ev.opts.map((o,i)=>`<button onclick="window._carreraElegir(${i})" style="${btn(i===0)}">${o.txt}</button>`).join('')}
       </div>
     </div>`;
 }
@@ -909,9 +956,7 @@ const EVENTOS=[
   { t:'Sobrepeso en la pretemporada', img:'lesion', d:'Volviste de vacaciones con unos kilos de más y el preparador físico te marca.', opts:[
     { txt:'Ponerme a full con la dieta', ef:g=>{ g.nivel+=2; g.moral+=2; return 'Te pusiste en forma rápido. El cuerpo técnico valora tu compromiso.'; } },
     { txt:'Ya lo bajo jugando', ef:g=>{ const mal=Math.random()<.6; g.nivel+=mal?-3:0; return mal?'Arrancaste lento y pesado. Perdiste la titularidad las primeras fechas.':'Zafaste, lo fuiste bajando de a poco.'; } } ] },
-  { t:'Descubren un abuelo extranjero', img:'seleccion', d:'Un periodista descubre que tu abuelo era de otro país: podrías jugar para OTRA selección.', opts:[
-    { txt:'Cambiar de selección (más chances)', ef:g=>{ g.fama+=10; g.moral-=4; return 'Te aseguran más minutos internacionales, pero parte del país te lo cuestiona.'; } },
-    { txt:'Defender la de siempre', ef:g=>{ g.moral+=8; g.fama+=3; return 'Fidelidad a tus colores. El hincha te lo agradece de por vida.'; } } ] },
+  { t:'Descubren un abuelo extranjero', img:'seleccion', _dyn:true, d:'', opts:[] },
   { t:'Amague de retiro anticipado', img:'prensa', d:'Venís golpeado y frustrado. Se te cruza por la cabeza colgar los botines antes de tiempo.', opts:[
     { txt:'Seguir peleándola', ef:g=>{ g.moral+=6; g.nivel+=1; return 'Sacaste fuerzas. La resiliencia te devuelve al primer plano.'; } },
     { txt:'Bajar un cambio y priorizar salud', ef:g=>{ g.moral+=4; g.nivel-=1; return 'Te cuidás más. Rendís un poco menos pero disfrutás de nuevo.'; } } ] }

@@ -19,7 +19,7 @@ window._launchCancheroGame = function(id){ if(id==='impostor'){ document.getElem
 
 function shell(html){
   let m=document.getElementById('imp-pro'); if(m)m.remove();
-  m=document.createElement('div'); m.id='imp-pro'; m.style.cssText='position:fixed;inset:0;z-index:9960;background:#0a0a0a;display:flex;flex-direction:column;overflow-y:auto;';
+  m=document.createElement('div'); m.id='imp-pro'; m.style.cssText="position:fixed;inset:0;z-index:9960;background:linear-gradient(rgba(10,10,10,0.75),rgba(10,10,10,0.92)),url('img/games-bg/impostor.webp') center/cover no-repeat;display:flex;flex-direction:column;overflow-y:auto;";
   m.innerHTML=html; document.body.appendChild(m);
   ['player-bottom-nav','club-bottom-nav'].forEach(n=>document.getElementById(n)?.style.setProperty('display','none','important'));
 }

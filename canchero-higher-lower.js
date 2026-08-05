@@ -152,7 +152,7 @@ const _PITCH_LINES = `<div style="position:absolute;inset:0;pointer-events:none;
 function _shell(inner){
   let m=document.getElementById('hl-modal'); if(m) m.remove();
   m=document.createElement('div'); m.id='hl-modal';
-  m.style.cssText='position:fixed;inset:0;z-index:9950;overflow-y:auto;'+_PITCH_BG;
+  m.style.cssText="position:fixed;inset:0;z-index:9950;overflow-y:auto;background:linear-gradient(rgba(10,10,10,0.72),rgba(10,10,10,0.9)),url('img/games-bg/higher-lower.webp') center/cover no-repeat;";
   m.innerHTML=`<div style="position:absolute;inset:0;">${_PITCH_LINES}</div>
     <div style="position:relative;max-width:520px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px calc(24px + env(safe-area-inset-bottom));">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
