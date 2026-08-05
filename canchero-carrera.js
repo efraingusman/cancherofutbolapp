@@ -708,10 +708,111 @@ function ofertaDe(c){
               : 0;
   return { name:c.name, str:c.str, liga:c.liga, pais:c.pais, sueldo, anios, prima };
 }
+// ── CALENDARIO REAL DE SELECCIONES ─────────────────────────────────────────────
+// Basado en el ciclo FIFA/CONMEBOL/UEFA. Arranca 2026 y responde a la edad real.
+// Un jugador de 20 años en 2028 puede ir al Mundial Sub-20 Y a los JJOO (Sub-23).
+// Un jugador de 24 años en 2030 puede ir al Mundial mayor.
+function calendarioSelec(anio, edad){
+  const out = [];
+  // Mundial FIFA mayor: 2030, 2034, 2038...
+  if ((anio - 2030) % 4 === 0 && anio >= 2030 && edad >= 20 && edad <= 36)
+    out.push({ tipo:'Mundial', slug:'mundial', pais:true, subN:0 });
+  // Copa América: 2028, 2032, 2036...  (post 2024, ciclo cada 4)
+  if ((anio - 2028) % 4 === 0 && anio >= 2028 && edad >= 19 && edad <= 36)
+    out.push({ tipo:'Copa América', slug:'copa-america', continente:'AMER', subN:0 });
+  // Eurocopa: 2028, 2032, 2036...
+  if ((anio - 2028) % 4 === 0 && anio >= 2028 && edad >= 19 && edad <= 36)
+    out.push({ tipo:'Eurocopa', slug:'eurocopa', continente:'EUR', subN:0 });
+  // JJOO fútbol (Sub-23 con 3 mayores permitidos): 2028, 2032, 2036...
+  if ((anio - 2028) % 4 === 0 && anio >= 2028 && edad >= 18 && edad <= 26)
+    out.push({ tipo:'Juegos Olímpicos', slug:'oro-olimpico', subN:23 });
+  // Mundial Sub-20: años pares (2027 sería impar → salta a 2028)
+  if ((anio - 2026) % 2 === 0 && anio >= 2026 && edad >= 18 && edad <= 20)
+    out.push({ tipo:'Mundial Sub-20', slug:'mundial', subN:20 });
+  // Mundial Sub-17: años impares (2027, 2029...)
+  if ((anio - 2027) % 2 === 0 && anio >= 2027 && edad >= 15 && edad <= 17)
+    out.push({ tipo:'Mundial Sub-17', slug:'mundial', subN:17 });
+  // Sudamericano Sub-15: anual (Uruguay/CONMEBOL)
+  if (edad === 14 || edad === 15)
+    out.push({ tipo:'Sudamericano Sub-15', slug:'copa-america', subN:15 });
+  return out;
+}
+// ¿Un club europeo cabe para "Eurocopa"? Chapuza rápida por país del club/jugador.
+function _paisContinente(pais){
+  const E = ['España','Inglaterra','Francia','Alemania','Italia','Portugal','Países Bajos','Bélgica','Croacia','Turquía','Suiza','Austria','Escocia','Grecia','Polonia','Ucrania','Rusia','Suecia','Noruega','Dinamarca','Irlanda','Serbia','Rumania','Hungría'];
+  return E.indexOf(pais) !== -1 ? 'EUR' : 'AMER';
+}
+function eventoSeleccionRandom(){
+  if(!G) return null;
+  const cand = calendarioSelec(G.anio || 2026, G.edad);
+  const cont = _paisContinente(G.pais);
+  const filt = cand.filter(c => !c.continente || c.continente === cont);
+  if (!filt.length) return null;
+  // Umbral de nivel: cuanto más chica la categoría, más fácil entrar; el Mundial mayor pide mucho.
+  const req = t => {
+    if (t.tipo === 'Mundial') return 82;
+    if (t.tipo === 'Copa América' || t.tipo === 'Eurocopa') return 78;
+    if (t.tipo === 'Juegos Olímpicos') return 74;
+    if (t.tipo === 'Mundial Sub-20') return 68;
+    if (t.tipo === 'Mundial Sub-17') return 62;
+    return 55;
+  };
+  const elegibles = filt.filter(t => G.nivel >= req(t));
+  if (!elegibles.length) return null;
+  const t = pick(elegibles);
+  const cat = t.subN ? ('Sub-'+t.subN) : 'Mayor';
+  const desc = `¡Te convocan a la <b>selección ${cat}</b> de <b>${esc(G.pais)}</b> para el <b>${t.tipo} ${G.anio || 2026}</b>! Aceptar te agota, pero es tu chance de vitrina mundial.`;
+  return {
+    t: 'Selección: ' + t.tipo, img:'seleccion', d: desc,
+    opts: [
+      { txt: `${flagImg(G.pais,18)}&nbsp;Ir con todo — jugar el ${t.tipo}`, ef: g => {
+        const bien = Math.random() < 0.55 + (g.nivel - req(t))/100; // más chance si estás por arriba del corte
+        if (bien) {
+          g.fama += 14; g.nivel += 1;
+          g.valor = Math.round((g.valor||100000) * 1.20);
+          // Si le va MUY bien, gana el torneo
+          const gana = Math.random() < 0.30;
+          if (gana) {
+            g.titulos = (g.titulos||0) + 1;
+            if(!g.vitrina) g.vitrina=[];
+            g.vitrina.push({ nombre: t.tipo, edad:g.edad, club:'Selección '+g.pais, img: t.slug });
+            g.fama += 8;
+            return `¡GLORIA! ${g.pais} salió CAMPEÓN del ${t.tipo}. Tu nombre queda en la historia.`;
+          }
+          return `Torneo brillante con ${g.pais}. Todos hablan de vos, tu valor de mercado subió.`;
+        } else {
+          g.nivel -= 1; g.moral -= 4;
+          return `${t.tipo} decepcionante. Te tocó jugar poco y el equipo no anduvo.`;
+        }
+      } },
+      { txt: `Priorizar el club — decir no`, ef: g => {
+        g.moral -= 3; g.nivel += 1;
+        return `Rechazaste la convocatoria. El hincha del país te lo cuestiona, pero llegás fresco a la temporada de club.`;
+      } }
+    ]
+  };
+}
 // Eventos de decisión (reusa impronta anterior + transferencias reales con VARIAS ofertas).
 function mostrarEvento(){
   const wrap=document.getElementById('cr-evwrap'); if(!wrap) return;
   if(G) G._evLeft = Math.max(0, (G._evLeft||1) - 1);   // consume una decisión de la temporada
+  // PRIORIDAD ALTA: si hay convocatoria a selección este año, mostrarla (a veces).
+  if (Math.random() < 0.35) {
+    const evSel = eventoSeleccionRandom();
+    if (evSel) {
+      G._ev = evSel;
+      wrap.innerHTML = `
+        <div style="background:linear-gradient(160deg,rgba(59,130,246,.08),rgba(20,22,18,.5));border:1px solid rgba(59,130,246,.3);border-radius:16px;padding:16px;">
+          ${decoImg(evSel.img)}
+          <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:17px;color:#fff;margin-bottom:6px;">${esc(evSel.t)}</div>
+          <div style="font-size:13.5px;color:#c4ccc0;line-height:1.55;margin-bottom:14px;">${evSel.d}</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            ${evSel.opts.map((o,i)=>`<button onclick="window._carreraElegir(${i})" style="${btn(i===0)}">${o.txt}</button>`).join('')}
+          </div>
+        </div>`;
+      return;
+    }
+  }
   // A veces: ofertas de transferencia (hasta 4 clubes distintos para ELEGIR).
   // FILTRO REALISTA: los clubes grandes (str>82) NO miran a jugadores viejos ni de bajo
   // nivel. Los clubes chicos SÍ pueden querer a un veterano figura.
