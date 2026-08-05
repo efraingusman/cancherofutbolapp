@@ -72,9 +72,10 @@ window._renderGamesHub = function(container){
   if (m) m.remove();
   m = document.createElement('div'); m.id='games-hub';
   if (container){
-    m.style.cssText='background:#0a0a0a;min-height:60vh;padding-bottom:calc(90px + env(safe-area-inset-bottom));';
+    // padding-top para que no quede cortado detrás del header/nav sticky.
+    m.style.cssText='background:#0a0a0a;min-height:60vh;padding-top:12px;padding-bottom:calc(90px + env(safe-area-inset-bottom));';
   } else {
-    m.style.cssText='position:fixed;left:0;right:0;bottom:0;top:'+_cgTop()+';z-index:9900;background:#0a0a0a;overflow-y:auto;';
+    m.style.cssText='position:fixed;left:0;right:0;bottom:0;top:'+_cgTop()+';z-index:9900;background:#0a0a0a;overflow-y:auto;padding-top:8px;';
   }
   const badgeColor = b => b==='Jugable'?'#00e676':b==='Embebido'?'#64b4ff':b==='Beta'?'#ffaa00':b.includes('Online')?'#9c88ff':'#aaa';
   m.innerHTML = `

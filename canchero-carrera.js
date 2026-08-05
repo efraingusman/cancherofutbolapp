@@ -244,7 +244,8 @@ function load(){ try{ return JSON.parse(localStorage.getItem(LS)||'null'); }catc
 function overlay(){
   let m=document.getElementById('carrera-modal'); if(m) m.remove();
   m=document.createElement('div'); m.id='carrera-modal';
-  m.style.cssText='position:fixed;inset:0;z-index:100060;background:#0a0c0a;overflow-y:auto;-webkit-overflow-scrolling:touch;';
+  // padding-top con safe-area para que el "← Juegos" no quede detrás del status bar.
+  m.style.cssText='position:fixed;inset:0;z-index:100060;background:#0a0c0a;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-top:env(safe-area-inset-top, 0px);';
   document.body.appendChild(m); return m;
 }
 
@@ -623,27 +624,36 @@ function btn(prim){ return prim?`background:rgba(186,255,0,.1);border:1.5px soli
 const DECO_FOTOS = ['fichaje','final','joda','lesion','mentoria','ojeador','potrero','prensa','seleccion','titulo'];
 // Categorías SIN foto → banner con ícono + gradiente propio (así cada decisión tiene una
 // imagen que CORRESPONDE, en vez de reutilizar una foto genérica que no pega).
+// TODOS los banners de decisión usan iconos generados (sin las fotos que subió el usuario,
+// que estaban mal posicionadas y no encajaban). Cada categoria tiene su propio color/icono.
 const DECO_ICON = {
-  dinero:   { i:'bx-dollar-circle', c:['#2b220a','#c9a227'] },
-  sponsor:  { i:'bx-purchase-tag',  c:['#082726','#14b8a6'] },
-  familia:  { i:'bx-home-heart',    c:['#2a160a','#f97316'] },
-  pelea:    { i:'bx-shield-x',      c:['#2a0a0a','#ef4444'] },
-  redes:    { i:'bx-trending-up',   c:['#1a0a2a','#a855f7'] },
-  agente:   { i:'bx-briefcase-alt', c:['#0f1622','#3b82f6'] },
-  capitan:  { i:'bxs-star',         c:['#241a05','#eab308'] },
-  tactica:  { i:'bx-clipboard',     c:['#0a2216','#22c55e'] }
+  dinero:    { i:'bx-dollar-circle',  c:['#2b220a','#c9a227'] },
+  sponsor:   { i:'bx-purchase-tag',   c:['#082726','#14b8a6'] },
+  familia:   { i:'bx-home-heart',     c:['#2a160a','#f97316'] },
+  pelea:     { i:'bx-shield-x',       c:['#2a0a0a','#ef4444'] },
+  redes:     { i:'bx-trending-up',    c:['#1a0a2a','#a855f7'] },
+  agente:    { i:'bx-briefcase-alt',  c:['#0f1622','#3b82f6'] },
+  capitan:   { i:'bxs-star',          c:['#241a05','#eab308'] },
+  tactica:   { i:'bx-clipboard',      c:['#0a2216','#22c55e'] },
+  joda:      { i:'bxs-cocktail',      c:['#1a0a24','#c026d3'] },
+  lesion:    { i:'bx-first-aid',      c:['#2a0a0a','#ef4444'] },
+  mentoria:  { i:'bx-conversation',   c:['#0a1a2a','#60a5fa'] },
+  ojeador:   { i:'bx-search-alt-2',   c:['#0a2216','#22c55e'] },
+  potrero:   { i:'bx-football',       c:['#161a0a','#a3e635'] },
+  prensa:    { i:'bx-microphone',     c:['#1a1a1a','#e5e5e5'] },
+  seleccion: { i:'bx-world',          c:['#0a1a2a','#3b82f6'] },
+  titulo:    { i:'bx-trophy',         c:['#241a05','#facc15'] },
+  fichaje:   { i:'bx-transfer',       c:['#0f1a0a','#baff00'] },
+  final:     { i:'bx-medal',          c:['#241a05','#f59e0b'] }
 };
-// Banner ilustrativo de una decisión: foto real si existe la categoría, si no ícono temático.
 function decoImg(tipo){
   if(!tipo) return '';
-  if(DECO_ICON[tipo]){
-    const k=DECO_ICON[tipo];
-    return `<div style="height:120px;border-radius:12px;overflow:hidden;margin-bottom:12px;background:linear-gradient(135deg,${k.c[0]},#0d0d0d);display:flex;align-items:center;justify-content:center;position:relative;">
-      <div style="position:absolute;inset:0;background:radial-gradient(120% 80% at 30% 20%, ${k.c[1]}22, transparent 60%);"></div>
-      <i class='bx ${k.i}' style="font-size:56px;color:${k.c[1]};filter:drop-shadow(0 4px 14px ${k.c[1]}66);z-index:1;"></i>
-    </div>`;
-  }
-  return `<div style="height:120px;border-radius:12px;overflow:hidden;margin-bottom:12px;background:#0d0d0d;"><img src="img/carrera/decisiones/${tipo}.webp" alt="" style="width:100%;height:100%;object-fit:cover;opacity:.92;" onerror="this.parentElement.style.display='none'"></div>`;
+  const k=DECO_ICON[tipo] || DECO_ICON.tactica;
+  return `<div style="height:120px;border-radius:12px;overflow:hidden;margin-bottom:12px;background:linear-gradient(135deg,${k.c[0]},#0d0d0d);display:flex;align-items:center;justify-content:center;position:relative;">
+    <div style="position:absolute;inset:0;background:radial-gradient(120% 80% at 30% 20%, ${k.c[1]}22, transparent 60%);"></div>
+    <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0 2px, transparent 2px 12px);"></div>
+    <i class='bx ${k.i}' style="font-size:56px;color:${k.c[1]};filter:drop-shadow(0 4px 14px ${k.c[1]}66);z-index:1;"></i>
+  </div>`;
 }
 // Trofeo ilustrativo según la liga (img/trofeos/<n>.webp).
 function trofeoDe(liga){
@@ -679,7 +689,7 @@ function mostrarOfertas(kind){
     <div style="font-size:13px;color:#c4ccc0;line-height:1.5;margin-bottom:14px;">${sub}</div>
     <div style="display:flex;flex-direction:column;gap:9px;">
       ${list.map((o,i)=>ofertaCard(o,i,kind)).join('')}
-      <button onclick="window._carreraElegirOferta('quedarme',-1)" style="${btn(false)}"><i class='bx bx-home-heart' style="margin-right:6px;color:#8a8f86;"></i>${kind==='renov'?'Rechazar y escuchar ofertas después':'Quedarme en '+esc(G.club)}</button>
+      <button onclick="window._carreraElegirOferta('${kind==='renov'?'rechazar_renov':'quedarme'}',-1)" style="${btn(false)}"><i class='bx bx-home-heart' style="margin-right:6px;color:#8a8f86;"></i>${kind==='renov'?'Rechazar renovación (escuchar ofertas)':'Quedarme en '+esc(G.club)}</button>
     </div>
   </div>`;
 }
@@ -687,6 +697,11 @@ window._carreraElegirOferta = function(kind, i){
   let msg;
   if(kind==='quedarme'){
     G.moral+=8; G.fama+=3; msg='Te quedás. La hinchada lo valora.';
+  } else if(kind==='rechazar_renov'){
+    // Bug reportado: al rechazar renovar salía "te quedás, la hinchada lo valora" como si
+    // hubieras aceptado. Ahora tiene su propio mensaje + consecuencia real (queda tenso).
+    G.moral-=4; G.fama-=1;
+    msg='Rechazaste la renovación. La dirigencia queda dolida y te van a buscar en el mercado. Podés terminar cedido o transferido.';
   } else {
     const o = (kind==='renov' ? (G._renov||[]) : (G._offers||[]))[i];
     if(!o){ window._carreraHub(); return; }

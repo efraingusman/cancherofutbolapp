@@ -1826,7 +1826,8 @@ window._renderProfileSwitcher = function(){
         // El pill va CENTRADO en el header (position absolute + left 50% + translateX).
         // Antes iba dentro de .nav-actions (derecha) y quedaba muy pegado a la campana.
         // Ahora queda en el centro exacto de la barra, sin importar el ancho.
-        pill.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;display:inline-flex;align-items:center;gap:6px;background:rgba(186,255,0,0.12);border:1px solid rgba(186,255,0,0.5);border-radius:22px;padding:6px 12px;cursor:pointer;max-width:min(200px,44vw);box-sizing:border-box;box-shadow:0 2px 12px rgba(186,255,0,0.15);transition:background .15s, box-shadow .15s;';
+        // Centrado horizontal Y vertical del nav (altura 36px = misma que campana/ajustes).
+        pill.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;background:rgba(186,255,0,0.12);border:1px solid rgba(186,255,0,0.5);border-radius:22px;padding:0 14px;cursor:pointer;max-width:min(200px,44vw);box-sizing:border-box;box-shadow:0 2px 12px rgba(186,255,0,0.15);transition:background .15s, box-shadow .15s;line-height:1;';
         pill.title = 'Cambiar de rol (Jugador / Ligas / Canchas / Tienda / Equipo)';
         pill.setAttribute('aria-label', 'Cambiar de rol');
         pill.onmouseover = function(){ this.style.background = 'rgba(186,255,0,0.20)'; this.style.boxShadow = '0 2px 16px rgba(186,255,0,0.28)'; };
