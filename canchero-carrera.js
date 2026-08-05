@@ -163,7 +163,10 @@ const NAMESLUG = {
   'Rosario Central':'rosario-central',"Newell's":'newells','Vélez':'velez','Estudiantes':'estudiantes','Talleres':'talleres',
   'Flamengo':'flamengo','Palmeiras':'palmeiras','São Paulo':'sao-paulo','Corinthians':'corinthians','Grêmio':'gremio',
   'Internacional':'internacional','Santos':'santos','Fluminense':'fluminense',
-  'Real Madrid':'real-madrid','Barcelona':'barcelona','Atlético':'atletico','Sevilla':'sevilla','Valencia':'valencia',
+  // Ojo: img/clubs/barcelona.webp es BARCELONA SC (Ecuador). No lo mapeamos a "Barcelona"
+  // (España) para no mostrar el crest equivocado — usa el crest generico por color hasta
+  // tener el escudo real del FCB.
+  'Real Madrid':'real-madrid','Atlético':'atletico','Sevilla':'sevilla','Valencia':'valencia',
   'Real Sociedad':'real-sociedad','Villarreal':'villarreal','Betis':'betis',
   'Man City':'man-city','Liverpool':'liverpool','Arsenal':'arsenal','Man United':'man-united','Chelsea':'chelsea','Tottenham':'tottenham','Newcastle':'newcastle',
   'Juventus':'juventus','Inter':'inter','Milan':'milan','Napoli':'napoli','Roma':'roma','Lazio':'lazio',
@@ -176,18 +179,36 @@ const NAMESLUG = {
   'Ajax':'ajax','Fiorentina':'fiorentina','RB Salzburg':'salzburg','Dinamo Zagreb':'dinamo-zagreb',
   'Vissel Kobe':'vissel-kobe','Palermo':'palermo'
 };
+// Escudo GENÉRICO: forma de crest de fútbol (pentágono redondeado) con dos tonos
+// hash-deterministas + iniciales encima. Se ve como un escudo de verdad — cero
+// bloques planos con una letra pelada.
+function genericCrest(name, size){
+  const s=size||44;
+  const ini = (name||'?').replace(/[^A-Za-zÁÉÍÓÚÑ ]/g,'').split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,3).toUpperCase() || '?';
+  let h=0; for(let i=0;i<(name||'').length;i++) h=(h*31+name.charCodeAt(i))>>>0;
+  const hue=h%360;
+  const c1 = `hsl(${hue} 65% 44%)`, c2 = `hsl(${(hue+30)%360} 55% 22%)`, c3 = `hsl(${(hue+180)%360} 45% 60%)`;
+  const uid = 'cg'+(h%9999);
+  const fs = Math.round(s*0.30);
+  return `<svg viewBox="0 0 60 68" width="${s}" height="${s}" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));display:block;">
+    <defs>
+      <linearGradient id="${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient>
+    </defs>
+    <path d="M6 6 L30 3 L54 6 L54 34 Q54 52 30 65 Q6 52 6 34 Z" fill="url(#${uid})" stroke="rgba(0,0,0,.35)" stroke-width="1.3"/>
+    <path d="M6 6 L30 3 L54 6 L54 22 L30 20 L6 22 Z" fill="rgba(255,255,255,.14)"/>
+    <path d="M30 20 Q42 24 42 40 Q42 52 30 60 Q18 52 18 40 Q18 24 30 20 Z" fill="${c3}" opacity=".22"/>
+    <text x="30" y="41" text-anchor="middle" font-family="Outfit,Arial" font-weight="900" font-size="${fs}" fill="#fff" style="paint-order:stroke;stroke:rgba(0,0,0,.55);stroke-width:.8;">${ini}</text>
+  </svg>`;
+}
 function clubBadge(name, size){
   const s=size||44;
-  const ini = name.replace(/[^A-Za-zÁÉÍÓÚÑ ]/g,'').split(' ').map(w=>w[0]).join('').slice(0,3).toUpperCase();
-  let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))>>>0;
-  const hue=h%360;
-  const fb = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:${Math.round(s*0.34)}px;color:#fff;background:linear-gradient(150deg,hsl(${hue} 55% 34%),hsl(${(hue+40)%360} 55% 22%));border-radius:${Math.round(s*0.24)}px;">${ini}</div>`;
   const slug = NAMESLUG[name];
-  if (!slug) return `<div style="width:${s}px;height:${s}px;flex-shrink:0;border:1px solid rgba(255,255,255,.14);border-radius:${Math.round(s*0.24)}px;overflow:hidden;">${fb}</div>`;
-  // Escudo real con fallback a iniciales si la imagen no existe.
+  const generic = `<div style="width:${s}px;height:${s}px;flex-shrink:0;">${genericCrest(name, s)}</div>`;
+  if (!slug) return generic;
+  // Escudo real con fallback al crest genérico si la imagen no existe (ya no letra pelada).
   return `<div style="width:${s}px;height:${s}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative;">
-    <img src="img/clubs/${slug}.webp" alt="" style="max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-    <div style="display:none;position:absolute;inset:0;">${fb}</div>
+    <img src="img/clubs/${slug}.webp" alt="" style="max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));" onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
+    <div style="display:none;position:absolute;inset:0;">${genericCrest(name, s)}</div>
   </div>`;
 }
 
@@ -196,7 +217,7 @@ function clubBadge(name, size){
 // (rayas/sash) con la MISMA máscara y color secundario; 3) el PNG encima con
 // mix-blend-mode: multiply para preservar pliegues/costuras/sombras del template;
 // 4) apellido y número por SVG absoluto (textLength garantiza que entren SIEMPRE).
-const JERSEY_PNG = 'img/carrera/jersey-back.png?v=2';
+const JERSEY_PNG = 'img/carrera/jersey-back.png?v=3';
 function jersey(size, apellido, numero, pais){
   const k = KITS[pais] || {t:'solid',c:['#1b7a3e'],txt:'#ffffff'};
   const base = k.c[0]; const alt = k.c[1] || '#ffffff'; const txt = k.txt || '#111';
@@ -253,7 +274,11 @@ function overlay(){
 window._carreraStart = function(){
   const m=overlay(); const saved=load();
   m.innerHTML=`
-  <div style="position:relative;min-height:100%;background:radial-gradient(130% 60% at 50% 0%, #14340f 0%, #0a0c0a 55%);">
+  <div style="position:relative;min-height:100%;background:#0a0c0a;">
+    <!-- Fondo del juego (Maradona/Pelé/Messi/Ronaldinho/CR7): tapa toda la intro con
+         opacidad para que el texto sea legible, y funde a negro abajo. -->
+    <div style="position:absolute;inset:0;background:url('img/carrera/fondo-intro.webp?v=1') center/cover no-repeat;opacity:.42;pointer-events:none;"></div>
+    <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(10,12,10,.35) 0%, rgba(10,12,10,.55) 55%, #0a0c0a 100%);pointer-events:none;"></div>
     <div style="position:absolute;inset:0;background:repeating-linear-gradient(90deg, rgba(186,255,0,.03) 0 2px, transparent 2px 40px);pointer-events:none;"></div>
     <div style="position:relative;max-width:560px;margin:0 auto;padding:20px 20px calc(30px + env(safe-area-inset-bottom));min-height:100%;display:flex;flex-direction:column;align-items:center;text-align:center;">
       <div style="width:100%;display:flex;justify-content:flex-start;"><button onclick="document.getElementById('carrera-modal').remove();window.openGamesModal&&window.openGamesModal()" style="background:rgba(255,255,255,.08);border:none;color:#ccc;font-size:13px;border-radius:20px;padding:8px 14px;cursor:pointer;"><i class='bx bx-arrow-back'></i> Juegos</button></div>

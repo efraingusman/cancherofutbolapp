@@ -37,7 +37,11 @@
       "Bash(node -c canchero-messaging.js)",
       "Bash(node -c canchero-momentos.js)",
       "Bash(curl -s \"https://cancherofutbolapp.vercel.app/style.css?v=20260804c&cb=$\\(date +%s\\)\")",
-      "Bash(node -c canchero-games.js)"
+      "Bash(node -c canchero-games.js)",
+      "Bash(sed -i 's/canchero-carrera.js?v=20260804l/canchero-carrera.js?v=20260805a/' index.html)",
+      "Bash(sed -i \"s/const CACHE_NAME = 'canchero-v447'/const CACHE_NAME = 'canchero-v448'/\" sw.js)",
+      "Bash(cp img/clubs/barcelona.webp img/clubs/barcelona-sc-ecuador.webp)",
+      "Bash(cp img/clubs/barcelona.png img/clubs/barcelona-sc-ecuador.png)"
     ]
   }
 }
