@@ -157,27 +157,50 @@ function trofeoImgSlug(nombre){
 function todosClubs(){ const out=[]; LIGAS.forEach(L=>L.clubs.forEach(c=>out.push({name:c[0],str:c[1],liga:L.liga,pais:L.pais}))); return out; }
 // Nombre de club → slug del escudo (img/clubs). Los que no están usan iniciales.
 const NAMESLUG = {
-  'Nacional':'nacional','Peñarol':'penarol','Defensor Sporting':'defensor-sporting','Danubio':'danubio',
-  'Montevideo City':'montevideo-city','Boston River':'boston-river','Cerro':'cerro',
+  // Uruguay
+  'Nacional':'nacional-uy','Peñarol':'penarol','Defensor Sporting':'defensor-sporting','Danubio':'danubio',
+  'Liverpool FC (UY)':'liverpool-uy','Montevideo City':'montevideo-city','Boston River':'boston-river','Cerro':'cerro',
+  'Wanderers':'wanderers-uy','Cerro Largo':'cerro-largo','Progreso':'progreso',
+  // Argentina
   'Boca Juniors':'boca','River Plate':'river','Racing':'racing','Independiente':'independiente','San Lorenzo':'san-lorenzo',
   'Rosario Central':'rosario-central',"Newell's":'newells','Vélez':'velez','Estudiantes':'estudiantes','Talleres':'talleres',
+  'Huracán':'huracan','Lanús':'lanus','Banfield':'banfield','Defensa y Justicia':'defensa','Argentinos Jrs':'argentinos',
+  'Gimnasia LP':'gimnasia','Instituto':'instituto','Belgrano':'belgrano','Platense':'platense','Central Córdoba':'central-cordoba',
+  // Brasil
   'Flamengo':'flamengo','Palmeiras':'palmeiras','São Paulo':'sao-paulo','Corinthians':'corinthians','Grêmio':'gremio',
   'Internacional':'internacional','Santos':'santos','Fluminense':'fluminense',
-  // Ojo: img/clubs/barcelona.webp es BARCELONA SC (Ecuador). No lo mapeamos a "Barcelona"
-  // (España) para no mostrar el crest equivocado — usa el crest generico por color hasta
-  // tener el escudo real del FCB.
-  'Real Madrid':'real-madrid','Atlético':'atletico','Sevilla':'sevilla','Valencia':'valencia',
-  'Real Sociedad':'real-sociedad','Villarreal':'villarreal','Betis':'betis',
-  'Man City':'man-city','Liverpool':'liverpool','Arsenal':'arsenal','Man United':'man-united','Chelsea':'chelsea','Tottenham':'tottenham','Newcastle':'newcastle',
-  'Juventus':'juventus','Inter':'inter','Milan':'milan','Napoli':'napoli','Roma':'roma','Lazio':'lazio',
-  'PSG':'psg','Marsella':'marsella','Mónaco':'monaco','Lyon':'lyon','Lille':'lille',
-  'Bayern':'bayern','Dortmund':'dortmund','Leipzig':'leipzig','Leverkusen':'leverkusen','Frankfurt':'frankfurt',
-  'Benfica':'benfica','Porto':'porto','Sporting':'sporting','Braga':'braga',
-  'América':'america-mx','Monterrey':'monterrey','Tigres':'tigres','Cruz Azul':'cruz-azul',
-  'Inter Miami':'inter-miami','LA Galaxy':'la-galaxy','Atlanta United':'atlanta-united',
-  // Escudos agregados (convertidos a webp)
-  'Ajax':'ajax','Fiorentina':'fiorentina','RB Salzburg':'salzburg','Dinamo Zagreb':'dinamo-zagreb',
-  'Vissel Kobe':'vissel-kobe','Palermo':'palermo'
+  // LaLiga (barcelona-fc = FC Barcelona real; barcelona.webp era el de Ecuador)
+  'Barcelona':'barcelona-fc','Real Madrid':'real-madrid','Atlético':'atletico','Sevilla':'sevilla','Valencia':'valencia',
+  'Real Sociedad':'real-sociedad','Villarreal':'villarreal','Betis':'betis','Athletic':'athletic','Osasuna':'osasuna',
+  'Getafe':'getafe','Celta':'celta','Rayo Vallecano':'rayo','Alavés':'alaves',
+  // Premier
+  'Arsenal':'arsenal','Aston Villa':'aston-villa','Bournemouth':'bournemouth','Brentford':'brentford','Brighton':'brighton',
+  'Chelsea':'chelsea','Crystal Palace':'crystal-palace','Everton':'everton','Fulham':'fulham','Liverpool':'liverpool',
+  'Man City':'man-city','Man United':'man-united','Newcastle':'newcastle','Nottingham Forest':'nott-forest','Tottenham':'tottenham',
+  // Serie A
+  'Juventus':'juventus','Inter':'inter','Milan':'milan','Napoli':'napoli','Roma':'roma','Lazio':'lazio','Fiorentina':'fiorentina',
+  // Ligue 1
+  'PSG':'psg','Marsella':'marsella','Mónaco':'monaco','Lyon':'lyon','Lille':'lille','Rennes':'rennes','Niza':'niza',
+  'Lens':'lens','Estrasburgo':'estrasburgo','Toulouse':'toulouse',
+  // Bundesliga
+  'Bayern':'bayern','Dortmund':'dortmund','Leverkusen':'leverkusen','Leipzig':'leipzig','Frankfurt':'frankfurt',
+  'Stuttgart':'stuttgart','Union Berlin':'union-berlin','Freiburg':'freiburg','Gladbach':'gladbach','Hoffenheim':'hoffenheim',
+  'Mainz':'mainz','Werder Bremen':'werder',
+  // Portugal
+  'Benfica':'benfica','Porto':'porto','Sporting':'sporting','Braga':'braga','Vitória SC':'vitoria-sc',
+  'Famalicão':'famalicao','Gil Vicente':'gil-vicente',
+  // Eredivisie
+  'Ajax':'ajax','PSV':'psv','Feyenoord':'feyenoord','AZ Alkmaar':'az',
+  // Liga MX
+  'América':'america-mx','Chivas':'chivas','Monterrey':'monterrey','Tigres':'tigres','Cruz Azul':'cruz-azul',
+  'Pumas':'pumas','Toluca':'toluca','León':'leon','Pachuca':'pachuca','Santos Laguna':'santos-laguna',
+  'Atlas':'atlas','Necaxa':'necaxa',
+  // MLS
+  'Inter Miami':'inter-miami','LA Galaxy':'la-galaxy','LAFC':'lafc','Atlanta United':'atlanta-united',
+  'Seattle Sounders':'seattle','Portland Timbers':'portland','NY Red Bulls':'ny-red-bulls','NYCFC':'nycfc',
+  'Columbus Crew':'columbus','FC Cincinnati':'cincinnati',
+  // Otros
+  'RB Salzburg':'salzburg','Dinamo Zagreb':'dinamo-zagreb','Vissel Kobe':'vissel-kobe','Palermo':'palermo'
 };
 // Escudo GENÉRICO: forma de crest de fútbol (pentágono redondeado) con dos tonos
 // hash-deterministas + iniciales encima. Se ve como un escudo de verdad — cero
