@@ -134,7 +134,7 @@
         } catch(e) {}
     </script>
 
-    <link rel="stylesheet" href="style.css?v=20260803a">
+    <link rel="stylesheet" href="style.css?v=20260804b">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -231,7 +231,7 @@
                     <!-- Sub-frase social + contador de jugadores (estilo X/Instagram home). Va
                          SIEMPRE visible arriba de los CTAs, para no depender de scroll. -->
                     <div class="hero-tagline">
-                        <div class="hero-tagline-txt" style="white-space:nowrap;">La App del Fútbol Amateur<br><span style="white-space:normal;">Encontrá partidos y rivales, armá tu equipo, jugá torneos y ligas con fixture y tabla, reservá canchas, seguí tus stats, chateá y comprá en tiendas de fútbol. Todo tu fútbol, en un solo lugar.</span></div>
+                        <div class="hero-tagline-txt" style="white-space:nowrap;">La App del Fútbol Amateur<br><span style="white-space:normal;">Partidos, equipos, torneos y canchas. Con tus stats de verdad — todo en un solo lugar.</span></div>
                         <div class="hero-counter">
                             <i class='bx bx-user-check'></i>
                             <span id="home-user-count">—</span>
@@ -3956,7 +3956,7 @@
     <script src="canchero-impostor.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-higher-lower.js?v=20260717e" charset="utf-8"></script>
     <script src="canchero-trivia.js?v=20260802a" charset="utf-8"></script>
-    <script src="canchero-carrera.js?v=20260804g" charset="utf-8"></script>
+    <script src="canchero-carrera.js?v=20260804h" charset="utf-8"></script>
     <script src="canchero-video-trim.js?v=20260714a" charset="utf-8"></script>
     <script src="canchero-momentos.js?v=20260804a" charset="utf-8"></script>
     <script src="canchero-momentos-editor.js?v=20260717b" charset="utf-8"></script>
@@ -4048,17 +4048,13 @@
             if (el) { el.addEventListener('click', fn); el.style.cursor='pointer'; }
         }
 
-        wireBtn('hero-btn-jugador', function(e){
-            e.preventDefault();
-            // "ENTRAR" = SOLO abrir el login (sin navegar a vistas protegidas). El registro tiene su propio botón.
-            // Se pasa el rol para que la app abra con la identidad elegida acá.
-            if (typeof window._showLoginModal === 'function') window._showLoginModal('jugador');
-        });
-        // Hero rediseñado (v406): 4 accesos por rol. Fanático se retiró; Negocio genérico se abrió
-        // en 3 accesos directos (Canchas/Ligas/Tiendas), cada uno abre su ficha de login.
-        wireBtn('hero-btn-canchas', function(e){ e.preventDefault(); if (typeof window._showLoginModal === 'function') window._showLoginModal('club'); });
-        wireBtn('hero-btn-ligas',   function(e){ e.preventDefault(); if (typeof window._showLoginModal === 'function') window._showLoginModal('organizacion'); });
-        wireBtn('hero-btn-tiendas', function(e){ e.preventDefault(); if (typeof window._showLoginModal === 'function') window._showLoginModal('tienda'); });
+        // Cada rol abre el modal de ENTRADA (_roleEntry): registrarme/acceder o entrar sin
+        // registrarme. Antes esto disparaba _showLoginModal ADEMÁS del onclick del botón, así
+        // que se abría el selector y enseguida el registro (bug). Ahora un solo camino.
+        wireBtn('hero-btn-jugador', function(e){ e.preventDefault(); if (window._roleEntry) window._roleEntry('jugador'); });
+        wireBtn('hero-btn-canchas', function(e){ e.preventDefault(); if (window._roleEntry) window._roleEntry('club'); });
+        wireBtn('hero-btn-ligas',   function(e){ e.preventDefault(); if (window._roleEntry) window._roleEntry('organizacion'); });
+        wireBtn('hero-btn-tiendas', function(e){ e.preventDefault(); if (window._roleEntry) window._roleEntry('tienda'); });
 
         // Contador de USOS de Canchero (estilo red social — llama la atención por cantidad).
         // Cuenta rows de analytics_events (cada navegación/click clave suma 1). Fallback: usuarios.

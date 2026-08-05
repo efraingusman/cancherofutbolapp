@@ -16,15 +16,13 @@ const OUT = path.join(__dirname, '..', 'img', 'carrera', 'jersey-back.png');
   for (let i = 0; i < data.length; i += channels) {
     const r = data[i], g = data[i+1], b = data[i+2];
     const lum = 0.299*r + 0.587*g + 0.114*b;
-    let a;
-    if (lum < 180) a = 0;                                    // viñeta gris → fuera
-    else if (lum < 210) a = Math.round(((lum - 180) / 30) * 255);
-    else a = 255;
+    // Alpha DURO (binario): 0 o 255, sin banda de fade. Los bordes semi-transparentes
+    // eran los que, al tintarse con la máscara, generaban un halo/resplandor feo alrededor
+    // de la camiseta. Con corte duro no hay pixeles a medias → sin halo.
+    const a = lum < 200 ? 0 : 255;
     data[i+3] = a;
-    // Conservar grises para que multiply preserve pliegues/costuras; subir brillo para que
-    // el tinte quede vivo (los grises muy oscuros los llevamos a ~200).
-    if (a > 30) {
-      const v = Math.max(200, lum); // suelo 200 → shadow leve, sin ensuciar el color
+    if (a) {
+      const v = Math.max(205, lum); // grises claros para conservar pliegues bajo multiply
       data[i] = v; data[i+1] = v; data[i+2] = v;
     }
   }

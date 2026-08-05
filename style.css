@@ -428,18 +428,45 @@ ul { list-style: none; }
         align-items: unset !important;
         padding: 0 !important;
     }
+    /* PC: panel a la IZQUIERDA, centrado vertical — deja ver la cara del jugador
+       (antes iba pegado a la derecha y los textos tapaban la cara). */
     .hero-cta-wrap {
-        right: 6%;
-        bottom: 24%;
+        left: 7%;
+        right: auto;
+        bottom: auto;
+        top: 50%;
+        transform: translateY(-50%);
+        max-width: 440px;
+        width: min(440px, 44vw);
     }
+    /* Scrim para que el texto se lea sobre la foto sin taparla del todo */
+    .home-viewport-wrap .landing-hero-full::before {
+        content: '';
+        position: absolute; inset: 0;
+        background: linear-gradient(90deg, rgba(7,9,7,0.92) 0%, rgba(7,9,7,0.7) 34%, rgba(7,9,7,0.15) 62%, transparent 82%);
+        z-index: 0; pointer-events: none;
+    }
+    .home-viewport-wrap .hero-cta-wrap { z-index: 2; }
+    .hero-tagline {
+        text-align: left !important;
+        padding-top: 0 !important;
+        margin-bottom: 22px !important;
+        max-width: 440px !important;
+    }
+    .hero-tagline-txt { font-size: 30px !important; line-height: 1.12 !important; white-space: normal !important; }
+    .hero-tagline-txt span { font-size: 15px !important; }
+    .hero-counter { justify-content: flex-start !important; }
     .home-viewport-wrap .fs-side-actions {
         display: flex !important;
         flex-direction: column !important;
-        gap: 12px !important;
-        max-width: 320px !important;
+        gap: 11px !important;
+        max-width: 380px !important;
+        align-items: stretch !important;
+        margin: 0 !important;
     }
     .home-viewport-wrap .btn-fs-action {
-        width: 300px !important;
+        width: 100% !important;
+        max-width: 380px !important;
     }
 }
 

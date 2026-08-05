@@ -153,7 +153,7 @@ function clubBadge(name, size){
 // (rayas/sash) con la MISMA máscara y color secundario; 3) el PNG encima con
 // mix-blend-mode: multiply para preservar pliegues/costuras/sombras del template;
 // 4) apellido y número por SVG absoluto (textLength garantiza que entren SIEMPRE).
-const JERSEY_PNG = 'img/carrera/jersey-back.png?v=1';
+const JERSEY_PNG = 'img/carrera/jersey-back.png?v=2';
 function jersey(size, apellido, numero, pais){
   const k = KITS[pais] || {t:'solid',c:['#1b7a3e'],txt:'#ffffff'};
   const base = k.c[0]; const alt = k.c[1] || '#ffffff'; const txt = k.txt || '#111';
@@ -168,15 +168,15 @@ function jersey(size, apellido, numero, pais){
   }
   const apeUp = esc((apellido||'APELLIDO').toUpperCase()).slice(0,14);
   const num   = esc(String(numero||10)).slice(0,2);
-  const apeLen = Math.min(160, 12*apeUp.length);
-  const numLen = num.length>=2 ? 110 : 60;
+  const apeLen = Math.min(120, 10*apeUp.length);
+  const numLen = num.length>=2 ? 62 : 34;
   return `<div style="position:relative;width:${s}px;height:${s}px;display:inline-block;">
     <div style="position:absolute;inset:0;background:${base};${maskCSS}"></div>
     ${pattern}
     <img src="${JERSEY_PNG}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;pointer-events:none;">
     <svg viewBox="0 0 240 240" width="${s}" height="${s}" style="position:absolute;inset:0;pointer-events:none;" xmlns="http://www.w3.org/2000/svg">
-      <text x="120" y="78" text-anchor="middle" font-family="Outfit,Arial" font-weight="800" font-size="18" fill="${txt}" textLength="${apeLen}" lengthAdjust="spacingAndGlyphs" style="letter-spacing:1.5px;paint-order:stroke;stroke:rgba(0,0,0,.35);stroke-width:.6;">${apeUp}</text>
-      <text x="120" y="140" text-anchor="middle" font-family="Outfit,Arial" font-weight="900" font-size="64" fill="${txt}" textLength="${numLen}" lengthAdjust="spacingAndGlyphs" style="paint-order:stroke;stroke:rgba(0,0,0,.35);stroke-width:1;">${num}</text>
+      <text x="120" y="96" text-anchor="middle" font-family="Outfit,Arial" font-weight="800" font-size="14" fill="${txt}" textLength="${apeLen}" lengthAdjust="spacingAndGlyphs" style="letter-spacing:1px;paint-order:stroke;stroke:rgba(0,0,0,.28);stroke-width:.5;">${apeUp}</text>
+      <text x="120" y="152" text-anchor="middle" font-family="Outfit,Arial" font-weight="900" font-size="46" fill="${txt}" textLength="${numLen}" lengthAdjust="spacingAndGlyphs" style="paint-order:stroke;stroke:rgba(0,0,0,.28);stroke-width:.8;">${num}</text>
     </svg>
   </div>`;
 }
