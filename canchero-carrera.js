@@ -183,6 +183,15 @@ function premioImgSlug(nombre){
   return null;
 }
 function todosClubs(){ const out=[]; LIGAS.forEach(L=>L.clubs.forEach(c=>out.push({name:c[0],str:c[1],liga:L.liga,pais:L.pais}))); return out; }
+// ── ASCENSO / DESCENSO ─────────────────────────────────────────────────────────
+// Mapea cada liga con su superior/inferior. Si no hay, undefined = no se mueve.
+const LIGA_PAIR = {
+  'Interior Uruguay':      { arriba:'Primera Uruguay' },
+  'Primera Uruguay':       { abajo:'Interior Uruguay' },
+  'Primera Nacional (ARG)':{ arriba:'Liga Profesional (ARG)' },
+  'Liga Profesional (ARG)':{ abajo:'Primera Nacional (ARG)' }
+};
+function pairLiga(liga){ return LIGA_PAIR[liga] || null; }
 // Nombre de club → slug del escudo (img/clubs). Los que no están usan iniciales.
 const NAMESLUG = {
   // Uruguay
@@ -600,16 +609,32 @@ window._carreraTemporada = function(){
   if(titulo){ G.titulos++; if(!G.vitrina) G.vitrina=[]; G.vitrina.push({ nombre:titulo, edad:G.edad, club:G.club, img:trofeoImgSlug(titulo) }); }
   // Clasificación a copa internacional del PRÓXIMO año según puesto.
   G.clasificadoInter = (pos<=4 && ligaNivel(G.liga)>=6);
+  // ── ASCENSOS / DESCENSOS ─────────────────────────────────────────────────────
+  // Últimas 2 posiciones → DESCIENDE. Puestos 1-2 (o campeón) de una liga
+  // secundaria → ASCIENDE. Cambia G.liga automáticamente y muestra en el timeline.
+  G.moveLiga = null;
+  const _pair = pairLiga(G.liga);
+  if (pos >= totalEq - 1 && _pair && _pair.abajo) {
+    // Descenso
+    G.liga = _pair.abajo;
+    G.clubStr = Math.max(38, G.clubStr - ri(6, 10)); // el club pierde fuerza al descender
+    G.moveLiga = { tipo:'desc', a:_pair.abajo };
+  } else if (pos === 1 && _pair && _pair.arriba) {
+    // Ascenso (con el campeón)
+    G.liga = _pair.arriba;
+    G.clubStr = Math.min(90, G.clubStr + ri(4, 8));
+    G.moveLiga = { tipo:'asc', a:_pair.arriba };
+  }
   const clasifText = (T.inter && pos<=4 && ligaNivel(G.liga)>=6) ? ('Clasificaste a '+T.inter)
                    : (T.interLite && pos<=6 && ligaNivel(G.liga)>=6) ? ('Clasificaste a '+T.interLite) : null;
   // ── Valor de mercado ──
   const edadFactor = G.edad<28?1.25:G.edad<32?0.85:0.45;
   G.valor = Math.round((G.nivel**2.4)*edadFactor*20 + G.titulos*80000);
   // ── Timeline COMPLETO (una fila por temporada, con posición y trofeo) ──
-  G.timeline.push({ edad:G.edad, temporada:G.temporada, club:G.club, liga:G.liga, niv:Math.round(G.nivel), pj, g, a, dN, pos, totalEq, titulo, clasif:clasifText });
+  G.timeline.push({ edad:G.edad, temporada:G.temporada, club:G.club, liga:G.liga, niv:Math.round(G.nivel), pj, g, a, dN, pos, totalEq, titulo, clasif:clasifText, move:G.moveLiga });
   G.temporada++; G.edad++; G.anio = (G.anio||2026) + 1;
   save();
-  resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText});
+  resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText,move:G.moveLiga});
 };
 
 function resumenTemporada(r){
@@ -626,6 +651,7 @@ function resumenTemporada(r){
         <div style="font-size:11px;color:#8a8f96;margin-top:2px;">Campeón con ${esc(G.club)}</div>
       </div><style>@keyframes crTrophy{0%{transform:scale(.3) rotate(-12deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}@keyframes crPop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}</style>`:''}
       ${r.clasif?`<div style="margin-top:12px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#4fc3f7;background:rgba(79,195,247,.1);border:1px solid rgba(79,195,247,.3);border-radius:20px;padding:5px 12px;"><i class='bx bx-star'></i> ${esc(r.clasif)}</div>`:''}
+      ${r.move?`<div style="margin-top:12px;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:900;color:${r.move.tipo==='asc'?'#22c55e':'#ef4444'};background:${r.move.tipo==='asc'?'rgba(34,197,94,.12)':'rgba(239,68,68,.12)'};border:1px solid ${r.move.tipo==='asc'?'rgba(34,197,94,.4)':'rgba(239,68,68,.4)'};border-radius:20px;padding:6px 14px;"><i class='bx ${r.move.tipo==='asc'?'bx-up-arrow-alt':'bx-down-arrow-alt'}'></i> ${r.move.tipo==='asc'?'¡ASCENSO! ':'DESCENSO. '}Ahora en <b>${esc(r.move.a)}</b></div>`:''}
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;">
       ${st('PJ',r.pj)}${st('GOLES',r.g)}${st('ASIST',r.a)}${st('NIVEL',(r.dN>=0?'+':'')+r.dN)}
@@ -1196,6 +1222,7 @@ function retiro(){
   // Timeline: fila por temporada
   const timelineHtml = (G.timeline||[]).slice().reverse().map(t=>{
     const tit = t.titulo ? `<div style="display:inline-flex;align-items:center;gap:4px;background:rgba(250,204,21,.14);border:1px solid rgba(250,204,21,.35);color:#facc15;border-radius:8px;padding:2px 8px;font-size:10px;font-weight:800;margin-top:3px;"><i class='bx bx-trophy'></i>${esc(t.titulo)}</div>`:'';
+    const mv  = t.move ? `<div style="display:inline-flex;align-items:center;gap:4px;background:${t.move.tipo==='asc'?'rgba(34,197,94,.14)':'rgba(239,68,68,.14)'};border:1px solid ${t.move.tipo==='asc'?'rgba(34,197,94,.4)':'rgba(239,68,68,.4)'};color:${t.move.tipo==='asc'?'#22c55e':'#ef4444'};border-radius:8px;padding:2px 8px;font-size:10px;font-weight:800;margin-top:3px;margin-left:${t.titulo?'4px':'0'};"><i class='bx ${t.move.tipo==='asc'?'bx-up-arrow-alt':'bx-down-arrow-alt'}'></i>${t.move.tipo==='asc'?'Ascenso':'Descenso'}</div>`:'';
     return `<div style="display:flex;align-items:center;gap:11px;padding:10px 4px;border-bottom:1px solid #141614;">
       ${clubBadge(t.club, 38)}
       <div style="flex:1;min-width:0;">
@@ -1204,7 +1231,7 @@ function retiro(){
           <span style="font-size:13.5px;color:#fff;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.club)}</span>
         </div>
         <div style="font-size:11px;color:#aaa;margin-top:2px;">Nv <b style="color:#fff;">${t.niv}</b> · ${t.pj} PJ · <b style="color:${A};">${t.g}</b>G · ${t.a}A</div>
-        ${tit}
+        ${tit}${mv}
       </div>
     </div>`;
   }).join('');
