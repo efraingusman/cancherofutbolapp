@@ -6800,3 +6800,18 @@ i.bx.bx-cancha::before, i.bx-cancha::before { content: ''; }
 }
 /* Header (nav) apenas más abajo del borde: respeta el notch/safe-area y da aire arriba. */
 #main-nav { padding-top: calc(env(safe-area-inset-top, 0px) + 4px) !important; }
+
+/* ── BOTÓN VOLVER A JUEGOS — CONSISTENTE EN LOS 6 JUEGOS ─────────────────────
+   Arriba a la izquierda, mismo estilo pill glass en Leyenda / Trivia / Adivina /
+   Impostor / 11 Ideal / Higher-Lower. Antes cada juego tenía su variante. */
+.cg-back{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.14);
+  color:#cfd6cc;font-family:'Outfit',sans-serif;font-weight:800;font-size:13px;
+  border-radius:22px;padding:8px 14px;cursor:pointer;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  transition:.15s;line-height:1;flex-shrink:0;
+}
+.cg-back:hover{ background:rgba(186,255,0,0.14);border-color:rgba(186,255,0,0.35);color:#fff; }
+.cg-back i{ font-size:16px; }
+.cg-back-wrap{ position:sticky;top:0;z-index:5;padding:10px 14px;display:flex;justify-content:flex-start; }

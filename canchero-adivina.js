@@ -120,7 +120,7 @@ window._advPickLevel = function(){
     '<div style="font-size:19px;font-weight:900;color:#fff;margin-bottom:2px;">Elegí la dificultad</div>'+
     '<button id="adv-duel-btn" onclick="window._advToggleDuel(this)" style="width:100%;max-width:320px;background:rgba(100,180,255,0.08);color:#64b4ff;border:1px solid rgba(100,180,255,0.4);border-radius:14px;padding:13px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;margin-bottom:6px;"><span>⚔ DESAFIAR A UN AMIGO (jugás y le mandás el duelo)</span></button>'+
     NAMES.map((n,i)=>`<button onclick="this.parentElement.remove();window._adivinaProStart(null,${i+1})" style="width:100%;max-width:320px;background:#111;border:1px solid ${i>=3?'rgba(255,80,80,0.4)':'#2a2a2a'};border-radius:14px;padding:14px;color:#fff;font-weight:800;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-family:inherit;"><span>${n}</span><span style="color:${i>=3?'#ff6b6b':'var(--accent)'};">${'★'.repeat(i+1)}</span></button>`).join('')+
-    '<button onclick="this.parentElement.remove();window.openGamesModal&&openGamesModal()" style="margin-top:8px;background:none;border:none;color:#777;font-size:13px;cursor:pointer;">← Volver</button>';
+    '<button class="cg-back" onclick="this.parentElement.remove();window.openGamesModal&&openGamesModal()"><i class="bx bx-arrow-back"></i> Juegos</button>';
   document.body.appendChild(m);
 };
 

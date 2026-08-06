@@ -108,7 +108,7 @@ window._triviaStart = async function(){
   m.innerHTML = `
   <div style="max-width:520px;margin:0 auto;padding:26px 20px calc(30px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;text-align:center;min-height:100%;">
     <div style="width:100%;display:flex;justify-content:flex-start;">
-      <button onclick="document.getElementById('trivia-modal').remove();window.openGamesModal&&window.openGamesModal()" style="background:rgba(255,255,255,.06);border:none;color:#aaa;font-size:13px;border-radius:20px;padding:8px 14px;cursor:pointer;"><i class='bx bx-arrow-back'></i> Juegos</button>
+      <button class="cg-back" onclick="document.getElementById('trivia-modal').remove();window.openGamesModal&&window.openGamesModal()"><i class='bx bx-arrow-back'></i> Juegos</button>
     </div>
     <div style="width:96px;height:96px;border-radius:24px;background:rgba(186,255,0,.1);border:1px solid rgba(186,255,0,.3);display:flex;align-items:center;justify-content:center;margin:18px 0 14px;"><i class='bx bx-brain' style="font-size:52px;color:${ACCENT};"></i></div>
     <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:28px;color:#fff;">TRIVIA FUTBOLERA</div>

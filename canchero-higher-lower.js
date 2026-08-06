@@ -156,7 +156,7 @@ function _shell(inner){
   m.innerHTML=`<div style="position:absolute;inset:0;">${_PITCH_LINES}</div>
     <div style="position:relative;max-width:520px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px calc(24px + env(safe-area-inset-bottom));">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-      <button onclick="window._hlBack()" style="background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);border-radius:50%;width:36px;height:36px;color:#fff;font-size:18px;cursor:pointer;flex-shrink:0;backdrop-filter:blur(6px);"><i class='bx bx-arrow-back'></i></button>
+      <button class="cg-back" onclick="window._hlBack()"><i class='bx bx-arrow-back'></i> Juegos</button>
       <div style="font-weight:900;color:#fff;font-size:16px;display:flex;align-items:center;gap:8px;text-shadow:0 2px 6px rgba(0,0,0,0.6);"><i class='bx bx-trending-up' style="color:var(--accent);"></i> Más o Menos</div>
       <button onclick="window.CGCore&&CGCore.openRanking('higher-lower')" style="margin-left:auto;background:rgba(0,0,0,0.45);border:1px solid rgba(255,215,0,0.5);border-radius:50%;width:34px;height:34px;color:#FFD700;cursor:pointer;backdrop-filter:blur(6px);" title="Ranking"><i class='bx bx-trophy'></i></button>
     </div>
