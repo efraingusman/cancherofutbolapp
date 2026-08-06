@@ -702,23 +702,43 @@ window._carreraTemporada = function(){
   // Fuerza esperada del club (ranking) + tu aporte relativo → posición.
   const strengths = clubs.map(c=>c[1]).sort((a,b)=>b-a);
   let baseRank = strengths.indexOf(G.clubStr); if(baseRank<0) baseRank = Math.floor(totalEq/2);
-  const aporte = clamp((rend-0.3)*4 + (G.nivel-G.clubStr)/12, -2.5, 2.5);   // buen jugador sube al equipo
-  // Ruido MAS AMPLIO (rnd -2.5 a 2.5) → los grandes NO ganan siempre (aunque tengan
-  // el mejor plantel, hay temporadas malas). Antes ganaba siempre el mismo equipo.
-  let pos = Math.round(baseRank+1 - aporte + rnd(-2.5, 2.5));
+  // Aporte del jugador REDUCIDO: un crack solo NO gana la liga; ayuda pero no decide todo.
+  const aporte = clamp((rend-0.3)*2.2 + (G.nivel-G.clubStr)/18, -1.6, 1.6);
+  // Ruido más amplio y con sesgo hacia abajo (rara vez todo sale perfecto).
+  // También podés DESCENDER incluso siendo grande si tenés temporada horrible.
+  let pos = Math.round(baseRank+1 - aporte + rnd(-2.0, 4.5));
   pos = clamp(pos, 1, totalEq);
   // ── TÍTULOS coherentes con la liga (pueden acumularse en la misma temporada) ──
   const T = trofeosDe(G.liga);
   const titulosGanados = [];
   // Liga local: SOLO si sos primero
   if (pos === 1) titulosGanados.push(T.local);
-  // Copa nacional: chance INDEPENDIENTE de la liga (grandes la ganan mas seguido).
-  // Antes con "else if" no podia ganar copa+liga en el mismo año, cosa comun en la realidad.
-  if (T.copaNac && Math.random() < clamp((G.clubStr-58)/120, 0.05, 0.32)) titulosGanados.push(T.copaNac);
-  // Copa internacional: si el club es GRANDE y clasificó.
-  if (G.clasificadoInter && T.inter && Math.random() < clamp((G.clubStr-72)/85, 0, 0.30)) titulosGanados.push(T.inter);
-  // Copa internacional "lite" (Europa League / Sudamericana): clubes medianos.
-  if (G.clasificadoInterLite && T.interLite && Math.random() < clamp((G.clubStr-65)/95, 0, 0.28)) titulosGanados.push(T.interLite);
+  // Copa nacional: chance INDEPENDIENTE de la liga (grandes la ganan más seguido, pero
+  // con techo bajo — la copa es a eliminación directa, cualquiera te puede voltear).
+  if (T.copaNac && Math.random() < clamp((G.clubStr-58)/160, 0.03, 0.22)) titulosGanados.push(T.copaNac);
+  // Copa internacional (Champions/Libertadores): si el club es GRANDE y clasificó.
+  // Guardo la RONDA alcanzada para mostrarla aunque no gane.
+  let interRonda = null, interLiteRonda = null;
+  const rondasInter = ['Fase de grupos','Octavos','Cuartos','Semifinal','Final'];
+  if (G.clasificadoInter && T.inter) {
+    const chance = clamp((G.clubStr-72)/85, 0, 0.28);
+    const gano = Math.random() < chance;
+    if (gano) { titulosGanados.push(T.inter); interRonda = 'CAMPEÓN'; }
+    else {
+      // Ronda alcanzada según fuerza del club.
+      const maxR = clamp(Math.floor((G.clubStr-68)/5), 0, 4);
+      interRonda = rondasInter[ri(0, maxR)];
+    }
+  }
+  if (G.clasificadoInterLite && T.interLite) {
+    const chance = clamp((G.clubStr-65)/95, 0, 0.26);
+    const gano = Math.random() < chance;
+    if (gano) { titulosGanados.push(T.interLite); interLiteRonda = 'CAMPEÓN'; }
+    else {
+      const maxR = clamp(Math.floor((G.clubStr-62)/5), 0, 4);
+      interLiteRonda = rondasInter[ri(0, maxR)];
+    }
+  }
   // Persistir cada trofeo ganado en la vitrina.
   titulosGanados.forEach(t => {
     G.titulos++; if(!G.vitrina) G.vitrina=[];
@@ -780,7 +800,10 @@ window._carreraTemporada = function(){
   G.valor = Math.round(((G.nivel**2.4)*edadFactor*20 + G.titulos*80000) * ligaMult * clubMult);
   G.valor = Math.max(300, G.valor);
   // ── Timeline COMPLETO (una fila por temporada, con posición y trofeo) ──
-  G.timeline.push({ edad:G.edad, temporada:G.temporada, club:G.club, liga:G.liga, niv:Math.round(G.nivel), pj, g, a, dN, pos, totalEq, titulo, clasif:clasifText, move:G.moveLiga });
+  // Texto de participación en copa internacional (aunque no gane).
+  const interCopa = interRonda ? `${T.inter}: ${interRonda}` : null;
+  const interLiteCopa = interLiteRonda ? `${T.interLite}: ${interLiteRonda}` : null;
+  G.timeline.push({ edad:G.edad, temporada:G.temporada, club:G.club, liga:G.liga, niv:Math.round(G.nivel), pj, g, a, dN, pos, totalEq, titulo, clasif:clasifText, move:G.moveLiga, interCopa, interLiteCopa });
   // Rentas anuales de bienes (restaurante/escuela): entran una vez por temporada.
   if(G.bienes && G.bienes.length){
     const renta = G.bienes.reduce((s,b)=>{ const B=bienByld(b.id); return s+((B&&B.renta)?B.renta:0); },0);
@@ -792,7 +815,7 @@ window._carreraTemporada = function(){
   G.idolatria[G.club] = clamp((G.idolatria[G.club]||0) + idBase, -100, 100);
   G.temporada++; G.edad++; G.anio = (G.anio||2026) + 1;
   save();
-  resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText,move:G.moveLiga});
+  resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa});
 };
 
 function resumenTemporada(r){
@@ -809,6 +832,8 @@ function resumenTemporada(r){
         <div style="font-size:11px;color:#8a8f96;margin-top:2px;">Campeón con ${esc(G.club)}</div>
       </div><style>@keyframes crTrophy{0%{transform:scale(.3) rotate(-12deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}@keyframes crPop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}</style>`:''}
       ${r.clasif?`<div style="margin-top:12px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#4fc3f7;background:rgba(79,195,247,.1);border:1px solid rgba(79,195,247,.3);border-radius:20px;padding:5px 12px;"><i class='bx bx-star'></i> ${esc(r.clasif)}</div>`:''}
+      ${r.interCopa?`<div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#a78bfa;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.3);border-radius:20px;padding:5px 12px;"><i class='bx bx-medal'></i> ${esc(r.interCopa)}</div>`:''}
+      ${r.interLiteCopa?`<div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#f59e0b;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:20px;padding:5px 12px;"><i class='bx bx-medal'></i> ${esc(r.interLiteCopa)}</div>`:''}
       ${r.move?`<div style="margin-top:12px;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:900;color:${r.move.tipo==='asc'?'#22c55e':'#ef4444'};background:${r.move.tipo==='asc'?'rgba(34,197,94,.12)':'rgba(239,68,68,.12)'};border:1px solid ${r.move.tipo==='asc'?'rgba(34,197,94,.4)':'rgba(239,68,68,.4)'};border-radius:20px;padding:6px 14px;"><i class='bx ${r.move.tipo==='asc'?'bx-up-arrow-alt':'bx-down-arrow-alt'}'></i> ${r.move.tipo==='asc'?'¡ASCENSO! ':'DESCENSO. '}Ahora en <b>${esc(r.move.a)}</b></div>`:''}
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;">
