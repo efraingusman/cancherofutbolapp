@@ -549,6 +549,10 @@ window._carreraHub = function(){
           <div style="flex:1;"><div style="font-size:10px;color:#666;font-weight:800;">TÍTULOS</div><div style="font-size:18px;font-weight:900;color:${A};">${G.titulos}</div></div>
         </div>
         <button onclick="window._carreraTemporada()" style="width:100%;margin-top:14px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:12px;padding:14px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">${G.edad>=16+G.years?'VER RETIRO':'JUGAR TEMPORADA '+G.temporada}  <i class='bx bx-right-arrow-alt'></i></button>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button onclick="window._carreraPedirSalida()" style="flex:1;background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:12px;padding:11px;font-weight:800;font-size:12px;cursor:pointer;"><i class='bx bx-log-out'></i> Pedir salida</button>
+          <button onclick="window._carreraBienes()" style="flex:1;background:rgba(250,204,21,.08);color:#facc15;border:1px solid rgba(250,204,21,.3);border-radius:12px;padding:11px;font-weight:800;font-size:12px;cursor:pointer;"><i class='bx bx-wallet'></i> Mis bienes</button>
+        </div>
       </div>
       <!-- Línea de tiempo: TODAS las temporadas jugadas, con posición y trofeo -->
       <div style="background:rgba(255,255,255,.03);border:1px solid #1c1c1c;border-radius:16px;padding:8px 14px;">
@@ -596,19 +600,58 @@ window._carreraTemporada = function(){
   const strengths = clubs.map(c=>c[1]).sort((a,b)=>b-a);
   let baseRank = strengths.indexOf(G.clubStr); if(baseRank<0) baseRank = Math.floor(totalEq/2);
   const aporte = clamp((rend-0.3)*4 + (G.nivel-G.clubStr)/12, -2.5, 2.5);   // buen jugador sube al equipo
-  let pos = Math.round(baseRank+1 - aporte + rnd(-1.5,1.5));
+  // Ruido MAS AMPLIO (rnd -2.5 a 2.5) → los grandes NO ganan siempre (aunque tengan
+  // el mejor plantel, hay temporadas malas). Antes ganaba siempre el mismo equipo.
+  let pos = Math.round(baseRank+1 - aporte + rnd(-2.5, 2.5));
   pos = clamp(pos, 1, totalEq);
-  // ── TÍTULOS coherentes con la liga ──
+  // ── TÍTULOS coherentes con la liga (pueden acumularse en la misma temporada) ──
   const T = trofeosDe(G.liga);
-  let titulo=null, copa=null;
-  if(pos===1){ titulo=T.local; }                                            // campeón de liga
-  // Copa nacional: chance según fuerza del club, independiente de la posición.
-  else if(T.copaNac && Math.random() < clamp((G.clubStr-60)/120,0.03,0.35)){ titulo=T.copaNac; }
-  // Copa internacional: solo si el club es grande Y clasificó (salió arriba el año pasado).
-  if(G.clasificadoInter && T.inter && Math.random() < clamp((G.clubStr-72)/90,0,0.35)){ titulo = titulo||T.inter; }
-  if(titulo){ G.titulos++; if(!G.vitrina) G.vitrina=[]; G.vitrina.push({ nombre:titulo, edad:G.edad, club:G.club, img:trofeoImgSlug(titulo) }); }
+  const titulosGanados = [];
+  // Liga local: SOLO si sos primero
+  if (pos === 1) titulosGanados.push(T.local);
+  // Copa nacional: chance INDEPENDIENTE de la liga (grandes la ganan mas seguido).
+  // Antes con "else if" no podia ganar copa+liga en el mismo año, cosa comun en la realidad.
+  if (T.copaNac && Math.random() < clamp((G.clubStr-58)/120, 0.05, 0.32)) titulosGanados.push(T.copaNac);
+  // Copa internacional: si el club es GRANDE y clasificó.
+  if (G.clasificadoInter && T.inter && Math.random() < clamp((G.clubStr-72)/85, 0, 0.30)) titulosGanados.push(T.inter);
+  // Copa internacional "lite" (Europa League / Sudamericana): clubes medianos.
+  if (G.clasificadoInterLite && T.interLite && Math.random() < clamp((G.clubStr-65)/95, 0, 0.28)) titulosGanados.push(T.interLite);
+  // Persistir cada trofeo ganado en la vitrina.
+  titulosGanados.forEach(t => {
+    G.titulos++; if(!G.vitrina) G.vitrina=[];
+    G.vitrina.push({ nombre:t, edad:G.edad, club:G.club, img:trofeoImgSlug(t) });
+  });
+  // El "titulo" del resumen: prioriza internacional > copa nacional > liga (el mas importante).
+  const priTitulo = (arr) => {
+    if (!arr.length) return null;
+    const orden = ['champions','libertadores','intercontinental','mundial-clubes','europa','sudamericana'];
+    for (const clave of orden) { const t = arr.find(x => trofeoImgSlug(x) === clave); if (t) return t; }
+    if (T.copaNac && arr.indexOf(T.copaNac) >= 0) return T.copaNac;
+    return arr[0];
+  };
+  let titulo = priTitulo(titulosGanados);
+  // ── PREMIOS INDIVIDUALES ────────────────────────────────────────────────────
+  // Balón de Oro / Bota de Oro / The Best se otorgan segun rendimiento excepcional
+  // de la temporada. NO todos juntos siempre, cada uno con umbral distinto.
+  if(!G.premios) G.premios = [];
+  const gpPJ = pj > 0 ? g / pj : 0;
+  if (g >= 30 && G.nivel >= 82 && Math.random() < 0.55) {
+    G.premios.push({ nombre:'Bota de Oro', edad:G.edad, temporada:G.temporada, img:'bota-oro' });
+  }
+  if (G.nivel >= 88 && (titulosGanados.length >= 2 || (titulosGanados.includes(T.inter))) && Math.random() < 0.35) {
+    G.premios.push({ nombre:'Balón de Oro', edad:G.edad, temporada:G.temporada, img:'balon-oro' });
+  } else if (G.nivel >= 86 && titulosGanados.length >= 1 && Math.random() < 0.25) {
+    G.premios.push({ nombre:'The Best', edad:G.edad, temporada:G.temporada, img:'the-best' });
+  }
+  if (G.pos === 'POR' && G.nivel >= 80 && Math.random() < 0.30) {
+    G.premios.push({ nombre:'Guante de Oro', edad:G.edad, temporada:G.temporada, img:'guante-oro' });
+  }
+  if (G.edad <= 21 && G.nivel >= 78 && Math.random() < 0.30) {
+    G.premios.push({ nombre:'Mejor Jugador Joven', edad:G.edad, temporada:G.temporada, img:'mejor-joven' });
+  }
   // Clasificación a copa internacional del PRÓXIMO año según puesto.
   G.clasificadoInter = (pos<=4 && ligaNivel(G.liga)>=6);
+  G.clasificadoInterLite = (pos>=5 && pos<=6 && ligaNivel(G.liga)>=6);
   // ── ASCENSOS / DESCENSOS ─────────────────────────────────────────────────────
   // Últimas 2 posiciones → DESCIENDE. Puestos 1-2 (o campeón) de una liga
   // secundaria → ASCIENDE. Cambia G.liga automáticamente y muestra en el timeline.
@@ -632,6 +675,11 @@ window._carreraTemporada = function(){
   G.valor = Math.round((G.nivel**2.4)*edadFactor*20 + G.titulos*80000);
   // ── Timeline COMPLETO (una fila por temporada, con posición y trofeo) ──
   G.timeline.push({ edad:G.edad, temporada:G.temporada, club:G.club, liga:G.liga, niv:Math.round(G.nivel), pj, g, a, dN, pos, totalEq, titulo, clasif:clasifText, move:G.moveLiga });
+  // Rentas anuales de bienes (restaurante/escuela): entran una vez por temporada.
+  if(G.bienes && G.bienes.length){
+    const renta = G.bienes.reduce((s,b)=>{ const B=bienByld(b.id); return s+((B&&B.renta)?B.renta:0); },0);
+    if(renta>0) G.dinero = (G.dinero||0) + renta;
+  }
   G.temporada++; G.edad++; G.anio = (G.anio||2026) + 1;
   save();
   resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText,move:G.moveLiga});
@@ -1189,6 +1237,106 @@ window._carreraElegir = function(i){
     ${chips?`<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:16px;">${chips}</div>`:'<div style="height:6px;"></div>'}
     <button onclick="window._carreraContinuar()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 28px;font-weight:900;cursor:pointer;">Continuar</button>
   </div>`;
+};
+
+// ── PEDIR SALIDA DEL CLUB ──────────────────────────────────────────────────────
+// Genera hasta 4 ofertas de clubes que te quieran (mejor liga o similar) para irse
+// en el mercado. Antes te quedabas atado si no salía oferta random — ahora vos
+// decidís cuándo golpear la puerta y buscarte un nuevo destino.
+window._carreraPedirSalida = function(){
+  if(!G) G=load(); if(!G) return;
+  // Todos los clubes distintos al actual que te "aguantan" (no mucho abajo de tu nivel).
+  const candidatos = todosClubs().filter(c => {
+    if (c.name === G.club) return false;
+    if (G.nivel < c.str - 12) return false;
+    if (c.str > 82 && G.edad > 32 && G.nivel < 88) return false;
+    return true;
+  });
+  if(!candidatos.length){ if(window.showToast) showToast('Ningún club te está mirando ahora. Rendí más una temporada.', 'info'); return; }
+  const shuffled = candidatos.slice().sort(()=>Math.random()-0.5);
+  const seen={}; const picks=[];
+  for(const c of shuffled){ if(seen[c.name])continue; seen[c.name]=1; picks.push(c); if(picks.length>=4)break; }
+  G._offers = picks.map(ofertaDe); G.moral = clamp((G.moral||60)-4, 0, 100); save();
+  const m = overlay();
+  m.innerHTML = `
+    <div style="max-width:560px;margin:0 auto;padding:22px 18px calc(30px + env(safe-area-inset-bottom));">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <button onclick="window._carreraHub()" style="background:rgba(255,255,255,.06);border:none;color:#aaa;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button>
+        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;color:#fff;">Pediste salir del club</div>
+      </div>
+      <div id="cr-evwrap"></div>
+    </div>`;
+  setTimeout(()=>mostrarOfertas('transfer'), 60);
+};
+
+// ── MIS BIENES: comprar/vender con el capital acumulado ────────────────────────
+// Ítems tienen precio, efecto en fama/moral/valor y valor de reventa. Podés vender
+// para recuperar 60-80% del precio original.
+const BIENES = [
+  { id:'auto',        n:'Auto de lujo',          i:'bx-car',         p:120000,  fama:8,  moral:2 },
+  { id:'casa',        n:'Casa premium',          i:'bx-home',        p:600000,  fama:6,  moral:8 },
+  { id:'yate',        n:'Yate',                  i:'bxs-ship',       p:1500000, fama:20, moral:5 },
+  { id:'avion',       n:'Avión privado',         i:'bx-plane-alt',   p:5000000, fama:35, moral:3 },
+  { id:'reloj',       n:'Reloj de colección',    i:'bx-time-five',   p:80000,   fama:5,  moral:1 },
+  { id:'restaurante', n:'Restaurante propio',    i:'bx-restaurant',  p:400000,  fama:6,  moral:5, renta:60000 },
+  { id:'escuela',     n:'Escuela de fútbol',     i:'bx-award',       p:250000,  fama:10, moral:12, renta:40000 },
+  { id:'fundacion',   n:'Fundación benéfica',    i:'bxs-donate-heart', p:200000, fama:15, moral:20 },
+  { id:'inversion',   n:'Inversión bursátil',    i:'bx-line-chart',  p:100000,  fama:0,  moral:0,  invert:true }
+];
+function bienByld(id){ return BIENES.find(b=>b.id===id); }
+window._carreraBienes = function(){
+  if(!G) G=load(); if(!G) return;
+  if(!G.bienes) G.bienes = [];
+  const rentaTotal = G.bienes.reduce((s,b)=>{ const B=bienByld(b.id); return s+((B&&B.renta)?B.renta:0); },0);
+  const m = overlay();
+  m.innerHTML = `
+    <div style="max-width:560px;margin:0 auto;padding:22px 18px calc(30px + env(safe-area-inset-bottom));">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <button onclick="window._carreraHub()" style="background:rgba(255,255,255,.06);border:none;color:#aaa;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button>
+        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;color:#fff;">Mis bienes</div>
+      </div>
+      <div style="background:linear-gradient(160deg,rgba(250,204,21,.12),rgba(20,22,18,.5));border:1px solid rgba(250,204,21,.28);border-radius:14px;padding:14px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+        <div><div style="font-size:10px;color:#a89060;font-weight:800;letter-spacing:1px;">CAPITAL</div><div style="font-size:22px;font-weight:900;color:#facc15;">${eur(G.dinero||0)}</div></div>
+        ${rentaTotal>0?`<div style="text-align:right;"><div style="font-size:10px;color:#a89060;font-weight:800;letter-spacing:1px;">RENTA/AÑO</div><div style="font-size:16px;font-weight:900;color:#22c55e;">+${eur(rentaTotal)}</div></div>`:''}
+      </div>
+      <div style="font-size:11px;color:#9aa0a6;font-weight:800;letter-spacing:1px;margin:6px 0 8px;">TUS PERTENENCIAS (${G.bienes.length})</div>
+      ${G.bienes.length ? G.bienes.map(b => { const B=bienByld(b.id)||{n:b.id,i:'bx-box'}; const reventa=Math.round((b.precio||B.p)*0.65); return `<div style="display:flex;align-items:center;gap:12px;background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:11px 13px;margin-bottom:7px;">
+        <i class='bx ${B.i}' style="font-size:26px;color:#facc15;"></i>
+        <div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:900;color:#fff;">${esc(B.n)}</div><div style="font-size:10.5px;color:#666;">Comprado a ${eur(b.precio||B.p)}${B.renta?' · Renta '+eur(B.renta)+'/año':''}</div></div>
+        <button onclick="window._carreraVender('${b.id}',${reventa})" style="background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:7px 12px;font-weight:800;font-size:11px;cursor:pointer;white-space:nowrap;">Vender ${eur(reventa)}</button>
+      </div>`; }).join('') : `<div style="padding:20px;text-align:center;color:#666;font-size:12px;background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;">Todavía no compraste nada.</div>`}
+      <div style="font-size:11px;color:#9aa0a6;font-weight:800;letter-spacing:1px;margin:18px 0 8px;">TIENDA</div>
+      ${BIENES.map(B => { const own = G.bienes.some(b=>b.id===B.id); const puedo = (G.dinero||0) >= B.p; return `<div style="display:flex;align-items:center;gap:12px;background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:11px 13px;margin-bottom:7px;${own?'opacity:.55':''}">
+        <i class='bx ${B.i}' style="font-size:26px;color:${A};"></i>
+        <div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:900;color:#fff;">${esc(B.n)}</div><div style="font-size:10.5px;color:#8a8f96;">${B.fama?'+':''}${B.fama} fama · ${B.moral?'+':''}${B.moral} moral${B.renta?' · Renta '+eur(B.renta)+'/año':''}${B.invert?' · Puede rendir o perder':''}</div></div>
+        <button ${own||!puedo?'disabled':''} onclick="window._carreraComprar('${B.id}')" style="background:${own?'transparent':puedo?A:'rgba(255,255,255,.05)'};color:${own?'#666':puedo?'#000':'#666'};border:${own?'1px solid #2a2a2a':'none'};border-radius:10px;padding:7px 12px;font-weight:900;font-size:11px;cursor:${own||!puedo?'default':'pointer'};white-space:nowrap;">${own?'TENÉS':eur(B.p)}</button>
+      </div>`; }).join('')}
+    </div>`;
+};
+window._carreraComprar = function(id){
+  const B = bienByld(id); if(!B||!G) return;
+  if((G.dinero||0) < B.p){ if(window.showToast) showToast('No te alcanza.', 'warning'); return; }
+  if(!G.bienes) G.bienes = [];
+  if(G.bienes.some(x=>x.id===id)){ return; }
+  G.dinero -= B.p; G.bienes.push({ id, precio:B.p });
+  G.fama = clamp((G.fama||0) + (B.fama||0), 0, 100);
+  G.moral = clamp((G.moral||0) + (B.moral||0), 0, 100);
+  // Inversión: efecto random ±50% al momento (rendimiento pasivo, no ligado a renta).
+  if (B.invert) {
+    const roi = rnd(-0.4, 0.9); G.dinero += Math.round(B.p * roi);
+    if (window.showToast) showToast(roi>0? 'La inversión rindió +'+eur(Math.round(B.p*roi)) : 'Perdiste '+eur(Math.round(B.p*-roi)) , roi>0?'success':'error');
+  }
+  save(); window._carreraBienes();
+};
+window._carreraVender = function(id, reventa){
+  if(!G||!G.bienes) return;
+  const idx = G.bienes.findIndex(x=>x.id===id); if(idx<0) return;
+  const B = bienByld(id) || {};
+  G.bienes.splice(idx, 1); G.dinero = (G.dinero||0) + reventa;
+  // Perder lo que aportaba en fama/moral (a la mitad, no revierte al 100%).
+  G.fama = clamp((G.fama||0) - Math.round((B.fama||0)/2), 0, 100);
+  G.moral = clamp((G.moral||0) - Math.round((B.moral||0)/2), 0, 100);
+  save(); window._carreraBienes();
 };
 
 // ── RESUMEN FINAL TIPO COPERO ──────────────────────────────────────────────────
