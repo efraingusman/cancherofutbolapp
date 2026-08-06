@@ -57,7 +57,8 @@
       "Bash(node _dev/import-assets.js)",
       "Bash(git commit -m 'Leyenda Tanda A: trofeos correctos, camiseta sin cuadrado negro, gates de eventos, titulo respira *)",
       "Bash(git commit -m 'Leyenda Tanda B: mercado siempre + idolatria por club + ofertas lado-a-lado + gates de edad *)",
-      "Bash(git commit -m 'Leyenda Tanda C: post-retiro anual + segunda vida arriba + compartir carrera *)"
+      "Bash(git commit -m 'Leyenda Tanda C: post-retiro anual + segunda vida arriba + compartir carrera *)",
+      "Bash(git commit -m 'Leyenda: valor coherente con liga/club \\(interior UY vale cientos, no 100k\\) *)"
     ]
   }
 }

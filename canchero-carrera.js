@@ -605,7 +605,11 @@ window._carreraFichar = function(i){
     // Frecuencia REAL: la carrera arranca en 2026 (año del debut). Cada temporada +1 año.
     // Mundial 2030, Copa América 2028, Eurocopa 2028, JJOO 2028/2032.
     anio:2026,
-    dinero:0, valor:100000, fama:5, moral:72, titulos:0, temporada:1,
+    // Valor inicial COHERENTE con el club: interior/amateur arrancan valiendo
+    // €500-€2k (o "vales de comida"). Solo grandes ligas europeas dan un pibe €100k+.
+    // Formula: (str-42) * 260 * ligaBoost. Mínimo €300.
+    dinero:0, valor: Math.max(300, Math.round((c.str-42) * 260 * (1 + ligaNivel(c.liga)*0.28))),
+    fama:5, moral:72, titulos:0, temporada:1,
     tot:{pj:0,g:0,a:0}, timeline:[], hist:[], vitrina:[], clasificadoInter:false,
     // Idolatría por club: -100 (odiado) .. +100 (ídolo eterno). Empezás con +10 por firmar.
     idolatria:{ [c.name]: 10 }, clubDesde:16,
@@ -638,7 +642,7 @@ window._carreraHub = function(){
             <div style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${clubBadge(G.club,22)} ${esc(G.club)}</div>
             <div style="font-size:11px;color:#8a8f96;margin-top:2px;">${esc(G.liga)}</div>
           </div>
-          <div style="text-align:right;flex-shrink:0;"><div style="font-size:10px;color:#666;font-weight:800;">EDAD</div><div style="font-size:20px;font-weight:900;color:#fff;">${G.edad}</div><div style="font-size:9px;color:#666;margin-top:4px;">VALOR</div><div style="font-size:12px;font-weight:900;color:${A};">€${(G.valor>=1e6?(G.valor/1e6).toFixed(1)+'M':(G.valor/1e3|0)+'K')}</div></div>
+          <div style="text-align:right;flex-shrink:0;"><div style="font-size:10px;color:#666;font-weight:800;">EDAD</div><div style="font-size:20px;font-weight:900;color:#fff;">${G.edad}</div><div style="font-size:9px;color:#666;margin-top:4px;">VALOR</div><div style="font-size:12px;font-weight:900;color:${A};">${eur(G.valor||0)}</div></div>
         </div>
         <div style="display:flex;gap:10px;margin-top:14px;text-align:center;">
           <div style="flex:1;"><div style="font-size:10px;color:#666;font-weight:800;">PJ</div><div style="font-size:18px;font-weight:900;color:#fff;">${G.tot.pj}</div></div>
@@ -769,9 +773,12 @@ window._carreraTemporada = function(){
   }
   const clasifText = (T.inter && pos<=4 && ligaNivel(G.liga)>=6) ? ('Clasificaste a '+T.inter)
                    : (T.interLite && pos<=6 && ligaNivel(G.liga)>=6) ? ('Clasificaste a '+T.interLite) : null;
-  // ── Valor de mercado ──
+  // ── Valor de mercado ── Escalado por LIGA + CLUB (interior no vale como top europeo)
   const edadFactor = G.edad<28?1.25:G.edad<32?0.85:0.45;
-  G.valor = Math.round((G.nivel**2.4)*edadFactor*20 + G.titulos*80000);
+  const ligaMult = 0.05 + ligaNivel(G.liga)*0.10;                     // 0.05 (interior) → 1.35 (Brasileirão)
+  const clubMult = Math.max(0.15, (G.clubStr-45)/40);                  // 0.15 (str 51) → 1.35 (str 90)
+  G.valor = Math.round(((G.nivel**2.4)*edadFactor*20 + G.titulos*80000) * ligaMult * clubMult);
+  G.valor = Math.max(300, G.valor);
   // ── Timeline COMPLETO (una fila por temporada, con posición y trofeo) ──
   G.timeline.push({ edad:G.edad, temporada:G.temporada, club:G.club, liga:G.liga, niv:Math.round(G.nivel), pj, g, a, dN, pos, totalEq, titulo, clasif:clasifText, move:G.moveLiga });
   // Rentas anuales de bienes (restaurante/escuela): entran una vez por temporada.
@@ -1107,7 +1114,7 @@ function trofeoDe(liga){
   return map[liga] || 'champions';
 }
 
-function eur(n){ return n>=1e6 ? '€'+(n/1e6).toFixed(1).replace('.0','')+'M' : '€'+Math.round(n/1000)+'k'; }
+function eur(n){ if(n>=1e6) return '€'+(n/1e6).toFixed(1).replace('.0','')+'M'; if(n>=1000) return '€'+Math.round(n/1000)+'k'; return '€'+Math.round(n); }
 // Tarjeta de una oferta (escudo + club + liga + sueldo/años/prima).
 function ofertaCard(o, i, kind){
   const sub = kind==='renov' ? (o._v||'Renovación') : esc(o.liga);
@@ -1873,7 +1880,7 @@ window._carreraCompartir = function(){
   const clubes = Array.from(new Set((G.timeline||[]).map(t=>t.club)));
   const trofArr = (G.vitrina||[]).map(v=>v.nombre);
   const nivelF = Math.round(G.nivel||0);
-  const valor = G.valor>=1e6?'€'+(G.valor/1e6).toFixed(1)+'M':'€'+(G.valor/1e3|0)+'K';
+  const valor = eur(G.valor||0);
   const rango = G.titulos>=8||nivelF>=88 ? 'LEYENDA' : G.titulos>=4||nivelF>=80 ? 'GRAN CARRERA' : 'CARRERA';
   const lines = [
     `🏆 CANCHERO LEYENDA — ${G.apellido||'—'} #${G.num||10}`,
