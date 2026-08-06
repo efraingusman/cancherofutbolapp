@@ -54,7 +54,8 @@
       "Bash(mkdir -p _dev/escudos_tmp)",
       "Bash(cp -r /tmp/escudos/* _dev/escudos_tmp/)",
       "Bash(node -e 'console.log\\(require\\(\"fs\"\\).existsSync\\(require\\(\"path\"\\).resolve\\(\"_dev/escudos_tmp/laliga/barcelona.png\"\\)\\)\\)')",
-      "Bash(node _dev/import-assets.js)"
+      "Bash(node _dev/import-assets.js)",
+      "Bash(git commit -m 'Leyenda Tanda A: trofeos correctos, camiseta sin cuadrado negro, gates de eventos, titulo respira *)"
     ]
   }
 }

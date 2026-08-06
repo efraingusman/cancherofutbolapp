@@ -143,33 +143,55 @@ function trofeosDe(liga){ return LIGA_TROFEOS[liga] || { local: liga, copaNac: '
 // Cada nombre de torneo → slug del PNG real que subió el usuario a img/trofeos/.
 // Ojo: mapping estricto (evita "Champions con Cobreloa"). Se resuelve por incluir keywords
 // específicas del torneo, en orden de PRIORIDAD (más específicas primero).
+// Mapeo EXPLÍCITO por nombre exacto (case-insensitive). Nada de "Champions con
+// Cobreloa": si no hay imagen específica, devolvemos null y el UI muestra un
+// trofeo genérico (icono) con el nombre del torneo.
+const TROFEO_MAP = {
+  // Internacionales de clubes
+  'champions league':'champions','uefa champions league':'champions',
+  'champions league de asia':'champions','concachampions':'champions',
+  'europa league':'europa','conference league':'europa',
+  'copa libertadores':'libertadores','copa sudamericana':'sudamericana',
+  'mundial de clubes':'mundial-clubes','intercontinental':'intercontinental',
+  // Selecciones
+  'mundial':'mundial','copa del mundo':'mundial',
+  'eurocopa':'eurocopa','copa américa':'copa-america','copa america':'copa-america',
+  'oro olímpico':'oro-olimpico','oro olimpico':'oro-olimpico',
+  // Ligas nacionales (torneo local)
+  'laliga':'laliga','la liga':'laliga',
+  'premier league':'premier',
+  'ligue 1':'ligue1',
+  'serie a':'coppa-italia',
+  'brasileirão':'copa-brasil','brasileirao':'copa-brasil',
+  'primeira liga':'copa-portugal',
+  'campeonato uruguayo':'liga-uy',
+  // Copas nacionales con imagen propia
+  'copa italia':'coppa-italia','coppa italia':'coppa-italia',
+  'copa argentina':'copa-argentina',
+  'copa do brasil':'copa-brasil',
+  'copa de portugal':'copa-portugal',
+  'copa chile':'copa-chile',
+  'copa auf':'liga-uy'
+};
 function trofeoImgSlug(nombre){
-  const n = (nombre||'').toLowerCase();
-  // Internacionales
-  if (n.includes('mundial de clubes') || n.includes('mundial clubes')) return 'mundial-clubes';
-  if (n.includes('intercontinental')) return 'intercontinental';
+  const n = (nombre||'').toLowerCase().trim();
+  if (TROFEO_MAP[n]) return TROFEO_MAP[n];
+  // Fuzzy sólo para nombres muy conocidos (no meter falsos positivos).
   if (n.includes('champions')) return 'champions';
   if (n.includes('libertadores')) return 'libertadores';
-  if (n.includes('europa league') || n.includes('europa')) return 'europa';
   if (n.includes('sudamericana')) return 'sudamericana';
-  // Selecciones
-  if (n.includes('mundial')) return 'mundial';
-  if (n.includes('eurocopa') || n.includes('eurocup')) return 'eurocopa';
-  if (n.includes('copa américa') || n.includes('copa america')) return 'copa-america';
-  if (n.includes('olímpico') || n.includes('olimpic')) return 'oro-olimpico';
-  // Ligas nacionales
-  if (n.includes('laliga') || n.includes('la liga')) return 'laliga';
-  if (n.includes('premier')) return 'premier';
-  if (n.includes('ligue') || n.includes('francia')) return 'ligue1';
-  if (n.includes('serie a') || n.includes('coppa italia') || n.includes('copa italia')) return 'coppa-italia';
-  if (n.includes('portugal')) return 'copa-portugal';
-  if (n.includes('bundesliga') || n.includes('alemana')) return 'coppa-italia'; // fallback
-  if (n.includes('brasil')) return 'copa-brasil';
-  if (n.includes('copa argentina') || n.includes('copa arg')) return 'copa-argentina';
-  if (n.includes('argentin')) return 'copa-argentina';
-  if (n.includes('chile')) return 'copa-chile';
-  if (n.includes('uruguay') || n.includes('uruguayo')) return 'liga-uy';
-  return 'champions';
+  if (n.includes('europa') || n.includes('conference')) return 'europa';
+  if (n.includes('mundial de clubes')) return 'mundial-clubes';
+  if (n.includes('intercontinental')) return 'intercontinental';
+  // Sin match → null (UI renderiza icono genérico dorado con el nombre).
+  return null;
+}
+// Renderiza un trofeo: usa imagen si hay slug; si no, un icono genérico dorado.
+function trofeoRender(nombre, size){
+  const slug = trofeoImgSlug(nombre);
+  const s = size || 60;
+  if (slug) return `<img src="img/trofeos/${slug}.webp" alt="" style="max-height:${s}px;max-width:100%;object-fit:contain;filter:drop-shadow(0 4px 12px rgba(250,204,21,.35));" onerror="this.style.display='none'">`;
+  return `<div style="width:${s}px;height:${s}px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 35%, #facc15 0%, #b8860b 65%, #6b4d08 100%);border-radius:50%;box-shadow:0 4px 12px rgba(250,204,21,.35), inset 0 -6px 12px rgba(0,0,0,.35), inset 0 4px 8px rgba(255,255,255,.35);"><i class='bx bxs-trophy' style="font-size:${Math.round(s*0.55)}px;color:#fff8dc;text-shadow:0 1px 2px rgba(0,0,0,.4);"></i></div>`;
 }
 // Premios individuales — se mostrarán como logros aparte.
 function premioImgSlug(nombre){
@@ -299,7 +321,7 @@ function jersey(size, apellido, numero, pais){
   return `<div style="position:relative;width:${s}px;height:${s}px;display:inline-block;background:transparent;">
     <div style="position:absolute;inset:0;background:${base};${maskCSS}"></div>
     ${pattern}
-    <img src="${JERSEY_PNG}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;pointer-events:none;background:transparent;">
+    <img src="${JERSEY_PNG}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;pointer-events:none;background:transparent;-webkit-mask:url('${JERSEY_PNG}') center/contain no-repeat;mask:url('${JERSEY_PNG}') center/contain no-repeat;">
     <svg viewBox="0 0 240 240" width="${s}" height="${s}" style="position:absolute;inset:0;pointer-events:none;background:transparent;" xmlns="http://www.w3.org/2000/svg">
       <text x="120" y="82" text-anchor="middle" font-family="Outfit,Arial" font-weight="800" font-size="16" fill="${txt}" textLength="${apeLen}" lengthAdjust="spacingAndGlyphs" style="letter-spacing:1.2px;paint-order:stroke;stroke:rgba(0,0,0,.28);stroke-width:.5;">${apeUp}</text>
       <text x="120" y="168" text-anchor="middle" font-family="Outfit,Arial" font-weight="900" font-size="76" fill="${txt}" textLength="${numLen}" lengthAdjust="spacingAndGlyphs" style="paint-order:stroke;stroke:rgba(0,0,0,.30)  ;stroke-width:1;">${num}</text>
@@ -768,7 +790,7 @@ function resumenTemporada(r){
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px;">${clubBadge(G.club,26)}<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:20px;color:#fff;">${esc(G.club)}</div></div>
       <div style="font-size:12px;color:#9aa0a6;margin-top:2px;">${esc(G.liga)} · ${posLabel(r.pos)} de ${r.totalEq}</div>
       ${r.titulo?`<div style="margin-top:14px;display:flex;flex-direction:column;align-items:center;">
-        <img src="img/trofeos/${trofeoImgSlug(r.titulo)}.webp" alt="" style="height:100px;object-fit:contain;filter:drop-shadow(0 8px 22px rgba(186,255,0,.4));animation:crTrophy .7s cubic-bezier(.2,1.4,.4,1) both;" onerror="this.onerror=null;this.src='img/trofeos/champions.webp';this.style.opacity=.9">
+        <div style="animation:crTrophy .7s cubic-bezier(.2,1.4,.4,1) both;">${trofeoRender(r.titulo, 100)}</div>
         <div style="margin-top:8px;font-size:16px;font-weight:900;color:${A};letter-spacing:.5px;animation:crPop .5s .2s both;"><i class='bx bxs-trophy'></i> ¡${esc(r.titulo)}!</div>
         <div style="font-size:11px;color:#8a8f96;margin-top:2px;">Campeón con ${esc(G.club)}</div>
       </div><style>@keyframes crTrophy{0%{transform:scale(.3) rotate(-12deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}@keyframes crPop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}</style>`:''}
@@ -780,10 +802,18 @@ function resumenTemporada(r){
     </div>
     <div id="cr-evwrap"></div>
   </div>`;
-  // Decisiones de esta temporada según dificultad.
+  // Decisiones de esta temporada según dificultad. Si hay título ganado, NO
+  // encimamos una decisión random — el momento del trofeo tiene que respirar.
+  // Las decisiones se muestran cuando el usuario aprieta "Continuar".
   G._evLeft = decisionsForSeason();
-  if(G._evLeft>0){ setTimeout(()=>mostrarEvento(),50); }
-  else { const w=document.getElementById('cr-evwrap'); if(w) w.innerHTML=contBtn(); }
+  const w = document.getElementById('cr-evwrap');
+  if (r.titulo) {
+    if (w) w.innerHTML = contBtn();
+  } else if (G._evLeft > 0) {
+    setTimeout(()=>mostrarEvento(), 50);
+  } else {
+    if (w) w.innerHTML = contBtn();
+  }
 }
 function decisionsForSeason(){
   const d=(G&&G.dif)||'normal';
@@ -1247,13 +1277,13 @@ const EVENTOS=[
     { txt:'Todavía no es momento', ef:g=>{ g.dinero+=5000; return 'Lo dejás para más adelante.'; } } ] },
 
   // ── AMATEUR / VIDA (con consecuencias reales, buenas Y malas) ──────────────
-  { t:'El clásico del barrio por un lechón', img:'potrero', d:'Se juega el clásico del barrio y la apuesta es un lechón entero. Media cuadra vino a verte.', opts:[
+  { t:'El clásico del barrio por un lechón', img:'potrero', maxStr:65, d:'Se juega el clásico del barrio y la apuesta es un lechón entero. Media cuadra vino a verte.', opts:[
     { txt:'Jugar con todo por el honor', ef:g=>{ const gana=Math.random()<.55; g.moral+=gana?10:-8; g.fama+=gana?4:-2; return gana?'Metiste el gol del triunfo. Comés lechón como un rey y el barrio te aúpa.':'Erraste el penal decisivo. Te comen los asados ajenos y la cargada dura meses.'; } },
     { txt:'No arriesgar, es solo un picado', ef:g=>{ g.moral-=4; return 'Jugaste tibio. Perdieron y algunos te miran de reojo: "se cree profesional".'; } } ] },
-  { t:'Trabajo en la construcción', img:'potrero', d:'No te alcanza la plata. Te ofrecen changas en una obra, pero el esfuerzo físico te puede pasar factura.', opts:[
+  { t:'Trabajo en la construcción', img:'potrero', maxStr:65, d:'No te alcanza la plata. Te ofrecen changas en una obra, pero el esfuerzo físico te puede pasar factura.', opts:[
     { txt:'Aceptar la changa', ef:g=>{ g.dinero+=8000; const cansado=Math.random()<.5; g.nivel+=cansado?-2:0; return cansado?'Llegás muerto a los entrenamientos. El técnico nota que rendís menos.':'Te ganás unos pesos y mantenés la humildad. Todo bajo control.'; } },
     { txt:'Apostar todo al fútbol', ef:g=>{ g.dinero-=3000; g.moral+=3; g.nivel+=1; return 'La pasás justo de plata, pero descansás y entrenás enfocado.'; } } ] },
-  { t:'Un ojeador en la tribuna', img:'ojeador', d:'Corre el rumor de que hay un ojeador de un club grande mirando el partido de hoy.', opts:[
+  { t:'Un ojeador en la tribuna', img:'ojeador', maxStr:72, d:'Corre el rumor de que hay un ojeador de un club grande mirando el partido de hoy.', opts:[
     { txt:'Salir a comerme la cancha', ef:g=>{ const bien=Math.random()<.5; g.fama+=bien?12:-2; g.nivel+=bien?2:-1; g.valor=Math.round((g.valor||100000)*(bien?1.2:0.95)); return bien?'Jugaste el partido de tu vida. El ojeador pidió tu teléfono.':'Quisiste hacer de más, forzaste jugadas y te fue mal. El ojeador ni te anotó.'; } },
     { txt:'Jugar tranquilo, lo mío', ef:g=>{ g.nivel+=1; return 'Partido sobrio y prolijo. Ni brillás ni fallás; quedás en un cajón de "a seguir".'; } } ] },
   { t:'Pelea en un boliche', img:'joda', d:'Salís de joda y un desconocido te busca pelea de la nada, filmando con el celular.', opts:[
@@ -1295,8 +1325,18 @@ function eventoRandom(){
   try{
     if(!G) return pick(EVENTOS);
     if(!Array.isArray(G.evVistos)) G.evVistos=[];
-    var idx=EVENTOS.map(function(_,i){return i;}).filter(function(i){ return G.evVistos.indexOf(i)===-1; });
-    if(!idx.length){ G.evVistos=[]; idx=EVENTOS.map(function(_,i){return i;}); }
+    var str = G.clubStr || 60;
+    // Filtra por nivel de club: nada de "changa" o "ojeador de barrio" si jugás
+    // en el Barcelona; nada de "reunión con dirigente de élite" si estás en el interior.
+    var ok = function(ev){
+      if (ev.maxStr != null && str > ev.maxStr) return false;
+      if (ev.minStr != null && str < ev.minStr) return false;
+      return true;
+    };
+    var pool = EVENTOS.map(function(_,i){return i;}).filter(function(i){ return ok(EVENTOS[i]); });
+    if(!pool.length) pool = EVENTOS.map(function(_,i){return i;});
+    var idx = pool.filter(function(i){ return G.evVistos.indexOf(i)===-1; });
+    if(!idx.length){ G.evVistos = G.evVistos.filter(function(i){ return pool.indexOf(i)===-1; }); idx = pool; }
     var chosen=idx[Math.floor(Math.random()*idx.length)];
     G.evVistos.push(chosen);
     return EVENTOS[chosen];
@@ -1593,7 +1633,7 @@ function retiro(){
       <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(88px,1fr));gap:10px;">
         ${trofArr.map(t=>`<div style="background:linear-gradient(160deg,rgba(250,204,21,.10),rgba(20,22,18,.6));border:1px solid rgba(250,204,21,.28);border-radius:14px;padding:10px 6px;text-align:center;">
           <div style="position:relative;height:64px;display:flex;align-items:center;justify-content:center;">
-            <img src="img/trofeos/${t.slug}.webp" alt="" style="max-height:60px;max-width:100%;object-fit:contain;filter:drop-shadow(0 4px 12px rgba(250,204,21,.35));" onerror="this.style.display='none'">
+            ${trofeoRender(t.n, 60)}
             ${t.count>1?`<span style="position:absolute;top:-4px;right:-4px;background:${A};color:#000;font-size:10px;font-weight:900;border-radius:11px;padding:2px 7px;">×${t.count}</span>`:''}
           </div>
           <div style="font-size:9.5px;color:#eee;font-weight:800;margin-top:6px;line-height:1.2;">${esc(t.n)}</div>
