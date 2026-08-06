@@ -1618,6 +1618,20 @@ function retiro(){
    .cr-fade{animation:crFadeUp .6s cubic-bezier(.2,1,.3,1) both}
    .cr-fade-d1{animation-delay:.12s}.cr-fade-d2{animation-delay:.24s}.cr-fade-d3{animation-delay:.36s}.cr-fade-d4{animation-delay:.48s}</style>
   <div style="max-width:640px;margin:0 auto;padding:24px 18px calc(40px + env(safe-area-inset-bottom));min-height:100%;">
+    ${(!G.segundaVida) ? `
+    <!-- ELECCIÓN DE SEGUNDA VIDA — arriba, prominente para que no quede enterrada -->
+    <div class="cr-fade" style="background:linear-gradient(160deg,rgba(167,139,250,.12),rgba(20,22,18,.5));border:1.5px solid rgba(167,139,250,.4);border-radius:16px;padding:16px;margin-bottom:16px;">
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:16px;color:#fff;text-align:center;">Se acabó el fútbol. Ahora, ¿qué?</div>
+      <div style="font-size:12.5px;color:#c4ccc0;text-align:center;margin:4px 0 12px;">Elegí un camino. Vas a vivir año por año hasta los 70 con decisiones cada temporada.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button onclick="window._carreraSegundaVida('dt')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:14px 8px;color:#fff;cursor:pointer;text-align:center;" onmouseover="this.style.borderColor='${A}'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-clipboard' style="font-size:24px;color:${A};display:block;margin-bottom:4px;"></i><div style="font-weight:900;font-size:12.5px;">Ser DT</div></button>
+        <button onclick="window._carreraSegundaVida('comentarista')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:14px 8px;color:#fff;cursor:pointer;text-align:center;" onmouseover="this.style.borderColor='#64b4ff'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-microphone' style="font-size:24px;color:#64b4ff;display:block;margin-bottom:4px;"></i><div style="font-weight:900;font-size:12.5px;">Comentarista</div></button>
+        <button onclick="window._carreraSegundaVida('dirigente')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:14px 8px;color:#fff;cursor:pointer;text-align:center;" onmouseover="this.style.borderColor='#facc15'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-briefcase' style="font-size:24px;color:#facc15;display:block;margin-bottom:4px;"></i><div style="font-weight:900;font-size:12.5px;">Dirigente</div></button>
+        <button onclick="window._carreraSegundaVida('empresario')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:14px 8px;color:#fff;cursor:pointer;text-align:center;" onmouseover="this.style.borderColor='#22c55e'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-store' style="font-size:24px;color:#22c55e;display:block;margin-bottom:4px;"></i><div style="font-weight:900;font-size:12.5px;">Empresario</div></button>
+        <button onclick="window._carreraSegundaVida('escuela')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:14px 8px;color:#fff;cursor:pointer;text-align:center;" onmouseover="this.style.borderColor='#f97316'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-award' style="font-size:24px;color:#f97316;display:block;margin-bottom:4px;"></i><div style="font-weight:900;font-size:12.5px;">Escuela</div></button>
+        <button onclick="window._carreraSegundaVida('disfrutar')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:14px 8px;color:#fff;cursor:pointer;text-align:center;" onmouseover="this.style.borderColor='#a78bfa'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-glasses' style="font-size:24px;color:#a78bfa;display:block;margin-bottom:4px;"></i><div style="font-weight:900;font-size:12.5px;">Disfrutar</div></button>
+      </div>
+    </div>` : ''}
     <!-- HERO -->
     <div class="cr-fade" style="position:relative;background:radial-gradient(120% 90% at 50% 0%,${leyenda?'#3a2a06':'#14340f'} 0%,#0a0c0a 60%);border:1px solid ${rangoColor}55;border-radius:22px;padding:22px 18px 20px;overflow:hidden;text-align:center;">
       <div style="position:absolute;inset:0;background-image:radial-gradient(circle at 20% 20%, ${rangoColor}22, transparent 55%),radial-gradient(circle at 80% 80%, ${rangoColor}22, transparent 55%);pointer-events:none;"></div>
@@ -1669,7 +1683,7 @@ function retiro(){
     </div>` : ''}
 
     ${G.segundaVida ? `
-    <!-- SEGUNDA VIDA (rol post-retiro elegido) -->
+    <!-- SEGUNDA VIDA + CRONOLOGÍA POST-RETIRO -->
     <div class="cr-fade cr-fade-d3" style="margin-top:20px;">
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:#a78bfa;margin-bottom:8px;padding-left:2px;"><i class='bx bx-refresh'></i> DESPUÉS DEL FÚTBOL</div>
       <div style="background:linear-gradient(160deg,rgba(167,139,250,.10),rgba(20,22,18,.5));border:1px solid rgba(167,139,250,.28);border-radius:14px;padding:14px 16px;">
@@ -1680,25 +1694,17 @@ function retiro(){
             <div style="font-size:12px;color:#c4ccc0;margin-top:4px;line-height:1.5;">${esc(G.segundaVida.res)}</div>
           </div>
         </div>
+        ${(G.vidaHist&&G.vidaHist.length)?`<div style="margin-top:14px;border-top:1px solid rgba(167,139,250,.2);padding-top:12px;">
+          <div style="font-size:10px;font-weight:800;color:#a78bfa;letter-spacing:1px;margin-bottom:8px;">TU VIDA AÑO A AÑO</div>
+          ${G.vidaHist.map(v=>`<div style="display:flex;gap:8px;padding:5px 0;font-size:11.5px;color:#c4ccc0;line-height:1.4;"><span style="font-weight:900;color:#a78bfa;flex-shrink:0;">${v.edad}</span><span style="flex:1;"><b style="color:#fff;">${esc(v.t)}.</b> ${esc(v.res)}</span></div>`).join('')}
+          ${G.vidaEdad<70?`<button onclick="window._carreraVida()" style="width:100%;margin-top:10px;background:rgba(167,139,250,.15);color:#c4b5fd;border:1px solid rgba(167,139,250,.4);border-radius:10px;padding:10px;font-weight:800;font-size:12px;cursor:pointer;">Seguir con mi vida (${G.vidaEdad} años) <i class='bx bx-right-arrow-alt'></i></button>`:''}
+        </div>`:''}
       </div>
-    </div>` : `
-    <!-- ELECCIÓN DE SEGUNDA VIDA -->
-    <div class="cr-fade cr-fade-d3" style="margin-top:24px;">
-      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:14px;color:#fff;text-align:center;margin-bottom:6px;">¿Qué hacés después del fútbol?</div>
-      <div style="font-size:12px;color:#9aa0a6;text-align:center;margin-bottom:14px;">Elegí cómo continuar tu vida — cada camino trae su propia historia.</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button onclick="window._carreraSegundaVida('dt')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:16px 10px;color:#fff;cursor:pointer;text-align:center;transition:.15s;" onmouseover="this.style.borderColor='${A}'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-clipboard' style="font-size:26px;color:${A};display:block;margin-bottom:6px;"></i><div style="font-weight:900;font-size:13px;">Ser DT</div><div style="font-size:10px;color:#666;margin-top:3px;">Dirigir equipos</div></button>
-        <button onclick="window._carreraSegundaVida('comentarista')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:16px 10px;color:#fff;cursor:pointer;text-align:center;transition:.15s;" onmouseover="this.style.borderColor='#64b4ff'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-microphone' style="font-size:26px;color:#64b4ff;display:block;margin-bottom:6px;"></i><div style="font-weight:900;font-size:13px;">Comentarista</div><div style="font-size:10px;color:#666;margin-top:3px;">Trabajar en TV</div></button>
-        <button onclick="window._carreraSegundaVida('dirigente')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:16px 10px;color:#fff;cursor:pointer;text-align:center;transition:.15s;" onmouseover="this.style.borderColor='#facc15'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-briefcase' style="font-size:26px;color:#facc15;display:block;margin-bottom:6px;"></i><div style="font-weight:900;font-size:13px;">Dirigente</div><div style="font-size:10px;color:#666;margin-top:3px;">Presidir un club</div></button>
-        <button onclick="window._carreraSegundaVida('empresario')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:16px 10px;color:#fff;cursor:pointer;text-align:center;transition:.15s;" onmouseover="this.style.borderColor='#22c55e'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-store' style="font-size:26px;color:#22c55e;display:block;margin-bottom:6px;"></i><div style="font-weight:900;font-size:13px;">Empresario</div><div style="font-size:10px;color:#666;margin-top:3px;">Vivir de tus bienes</div></button>
-        <button onclick="window._carreraSegundaVida('escuela')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:16px 10px;color:#fff;cursor:pointer;text-align:center;transition:.15s;" onmouseover="this.style.borderColor='#f97316'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-award' style="font-size:26px;color:#f97316;display:block;margin-bottom:6px;"></i><div style="font-weight:900;font-size:13px;">Escuela</div><div style="font-size:10px;color:#666;margin-top:3px;">Enseñar a los pibes</div></button>
-        <button onclick="window._carreraSegundaVida('disfrutar')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:16px 10px;color:#fff;cursor:pointer;text-align:center;transition:.15s;" onmouseover="this.style.borderColor='#a78bfa'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-glasses' style="font-size:26px;color:#a78bfa;display:block;margin-bottom:6px;"></i><div style="font-weight:900;font-size:13px;">Disfrutar</div><div style="font-size:10px;color:#666;margin-top:3px;">Pasar tiempo en familia</div></button>
-      </div>
-    </div>
-    `}
+    </div>` : ''}
 
     <!-- ACCIONES -->
     <div class="cr-fade cr-fade-d4" style="display:flex;flex-direction:column;gap:9px;margin-top:22px;">
+      <button onclick="window._carreraCompartir()" style="width:100%;background:linear-gradient(135deg,#7c3aed,#facc15);color:#000;border:none;border-radius:14px;padding:14px;font-family:Outfit,sans-serif;font-weight:900;font-size:14px;cursor:pointer;"><i class='bx bx-share-alt'></i> COMPARTIR MI CARRERA</button>
       <button onclick="window._carreraLen()" style="width:100%;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;box-shadow:0 10px 30px rgba(80,220,110,.28);">EMPEZAR NUEVA CARRERA</button>
       <button onclick="window._carreraRanking()" style="width:100%;background:rgba(255,255,255,.05);color:#fff;border:1px solid #242424;border-radius:14px;padding:13px;font-weight:800;font-size:14px;cursor:pointer;"><i class='bx bx-bar-chart-alt-2' style="color:${A};"></i> Ver ranking global</button>
       <button onclick="document.getElementById('carrera-modal').remove();window.openGamesModal&&window.openGamesModal()" style="width:100%;background:transparent;color:#888;border:none;padding:11px;font-weight:800;font-size:13px;cursor:pointer;">Volver a Juegos</button>
@@ -1711,6 +1717,114 @@ function retiro(){
 // ── SEGUNDA VIDA (post-retiro) ──────────────────────────────────────────────
 // Simula 20-40 años más de vida con el rol elegido. Cada rol tiene una historia
 // que se muestra en el Copero, y afecta al puntaje/ranking.
+// Banco de eventos de vida post-retiro (36-70 años). Cada año se muestra UNO al azar.
+const LIFE_EVENTS = [
+  { t:'Un club te llama para dirigir', opts:[
+    { txt:'Aceptar el desafío', ef:g=>{ const b=Math.random()<.55; if(b){ g.titulos=(g.titulos||0)+1; if(!g.vitrina)g.vitrina=[]; g.vitrina.push({nombre:'Título como DT',edad:g.vidaEdad,club:'Como DT',img:'champions'}); return 'Ganaste un torneo dirigiendo. La prensa te elogia.'; } return 'Fue una etapa dura, pero aprendiste el oficio.'; } },
+    { txt:'Prefiero mirar por TV', ef:g=>{ g.dinero=(g.dinero||0)+30000; return 'Rechazaste. Preferís la vida tranquila del ex-jugador.'; } }
+  ] },
+  { t:'Tu hijo debuta en primera', minAge:40, opts:[
+    { txt:'Emocionarme hasta las lágrimas', ef:g=>{ g.moral=Math.min(100,(g.moral||70)+10); return 'Lo viste debutar. Un momento imborrable.'; } },
+    { txt:'Ser exigente como siempre', ef:g=>{ return 'Le pediste más de lo que le pedías a vos mismo. Complicado.'; } }
+  ] },
+  { t:'Aparecés en un documental', opts:[
+    { txt:'Contar TODA la verdad', ef:g=>{ g.fama=Math.min(100,(g.fama||50)+8); return 'El documental fue un éxito. Millones lo vieron.'; } },
+    { txt:'Guardar los secretos', ef:g=>{ return 'Preferís que algunas cosas se las lleve el tiempo.'; } }
+  ] },
+  { t:'Problema de salud', minAge:55, opts:[
+    { txt:'Operarme y cuidarme', ef:g=>{ g.dinero=Math.max(0,(g.dinero||0)-50000); return 'La operación salió bien. Estás cuidándote.'; } },
+    { txt:'Aguantar y seguir', ef:g=>{ g.moral=Math.max(0,(g.moral||70)-8); return 'Aguantaste, pero te pasa factura con los años.'; } }
+  ] },
+  { t:'Ofrecen una plaza con tu nombre', opts:[
+    { txt:'Aceptar el homenaje', ef:g=>{ g.fama=Math.min(100,(g.fama||50)+6); return 'La plaza de tu barrio ahora lleva tu nombre. Emoción total.'; } },
+    { txt:'Preferir el bajo perfil', ef:g=>{ return 'Rechazaste el homenaje. Preferís la gloria silenciosa.'; } }
+  ] },
+  { t:'Un club te quiere en la dirigencia', opts:[
+    { txt:'Meterme en la política', ef:g=>{ const b=Math.random()<.5; return b?'Ganaste elecciones. Sos parte del CD del club.':'Perdiste la interna. Volvés a casa.'; } },
+    { txt:'No, gracias — el fútbol quedó atrás', ef:g=>{ return 'Preferís la playa antes que las reuniones.'; } }
+  ] },
+  { t:'Se casa un hijo', minAge:48, opts:[
+    { txt:'Pagar un casorio bomba', ef:g=>{ g.dinero=Math.max(0,(g.dinero||0)-80000); g.moral=Math.min(100,(g.moral||70)+10); return 'Fiestón inolvidable. Toda la familia feliz.'; } },
+    { txt:'Casorio íntimo', ef:g=>{ g.moral=Math.min(100,(g.moral||70)+6); return 'Ceremonia con los más cercanos. Perfecto.'; } }
+  ] },
+  { t:'Escribís tu autobiografía', opts:[
+    { txt:'Contar hasta lo que duele', ef:g=>{ g.fama=Math.min(100,(g.fama||50)+10); g.dinero=(g.dinero||0)+120000; return 'Best-seller. Todos hablan de vos otra vez.'; } },
+    { txt:'Solo lo bonito', ef:g=>{ g.dinero=(g.dinero||0)+40000; return 'Libro correcto. Se vendió tibio.'; } }
+  ] },
+  { t:'Te invitan a un despedida-homenaje en tu ex club', opts:[
+    { txt:'Ir con la camiseta puesta', ef:g=>{ g.moral=Math.min(100,(g.moral||70)+12); return 'El estadio de pie coreando tu nombre. Épico.'; } },
+    { txt:'Mandar un video', ef:g=>{ return 'Estabas ocupado. Mandaste unas palabras grabadas.'; } }
+  ] },
+  { t:'Aparece un joven crack que te compara', opts:[
+    { txt:'Apadrinarlo', ef:g=>{ g.moral=Math.min(100,(g.moral||70)+6); return 'Le diste consejos. Terminó siendo tu discípulo.'; } },
+    { txt:'Ignorarlo, mi tiempo pasó', ef:g=>{ return 'Cada uno con su historia. No te metiste.'; } }
+  ] },
+  { t:'Nietos!', minAge:55, opts:[
+    { txt:'Ser el abuelo que malcría', ef:g=>{ g.moral=Math.min(100,(g.moral||70)+14); g.dinero=Math.max(0,(g.dinero||0)-20000); return 'Cada visita es una fiesta. Nunca fuiste tan feliz.'; } },
+    { txt:'Ser abuelo estricto', ef:g=>{ g.moral=Math.min(100,(g.moral||70)+6); return 'Amor con reglas. Los nietos te respetan.'; } }
+  ] },
+  { t:'Se te acerca alguien de tu barrio', opts:[
+    { txt:'Ayudarlo con una changa', ef:g=>{ g.dinero=Math.max(0,(g.dinero||0)-5000); g.moral=Math.min(100,(g.moral||70)+8); return 'Le tendiste la mano. El barrio te lo devuelve con cariño.'; } },
+    { txt:'No es problema mío', ef:g=>{ g.moral=Math.max(0,(g.moral||70)-4); return 'Le diste la espalda. Te queda una espinita.'; } }
+  ] },
+  { t:'Un viaje pendiente', minAge:45, opts:[
+    { txt:'Recorrer el mundo con mi pareja', ef:g=>{ g.dinero=Math.max(0,(g.dinero||0)-60000); g.moral=Math.min(100,(g.moral||70)+12); return 'Un año de mochilero-veterano. Recuerdos para toda la vida.'; } },
+    { txt:'Un finde en la playa alcanza', ef:g=>{ g.moral=Math.min(100,(g.moral||70)+3); return 'Cortito pero disfrutado.'; } }
+  ] }
+];
+function lifeEventRandom(edad, seen){
+  const pool = LIFE_EVENTS.map((_,i)=>i).filter(i=>{
+    const e = LIFE_EVENTS[i];
+    if(e.minAge && edad < e.minAge) return false;
+    if(seen.indexOf(i)>=0) return false;
+    return true;
+  });
+  if(!pool.length){ seen.length=0; return lifeEventRandom(edad, seen); }
+  const idx = pool[Math.floor(Math.random()*pool.length)];
+  return { idx, ev: LIFE_EVENTS[idx] };
+}
+// Loop anual post-retiro: muestra 1 decisión por año hasta 70 o hasta que el jugador termine.
+window._carreraVida = function(){
+  if(!G) G=load(); if(!G) return;
+  if(!G.vidaEdad) G.vidaEdad = G.edad || (16 + (G.years||10));
+  if(!G.vidaHist) G.vidaHist = [];
+  if(!G._vidaSeen) G._vidaSeen = [];
+  if(G.vidaEdad >= 70){ save(); retiro(); return; }
+  const pick = lifeEventRandom(G.vidaEdad, G._vidaSeen);
+  if(!pick){ save(); retiro(); return; }
+  G._vidaEv = pick;
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:22px 20px calc(30px + env(safe-area-inset-bottom));">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:#a78bfa;">VIDA · ${G.vidaEdad} AÑOS</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:24px;color:#fff;margin-top:6px;line-height:1.15;">${esc(pick.ev.t)}</div>
+    </div>
+    <div style="background:linear-gradient(160deg,rgba(167,139,250,.08),rgba(20,22,18,.5));border:1px solid rgba(167,139,250,.3);border-radius:16px;padding:16px;">
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${pick.ev.opts.map((o,i)=>`<button onclick="window._carreraVidaElegir(${i})" style="${btn(i===0)}">${o.txt}</button>`).join('')}
+      </div>
+    </div>
+    <button onclick="window._carreraVidaFin()" style="width:100%;margin-top:14px;background:#161616;color:#aaa;border:1px solid #262626;border-radius:12px;padding:12px;font-weight:800;font-size:12.5px;cursor:pointer;">Terminar y ver resumen final</button>
+  </div>`;
+};
+window._carreraVidaElegir = function(i){
+  const pick = G._vidaEv; const o = pick.ev.opts[i]; if(!o) return;
+  const res = o.ef(G);
+  G.vidaHist.push({ edad:G.vidaEdad, t:pick.ev.t, res });
+  G._vidaSeen.push(pick.idx);
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+    <div style="max-width:520px;margin:0 auto;padding:60px 20px 40px;text-align:center;">
+      <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:#a78bfa;margin-bottom:12px;">${G.vidaEdad} AÑOS · ${esc(pick.ev.t)}</div>
+      <div style="font-size:16px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:26px;">${esc(res)}</div>
+      <button onclick="window._carreraVidaSig()" style="background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff;border:none;border-radius:13px;padding:13px 30px;font-weight:900;cursor:pointer;">Siguiente año <i class='bx bx-right-arrow-alt'></i></button>
+      <button onclick="window._carreraVidaFin()" style="display:block;margin:14px auto 0;background:transparent;color:#888;border:none;font-weight:800;font-size:12px;cursor:pointer;">Terminar y ver resumen</button>
+    </div>`;
+};
+window._carreraVidaSig = function(){ G.vidaEdad++; save(); window._carreraVida(); };
+window._carreraVidaFin = function(){ save(); retiro(); };
+
 window._carreraSegundaVida = function(rol){
   if (!G) G = load(); if (!G) return;
   const nivelF = Math.round(G.nivel);
@@ -1746,10 +1860,43 @@ window._carreraSegundaVida = function(rol){
   };
   const r = (roles[rol] || roles.disfrutar)();
   G.segundaVida = r;
+  G.vidaEdad = G.edad || (16 + (G.years||10));
   try { saveCareer(G); } catch(e) {}
   try { localStorage.setItem(LS, JSON.stringify(G)); } catch(e) {}
-  // Re-renderizar el resumen con la segunda vida
-  retiro();
+  // Arranca el loop anual de vida (año por año hasta 70 o hasta que el usuario termine).
+  window._carreraVida();
+};
+// Compartir/descargar la carrera: arma texto resumen + intenta Web Share API,
+// con fallback a copiar al portapapeles. Simple y sin dependencias externas.
+window._carreraCompartir = function(){
+  if(!G) G=load(); if(!G) return;
+  const clubes = Array.from(new Set((G.timeline||[]).map(t=>t.club)));
+  const trofArr = (G.vitrina||[]).map(v=>v.nombre);
+  const nivelF = Math.round(G.nivel||0);
+  const valor = G.valor>=1e6?'€'+(G.valor/1e6).toFixed(1)+'M':'€'+(G.valor/1e3|0)+'K';
+  const rango = G.titulos>=8||nivelF>=88 ? 'LEYENDA' : G.titulos>=4||nivelF>=80 ? 'GRAN CARRERA' : 'CARRERA';
+  const lines = [
+    `🏆 CANCHERO LEYENDA — ${G.apellido||'—'} #${G.num||10}`,
+    `${rango} · Nivel ${nivelF} · Valor ${valor}`,
+    `⚽ ${G.tot.pj} PJ · ${G.tot.g} goles · ${G.tot.a} asist.`,
+    `🥇 ${G.titulos||0} títulos${trofArr.length?': '+trofArr.slice(0,4).join(', ')+(trofArr.length>4?`, +${trofArr.length-4}`:''):''}`,
+    `👕 Trayectoria: ${clubes.slice(0,5).join(' → ')}${clubes.length>5?` (+${clubes.length-5})`:''}`,
+    ``,
+    `Jugalo en canchero.uy`
+  ];
+  const texto = lines.join('\n');
+  try{
+    if (navigator.share) {
+      navigator.share({ title:'Mi carrera en Canchero Leyenda', text: texto }).catch(()=>{});
+      return;
+    }
+  }catch(e){}
+  try{
+    navigator.clipboard.writeText(texto);
+    alert('¡Copiado! Pegalo en tus redes.\n\n'+texto);
+  }catch(e){
+    prompt('Copiá y compartí tu carrera:', texto);
+  }
 };
 function cell(l, v, col){ col = col || '#fff'; return `<div style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:11px 4px;text-align:center;"><div style="font-size:20px;font-weight:900;color:${col};line-height:1;">${esc(v)}</div><div style="font-size:9px;color:#666;font-weight:800;letter-spacing:1px;margin-top:5px;">${l}</div></div>`; }
 function st2(l,v){ return `<div style="background:rgba(255,255,255,.04);border:1px solid #1e1e1e;border-radius:12px;padding:12px;"><div style="font-size:9px;color:#666;font-weight:800;letter-spacing:1px;">${l}</div><div style="font-size:16px;font-weight:900;color:${A};margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(v)}</div></div>`; }
