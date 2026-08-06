@@ -495,34 +495,66 @@ function inp(){ return 'width:100%;background:#161616;border:1px solid #262626;c
 // ── POTRERO (10-15 años, antes de la carrera) ────────────────────────────────
 // Tres mini-decisiones infantiles que dan un bonus/malus inicial a tu carrera.
 // Rápido: 3 pantallas → cantera.
-const POTRERO_EVENTOS = [
-  { t:'El picado del barrio', d:'Tenés 11 años. En el potrero se juega el clásico del barrio. Tu equipo pierde 2-0 y te toca patear el penal decisivo.', opts:[
-    { txt:'Amagar al arquero (arriesgado)', ef:g=>{ const gol=Math.random()<.55; if(gol){ g._potBonus=(g._potBonus||0)+3; return '¡Gol! Todo el barrio grita tu nombre. Naciste con clase.'; } g._potBonus=(g._potBonus||0)-2; return 'El arquero la atajó. Te vas llorando. Aprendés que no todo sale.'; } },
-    { txt:'Definir al palo con potencia', ef:g=>{ const gol=Math.random()<.75; if(gol){ g._potBonus=(g._potBonus||0)+2; return '¡Gol! Los pibes te alzan en andas.'; } g._potBonus=(g._potBonus||0)-1; return 'La tiraste afuera. Rebote y a otra cosa.'; } }
+const POTRERO_POOL = [
+  { t:'El picado del barrio', d:'Tenés 11 años. Clásico del barrio, tu equipo pierde 2-0 y te toca patear un penal decisivo.', opts:[
+    { txt:'Amagar al arquero (arriesgado)', ef:g=>{ const gol=Math.random()<.55; g._potBonus=(g._potBonus||0)+(gol?3:-2); return gol?'¡Gol! Todo el barrio grita tu nombre.':'La atajó. Te vas llorando.'; } },
+    { txt:'Definir al palo con potencia', ef:g=>{ const gol=Math.random()<.75; g._potBonus=(g._potBonus||0)+(gol?2:-1); return gol?'¡Gol! Los pibes te alzan en andas.':'La tiraste afuera.'; } }
   ] },
-  { t:'Elegí tu ídolo', d:'A los 12 años ya sabés a quién imitar. ¿A quién vas a parecerte cuando jugás?', opts:[
+  { t:'Elegí tu ídolo', d:'A los 12 ya sabés a quién imitar. ¿A quién vas a parecerte cuando jugás?', opts:[
     { txt:'Un 10 clásico (Riquelme / Zidane)', ef:g=>{ g._potBonus=(g._potBonus||0)+2; g._potStyle='crack'; return 'Vas a jugar con la cabeza levantada. La pausa es tu firma.'; } },
-    { txt:'Un killer (Suárez / Ronaldo)', ef:g=>{ g._potBonus=(g._potBonus||0)+2; g._potStyle='killer'; return 'Ir al gol es tu religión. Con vos siempre hay peligro.'; } },
-    { txt:'Un guerrero (Vidal / Roy Keane)', ef:g=>{ g._potBonus=(g._potBonus||0)+1; g._potStyle='guerrero'; return 'La cancha es guerra. Nunca te vas a rendir.'; } }
+    { txt:'Un killer (Suárez / Ronaldo)', ef:g=>{ g._potBonus=(g._potBonus||0)+2; g._potStyle='killer'; return 'Ir al gol es tu religión.'; } },
+    { txt:'Un guerrero (Vidal)', ef:g=>{ g._potBonus=(g._potBonus||0)+1; g._potStyle='guerrero'; return 'La cancha es guerra. Nunca te rendís.'; } }
   ] },
-  { t:'Un ojeador te ve entrenando', d:'A los 14 años, un ojeador de un club te ve en el fútbol de barrio. Te ofrece probarte.', opts:[
-    { txt:'Ir a la prueba con humildad', ef:g=>{ const bien=Math.random()<.7; if(bien){ g._potBonus=(g._potBonus||0)+3; return 'La rompiste. El club te quiere en cantera.'; } g._potBonus=(g._potBonus||0)-1; return 'Fuiste tímido. No convenciste esta vez.'; } },
-    { txt:'Ir con toda la garra a comerme la prueba', ef:g=>{ const bien=Math.random()<.5; if(bien){ g._potBonus=(g._potBonus||0)+4; return 'Los deslumbraste con actitud. Te quieren YA.'; } g._potBonus=(g._potBonus||0)-2; return 'Te forzaste, hiciste jugadas malas. No convenciste.'; } },
-    { txt:'No ir todavía (seguir en el barrio)', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Preferís madurar en el barrio con los tuyos. Sin apuro.'; } }
+  { t:'Un ojeador te ve entrenando', d:'A los 14 años, un ojeador te ve en el fútbol de barrio. Te ofrece probarte.', opts:[
+    { txt:'Ir a la prueba con humildad', ef:g=>{ const b=Math.random()<.7; g._potBonus=(g._potBonus||0)+(b?3:-1); return b?'La rompiste. Te quieren en cantera.':'Fuiste tímido. No convenciste.'; } },
+    { txt:'Ir a comerme la prueba con garra', ef:g=>{ const b=Math.random()<.5; g._potBonus=(g._potBonus||0)+(b?4:-2); return b?'Los deslumbraste con actitud. Te quieren YA.':'Te forzaste. No convenciste.'; } },
+    { txt:'No ir, seguir en el barrio', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Preferís madurar sin apuro.'; } }
+  ] },
+  { t:'Se rompió la pelota', d:'Media cuadra juega descalzos y la única pelota se pinchó. Los pibes miran para vos.', opts:[
+    { txt:'Poner mis ahorros para otra', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Te dejaste los pesos del kiosco pero salvaste la tarde. Sos líder.'; } },
+    { txt:'Jugar con la pelota de trapo', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Aprendiste a pegarle sin superficie perfecta. Toque fino.'; } }
+  ] },
+  { t:'Prueba en un club grande vs debut en el chico', d:'Con 13, un club chico te ofrece jugar oficial. El grande te dice "vení a probarte, después vemos".', opts:[
+    { txt:'Ir a jugar al chico', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Debutás oficial. Rodaje real desde pibe.'; } },
+    { txt:'Probarme en el grande', ef:g=>{ const b=Math.random()<.5; g._potBonus=(g._potBonus||0)+(b?4:-2); return b?'Te ficharon. Cantera de élite.':'No te eligieron. Volviste al barrio con la cabeza gacha.'; } }
+  ] },
+  { t:'Mudanza familiar', d:'Tu viejo consigue laburo lejos y hay que mudarse. Chau equipo del barrio.', opts:[
+    { txt:'Adaptarme y empezar de cero', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Nuevo barrio, nueva canchita. Te ganás el respeto rápido.'; } },
+    { txt:'Rebelarme y no querer jugar', ef:g=>{ g._potBonus=(g._potBonus||0)-3; return 'Perdiste meses de fútbol. Costó volver al ritmo.'; } }
+  ] },
+  { t:'Bullying en la escuela', d:'Un grupo del cole te carga por gastar tanto tiempo en la pelota. Te empujan.', opts:[
+    { txt:'Callarme y seguir entrenando', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'El fútbol fue tu refugio. Aprendiste a canalizar todo ahí.'; } },
+    { txt:'Encararlos', ef:g=>{ const b=Math.random()<.5; g._potBonus=(g._potBonus||0)+(b?1:-2); return b?'Se calmó la cosa. Aprendiste a hacerte respetar.':'Terminaste suspendido. Casi te sacan de la cancha.'; } }
+  ] },
+  { t:'Torneo intercolegial', d:'Tu escuela juega el interzonal. Un ojeador amateur promete estar en la final.', opts:[
+    { txt:'Ser el capitán y organizar al equipo', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Metiste al equipo en la final. Te vieron mandar.'; } },
+    { txt:'Jugar solo para lucirme', ef:g=>{ const b=Math.random()<.5; g._potBonus=(g._potBonus||0)+(b?3:-2); return b?'Metiste 4 goles y salieron campeones.':'Perdiste amigos y el partido.'; } }
+  ] },
+  { t:'Lesión temprana', d:'Con 13, corrés descalzo y te clavás algo en el pie. Duele feo.', opts:[
+    { txt:'Parar y esperar cicatrización', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Un mes sin cancha. Volviste entero.'; } },
+    { txt:'Aguantar y seguir jugando', ef:g=>{ const mal=Math.random()<.6; g._potBonus=(g._potBonus||0)+(mal?-3:1); return mal?'Se infectó. Perdiste toda la temporada.':'Aguantaste bien. Nadie se enteró.'; } }
+  ] },
+  { t:'Elección de posición', d:'El técnico infantil te pregunta dónde te sentís cómodo. Es tu edad de definir.', opts:[
+    { txt:'Donde el equipo me necesite', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Multifunción desde chico. El DT te ama.'; } },
+    { txt:'De 10, siempre', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Elegiste el número mágico. Ahora hay que bancarlo.'; } }
   ] }
 ];
+// 3 eventos al azar del pool (no repetidos), la carrera se siente distinta cada vez.
+function potreroEventosDeCarrera(){
+  const shuffled = POTRERO_POOL.slice().sort(()=>Math.random()-0.5);
+  return shuffled.slice(0, 3);
+}
+const POTRERO_EVENTOS = [];  // se llena por carrera con potreroEventosDeCarrera()
 window._carreraPotrero = function(paso){
   paso = paso || 0;
   const _draftGet = () => _draft;
   const d = _draftGet();
   if (!d) { window._carreraLen(); return; }
   if (!d._potHist) d._potHist = [];
-  // Fin: 3 pasos hechos → cantera.
-  if (paso >= POTRERO_EVENTOS.length) {
-    window._carreraOfertas();
-    return;
-  }
-  const ev = POTRERO_EVENTOS[paso];
+  // Elegí 3 eventos AL AZAR al inicio de la carrera (no siempre los mismos).
+  if (!d._potSet) d._potSet = potreroEventosDeCarrera();
+  if (paso >= d._potSet.length) { window._carreraOfertas(); return; }
+  const ev = d._potSet[paso];
   const m = document.getElementById('carrera-modal') || overlay();
   const edadInfantil = 11 + paso * (paso===0?0:paso===1?1:2); // 11, 12, 14
   m.innerHTML = `
@@ -542,7 +574,7 @@ window._carreraPotrero = function(paso){
   </div>`;
 };
 window._potElegir = function(paso, idx){
-  const ev = POTRERO_EVENTOS[paso];
+  const ev = (_draft._potSet||POTRERO_POOL)[paso];
   const o = ev.opts[idx]; if (!o) return;
   // El efecto opera sobre _draft (todavía no existe G).
   const res = o.ef(_draft);
@@ -553,7 +585,7 @@ window._potElegir = function(paso, idx){
     <div style="max-width:520px;margin:0 auto;padding:60px 20px 40px;text-align:center;">
       <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};margin-bottom:12px;">${esc(ev.t)}</div>
       <div style="font-size:16px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:26px;">${esc(res)}</div>
-      <button onclick="window._carreraPotrero(${paso+1})" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 30px;font-weight:900;cursor:pointer;">${paso+1>=POTRERO_EVENTOS.length?'Ir a la cantera':'Continuar'} <i class='bx bx-right-arrow-alt'></i></button>
+      <button onclick="window._carreraPotrero(${paso+1})" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 30px;font-weight:900;cursor:pointer;">${paso+1>=(_draft._potSet||[]).length?'Ir a la cantera':'Continuar'} <i class='bx bx-right-arrow-alt'></i></button>
     </div>`;
 };
 
@@ -814,6 +846,7 @@ window._carreraTemporada = function(){
   const idBase = 4 + (titulosGanados.length*10) + (pos===1?6:pos<=3?3:0) + (rend>0.5?4:rend<0.15?-3:0);
   G.idolatria[G.club] = clamp((G.idolatria[G.club]||0) + idBase, -100, 100);
   G.temporada++; G.edad++; G.anio = (G.anio||2026) + 1;
+  G._mercadoHecho = false;
   save();
   resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa});
 };
@@ -861,10 +894,60 @@ function decisionsForSeason(){
   return 1;
 }
 function contBtn(){ return `<div style="text-align:center;padding:6px 0;"><button onclick="window._carreraHub()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 30px;font-weight:900;cursor:pointer;">Continuar <i class='bx bx-right-arrow-alt'></i></button></div>`; }
-// Tras resolver una decisión: si quedan decisiones esta temporada, mostrar otra; si no, al hub.
+// Tras resolver una decisión: si quedan decisiones, otra. Si no, MERCADO forzado
+// (siempre que haya clubes que te quieran o el actual quiera renovar), y luego hub.
 window._carreraContinuar = function(){
-  if(G && G._evLeft>0){ mostrarEvento(); }
-  else { window._carreraHub(); }
+  if(G && G._evLeft>0){ mostrarEvento(); return; }
+  if(G && !G._mercadoHecho){ window._carreraMercadoForzado(); return; }
+  G._mercadoHecho = false;
+  window._carreraHub();
+};
+// Mercado de fin de temporada: SIEMPRE aparece con al menos renovación + ofertas
+// (si hay), o un botón de "seguir en el club". Ya no queda al azar.
+window._carreraMercadoForzado = function(){
+  if(!G){ window._carreraHub(); return; }
+  G._mercadoHecho = true;
+  if(G.edad >= 34){ window._carreraHub(); return; }
+  const mejores = todosClubs().filter(c => {
+    if (c.name === G.club) return false;
+    if (c.str <= G.clubStr - 4) return false;
+    if (ligaNivel(c.liga) < ligaNivel(G.liga) - 1) return false;
+    if (G.nivel < c.str - 12) return false;
+    if (c.str > 82 && G.edad > 32 && G.nivel < 88) return false;
+    if (c.str > 85 && G.edad < 20 && G.nivel < 70) return false;
+    return true;
+  }).sort(()=>Math.random()-0.5);
+  const picks = []; const seen = {};
+  for(const c of mejores){ if(seen[c.name]) continue; seen[c.name]=1; picks.push(c); if(picks.length>=3) break; }
+  G._offers = picks.map(ofertaDe);
+  // Renovación siempre disponible con el club actual.
+  const base = { name:G.club, str:G.clubStr, liga:G.liga, pais:G.clubPais };
+  const baseO = ofertaDe(base);
+  const _anios = _edadAnios(G.edad);
+  G._renov = [ Object.assign({}, baseO, { _v:'Renovar', anios: Math.max(1, _anios[0]) }) ];
+  save();
+  // Muestra ambos: renovación arriba, ofertas abajo.
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:640px;margin:0 auto;padding:22px 18px calc(30px + env(safe-area-inset-bottom));">
+    <div style="text-align:center;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};">MERCADO DE PASES</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;color:#fff;margin-top:4px;">¿Qué hacés esta temporada?</div>
+    </div>
+    <div id="cr-evwrap"></div>
+    <button onclick="window._carreraElegirOferta('quedarme',-1)" style="width:100%;margin-top:14px;background:#161616;color:#aaa;border:1px solid #262626;border-radius:12px;padding:13px;font-weight:800;font-size:13px;cursor:pointer;"><i class='bx bx-home-heart'></i> Seguir un año más en ${esc(G.club)} sin renovar</button>
+  </div>`;
+  const w = document.getElementById('cr-evwrap');
+  let html = '';
+  html += `<div style="font-size:11px;font-weight:900;color:#8a8f96;letter-spacing:1px;margin-bottom:8px;">RENOVACIÓN</div>`;
+  html += `<div style="display:grid;grid-template-columns:1fr;gap:9px;margin-bottom:14px;">${G._renov.map((o,i)=>ofertaCard(o,i,'renov')).join('')}</div>`;
+  if (picks.length) {
+    html += `<div style="font-size:11px;font-weight:900;color:#8a8f96;letter-spacing:1px;margin-bottom:8px;">CLUBES QUE TE QUIEREN</div>`;
+    html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">${G._offers.map((o,i)=>ofertaCard(o,i,'transfer')).join('')}</div>`;
+  } else {
+    html += `<div style="font-size:12px;color:#666;text-align:center;padding:10px;font-style:italic;">Ningún club te busca este mercado. Seguí demostrando en la cancha.</div>`;
+  }
+  w.innerHTML = html;
 };
 function posLabel(pos){ return pos===1?'1º 🏆':(pos+'º'); }
 function st(l,v){ return `<div style="background:rgba(255,255,255,.04);border:1px solid #1e1e1e;border-radius:12px;padding:11px 4px;text-align:center;"><div style="font-size:9px;color:#666;font-weight:800;">${l}</div><div style="font-size:19px;font-weight:900;color:${A};">${esc(v)}</div></div>`; }
@@ -1802,6 +1885,50 @@ const LIFE_EVENTS = [
   { t:'Un viaje pendiente', minAge:45, opts:[
     { txt:'Recorrer el mundo con mi pareja', ef:g=>{ g.dinero=Math.max(0,(g.dinero||0)-60000); g.moral=Math.min(100,(g.moral||70)+12); return 'Un año de mochilero-veterano. Recuerdos para toda la vida.'; } },
     { txt:'Un finde en la playa alcanza', ef:g=>{ g.moral=Math.min(100,(g.moral||70)+3); return 'Cortito pero disfrutado.'; } }
+  ] },
+  { t:'Te ofrecen ser Ministro de Deporte', minAge:50, opts:[
+    { txt:'Aceptar y hacer política pública', ef:g=>{ const b=Math.random()<.5; g.fama=Math.min(100,(g.fama||50)+(b?12:-5)); return b?'Reformaste el deporte del país. Estatua en camino.':'La política te devoró. Mucha crítica, poca reforma.'; } },
+    { txt:'El fútbol es mi mundo, no la política', ef:g=>{ return 'Preferís mantener las manos limpias.'; } }
+  ] },
+  { t:'Reunión de amigos del vestuario', opts:[
+    { txt:'Ir y viajar a verlos', ef:g=>{ g.moral=Math.min(100,(g.moral||70)+8); return 'Charla, asado y anécdotas. Los años no borran nada.'; } },
+    { txt:'Muy lejos, mando saludos', ef:g=>{ return 'Los saludás por video. No es lo mismo.'; } }
+  ] },
+  { t:'Se muere un compañero de época', minAge:55, opts:[
+    { txt:'Ir al velorio y hablar de él', ef:g=>{ g.moral=Math.max(0,(g.moral||70)-6); return 'Un adiós difícil. La camada empieza a partir.'; } },
+    { txt:'Mandar flores y no ir', ef:g=>{ g.moral=Math.max(0,(g.moral||70)-3); return 'Preferís recordarlo como era. Cada uno hace el duelo a su manera.'; } }
+  ] },
+  { t:'Un chico del barrio te pide una entrevista', opts:[
+    { txt:'Darle una tarde entera', ef:g=>{ g.moral=Math.min(100,(g.moral||70)+6); return 'Le contaste todo. El pibe salió emocionado.'; } },
+    { txt:'Que la coordine mi representante', ef:g=>{ return 'Media hora, lo justo. Profesional.'; } }
+  ] },
+  { t:'Un empresario te propone un club de fútbol propio', opts:[
+    { txt:'Poner plata y fundarlo', ef:g=>{ g.dinero=Math.max(0,(g.dinero||0)-150000); const b=Math.random()<.55; return b?'El club creció. Sos presidente-fundador.':'No prosperó. Perdiste guita y ganas.'; } },
+    { txt:'No, ya di lo mío al fútbol', ef:g=>{ return 'Rechazaste. Tu paz vale más que otra aventura.'; } }
+  ] },
+  { t:'Divorcio', minAge:42, opts:[
+    { txt:'Aceptar el fin con dignidad', ef:g=>{ g.dinero=Math.max(0,(g.dinero||0)-100000); g.moral=Math.max(0,(g.moral||70)-8); return 'Fue duro pero maduro. Cada uno para su lado.'; } },
+    { txt:'Pelear para salvarlo', ef:g=>{ const b=Math.random()<.4; g.moral=(g.moral||70)+(b?6:-10); return b?'Terapia, tiempo y perdón. Volvieron a empezar.':'No hubo forma. Terminó peor.'; } }
+  ] },
+  { t:'Serie de streaming basada en tu vida', minAge:45, opts:[
+    { txt:'Dar los derechos', ef:g=>{ g.dinero=(g.dinero||0)+250000; g.fama=Math.min(100,(g.fama||50)+15); return 'Éxito global. Toda una generación te conoce ahora.'; } },
+    { txt:'Mi historia es mía', ef:g=>{ return 'Rechazaste. Guardás tu historia como un tesoro personal.'; } }
+  ] },
+  { t:'Fundás una ONG', opts:[
+    { txt:'Fútbol para pibes de bajos recursos', ef:g=>{ g.dinero=Math.max(0,(g.dinero||0)-40000); g.moral=Math.min(100,(g.moral||70)+15); return 'Cientos de pibes patean por tu ONG. Tu legado más grande.'; } },
+    { txt:'Ya tuve suficiente exposición', ef:g=>{ return 'Preferís donar en silencio.'; } }
+  ] },
+  { t:'Rival histórico quiere hacer las paces', opts:[
+    { txt:'Aceptar y reconciliarse', ef:g=>{ g.moral=Math.min(100,(g.moral||70)+8); return 'Un café y todo el rencor se fue. Ahora son amigos.'; } },
+    { txt:'Lo pasado, pasado', ef:g=>{ g.moral=Math.max(0,(g.moral||70)-4); return 'No fuiste. Te quedó el nudo por un tiempo.'; } }
+  ] },
+  { t:'Volvés al barrio a jugar el picadito', opts:[
+    { txt:'Bajar del pedestal', ef:g=>{ g.moral=Math.min(100,(g.moral||70)+10); return 'Los pibes flipando, vos disfrutando. Como al principio.'; } },
+    { txt:'Ya no juego, solo miro', ef:g=>{ g.moral=Math.min(100,(g.moral||70)+3); return 'Miraste el partido desde el borde con una birra.'; } }
+  ] },
+  { t:'Recibís un doctorado honoris causa', minAge:55, opts:[
+    { txt:'Ir con tu familia', ef:g=>{ g.fama=Math.min(100,(g.fama||50)+8); return 'Toga, birrete, discurso. Tu vieja llora en primera fila.'; } },
+    { txt:'Mandar un video de agradecimiento', ef:g=>{ return 'No te sentís cómodo con la solemnidad.'; } }
   ] }
 ];
 function lifeEventRandom(edad, seen){
