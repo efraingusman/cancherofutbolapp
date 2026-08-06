@@ -382,6 +382,10 @@ window._carreraRanking = async function(){
 
 // ── DURACIÓN DE CARRERA ──────────────────────────────────────────────────────────
 window._carreraLen = function(){
+  // Nueva carrera: limpiar save y estado en memoria (antes se conservaba de la carrera
+  // anterior, generando bugs al mezclar datos).
+  try { localStorage.removeItem(LS); } catch(e) {}
+  G = null; _draft = null;
   const m=overlay();
   const ops=[10,15,20,25];
   m.innerHTML=`
@@ -453,7 +457,7 @@ function renderIdent(){
     </div>
     <div style="position:fixed;left:0;right:0;bottom:0;z-index:20;background:#0a0c0a;border-top:1px solid #1c1c1c;padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:flex;gap:10px;max-width:1040px;margin:0 auto;box-shadow:0 -8px 24px rgba(0,0,0,.6);">
       <button onclick="window._carreraLen()" style="flex:1;background:#161616;color:#aaa;border:1px solid #262626;border-radius:12px;padding:14px;font-weight:800;cursor:pointer;">Volver</button>
-      <button onclick="window._carreraOfertas()" style="flex:2;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:12px;padding:14px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">Confirmar identidad</button>
+      <button onclick="window._carreraPotrero()" style="flex:2;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:12px;padding:14px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">Confirmar identidad</button>
     </div>
   </div>`;
 }
@@ -465,6 +469,71 @@ window._carreraSet = function(k,v){
   if(k==='pais'||k==='pie'||k==='pos'||k==='filtro') renderIdent();
 };
 function inp(){ return 'width:100%;background:#161616;border:1px solid #262626;color:#fff;border-radius:10px;padding:11px;font-size:14px;box-sizing:border-box;outline:none;font-family:inherit;'; }
+
+// ── POTRERO (10-15 años, antes de la carrera) ────────────────────────────────
+// Tres mini-decisiones infantiles que dan un bonus/malus inicial a tu carrera.
+// Rápido: 3 pantallas → cantera.
+const POTRERO_EVENTOS = [
+  { t:'El picado del barrio', d:'Tenés 11 años. En el potrero se juega el clásico del barrio. Tu equipo pierde 2-0 y te toca patear el penal decisivo.', opts:[
+    { txt:'Amagar al arquero (arriesgado)', ef:g=>{ const gol=Math.random()<.55; if(gol){ g._potBonus=(g._potBonus||0)+3; return '¡Gol! Todo el barrio grita tu nombre. Naciste con clase.'; } g._potBonus=(g._potBonus||0)-2; return 'El arquero la atajó. Te vas llorando. Aprendés que no todo sale.'; } },
+    { txt:'Definir al palo con potencia', ef:g=>{ const gol=Math.random()<.75; if(gol){ g._potBonus=(g._potBonus||0)+2; return '¡Gol! Los pibes te alzan en andas.'; } g._potBonus=(g._potBonus||0)-1; return 'La tiraste afuera. Rebote y a otra cosa.'; } }
+  ] },
+  { t:'Elegí tu ídolo', d:'A los 12 años ya sabés a quién imitar. ¿A quién vas a parecerte cuando jugás?', opts:[
+    { txt:'Un 10 clásico (Riquelme / Zidane)', ef:g=>{ g._potBonus=(g._potBonus||0)+2; g._potStyle='crack'; return 'Vas a jugar con la cabeza levantada. La pausa es tu firma.'; } },
+    { txt:'Un killer (Suárez / Ronaldo)', ef:g=>{ g._potBonus=(g._potBonus||0)+2; g._potStyle='killer'; return 'Ir al gol es tu religión. Con vos siempre hay peligro.'; } },
+    { txt:'Un guerrero (Vidal / Roy Keane)', ef:g=>{ g._potBonus=(g._potBonus||0)+1; g._potStyle='guerrero'; return 'La cancha es guerra. Nunca te vas a rendir.'; } }
+  ] },
+  { t:'Un ojeador te ve entrenando', d:'A los 14 años, un ojeador de un club te ve en el fútbol de barrio. Te ofrece probarte.', opts:[
+    { txt:'Ir a la prueba con humildad', ef:g=>{ const bien=Math.random()<.7; if(bien){ g._potBonus=(g._potBonus||0)+3; return 'La rompiste. El club te quiere en cantera.'; } g._potBonus=(g._potBonus||0)-1; return 'Fuiste tímido. No convenciste esta vez.'; } },
+    { txt:'Ir con toda la garra a comerme la prueba', ef:g=>{ const bien=Math.random()<.5; if(bien){ g._potBonus=(g._potBonus||0)+4; return 'Los deslumbraste con actitud. Te quieren YA.'; } g._potBonus=(g._potBonus||0)-2; return 'Te forzaste, hiciste jugadas malas. No convenciste.'; } },
+    { txt:'No ir todavía (seguir en el barrio)', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Preferís madurar en el barrio con los tuyos. Sin apuro.'; } }
+  ] }
+];
+window._carreraPotrero = function(paso){
+  paso = paso || 0;
+  const _draftGet = () => _draft;
+  const d = _draftGet();
+  if (!d) { window._carreraLen(); return; }
+  if (!d._potHist) d._potHist = [];
+  // Fin: 3 pasos hechos → cantera.
+  if (paso >= POTRERO_EVENTOS.length) {
+    window._carreraOfertas();
+    return;
+  }
+  const ev = POTRERO_EVENTOS[paso];
+  const m = document.getElementById('carrera-modal') || overlay();
+  const edadInfantil = 11 + paso * (paso===0?0:paso===1?1:2); // 11, 12, 14
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:22px 20px calc(30px + env(safe-area-inset-bottom));">
+    <div class="cg-back-wrap"><button class="cg-back" onclick="window._carreraIdent(_draftYears())"><i class='bx bx-arrow-back'></i> Identidad</button></div>
+    <div style="text-align:center;margin:14px 0 18px;">
+      <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};">POTRERO · ${edadInfantil} AÑOS</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;margin-top:6px;line-height:1.1;">${esc(ev.t)}</div>
+    </div>
+    <div style="background:linear-gradient(160deg,rgba(186,255,0,.06),rgba(20,22,18,.5));border:1px solid #242424;border-radius:16px;padding:16px;">
+      ${decoImg('potrero')}
+      <div style="font-size:13.5px;color:#c4ccc0;line-height:1.6;margin-bottom:14px;">${ev.d}</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${ev.opts.map((o,i)=>`<button onclick="window._potElegir(${paso},${i})" style="${btn(i===0)}">${o.txt}</button>`).join('')}
+      </div>
+    </div>
+  </div>`;
+};
+window._potElegir = function(paso, idx){
+  const ev = POTRERO_EVENTOS[paso];
+  const o = ev.opts[idx]; if (!o) return;
+  // El efecto opera sobre _draft (todavía no existe G).
+  const res = o.ef(_draft);
+  _draft._potHist.push({ t: ev.t, res });
+  // Mostrar resultado y avanzar al siguiente paso.
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+    <div style="max-width:520px;margin:0 auto;padding:60px 20px 40px;text-align:center;">
+      <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};margin-bottom:12px;">${esc(ev.t)}</div>
+      <div style="font-size:16px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:26px;">${esc(res)}</div>
+      <button onclick="window._carreraPotrero(${paso+1})" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 30px;font-weight:900;cursor:pointer;">${paso+1>=POTRERO_EVENTOS.length?'Ir a la cantera':'Continuar'} <i class='bx bx-right-arrow-alt'></i></button>
+    </div>`;
+};
 
 // ── OFERTAS DE CANTERA ───────────────────────────────────────────────────────────
 window._carreraOfertas = function(){
@@ -505,14 +574,19 @@ function flagImgInline(p){ const c=FLAG[p]; return c?`<img src="https://flagcdn.
 window._carreraFichar = function(i){
   const d=_draft; const c=d._ofertas[i];
   const base = d.pos==='POR'?48:50;
+  // Bonus del POTRERO (10-15 años): decisiones infantiles suman/restan nivel inicial.
+  const potBonus = d._potBonus || 0;
+  const nivelInicial = clamp(base + potBonus, 40, 62);
   G = {
     apellido:d.apellido, num:d.num, pie:d.pie, pais:d.pais, pos:d.pos, years:d.years,
-    edad:16, nivel:base, club:c.name, liga:c.liga, clubStr:c.str, clubPais:c.pais,
+    edad:16, nivel:nivelInicial, club:c.name, liga:c.liga, clubStr:c.str, clubPais:c.pais,
     // Frecuencia REAL: la carrera arranca en 2026 (año del debut). Cada temporada +1 año.
     // Mundial 2030, Copa América 2028, Eurocopa 2028, JJOO 2028/2032.
     anio:2026,
     dinero:0, valor:100000, fama:5, moral:72, titulos:0, temporada:1,
     tot:{pj:0,g:0,a:0}, timeline:[], hist:[], vitrina:[], clasificadoInter:false,
+    // Legado del potrero: estilo elegido (crack/killer/guerrero) + bonus aplicado.
+    estilo: d._potStyle || null, potBonus,
     dif:(d.dif||'normal'), creado:Date.now()
   };
   save(); window._carreraHub();
@@ -1440,6 +1514,35 @@ function retiro(){
       </div>
     </div>` : ''}
 
+    ${G.segundaVida ? `
+    <!-- SEGUNDA VIDA (rol post-retiro elegido) -->
+    <div class="cr-fade cr-fade-d3" style="margin-top:20px;">
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:#a78bfa;margin-bottom:8px;padding-left:2px;"><i class='bx bx-refresh'></i> DESPUÉS DEL FÚTBOL</div>
+      <div style="background:linear-gradient(160deg,rgba(167,139,250,.10),rgba(20,22,18,.5));border:1px solid rgba(167,139,250,.28);border-radius:14px;padding:14px 16px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <i class='bx ${G.segundaVida.icon}' style="font-size:34px;color:#a78bfa;"></i>
+          <div style="flex:1;">
+            <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:16px;color:#fff;">${esc(G.segundaVida.rol)}</div>
+            <div style="font-size:12px;color:#c4ccc0;margin-top:4px;line-height:1.5;">${esc(G.segundaVida.res)}</div>
+          </div>
+        </div>
+      </div>
+    </div>` : `
+    <!-- ELECCIÓN DE SEGUNDA VIDA -->
+    <div class="cr-fade cr-fade-d3" style="margin-top:24px;">
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:14px;color:#fff;text-align:center;margin-bottom:6px;">¿Qué hacés después del fútbol?</div>
+      <div style="font-size:12px;color:#9aa0a6;text-align:center;margin-bottom:14px;">Elegí cómo continuar tu vida — cada camino trae su propia historia.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button onclick="window._carreraSegundaVida('dt')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:16px 10px;color:#fff;cursor:pointer;text-align:center;transition:.15s;" onmouseover="this.style.borderColor='${A}'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-clipboard' style="font-size:26px;color:${A};display:block;margin-bottom:6px;"></i><div style="font-weight:900;font-size:13px;">Ser DT</div><div style="font-size:10px;color:#666;margin-top:3px;">Dirigir equipos</div></button>
+        <button onclick="window._carreraSegundaVida('comentarista')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:16px 10px;color:#fff;cursor:pointer;text-align:center;transition:.15s;" onmouseover="this.style.borderColor='#64b4ff'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-microphone' style="font-size:26px;color:#64b4ff;display:block;margin-bottom:6px;"></i><div style="font-weight:900;font-size:13px;">Comentarista</div><div style="font-size:10px;color:#666;margin-top:3px;">Trabajar en TV</div></button>
+        <button onclick="window._carreraSegundaVida('dirigente')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:16px 10px;color:#fff;cursor:pointer;text-align:center;transition:.15s;" onmouseover="this.style.borderColor='#facc15'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-briefcase' style="font-size:26px;color:#facc15;display:block;margin-bottom:6px;"></i><div style="font-weight:900;font-size:13px;">Dirigente</div><div style="font-size:10px;color:#666;margin-top:3px;">Presidir un club</div></button>
+        <button onclick="window._carreraSegundaVida('empresario')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:16px 10px;color:#fff;cursor:pointer;text-align:center;transition:.15s;" onmouseover="this.style.borderColor='#22c55e'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-store' style="font-size:26px;color:#22c55e;display:block;margin-bottom:6px;"></i><div style="font-weight:900;font-size:13px;">Empresario</div><div style="font-size:10px;color:#666;margin-top:3px;">Vivir de tus bienes</div></button>
+        <button onclick="window._carreraSegundaVida('escuela')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:16px 10px;color:#fff;cursor:pointer;text-align:center;transition:.15s;" onmouseover="this.style.borderColor='#f97316'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-award' style="font-size:26px;color:#f97316;display:block;margin-bottom:6px;"></i><div style="font-weight:900;font-size:13px;">Escuela</div><div style="font-size:10px;color:#666;margin-top:3px;">Enseñar a los pibes</div></button>
+        <button onclick="window._carreraSegundaVida('disfrutar')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:16px 10px;color:#fff;cursor:pointer;text-align:center;transition:.15s;" onmouseover="this.style.borderColor='#a78bfa'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-glasses' style="font-size:26px;color:#a78bfa;display:block;margin-bottom:6px;"></i><div style="font-weight:900;font-size:13px;">Disfrutar</div><div style="font-size:10px;color:#666;margin-top:3px;">Pasar tiempo en familia</div></button>
+      </div>
+    </div>
+    `}
+
     <!-- ACCIONES -->
     <div class="cr-fade cr-fade-d4" style="display:flex;flex-direction:column;gap:9px;margin-top:22px;">
       <button onclick="window._carreraLen()" style="width:100%;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;box-shadow:0 10px 30px rgba(80,220,110,.28);">EMPEZAR NUEVA CARRERA</button>
@@ -1447,8 +1550,53 @@ function retiro(){
       <button onclick="document.getElementById('carrera-modal').remove();window.openGamesModal&&window.openGamesModal()" style="width:100%;background:transparent;color:#888;border:none;padding:11px;font-weight:800;font-size:13px;cursor:pointer;">Volver a Juegos</button>
     </div>
   </div>`;
-  try{ localStorage.removeItem(LS); }catch(e){}
+  // NO borrar el save inmediatamente: si el jugador elige una segunda vida, la app la
+  // guarda ahí y vuelve a mostrar el resumen actualizado. Se limpia al empezar NUEVA carrera.
 }
+
+// ── SEGUNDA VIDA (post-retiro) ──────────────────────────────────────────────
+// Simula 20-40 años más de vida con el rol elegido. Cada rol tiene una historia
+// que se muestra en el Copero, y afecta al puntaje/ranking.
+window._carreraSegundaVida = function(rol){
+  if (!G) G = load(); if (!G) return;
+  const nivelF = Math.round(G.nivel);
+  const roles = {
+    dt: () => {
+      const buenDT = Math.random() < clamp((nivelF - 60) / 40, 0.15, 0.75);
+      const anios = ri(15, 25);
+      const titsExtra = buenDT ? ri(2, 6) : ri(0, 1);
+      G.titulos = (G.titulos || 0) + titsExtra;
+      if (titsExtra > 0 && !G.vitrina) G.vitrina = [];
+      for (let i = 0; i < titsExtra; i++) G.vitrina.push({ nombre:'Título como DT', edad:38+ri(1,anios), club:'Como DT', img:'champions' });
+      return { rol:'Director Técnico', icon:'bx-clipboard', res: buenDT ? `Dirigiste ${anios} años y ganaste ${titsExtra} títulos importantes. Te ganaste el respeto del ambiente y hoy sos referente técnico.` : `Dirigiste ${anios} años con altibajos, pero siempre con dignidad. No fue tan fácil como jugar, pero disfrutaste el oficio.` };
+    },
+    comentarista: () => {
+      return { rol:'Comentarista de TV', icon:'bx-microphone', res:`Colgaste los botines y agarraste el micrófono. Te convertiste en una voz querida del fútbol. Tus análisis marcan tendencia y tu carisma llena programas.` };
+    },
+    dirigente: () => {
+      const bienDirigente = Math.random() < 0.5;
+      return { rol:'Dirigente', icon:'bx-briefcase', res: bienDirigente ? `Llegaste a la presidencia del club de tu vida. Reformaste todo, saneaste las cuentas y ganaste el corazón del socio.` : `Te metiste en la política del club. Un desafío enorme, con peleas internas y satisfacciones a medias.` };
+    },
+    empresario: () => {
+      const bienes = (G.bienes||[]).length;
+      const ganancia = ri(500000, 3000000) + bienes * 200000;
+      G.dinero = (G.dinero || 0) + ganancia;
+      return { rol:'Empresario', icon:'bx-store', res:`Multiplicaste tu patrimonio con inversiones. Sumaste €${(ganancia/1e6).toFixed(1)}M en los años post-retiro. Vives de rentas.` };
+    },
+    escuela: () => {
+      return { rol:'Escuela de fútbol', icon:'bx-award', res:`Abriste una escuela de fútbol en tu barrio. Cientos de pibes pasaron por tus manos. Algunos ya juegan en primera. Devolviste todo lo que te dio el fútbol.` };
+    },
+    disfrutar: () => {
+      return { rol:'Vida tranquila', icon:'bx-glasses', res:`Elegiste retirarte del todo. Familia, viajes, amigos. El fútbol ya te dio todo; ahora te tocaba a vos disfrutar.` };
+    }
+  };
+  const r = (roles[rol] || roles.disfrutar)();
+  G.segundaVida = r;
+  try { saveCareer(G); } catch(e) {}
+  try { localStorage.setItem(LS, JSON.stringify(G)); } catch(e) {}
+  // Re-renderizar el resumen con la segunda vida
+  retiro();
+};
 function cell(l, v, col){ col = col || '#fff'; return `<div style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:11px 4px;text-align:center;"><div style="font-size:20px;font-weight:900;color:${col};line-height:1;">${esc(v)}</div><div style="font-size:9px;color:#666;font-weight:800;letter-spacing:1px;margin-top:5px;">${l}</div></div>`; }
 function st2(l,v){ return `<div style="background:rgba(255,255,255,.04);border:1px solid #1e1e1e;border-radius:12px;padding:12px;"><div style="font-size:9px;color:#666;font-weight:800;letter-spacing:1px;">${l}</div><div style="font-size:16px;font-weight:900;color:${A};margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(v)}</div></div>`; }
 
