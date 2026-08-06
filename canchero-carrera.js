@@ -1262,9 +1262,26 @@ const EVENTOS=[
   { t:'Conocés a tu ídolo', img:'seleccion', d:'En un evento aparece tu ídolo de la infancia y te da unos minutos de charla.', opts:[
     { txt:'Pedirle consejos y escuchar', ef:g=>{ g.moral+=10; g.nivel+=1; return 'Sus palabras te marcan. Entrenás con otra mentalidad, más profesional.'; } },
     { txt:'Solo la foto para redes', ef:g=>{ g.fama+=5; return 'Buena foto, muchos likes. Pero sentís que desaprovechaste el momento.'; } } ] },
-  { t:'Oferta turbia de un apostador', img:'dinero', d:'Un apostador te ofrece una fortuna por "aflojar" en un partido puntual.', opts:[
-    { txt:'Aceptar (muy riesgoso)', ef:g=>{ const cae=Math.random()<.6; g.dinero+=cae?0:200000; g.fama+=cae?-40:0; g.moral-=cae?30:6; return cae?'Te descubrieron. Suspensión, escándalo y tu carrera al borde del final.':'Nadie se enteró... pero no podés ni mirarte al espejo.'; } },
+  { t:'Oferta turbia de un apostador', img:'dinero', d:'Un apostador te ofrece una fortuna por "aflojar" en un partido puntual. Si te descubren, es escándalo penal.', opts:[
+    { txt:'Aceptar (muy riesgoso)', ef:g=>{
+      const cae = Math.random() < .6;
+      if (cae) {
+        g.fama -= 40; g.moral -= 30;
+        // 35% de que además vayas PRESO por soborno deportivo → final alternativo.
+        if (Math.random() < .35) { g._irCarcel = 'soborno'; return 'Te descubrieron y hay causa penal. Vas preso por soborno deportivo.'; }
+        return 'Te descubrieron. Suspensión, escándalo y tu carrera al borde del final.';
+      }
+      g.dinero += 200000; g.moral -= 6;
+      return 'Nadie se enteró... pero no podés ni mirarte al espejo.';
+    } },
     { txt:'Rechazar y denunciarlo', ef:g=>{ g.fama+=8; g.moral+=8; return 'Hiciste lo correcto. La AFA y la prensa te ponen de ejemplo.'; } } ] },
+  { t:'Pelea en un after fuera de control', img:'joda', d:'A la salida de un boliche, se arma una pelea. Vos estás en el medio. Hay heridos.', opts:[
+    { txt:'Encarar y bancar la parada', ef:g=>{
+      const mal = Math.random() < .5;
+      if (mal) { g.fama -= 25; g.moral -= 15; g._irCarcel = 'pelea'; return 'Cámaras te filman siendo el más agresivo. La policía te lleva. Vas preso.'; }
+      g.fama -= 8; return 'Te frenaron a tiempo. Escándalo mediano, no fue a mayores.';
+    } },
+    { txt:'Salir corriendo, no meterme', ef:g=>{ g.moral+=3; g.fama-=2; return 'Te fuiste. Bien hecho — no estabas para líos.'; } } ] },
   { t:'Sobrepeso en la pretemporada', img:'lesion', d:'Volviste de vacaciones con unos kilos de más y el preparador físico te marca.', opts:[
     { txt:'Ponerme a full con la dieta', ef:g=>{ g.nivel+=2; g.moral+=2; return 'Te pusiste en forma rápido. El cuerpo técnico valora tu compromiso.'; } },
     { txt:'Ya lo bajo jugando', ef:g=>{ const mal=Math.random()<.6; g.nivel+=mal?-3:0; return mal?'Arrancaste lento y pesado. Perdiste la titularidad las primeras fechas.':'Zafaste, lo fuiste bajando de a poco.'; } } ] },
@@ -1305,12 +1322,86 @@ window._carreraElegir = function(i){
     deltaChip('$', Math.round(G.dinero-b.dinero), true)
   ].filter(Boolean).join('');
   G.hist.push({t:ev.t,res}); save();
+  // ¿La decisión terminó en la cárcel? → pantalla especial con desafío del lechón.
+  if (G._irCarcel) {
+    const motivo = G._irCarcel; G._irCarcel = null; save();
+    setTimeout(()=>_carreraCarcel(motivo), 500);
+  }
   const wrap=document.getElementById('cr-evwrap');
   if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:6px 0;">
     <div style="font-size:15px;color:#fff;font-weight:700;line-height:1.55;margin-bottom:12px;">${esc(res)}</div>
     ${chips?`<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:16px;">${chips}</div>`:'<div style="height:6px;"></div>'}
     <button onclick="window._carreraContinuar()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 28px;font-weight:900;cursor:pointer;">Continuar</button>
   </div>`;
+};
+
+// ── CÁRCEL: FINAL ALTERNATIVO (lechón) ─────────────────────────────────────
+// Si terminaste preso, se te ofrece un DESAFÍO ÚNICO: en el patio de la cárcel se
+// organiza un partido apostando por un lechón. Si ganás la final → salís antes
+// (con moral rota) y podés seguir la carrera con handicap. Si perdés → retiro
+// forzado con etiqueta CÁRCEL en el resumen final tipo Copero.
+function _carreraCarcel(motivo){
+  const m = document.getElementById('carrera-modal') || overlay();
+  const titulo = motivo === 'soborno' ? 'PRESO POR SOBORNO' : 'PRESO POR ESCÁNDALO';
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:26px 20px calc(30px + env(safe-area-inset-bottom));min-height:100%;">
+    <div style="text-align:center;">
+      <div style="width:96px;height:96px;border-radius:50%;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);display:flex;align-items:center;justify-content:center;margin:8px auto 14px;"><i class='bx bx-lock-alt' style="font-size:52px;color:#ef4444;"></i></div>
+      <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:#ef4444;">${titulo}</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;line-height:1.15;margin-top:6px;">Se acabó todo — ¿o no?</div>
+      <div style="font-size:13.5px;color:#c4ccc0;line-height:1.55;margin:14px 6px 22px;">${motivo==='soborno' ? 'Cayeron todos los del entramado. Tu carrera y tu nombre están en el barro.' : 'La causa judicial no perdona. Adiós al fútbol profesional.'}</div>
+    </div>
+    <div style="background:linear-gradient(160deg,rgba(250,204,21,.10),rgba(20,22,18,.6));border:1px solid rgba(250,204,21,.28);border-radius:16px;padding:18px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+        <i class='bx bxs-pizza' style="font-size:32px;color:#facc15;"></i>
+        <div>
+          <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:15px;color:#fff;">El clásico del patio por un lechón</div>
+          <div style="font-size:11.5px;color:#c4ccc0;">Los presos organizan un partido. El equipo que gana la final se lleva un lechón entero y el ganador clave zafa antes por buena conducta.</div>
+        </div>
+      </div>
+      <button onclick="window._carreraLechon()" style="width:100%;background:linear-gradient(135deg,#facc15,#f59e0b);color:#000;border:none;border-radius:13px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;box-shadow:0 8px 24px rgba(250,204,21,.25);">JUGAR LA FINAL POR EL LECHÓN <i class='bx bx-right-arrow-alt'></i></button>
+    </div>
+    <button onclick="window._carreraRetiroForzado()" style="width:100%;background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:13px;padding:13px;font-weight:800;font-size:13px;cursor:pointer;">Aceptar el fin — retiro forzado</button>
+  </div>`;
+}
+window._carreraLechon = function(){
+  // Chance de ganar la final: depende de tu nivel actual (skill sigue estando).
+  const gana = Math.random() < clamp((G.nivel-45)/70, 0.15, 0.75);
+  const m = document.getElementById('carrera-modal') || overlay();
+  if (gana) {
+    // Salís antes: se registra el hecho en la vitrina como "logro atípico" y podés
+    // seguir jugando (con handicap: -15 fama, -10 nivel, dinero a 0).
+    G.nivel = Math.max(35, G.nivel - 10);
+    G.fama = Math.max(0, G.fama - 15);
+    G.dinero = 0;
+    if(!G.vitrina) G.vitrina=[];
+    G.vitrina.push({ nombre:'Final del lechón (cárcel)', edad:G.edad, club:'Patio', img:'champions' });
+    G.titulos = (G.titulos||0) + 1;
+    G.carcelPasada = true;
+    save();
+    m.innerHTML = `
+      <div style="max-width:520px;margin:0 auto;padding:60px 22px 30px;text-align:center;">
+        <div style="width:100px;height:100px;border-radius:50%;background:rgba(250,204,21,.15);border:1px solid rgba(250,204,21,.4);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;"><i class='bx bxs-pizza' style="font-size:56px;color:#facc15;"></i></div>
+        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;">¡GANASTE EL LECHÓN!</div>
+        <div style="font-size:14px;color:#c4ccc0;margin:12px 0 26px;line-height:1.55;">Salís antes por buena conducta. Volvés al fútbol con la ropa rota y todo por reconstruir. El barrio te espera.</div>
+        <button onclick="window._carreraHub()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px 30px;font-weight:900;cursor:pointer;font-family:Outfit,sans-serif;">Seguir carrera <i class='bx bx-right-arrow-alt'></i></button>
+      </div>`;
+  } else {
+    // Perdiste la final → retiro forzado.
+    m.innerHTML = `
+      <div style="max-width:520px;margin:0 auto;padding:60px 22px 30px;text-align:center;">
+        <div style="width:100px;height:100px;border-radius:50%;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;"><i class='bx bx-sad' style="font-size:56px;color:#ef4444;"></i></div>
+        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:24px;color:#fff;">Perdieron la final</div>
+        <div style="font-size:14px;color:#c4ccc0;margin:12px 0 26px;line-height:1.55;">Sin lechón, sin salida anticipada. Cumplís condena entera y el fútbol te suelta la mano. Te retirás desde la cárcel.</div>
+        <button onclick="window._carreraRetiroForzado()" style="background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:13px;padding:14px 30px;font-weight:900;cursor:pointer;font-family:Outfit,sans-serif;">Ver mi vida <i class='bx bx-right-arrow-alt'></i></button>
+      </div>`;
+  }
+};
+window._carreraRetiroForzado = function(){
+  G.retiroForzado = true;
+  G.years = G.temporada; // corta la carrera acá
+  save();
+  retiro();
 };
 
 // ── PEDIR SALIDA DEL CLUB ──────────────────────────────────────────────────────
@@ -1425,9 +1516,11 @@ function retiro(){
   const promedio = G.tot.pj>0 ? ((G.tot.g/G.tot.pj)*100).toFixed(0) : 0;   // goles/100PJ
   const leyenda = G.titulos>=8 || nivelF>=88;
   const grande  = G.titulos>=4 || nivelF>=80;
-  const rangoTxt = leyenda ? 'LEYENDA DEL FÚTBOL' : (grande?'GRAN CARRERA':'CARRERA COMPLETA');
-  const rangoColor = leyenda ? '#facc15' : grande ? A : '#94a3b8';
-  const rangoIcon = leyenda ? 'bx-crown' : grande ? 'bx-medal' : 'bx-shield';
+  // Retiro forzado por cárcel → rango especial ROJO, y honor CARCELARIO en el resumen.
+  const preso   = !!G.retiroForzado;
+  const rangoTxt = preso ? 'RETIRO EN LA CÁRCEL' : leyenda ? 'LEYENDA DEL FÚTBOL' : (grande?'GRAN CARRERA':'CARRERA COMPLETA');
+  const rangoColor = preso ? '#ef4444' : leyenda ? '#facc15' : grande ? A : '#94a3b8';
+  const rangoIcon = preso ? 'bx-lock-alt' : leyenda ? 'bx-crown' : grande ? 'bx-medal' : 'bx-shield';
   const scoreN = careerScore(G);
   // Honores adicionales (badges dinámicos)
   const honores = [];
@@ -1437,6 +1530,8 @@ function retiro(){
   if (anios >= 18)    honores.push({i:'bx-time', c:'#a78bfa', t:'Longevidad'});
   if (nivelF >= 90)   honores.push({i:'bxs-star', c:'#f59e0b', t:'Élite mundial'});
   if (G.tot.pj >= 400) honores.push({i:'bx-calendar-check', c:'#60a5fa', t:'+400 PJ'});
+  if (G.carcelPasada) honores.push({i:'bxs-pizza', c:'#facc15', t:'Ganó el lechón'});
+  if (preso) honores.push({i:'bx-lock-alt', c:'#ef4444', t:'Pasó por la cárcel'});
   // Vitrina: agrupa por trofeo y cuenta (Champions ×2, etc.)
   const grupTrof = {};
   (G.vitrina||[]).forEach(v=>{ const k=v.nombre; grupTrof[k]=(grupTrof[k]||{n:v.nombre,slug:trofeoImgSlug(v.nombre),count:0}); grupTrof[k].count++; });
