@@ -607,6 +607,8 @@ window._carreraFichar = function(i){
     anio:2026,
     dinero:0, valor:100000, fama:5, moral:72, titulos:0, temporada:1,
     tot:{pj:0,g:0,a:0}, timeline:[], hist:[], vitrina:[], clasificadoInter:false,
+    // Idolatría por club: -100 (odiado) .. +100 (ídolo eterno). Empezás con +10 por firmar.
+    idolatria:{ [c.name]: 10 }, clubDesde:16,
     // Legado del potrero: estilo elegido (crack/killer/guerrero) + bonus aplicado.
     estilo: d._potStyle || null, potBonus,
     dif:(d.dif||'normal'), creado:Date.now()
@@ -644,6 +646,7 @@ window._carreraHub = function(){
           <div style="flex:1;"><div style="font-size:10px;color:#666;font-weight:800;">AST</div><div style="font-size:18px;font-weight:900;color:#fff;">${G.tot.a}</div></div>
           <div style="flex:1;"><div style="font-size:10px;color:#666;font-weight:800;">TÍTULOS</div><div style="font-size:18px;font-weight:900;color:${A};">${G.titulos}</div></div>
         </div>
+        ${(function(){ const v=(G.idolatria&&G.idolatria[G.club])||0; const lbl=v>=70?'ÍDOLO ETERNO':v>=40?'Ídolo':v>=15?'Querido':v>=-10?'Uno más':v>=-40?'Cuestionado':'Odiado'; const col=v>=40?A:v>=15?'#4fc3f7':v>=-10?'#aaa':v>=-40?'#f59e0b':'#ef4444'; return `<div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.03);border:1px solid ${col}44;border-radius:10px;padding:8px 12px;"><div style="font-size:11px;color:#8a8f96;font-weight:800;"><i class='bx bx-heart' style="color:${col};"></i> Hinchada de ${esc(G.club)}</div><div style="font-size:12px;font-weight:900;color:${col};">${lbl} · ${v>0?'+':''}${v}</div></div>`; })()}
         <button onclick="window._carreraTemporada()" style="width:100%;margin-top:14px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:12px;padding:14px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">${G.edad>=16+G.years?'VER RETIRO':'JUGAR TEMPORADA '+G.temporada}  <i class='bx bx-right-arrow-alt'></i></button>
         <div style="display:flex;gap:8px;margin-top:8px;">
           <button onclick="window._carreraPedirSalida()" style="flex:1;background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:12px;padding:11px;font-weight:800;font-size:12px;cursor:pointer;"><i class='bx bx-log-out'></i> Pedir salida</button>
@@ -776,6 +779,10 @@ window._carreraTemporada = function(){
     const renta = G.bienes.reduce((s,b)=>{ const B=bienByld(b.id); return s+((B&&B.renta)?B.renta:0); },0);
     if(renta>0) G.dinero = (G.dinero||0) + renta;
   }
+  // IDOLATRÍA: cada temporada al mismo club suma. Títulos y buen rendimiento aceleran.
+  if(!G.idolatria) G.idolatria = {};
+  const idBase = 4 + (titulosGanados.length*10) + (pos===1?6:pos<=3?3:0) + (rend>0.5?4:rend<0.15?-3:0);
+  G.idolatria[G.club] = clamp((G.idolatria[G.club]||0) + idBase, -100, 100);
   G.temporada++; G.edad++; G.anio = (G.anio||2026) + 1;
   save();
   resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText,move:G.moveLiga});
@@ -1005,7 +1012,9 @@ function mostrarEvento(){
     if (c.str > 85 && G.edad < 20 && G.nivel < 70) return false;
     return true;
   });
-  const ofertaTransfer = mejores.length && Math.random()<0.5 && G.edad<34;
+  // Mercado de pases más regular: si hay clubes que te quieren, aparece 85% del tiempo
+  // (antes 50% → sensación de que "no hay mercado"). Sub-34 años.
+  const ofertaTransfer = mejores.length && Math.random()<0.85 && G.edad<34;
   if(ofertaTransfer){
     // Barajar y tomar hasta 4 clubes únicos.
     const shuffled = mejores.slice().sort(()=>Math.random()-0.5);
@@ -1102,16 +1111,16 @@ function eur(n){ return n>=1e6 ? '€'+(n/1e6).toFixed(1).replace('.0','')+'M' :
 // Tarjeta de una oferta (escudo + club + liga + sueldo/años/prima).
 function ofertaCard(o, i, kind){
   const sub = kind==='renov' ? (o._v||'Renovación') : esc(o.liga);
-  const riesgo = o._riesgo ? `<div style="font-size:10px;color:#ffb454;margin-top:2px;">⚠ El club puede ofenderse si pedís de más</div>` : '';
-  return `<button onclick="window._carreraElegirOferta('${kind}',${i})" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:rgba(255,255,255,.04);border:1.5px solid #262626;border-radius:14px;padding:12px;cursor:pointer;">
-    ${clubBadge(o.name,42)}
-    <div style="flex:1;min-width:0;">
-      <div style="font-size:14.5px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(o.name)}</div>
-      <div style="font-size:11px;color:#8a8f86;margin-top:1px;">${sub} · Nivel club ${o.str}</div>
-      <div style="font-size:11.5px;color:${A};font-weight:800;margin-top:3px;">${eur(o.sueldo)}/año · ${o.anios} años${o.prima?' · prima '+eur(o.prima):''}</div>
-      ${riesgo}
-    </div>
-    <i class='bx bx-chevron-right' style="color:#444;font-size:20px;"></i>
+  const riesgo = o._riesgo ? `<div style="font-size:10px;color:#ffb454;margin-top:3px;text-align:center;">⚠ Puede ofender al club</div>` : '';
+  // Tarjeta con portada (escudo grande) arriba y datos abajo — cada oferta con su cover.
+  return `<button onclick="window._carreraElegirOferta('${kind}',${i})" style="display:flex;flex-direction:column;align-items:center;text-align:center;background:linear-gradient(160deg,rgba(255,255,255,.06),rgba(20,22,18,.6));border:1.5px solid #262626;border-radius:14px;padding:12px 10px;cursor:pointer;transition:.15s;" onmouseover="this.style.borderColor='${A}'" onmouseout="this.style.borderColor='#262626'">
+    <div style="height:56px;display:flex;align-items:center;justify-content:center;margin-bottom:6px;">${clubBadge(o.name,54)}</div>
+    <div style="font-size:13px;font-weight:900;color:#fff;line-height:1.15;min-height:30px;">${esc(o.name)}</div>
+    <div style="font-size:10px;color:#8a8f86;margin-top:2px;">${sub}</div>
+    <div style="font-size:11px;color:#666;margin-top:1px;">Nivel ${o.str}</div>
+    <div style="font-size:12px;color:${A};font-weight:900;margin-top:6px;">${eur(o.sueldo)}/año</div>
+    <div style="font-size:10px;color:#aaa;">${o.anios} años${o.prima?' · prima '+eur(o.prima):''}</div>
+    ${riesgo}
   </button>`;
 }
 function mostrarOfertas(kind){
@@ -1124,10 +1133,10 @@ function mostrarOfertas(kind){
     ${decoImg('fichaje')}
     <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:17px;color:#fff;margin-bottom:4px;">${titulo}</div>
     <div style="font-size:13px;color:#c4ccc0;line-height:1.5;margin-bottom:14px;">${sub}</div>
-    <div style="display:flex;flex-direction:column;gap:9px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
       ${list.map((o,i)=>ofertaCard(o,i,kind)).join('')}
-      <button onclick="window._carreraElegirOferta('${kind==='renov'?'rechazar_renov':'quedarme'}',-1)" style="${btn(false)}"><i class='bx bx-home-heart' style="margin-right:6px;color:#8a8f86;"></i>${kind==='renov'?'Rechazar renovación (escuchar ofertas)':'Quedarme en '+esc(G.club)}</button>
     </div>
+    <button onclick="window._carreraElegirOferta('${kind==='renov'?'rechazar_renov':'quedarme'}',-1)" style="width:100%;margin-top:10px;${btn(false)}"><i class='bx bx-home-heart' style="margin-right:6px;color:#8a8f86;"></i>${kind==='renov'?'Rechazar renovación (escuchar ofertas)':'Quedarme en '+esc(G.club)}</button>
   </div>`;
 }
 window._carreraElegirOferta = function(kind, i){
@@ -1147,10 +1156,17 @@ window._carreraElegirOferta = function(kind, i){
       else { G.dinero+=o.prima+Math.round(o.sueldo*0.15); G.moral+=6; msg='Renovaste con '+esc(G.club)+' por '+o.anios+' años ('+eur(o.sueldo)+'/año).'; }
       G.clubStr=Math.min(99,G.clubStr+1);
     } else {
-      G.club=o.name; G.clubStr=o.str; G.liga=o.liga; G.clubPais=o.pais;
+      // Al irte: si eras ídolo (>50), la hinchada se siente traicionada (idolatría cae).
+      // Si estabas <20 (poco tiempo, poco vínculo), el impacto es menor.
+      if(!G.idolatria) G.idolatria = {};
+      const idClub = G.idolatria[G.club]||0;
+      const caida = idClub > 60 ? -80 : idClub > 30 ? -40 : idClub > 10 ? -20 : -5;
+      G.idolatria[G.club] = clamp(idClub + caida, -100, 100);
+      G.idolatria[o.name] = 8; // nuevo club te recibe con expectativa
+      G.club=o.name; G.clubStr=o.str; G.liga=o.liga; G.clubPais=o.pais; G.clubDesde=G.edad;
       G.fama+=8; G.moral+=4; G.dinero+=o.prima+Math.round(o.sueldo*0.15);
       G.valor=Math.round((G.valor||o.str*90000)*1.1);
-      msg='¡Nuevo club: '+esc(o.name)+'! Firmaste por '+o.anios+' años ('+eur(o.sueldo)+'/año).';
+      msg='¡Nuevo club: '+esc(o.name)+'! Firmaste por '+o.anios+' años ('+eur(o.sueldo)+'/año).' + (caida<=-40?' La hinchada de tu ex club nunca te va a perdonar.':'');
     }
   }
   G.fama=clamp(G.fama,0,100); G.moral=clamp(G.moral,0,100); G.dinero=Math.max(0,G.dinero);
@@ -1192,7 +1208,7 @@ const EVENTOS=[
     { txt:'Negarme, es mi puesto', ef:g=>{ g.moral-=5; g.fama-=2; return 'Roce con el cuerpo técnico. Riesgoso.'; } } ] },
 
   // ── REPRESENTANTE / CONTRATO / DINERO ─────────────────────────────────────
-  { t:'Cambio de representante', img:'agente', d:'Un agente top te quiere manejar la carrera, pero pide el 15% de todo.', opts:[
+  { t:'Cambio de representante', img:'agente', minAge:19, d:'Un agente top te quiere manejar la carrera, pero pide el 15% de todo.', opts:[
     { txt:'Firmar con el crack', ef:g=>{ const bien=Math.random()<.6; g.fama+=bien?10:2; g.valor=Math.round(g.valor*(bien?1.2:0.98)); return bien?'Te consigue vidriera y sponsors. Gran movida.':'Prometió mucho y cumplió poco.'; } },
     { txt:'Seguir con el de siempre', ef:g=>{ g.moral+=4; return 'Lealtad. El entorno te lo agradece.'; } } ] },
   { t:'Renovación con negociación', img:'fichaje', d:'El club quiere renovarte. Tu representante dice que pidas más.', opts:[
@@ -1212,10 +1228,10 @@ const EVENTOS=[
     { txt:'Quedarme donde soy figura', ef:g=>{ g.nivel+=2; g.moral+=5; return 'Seguís siendo el ídolo. La hinchada te ama.'; } } ] },
 
   // ── FAMILIA / VIDA PERSONAL ───────────────────────────────────────────────
-  { t:'Casamiento en puerta', img:'familia', d:'Tu pareja quiere casarse esta temporada. Coincide con un momento clave del equipo.', opts:[
+  { t:'Casamiento en puerta', img:'familia', minAge:22, d:'Tu pareja quiere casarse esta temporada. Coincide con un momento clave del equipo.', opts:[
     { txt:'Casarme, la familia primero', ef:g=>{ g.moral+=12; g.nivel-=1; return 'Feliz y equilibrado. Rendís tranquilo.'; } },
     { txt:'Posponer por el fútbol', ef:g=>{ g.moral-=6; g.nivel+=1; return 'Enfocado, pero hay tensión en casa.'; } } ] },
-  { t:'Nace tu hijo', img:'familia', d:'Vas a ser padre. Las noches de poco sueño se vienen.', opts:[
+  { t:'Nace tu hijo', img:'familia', minAge:23, d:'Vas a ser padre. Las noches de poco sueño se vienen.', opts:[
     { txt:'Vivirlo a pleno', ef:g=>{ g.moral+=14; return 'La motivación más grande. Jugás con el alma.'; } },
     { txt:'Contratar ayuda y descansar', ef:g=>{ g.dinero-=15000; g.nivel+=1; return 'Descansás bien y rendís. Cuesta plata.'; } } ] },
   { t:'La familia quiere que vuelvas', img:'potrero', d:'Tus viejos te piden que juegues cerca de casa. Hay una oferta del club del barrio.', opts:[
@@ -1312,7 +1328,7 @@ const EVENTOS=[
       g.fama -= 8; return 'Te frenaron a tiempo. Escándalo mediano, no fue a mayores.';
     } },
     { txt:'Salir corriendo, no meterme', ef:g=>{ g.moral+=3; g.fama-=2; return 'Te fuiste. Bien hecho — no estabas para líos.'; } } ] },
-  { t:'Sobrepeso en la pretemporada', img:'lesion', d:'Volviste de vacaciones con unos kilos de más y el preparador físico te marca.', opts:[
+  { t:'Sobrepeso en la pretemporada', img:'lesion', minAge:20, d:'Volviste de vacaciones con unos kilos de más y el preparador físico te marca.', opts:[
     { txt:'Ponerme a full con la dieta', ef:g=>{ g.nivel+=2; g.moral+=2; return 'Te pusiste en forma rápido. El cuerpo técnico valora tu compromiso.'; } },
     { txt:'Ya lo bajo jugando', ef:g=>{ const mal=Math.random()<.6; g.nivel+=mal?-3:0; return mal?'Arrancaste lento y pesado. Perdiste la titularidad las primeras fechas.':'Zafaste, lo fuiste bajando de a poco.'; } } ] },
   { t:'Descubren un abuelo extranjero', img:'seleccion', _dyn:true, d:'', opts:[] },
@@ -1328,9 +1344,12 @@ function eventoRandom(){
     var str = G.clubStr || 60;
     // Filtra por nivel de club: nada de "changa" o "ojeador de barrio" si jugás
     // en el Barcelona; nada de "reunión con dirigente de élite" si estás en el interior.
+    var edad = G.edad || 20;
     var ok = function(ev){
       if (ev.maxStr != null && str > ev.maxStr) return false;
       if (ev.minStr != null && str < ev.minStr) return false;
+      if (ev.minAge != null && edad < ev.minAge) return false;
+      if (ev.maxAge != null && edad > ev.maxAge) return false;
       return true;
     };
     var pool = EVENTOS.map(function(_,i){return i;}).filter(function(i){ return ok(EVENTOS[i]); });
