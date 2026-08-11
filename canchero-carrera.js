@@ -754,7 +754,7 @@ window._carreraFichar = function(i){
   const nivelInicial = clamp(base + potBonus, 40, 62);
   G = {
     apellido:d.apellido, num:d.num, pie:d.pie, pais:d.pais, pos:d.pos, years:d.years,
-    edad:16, nivel:nivelInicial, club:c.name, liga:c.liga, clubStr:c.str, clubPais:c.pais,
+    edad:15, nivel:nivelInicial, club:c.name, liga:c.liga, clubStr:c.str, clubPais:c.pais,
     // Frecuencia REAL: la carrera arranca en 2026 (año del debut). Cada temporada +1 año.
     // Mundial 2030, Copa América 2028, Eurocopa 2028, JJOO 2028/2032.
     anio:2026,
@@ -775,7 +775,113 @@ window._carreraFichar = function(i){
     estilo: d._potStyle || null, potBonus,
     dif:(d.dif||'normal'), creado:Date.now()
   };
-  save(); window._carreraHub();
+  save(); window._carreraJuveniles(0);
+};
+
+// ── JUVENILES / FORMACIÓN (15-18 años) ────────────────────────────────────────
+// Etapa entre el potrero y el debut profesional. 3 decisiones que definen con qué
+// nivel, disciplina y reputación interna llegás a primera. Acá se define también si
+// DEBUTÁS TEMPRANO (16-17) o si te toca esperar.
+const JUVENILES_POOL = [
+  { t:'Primer día en la pensión', d:'Te toca vivir en la pensión del club con pibes de todo el país. Extrañás tu casa y hay un grupo que te hace la vida difícil.', opts:[
+    { txt:'Bancar y ganarme el respeto solo', ef:g=>{ g.nivel+=2; g.moral+=4; g._juvDisc=(g._juvDisc||0)+2; return 'Te aguantaste todo sin llorar. Al mes te respetaban. Aprendiste a estar solo.'; } },
+    { txt:'Llamar a mi viejo para que intervenga', ef:g=>{ g.moral+=6; g.nivel-=1; g._juvDisc=(g._juvDisc||0)-1; return 'Se calmó la cosa pero te quedó el mote de "el nene de papá" en el vestuario.'; } },
+    { txt:'Pedir volver a casa y viajar cada día', ef:g=>{ g.moral+=8; g.nivel-=2; return 'Dormís en tu cama pero perdés 3 horas diarias en ómnibus. El cuerpo lo siente.'; } } ] },
+  { t:'El técnico te cambia de puesto', d:'El DT de juveniles dice que en tu posición no vas a llegar, y te quiere probar en otra función del campo.', opts:[
+    { txt:'Aceptar y reinventarme', ef:g=>{ g.nivel+=3; g._juvDisc=(g._juvDisc||0)+1; return 'Te adaptaste rápido. Ahora sos polifuncional y el club te ve más completo.'; } },
+    { txt:'Negarme, yo juego donde siempre', ef:g=>{ const b=Math.random()<.45; g.nivel+=b?2:-3; g._juvDisc=(g._juvDisc||0)-2; return b?'Le demostraste que tenía razón en dudar... pero de tu puesto. Te ganaste el lugar.':'Te sentaron en el banco tres meses por cabeza dura.'; } } ] },
+  { t:'Fiesta de fin de año de la categoría', d:'Los pibes armaron una salida enorme. Al otro día hay entrenamiento a las 8 y el DT dijo que iba a estar mirando.', opts:[
+    { txt:'No ir, mañana entreno', ef:g=>{ g.nivel+=2; g._juvDisc=(g._juvDisc||0)+3; g.moral-=2; return 'Fuiste el único que entrenó bien. El DT lo anotó — y esas cosas se acuerdan.'; } },
+    { txt:'Ir un rato y volver temprano', ef:g=>{ const b=Math.random()<.6; g.moral+=5; g.nivel+=b?1:-1; return b?'Te fuiste a las 2 y entrenaste bien. Equilibrio.':'"Un rato" terminó a las 6. Se te notó.'; } },
+    { txt:'Salir con todo, soy pibe', ef:g=>{ g.moral+=8; g.nivel-=3; g._juvDisc=(g._juvDisc||0)-3; return 'La pasaste increíble. El DT te sacó del once por un mes.'; } } ] },
+  { t:'Los estudios vs el fútbol', d:'Estás por repetir el año. En el club te dicen que si dejás el liceo tenés más horas de entrenamiento, pero es tirar el plan B.', opts:[
+    { txt:'Dejar el liceo, todo al fútbol', ef:g=>{ g.nivel+=4; g.flags=g.flags||{}; g.flags.sinEstudios=true; return 'Todo o nada. Más horas de cancha, cero red de contención si esto no sale.'; } },
+    { txt:'Bancar los dos aunque cueste', ef:g=>{ g.nivel+=1; g.moral+=4; g.flags=g.flags||{}; g.flags.estudioso=true; return 'Dormís poco pero tenés título y pelota. Tu vieja llora de orgullo.'; } } ] },
+  { t:'Un veterano te toma de aprendiz', d:'Un jugador de primera, casi retirado, te ve entrenar y se ofrece a enseñarte lo que sabe. Pero pide que llegues una hora antes todos los días.', opts:[
+    { txt:'Aceptar y llegar una hora antes', ef:g=>{ g.nivel+=4; g._juvDisc=(g._juvDisc||0)+3; g.flags=g.flags||{}; g.flags.mentoreado=true; return 'Un año entero llegando al alba. Te enseñó cosas que no se aprenden en ningún video.'; } },
+    { txt:'Agradecer pero seguir mi ritmo', ef:g=>{ g.nivel+=1; return 'Educado pero cómodo. Años después te vas a preguntar qué habría pasado.'; } } ] },
+  { t:'Lesión en un momento clave', d:'Justo cuando el DT de primera empezó a mirarte, te desgarrás. Te ofrecen infiltrarte para el partido donde va a estar mirando.', opts:[
+    { txt:'Infiltrarme y jugar ese partido', ef:g=>{ const mal=Math.random()<.55; if(mal){ g.nivel-=5; g.moral-=8; return 'Se te agravó y estuviste 6 meses afuera. Perdiste la ventana.'; } g.nivel+=3; g.fama+=5; return 'Jugaste al 60% y aún así lo convenciste. Riesgo que salió bien.'; } },
+    { txt:'Parar y recuperar bien', ef:g=>{ g.nivel+=1; g.moral+=3; return 'Volviste entero dos meses después. La ventana se cerró, pero el cuerpo quedó sano.'; } } ] },
+  { t:'Oferta de un club del exterior', d:'Un club europeo quiere llevarte a su cantera a los 16. Es lejos, otro idioma, y tu familia queda acá.', opts:[
+    { txt:'Cruzar el charco solo', ef:g=>{ const b=Math.random()<.5; if(b){ g.nivel+=5; g.fama+=6; g.flags=g.flags||{}; g.flags.emigroPibe=true; return 'Te adaptaste. Otra cultura de trabajo, otro nivel de exigencia. Volaste.'; } g.nivel-=2; g.moral-=12; return 'No aguantaste la soledad. Volviste a los 8 meses con la autoestima rota.'; } },
+    { txt:'Quedarme y crecer en casa', ef:g=>{ g.nivel+=2; g.moral+=6; return 'Elegiste tus raíces. Progreso más lento pero con los tuyos al lado.'; } } ] },
+  { t:'Te ponen de capitán de la categoría', d:'El cuerpo técnico te da la cinta de la juvenil. Implica hablar, poner la cara cuando se pierde y mediar en los quilombos.', opts:[
+    { txt:'Aceptar y liderar de verdad', ef:g=>{ g.nivel+=2; g.moral+=6; g._juvDisc=(g._juvDisc||0)+2; g.flags=g.flags||{}; g.flags.lider=true; return 'Te bancaste todas. Cuando subís a primera ya sabés hablar en un vestuario.'; } },
+    { txt:'Rechazar, prefiero solo jugar', ef:g=>{ g.nivel+=1; return 'Sin cinta, sin presión extra. Concentrado en lo tuyo.'; } } ] },
+  { t:'Un representante te busca a la salida', d:'Un agente te espera afuera del entrenamiento con un contrato de representación por 5 años y un adelanto en efectivo.', opts:[
+    { txt:'Firmar y agarrar el adelanto', ef:g=>{ g.dinero+=12000; const b=Math.random()<.45; g.flags=g.flags||{}; g.flags.agenteMalo=!b; return b?'Resultó ser serio y te consiguió buenos contactos.':'Te ató 5 años a alguien que solo te quiere vender. Te va a costar zafar.'; } },
+    { txt:'Consultarlo con mi familia primero', ef:g=>{ g._juvDisc=(g._juvDisc||0)+1; return 'Tu viejo lo hizo revisar por un abogado del sindicato. Te ahorraste un problema.'; } } ] }
+];
+function juvenilesDeCarrera(){ return JUVENILES_POOL.slice().sort(()=>Math.random()-0.5).slice(0,3); }
+// Edad de retiro: la duración elegida se cuenta desde el DEBUT (17 o 18), no desde 16.
+function edadRetiro(){ return ((G&&G.debutEdad)||16) + ((G&&G.years)||10); }
+window._carreraJuveniles = function(paso){
+  paso = paso || 0;
+  if(!G){ G=load(); if(!G){ window._carreraStart(); return; } }
+  if(!G._juvSet) G._juvSet = juvenilesDeCarrera();
+  if(paso >= G._juvSet.length){ window._carreraDebut(); return; }
+  const ev = G._juvSet[paso];
+  const edadJuv = 15 + paso;
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:22px 20px calc(30px + env(safe-area-inset-bottom));">
+    <div style="text-align:center;margin:6px 0 16px;">
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;">${clubBadge(G.club,34)}<span style="font-size:13px;font-weight:900;color:#fff;">${esc(G.club)}</span></div>
+      <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:#4fc3f7;">JUVENILES · ${edadJuv} AÑOS</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:24px;color:#fff;margin-top:5px;line-height:1.15;">${esc(ev.t)}</div>
+    </div>
+    <div style="background:linear-gradient(160deg,rgba(79,195,247,.07),rgba(20,22,18,.5));border:1px solid rgba(79,195,247,.28);border-radius:16px;padding:16px;">
+      <div style="font-size:13.5px;color:#c4ccc0;line-height:1.6;margin-bottom:14px;">${ev.d}</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${ev.opts.map((o,i)=>`<button onclick="window._juvElegir(${paso},${i})" style="${btn(i===0)}">${o.txt}</button>`).join('')}
+      </div>
+    </div>
+  </div>`;
+};
+window._juvElegir = function(paso, idx){
+  const ev = G._juvSet[paso]; const o = ev.opts[idx]; if(!o) return;
+  const antesNiv = G.nivel;
+  const res = o.ef(G);
+  G.nivel = clamp(G.nivel, 30, 75);
+  G.moral = clamp(G.moral, 0, 100);
+  if(!G.juvHist) G.juvHist = [];
+  G.juvHist.push({ edad:15+paso, t:ev.t, res });
+  save();
+  const dNiv = Math.round(G.nivel - antesNiv);
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+    <div style="max-width:520px;margin:0 auto;padding:60px 20px 40px;text-align:center;">
+      <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:#4fc3f7;margin-bottom:12px;">${esc(ev.t)}</div>
+      <div style="font-size:16px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:16px;">${esc(res)}</div>
+      ${dNiv?`<div style="margin-bottom:22px;">${deltaChip('Nivel', dNiv)}</div>`:'<div style="margin-bottom:22px;"></div>'}
+      <button onclick="window._carreraJuveniles(${paso+1})" style="background:linear-gradient(135deg,#0284c7,#4fc3f7);color:#fff;border:none;border-radius:13px;padding:13px 30px;font-weight:900;cursor:pointer;">${paso+1>=G._juvSet.length?'El día del debut':'Continuar'} <i class='bx bx-right-arrow-alt'></i></button>
+    </div>`;
+};
+// Debut: la disciplina acumulada en juveniles define si subís a los 17 o a los 18.
+window._carreraDebut = function(){
+  const disc = G._juvDisc || 0;
+  const temprano = disc >= 3 || (disc >= 1 && G.nivel >= 58);
+  G.edad = temprano ? 17 : 18;
+  G.debutEdad = G.edad;   // la duración elegida se cuenta DESDE el debut
+  G.anio = 2026 + (G.edad - 16);
+  if(temprano){ G.nivel = clamp(G.nivel + 2, 30, 78); G.flags = G.flags||{}; G.flags.debutPrecoz = true; }
+  save();
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:50px 20px 40px;text-align:center;">
+    <div style="display:flex;justify-content:center;margin-bottom:16px;">${jersey(140, G.apellido, G.num, G.pais)}</div>
+    <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:${A};margin-bottom:8px;">${temprano?'DEBUT PRECOZ':'DEBUT EN PRIMERA'}</div>
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:28px;color:#fff;line-height:1.15;margin-bottom:10px;">${G.edad} años</div>
+    <div style="font-size:14px;color:#c4ccc0;line-height:1.6;max-width:380px;margin:0 auto 22px;">${temprano
+      ? `Tu trabajo en juveniles no pasó desapercibido. El técnico de primera te sube antes de tiempo: debutás en <b style="color:#fff;">${esc(G.club)}</b> con apenas ${G.edad} años.`
+      : `Terminaste el proceso formativo completo. Subís a primera de <b style="color:#fff;">${esc(G.club)}</b> a los ${G.edad}, sin atajos pero con el oficio aprendido.`}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:320px;margin:0 auto 22px;">
+      ${cell('NIVEL', Math.round(G.nivel), A)}
+      ${cell('DISCIPLINA', disc>=3?'Alta':disc>=0?'Media':'Baja', disc>=3?'#22c55e':disc>=0?'#f59e0b':'#ef4444')}
+    </div>
+    <button onclick="window._carreraHub()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px 34px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;box-shadow:0 10px 30px rgba(80,220,110,.3);">EMPEZAR MI CARRERA <i class='bx bx-right-arrow-alt'></i></button>
+  </div>`;
 };
 
 // ── HUB DE CARRERA ───────────────────────────────────────────────────────────────
@@ -811,7 +917,7 @@ window._carreraHub = function(){
         ${(function(){ const R=G.rival; if(!R||!(R.ganados+R.perdidos)) return ''; const rel=R.relacion||0; const relTxt=rel<=-40?'Te odia':rel<=-15?'Rivalidad picante':rel>=30?'Respeto mutuo':'Rivalidad'; return `<div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.03);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:8px 12px;"><div style="font-size:11px;color:#8a8f96;font-weight:800;"><i class='bx bx-target-lock' style="color:#ef4444;"></i> Duelo con ${esc(R.nombre)} · ${relTxt}</div><div style="font-size:12px;font-weight:900;color:#fff;"><span style="color:#22c55e;">${R.ganados}</span>—<span style="color:#ef4444;">${R.perdidos}</span></div></div>`; })()}
         ${(function(){ const F=G.flags||{}; const badges=[]; if(F.traidor) badges.push(['Traidor','#ef4444']); if(F.dopado&&!F.suspendido) badges.push(['Zona gris','#f59e0b']); if(F.suspendido) badges.push(['Sancionado','#ef4444']); if(F.ludopata) badges.push(['Ludopatía','#f59e0b']); if(F.deudaMafia) badges.push(['Deuda peligrosa','#dc2626']); if(F.arreglo) badges.push(['Amaño','#dc2626']); if(F.filantropo) badges.push(['Filántropo','#22c55e']); if(F.limpio) badges.push(['Limpio','#22c55e']); if(F.redimido) badges.push(['Redimido','#4fc3f7']); if(F.doblenac) badges.push(['Doble nacionalidad','#a78bfa']); if(F.villano) badges.push(['Villano','#ef4444']); if(!badges.length) return ''; return `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;">${badges.map(b=>`<span style="background:${b[1]}18;border:1px solid ${b[1]}55;color:${b[1]};border-radius:20px;padding:3px 9px;font-size:10px;font-weight:800;">${b[0]}</span>`).join('')}</div>`; })()}
         ${(function(){ const v=(G.idolatria&&G.idolatria[G.club])||0; const lbl=v>=70?'ÍDOLO ETERNO':v>=40?'Ídolo':v>=15?'Querido':v>=-10?'Uno más':v>=-40?'Cuestionado':'Odiado'; const col=v>=40?A:v>=15?'#4fc3f7':v>=-10?'#aaa':v>=-40?'#f59e0b':'#ef4444'; return `<div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.03);border:1px solid ${col}44;border-radius:10px;padding:8px 12px;"><div style="font-size:11px;color:#8a8f96;font-weight:800;"><i class='bx bx-heart' style="color:${col};"></i> Hinchada de ${esc(G.club)}</div><div style="font-size:12px;font-weight:900;color:${col};">${lbl} · ${v>0?'+':''}${v}</div></div>`; })()}
-        <button onclick="window._carreraTemporada()" style="width:100%;margin-top:14px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:12px;padding:14px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">${G.edad>=16+G.years?'VER RETIRO':'JUGAR TEMPORADA '+G.temporada}  <i class='bx bx-right-arrow-alt'></i></button>
+        <button onclick="window._carreraTemporada()" style="width:100%;margin-top:14px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:12px;padding:14px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">${G.edad>=edadRetiro()?'VER RETIRO':'JUGAR TEMPORADA '+G.temporada}  <i class='bx bx-right-arrow-alt'></i></button>
         <div style="display:flex;gap:8px;margin-top:8px;">
           <button onclick="window._carreraPedirSalida()" style="flex:1;background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:12px;padding:11px;font-weight:800;font-size:12px;cursor:pointer;"><i class='bx bx-log-out'></i> Pedir salida</button>
           <button onclick="window._carreraBienes()" style="flex:1;background:rgba(250,204,21,.08);color:#facc15;border:1px solid rgba(250,204,21,.3);border-radius:12px;padding:11px;font-weight:800;font-size:12px;cursor:pointer;"><i class='bx bx-wallet'></i> Mis bienes</button>
@@ -841,7 +947,7 @@ window._carreraHub = function(){
 
 // ── TEMPORADA (simulación + decisión) ────────────────────────────────────────────
 window._carreraTemporada = function(){
-  if(G.edad>=16+G.years) return retiro();
+  if(G.edad>=edadRetiro()) return retiro();
   // ── Rendimiento individual ──
   const pj = ri(24,36);
   const atk = {POR:0.02,DFC:0.05,LI:0.08,LD:0.08,MCD:0.12,MI:0.35,MD:0.35,MC:0.25,MCO:0.5,EI:0.55,ED:0.55,DC:0.75}[G.pos]||0.3;
@@ -868,6 +974,77 @@ window._carreraTemporada = function(){
   // También podés DESCENDER incluso siendo grande si tenés temporada horrible.
   let pos = Math.round(baseRank+1 - aporte + rnd(-2.0, 4.5));
   pos = clamp(pos, 1, totalEq);
+  // ── MOMENTO CLAVE: si quedaste 2º, hay una última fecha que define el campeonato.
+  // Se resuelve con una decisión tuya que puede darte el título o hundirte. Como
+  // requiere input del usuario, se pausa acá y la temporada sigue en _finTemporada.
+  if (pos === 2 && Math.random() < 0.75) {
+    G._pend = { pj, g, a, dN, rend, totalEq };
+    window._carreraMomentoClave();
+    return;
+  }
+  return _finTemporada({ pj, g, a, dN, rend, pos, totalEq, momento:null });
+};
+// ── MOMENTO CLAVE (definición del campeonato) ────────────────────────────────
+const MOMENTOS = [
+  { t:'La última pelota del campeonato', d:'Último minuto de la última fecha. Empatados, el campeón se define con este partido. La pelota te queda a vos, solo contra el arquero, con el estadio de pie.', opts:[
+    { txt:'Definir cruzado, como siempre', p:0.55, ok:'La clavaste en el ángulo lejano. El estadio explota. CAMPEÓN.', no:'El arquero adivinó y la sacó al córner. Se terminó ahí.' },
+    { txt:'Amagar y sentarlo', p:0.42, ok:'Lo sentaste y la empujaste con el arco vacío. Un gol para la eternidad.', no:'Amagaste de más, volvió un defensor y despejó. Silencio total.' },
+    { txt:'Pasarla al compañero mejor ubicado', p:0.62, ok:'Se la diste servida y la mandó a guardar. No fue tu gol, pero fue tu campeonato.', no:'Se la diste y la tiró afuera. Todos te van a preguntar por qué no pateaste.' } ] },
+  { t:'Penal en el último minuto', d:'Penal a favor en el minuto 94 de la última fecha. Si entra, son campeones. El arquero rival te mira fijo y se para en el medio del arco.', opts:[
+    { txt:'Fuerte y al medio', p:0.58, ok:'Se tiró y vos la reventaste por el centro. CAMPEÓN.', no:'Se quedó parado. Se la comió con el cuerpo. Increíble.' },
+    { txt:'Colocada abajo a un palo', p:0.52, ok:'Rasante, pegadita al palo. Imposible. CAMPEONES.', no:'La colocaste bien pero el arquero voló y llegó con la punta de los dedos.' },
+    { txt:'Picarla por el medio (Panenka)', p:0.35, ok:'La picaste con una frialdad de asesino. El estadio no lo puede creer. CAMPEÓN.', no:'El arquero no se movió. La agarró en el aire. El papelón de tu vida.' } ] },
+  { t:'La final del torneo', d:'Se define en una final a partido único. El técnico te pregunta cómo querés que juguemos: vos sos el referente y va a hacer lo que digas.', opts:[
+    { txt:'Salir a buscarlo desde el arranque', p:0.50, ok:'Los ahogamos en su campo y a los 20 ya ganábamos 2-0. Fiesta.', no:'Nos agarraron mal parados de contra. 0-2 en 25 minutos. No hubo vuelta.' },
+    { txt:'Aguantar y golpear de contra', p:0.55, ok:'Aguantamos todo el primer tiempo y los liquidamos con dos contras. Inteligencia pura.', no:'Nos metimos atrás y nos ahogaron. Cayó el gol a los 80.' },
+    { txt:'Jugar como siempre, sin cambiar nada', p:0.60, ok:'Fuimos fieles a lo nuestro y alcanzó. Campeones haciendo lo que sabemos.', no:'Ellos se prepararon mejor para esta final. Nos leyeron todo.' } ] }
+];
+window._carreraMomentoClave = function(){
+  const mm = pick(MOMENTOS);
+  G._momento = mm;
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:26px 20px calc(30px + env(safe-area-inset-bottom));">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:#facc15;animation:crPulse 1.2s ease-in-out infinite;">⚡ MOMENTO CLAVE</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;margin-top:8px;line-height:1.15;">${esc(mm.t)}</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:7px;margin-top:8px;">${clubBadge(G.club,26)}<span style="font-size:12px;color:#9aa0a6;">${esc(G.club)} · ${esc(G.liga)}</span></div>
+    </div>
+    <div style="background:linear-gradient(160deg,rgba(250,204,21,.10),rgba(20,22,18,.6));border:1.5px solid rgba(250,204,21,.4);border-radius:16px;padding:18px;">
+      <div style="font-size:14px;color:#e8e8e0;line-height:1.65;margin-bottom:16px;">${esc(mm.d)}</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${mm.opts.map((o,i)=>`<button onclick="window._momentoElegir(${i})" style="${btn(i===0)}">${o.txt}</button>`).join('')}
+      </div>
+    </div>
+  </div>
+  <style>@keyframes crPulse{0%,100%{opacity:1}50%{opacity:.45}}</style>`;
+};
+window._momentoElegir = function(i){
+  const mm = G._momento; const o = mm.opts[i]; if(!o) return;
+  // Tu nivel inclina la balanza: un crack define más seguido.
+  const bonus = clamp((G.nivel - 70) / 220, -0.08, 0.12);
+  const exito = Math.random() < clamp(o.p + bonus, 0.15, 0.88);
+  const p = G._pend;
+  const pos = exito ? 1 : 2;
+  if(exito){ G.fama = clamp((G.fama||0) + 14, 0, 100); G.moral = clamp((G.moral||70) + 12, 0, 100); }
+  else { G.moral = clamp((G.moral||70) - 10, 0, 100); }
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+    <div style="max-width:520px;margin:0 auto;padding:70px 20px 40px;text-align:center;">
+      <div style="font-size:52px;margin-bottom:6px;">${exito?'🏆':'💔'}</div>
+      <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:${exito?A:'#ef4444'};margin-bottom:14px;">${exito?'LO LOGRASTE':'NO SE PUDO'}</div>
+      <div style="font-size:17px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:28px;max-width:400px;margin-left:auto;margin-right:auto;">${esc(exito?o.ok:o.no)}</div>
+      <button onclick="window._momentoSeguir(${pos})" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px 32px;font-weight:900;cursor:pointer;font-size:15px;">Ver la temporada <i class='bx bx-right-arrow-alt'></i></button>
+    </div>`;
+};
+window._momentoSeguir = function(pos){
+  const p = G._pend; const mm = G._momento;
+  G._pend = null; G._momento = null;
+  _finTemporada({ pj:p.pj, g:p.g, a:p.a, dN:p.dN, rend:p.rend, pos, totalEq:p.totalEq, momento:{ t:mm.t, exito: pos===1 } });
+};
+// ── FIN DE TEMPORADA (títulos, premios, ascensos, valor, timeline, rival) ─────
+function _finTemporada(ctx){
+  const { pj, g, a, dN, rend, pos, totalEq, momento } = ctx;
   // ── TÍTULOS coherentes con la liga (pueden acumularse en la misma temporada) ──
   const T = trofeosDe(G.liga);
   const titulosGanados = [];
@@ -995,8 +1172,8 @@ window._carreraTemporada = function(){
   G.temporada++; G.edad++; G.anio = (G.anio||2026) + 1;
   G._mercadoHecho = false;
   save();
-  resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa,duelo});
-};
+  resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa,duelo,momento});
+}
 
 function resumenTemporada(r){
   const m=document.getElementById('carrera-modal')||overlay();
@@ -1011,6 +1188,7 @@ function resumenTemporada(r){
         <div style="margin-top:8px;font-size:16px;font-weight:900;color:${A};letter-spacing:.5px;animation:crPop .5s .2s both;"><i class='bx bxs-trophy'></i> ¡${esc(r.titulo)}!</div>
         <div style="font-size:11px;color:#8a8f96;margin-top:2px;">Campeón con ${esc(G.club)}</div>
       </div><style>@keyframes crTrophy{0%{transform:scale(.3) rotate(-12deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}@keyframes crPop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}</style>`:''}
+      ${r.momento?`<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;color:${r.momento.exito?'#facc15':'#94a3b8'};background:${r.momento.exito?'rgba(250,204,21,.1)':'rgba(148,163,184,.08)'};border:1px solid ${r.momento.exito?'rgba(250,204,21,.35)':'rgba(148,163,184,.25)'};border-radius:20px;padding:5px 12px;">⚡ ${esc(r.momento.t)} — ${r.momento.exito?'la metiste':'no se dio'}</div>`:''}
       ${r.clasif?`<div style="margin-top:12px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#4fc3f7;background:rgba(79,195,247,.1);border:1px solid rgba(79,195,247,.3);border-radius:20px;padding:5px 12px;"><i class='bx bx-star'></i> ${esc(r.clasif)}</div>`:''}
       ${r.interCopa?`<div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#a78bfa;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.3);border-radius:20px;padding:5px 12px;"><i class='bx bx-medal'></i> ${esc(r.interCopa)}</div>`:''}
       ${r.interLiteCopa?`<div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#f59e0b;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:20px;padding:5px 12px;"><i class='bx bx-medal'></i> ${esc(r.interLiteCopa)}</div>`:''}
@@ -1985,6 +2163,15 @@ function retiro(){
 
     ${honores.length?`<div class="cr-fade cr-fade-d2" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;justify-content:center;">
       ${honores.map(h=>`<span style="display:inline-flex;align-items:center;gap:5px;background:${h.c}18;border:1px solid ${h.c}55;color:${h.c};border-radius:20px;padding:5px 11px;font-size:11px;font-weight:800;"><i class='bx ${h.i}'></i>${h.t}</span>`).join('')}
+    </div>`:''}
+
+    <!-- FORMACIÓN EN JUVENILES -->
+    ${(G.juvHist&&G.juvHist.length)?`<div class="cr-fade cr-fade-d2" style="margin-top:20px;">
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:#4fc3f7;margin-bottom:10px;padding-left:2px;"><i class='bx bx-child'></i> CÓMO TE FORMASTE</div>
+      <div style="background:linear-gradient(160deg,rgba(79,195,247,.08),rgba(20,22,18,.5));border:1px solid rgba(79,195,247,.25);border-radius:14px;padding:13px 15px;">
+        ${G.juvHist.map(v=>`<div style="display:flex;gap:9px;padding:5px 0;font-size:11.5px;color:#c4ccc0;line-height:1.45;"><span style="font-weight:900;color:#4fc3f7;flex-shrink:0;">${v.edad}</span><span style="flex:1;"><b style="color:#fff;">${esc(v.t)}.</b> ${esc(v.res)}</span></div>`).join('')}
+        <div style="margin-top:9px;padding-top:9px;border-top:1px solid rgba(79,195,247,.18);font-size:11px;color:#8a8f96;">Debutaste en primera a los <b style="color:#fff;">${G.debutEdad||18}</b> años${G.flags&&G.flags.debutPrecoz?' — <span style="color:#facc15;font-weight:800;">antes de tiempo</span>':''}.</div>
+      </div>
     </div>`:''}
 
     <!-- DUELO FINAL CON EL NÉMESIS -->
