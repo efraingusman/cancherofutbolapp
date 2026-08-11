@@ -505,9 +505,8 @@ const POTRERO_POOL = [
     { txt:'Un killer (Suárez / Ronaldo)', ef:g=>{ g._potBonus=(g._potBonus||0)+2; g._potStyle='killer'; return 'Ir al gol es tu religión.'; } },
     { txt:'Un guerrero (Vidal)', ef:g=>{ g._potBonus=(g._potBonus||0)+1; g._potStyle='guerrero'; return 'La cancha es guerra. Nunca te rendís.'; } }
   ] },
-  { t:'Un ojeador te ve entrenando', d:'A los 14 años, un ojeador te ve en el fútbol de barrio. Te ofrece probarte.', opts:[
-    { txt:'Ir a la prueba con humildad', ef:g=>{ const b=Math.random()<.7; g._potBonus=(g._potBonus||0)+(b?3:-1); return b?'La rompiste. Te quieren en cantera.':'Fuiste tímido. No convenciste.'; } },
-    { txt:'Ir a comerme la prueba con garra', ef:g=>{ const b=Math.random()<.5; g._potBonus=(g._potBonus||0)+(b?4:-2); return b?'Los deslumbraste con actitud. Te quieren YA.':'Te forzaste. No convenciste.'; } },
+  { t:'Ojeadores te vinieron a ver', d:'A los 14 años, DOS ojeadores de distintos clubes de tu país te vieron. Uno grande, otro chico. Ambos te invitan a probarte.', opts:[
+    { txt:'Elegir dónde probarme', prueba:true },
     { txt:'No ir, seguir en el barrio', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Preferís madurar sin apuro.'; } }
   ] },
   { t:'Se rompió la pelota', d:'Media cuadra juega descalzos y la única pelota se pinchó. Los pibes miran para vos.', opts:[
@@ -516,10 +515,10 @@ const POTRERO_POOL = [
   ] },
   { t:'Prueba en un club grande vs debut en el chico', d:'Con 13, un club chico te ofrece jugar oficial. El grande te dice "vení a probarte, después vemos".', opts:[
     { txt:'Ir a jugar al chico', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Debutás oficial. Rodaje real desde pibe.'; } },
-    { txt:'Probarme en el grande', ef:g=>{ const b=Math.random()<.5; g._potBonus=(g._potBonus||0)+(b?4:-2); return b?'Te ficharon. Cantera de élite.':'No te eligieron. Volviste al barrio con la cabeza gacha.'; } }
+    { txt:'Elegir club y probarme', prueba:true }
   ] },
-  { t:'Mudanza familiar', d:'Tu viejo consigue laburo lejos y hay que mudarse. Chau equipo del barrio.', opts:[
-    { txt:'Adaptarme y empezar de cero', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Nuevo barrio, nueva canchita. Te ganás el respeto rápido.'; } },
+  { t:'Mudanza familiar', d:'Tu viejo consigue laburo en la capital y hay que mudarse. Chau equipo del barrio — pero allá hay clubes de verdad.', opts:[
+    { txt:'Buscar dónde probarme en la ciudad nueva', prueba:true },
     { txt:'Rebelarme y no querer jugar', ef:g=>{ g._potBonus=(g._potBonus||0)-3; return 'Perdiste meses de fútbol. Costó volver al ritmo.'; } }
   ] },
   { t:'Bullying en la escuela', d:'Un grupo del cole te carga por gastar tanto tiempo en la pelota. Te empujan.', opts:[
@@ -573,9 +572,90 @@ window._carreraPotrero = function(paso){
     </div>
   </div>`;
 };
+// ── SUB-FLUJO DE PRUEBA (ojeador / mudanza) ─────────────────────────────────
+// Opciones con `prueba:true` abren: elegir club → decisión dentro de la prueba →
+// resultado. El club elegido queda como preferido y aparece en la oferta de cantera.
+function clubesPrueba(pais, n){
+  let out = todosClubs().filter(c=>c.pais===pais && c.str>=50 && c.str<=74).sort(()=>Math.random()-0.5).slice(0, n||3);
+  if(out.length < (n||3)){
+    const ciudades = (CIUDADES[pais]||['Central','Norte','Sur','Unión']).slice().sort(()=>Math.random()-0.5);
+    const sufijos = ['FC','Atlético','Juventud','Deportivo','Sporting'];
+    for(let i=out.length;i<(n||3);i++) out.push({ name: pick(sufijos)+' '+ciudades[i%ciudades.length], str: ri(48,58), liga:'Amateur '+pais, pais });
+  }
+  return out;
+}
+window._potPrueba = function(paso, idx){
+  const d=_draft; const ev=(d._potSet||POTRERO_POOL)[paso];
+  d._pruebaClubs = clubesPrueba(d.pais, 3);
+  const m=document.getElementById('carrera-modal')||overlay();
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:22px 20px calc(30px + env(safe-area-inset-bottom));">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};">LA PRUEBA</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:23px;color:#fff;margin-top:5px;line-height:1.15;">¿Dónde te vas a probar?</div>
+      <div style="font-size:12.5px;color:#9aa0a6;margin-top:6px;">Cuanto más grande el club, más difícil quedar — pero mejor arranque.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      ${d._pruebaClubs.map((c,i)=>`<button onclick="window._potPruebaClub(${paso},${idx},${i})" style="display:flex;align-items:center;gap:13px;background:rgba(255,255,255,.04);border:1.5px solid #242424;border-radius:15px;padding:14px;cursor:pointer;text-align:left;" onmouseover="this.style.borderColor='${A}'" onmouseout="this.style.borderColor='#242424'">
+        ${clubBadge(c.name,46)}
+        <div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:900;color:#fff;">${esc(c.name)}</div><div style="font-size:11px;color:#8a8f96;">${esc(c.liga)} · Nivel ${c.str}</div>
+        <div style="font-size:10.5px;color:${c.str>=68?'#ef4444':c.str>=60?'#f59e0b':'#22c55e'};font-weight:800;margin-top:2px;">${c.str>=68?'Muy exigente':c.str>=60?'Exigente':'Accesible'}</div></div>
+        <i class='bx bx-chevron-right' style="color:#444;font-size:22px;"></i>
+      </button>`).join('')}
+    </div>
+  </div>`;
+};
+const PRUEBA_DECS = [
+  { txt:'Jugar simple y sin errores', dif:0.72, bon:2, ok:'Prolijo, sin perder una. El captador te anotó como "seguro".', no:'Demasiado conservador. "No se le vio nada", dijeron.' },
+  { txt:'Encarar y buscar la jugada de crack', dif:0.48, bon:4, ok:'Hiciste dos gambetas que levantaron a los captadores de la silla.', no:'Perdiste todas las que encaraste. Se te vio individualista.' },
+  { txt:'Correr como loco y meter', dif:0.65, bon:3, ok:'Dejaste todo. Les encantó tu actitud y sacrificio.', no:'Te fundiste a los 20 minutos. Físico insuficiente.' },
+  { txt:'Mandar al equipo, hablar, organizar', dif:0.58, bon:3, ok:'Los captadores vieron un líder. Eso no se enseña.', no:'Quisiste mandar sin nivel para respaldarlo. Quedó raro.' }
+];
+window._potPruebaClub = function(paso, idx, clubIdx){
+  const d=_draft; const c=d._pruebaClubs[clubIdx]; d._pruebaClub=c;
+  const decs = PRUEBA_DECS.slice().sort(()=>Math.random()-0.5).slice(0,3);
+  d._pruebaDecs = decs;
+  const m=document.getElementById('carrera-modal')||overlay();
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:22px 20px calc(30px + env(safe-area-inset-bottom));">
+    <div style="text-align:center;margin-bottom:14px;">
+      <div style="display:flex;justify-content:center;margin-bottom:8px;">${clubBadge(c.name,58)}</div>
+      <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};">PRUEBA EN ${esc(c.name).toUpperCase()}</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;color:#fff;margin-top:5px;line-height:1.15;">Te dan 45 minutos</div>
+    </div>
+    <div style="background:linear-gradient(160deg,rgba(186,255,0,.06),rgba(20,22,18,.5));border:1px solid #242424;border-radius:16px;padding:16px;">
+      <div style="font-size:13.5px;color:#c4ccc0;line-height:1.6;margin-bottom:14px;">Hay 40 pibes y toman a 3. Estás en cancha con la pechera puesta y los captadores anotando en la tribuna. ¿Cómo la jugás?</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${decs.map((dd,i)=>`<button onclick="window._potPruebaFin(${paso},${idx},${i})" style="${btn(i===0)}">${dd.txt}</button>`).join('')}
+      </div>
+    </div>
+  </div>`;
+};
+window._potPruebaFin = function(paso, idx, decIdx){
+  const d=_draft; const c=d._pruebaClub; const dec=d._pruebaDecs[decIdx];
+  // Dificultad ajustada por fuerza del club: club grande = más difícil quedar.
+  const penal = (c.str-52)*0.018;
+  const quedo = Math.random() < clamp(dec.dif - penal, 0.12, 0.92);
+  let res;
+  if(quedo){ d._potBonus=(d._potBonus||0)+dec.bon; d._potClubPref=c; res = dec.ok + ' ¡Quedaste en ' + c.name + '!'; }
+  else { d._potBonus=(d._potBonus||0)-1; res = dec.no + ' No quedaste esta vez, pero aprendiste.'; }
+  const ev=(d._potSet||POTRERO_POOL)[paso];
+  d._potHist.push({ t: ev.t, res });
+  const m=document.getElementById('carrera-modal')||overlay();
+  m.innerHTML = `
+    <div style="max-width:520px;margin:0 auto;padding:50px 20px 40px;text-align:center;">
+      <div style="display:flex;justify-content:center;margin-bottom:14px;">${clubBadge(c.name,64)}</div>
+      <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${quedo?A:'#ef4444'};margin-bottom:12px;">${quedo?'QUEDASTE':'NO QUEDASTE'}</div>
+      <div style="font-size:16px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:26px;">${esc(res)}</div>
+      <button onclick="window._carreraPotrero(${paso+1})" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 30px;font-weight:900;cursor:pointer;">${paso+1>=(d._potSet||[]).length?'Ir a la cantera':'Continuar'} <i class='bx bx-right-arrow-alt'></i></button>
+    </div>`;
+};
+
 window._potElegir = function(paso, idx){
   const ev = (_draft._potSet||POTRERO_POOL)[paso];
   const o = ev.opts[idx]; if (!o) return;
+  // Opciones que abren el sub-flujo de prueba (elegir club + decisión en cancha).
+  if (o.prueba) { window._potPrueba(paso, idx); return; }
   // El efecto opera sobre _draft (todavía no existe G).
   const res = o.ef(_draft);
   _draft._potHist.push({ t: ev.t, res });
@@ -596,6 +676,11 @@ window._carreraOfertas = function(){
   // clubes reales de ese país con str bajo/medio; si no alcanzan 3, se generan clubes
   // amateur/barrio de ciudades de ese país. Así el arranque es lógico y local.
   let cantera = todosClubs().filter(c=>c.pais===d.pais && c.str>=50 && c.str<=72).sort(()=>Math.random()-0.5).slice(0,3);
+  // Si quedaste en una prueba del potrero, ese club encabeza la oferta (efecto real).
+  if (d._potClubPref){
+    cantera = cantera.filter(c=>c.name !== d._potClubPref.name).slice(0,2);
+    cantera.unshift(d._potClubPref);
+  }
   if (cantera.length < 3){
     const faltan = 3 - cantera.length;
     const ciudades = (CIUDADES[d.pais] || ['Central','Norte','Sur','Unión','Juventud','Barrio']).slice().sort(()=>Math.random()-0.5);

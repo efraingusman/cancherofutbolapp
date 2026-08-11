@@ -61,7 +61,9 @@
       "Bash(git commit -m 'Leyenda: valor coherente con liga/club \\(interior UY vale cientos, no 100k\\) *)",
       "Bash(git commit *)",
       "Bash(git commit -m 'Leyenda: liga mas dificil de ganar + ronda alcanzada en copas internacionales *)",
-      "Bash(git commit -m 'Leyenda: mercado forzado cada temporada + potrero variado + mas eventos de vida *)"
+      "Bash(git commit -m 'Leyenda: mercado forzado cada temporada + potrero variado + mas eventos de vida *)",
+      "Bash(node -e \"new Function\\(require\\('fs'\\).readFileSync\\('canchero-carrera.js','utf8'\\)\\)\")",
+      "Bash(git commit -m 'Leyenda: prueba interactiva en el potrero \\(elegir club + decision en cancha\\) *)"
     ]
   }
 }
