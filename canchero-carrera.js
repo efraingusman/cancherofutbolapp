@@ -707,6 +707,42 @@ window._carreraOfertas = function(){
     <button onclick="window._carreraIdent(_draftYears())" style="width:100%;margin-top:16px;background:#161616;color:#aaa;border:1px solid #262626;border-radius:12px;padding:13px;font-weight:800;cursor:pointer;">Volver a identidad</button>
   </div>`;
 };
+// ── RIVAL / NÉMESIS ───────────────────────────────────────────────────────────
+// Se genera al fichar: un jugador de tu misma camada y país que compite con vos
+// TODA la carrera. Cada temporada simula sus números y se compara con los tuyos.
+// Su relación con vos evoluciona (respeto / rivalidad / odio) según quién gane.
+const RIVAL_NOMBRES = ['Ferreyra','Cardozo','Almeida','Sosa','Benítez','Núñez','Vargas','Ibáñez','Quintana','Bermúdez','Olivera','Rojas','Silveira','Acuña','Zambrano','Da Silva','Moretti','Kovač','Bakayoko','Lindqvist','Van Dijk','Okafor','Petrov','Haaland','Mbeki'];
+function crearRival(pais, pos, nivel){
+  return {
+    nombre: pick(RIVAL_NOMBRES),
+    pais,
+    pos,
+    nivel: clamp(nivel + ri(-3, 5), 40, 70),   // arranca parejo o un poco arriba
+    club: 'Cantera rival',
+    tot: { pj:0, g:0, a:0 },
+    titulos: 0,
+    // Relación: 0 = neutro, sube a "respeto" si te va bien y sos noble; baja a "odio".
+    relacion: 0,
+    // Historial de duelos ganados/perdidos
+    ganados: 0, perdidos: 0
+  };
+}
+// Simula la temporada del rival (independiente de la tuya) y devuelve quién ganó el año.
+function simularRival(R, anioEdad){
+  const atk = {POR:0.02,DFC:0.05,LI:0.08,LD:0.08,MCD:0.12,MI:0.35,MD:0.35,MC:0.25,MCO:0.5,EI:0.55,ED:0.55,DC:0.75}[R.pos]||0.3;
+  const pj = ri(20, 36);
+  const factor = (R.nivel/100) * (0.7 + Math.random()*0.6);
+  const g = Math.round(pj*atk*factor);
+  const a = Math.round(pj*(atk*0.6+0.1)*factor);
+  R.tot.pj += pj; R.tot.g += g; R.tot.a += a;
+  // Curva de nivel del rival igual que la tuya
+  let dN;
+  if(anioEdad<=20) dN=ri(2,5); else if(anioEdad<=24) dN=ri(1,4); else if(anioEdad<=28) dN=ri(0,2);
+  else if(anioEdad<=31) dN=ri(-1,1); else if(anioEdad<=34) dN=ri(-3,0); else dN=ri(-5,-1);
+  R.nivel = clamp(R.nivel + dN, 30, 99);
+  if (Math.random() < clamp((R.nivel-70)/90, 0, 0.28)) R.titulos++;
+  return { pj, g, a };
+}
 window._draftYears = function(){ return _draft?_draft.years:15; };
 function flagImgInline(p){ const c=FLAG[p]; return c?`<img src="https://flagcdn.com/w20/${c}.png" style="width:14px;height:auto;vertical-align:-2px;border-radius:2px;">`:''; }
 
@@ -730,6 +766,11 @@ window._carreraFichar = function(i){
     tot:{pj:0,g:0,a:0}, timeline:[], hist:[], vitrina:[], clasificadoInter:false,
     // Idolatría por club: -100 (odiado) .. +100 (ídolo eterno). Empezás con +10 por firmar.
     idolatria:{ [c.name]: 10 }, clubDesde:16,
+    // BANDERAS persistentes: marcan lo que hiciste y bloquean/abren eventos futuros.
+    // (traidor, dopado, ludopata, carcel, filantropo, doblenac, mediatico, leal...)
+    flags:{},
+    // NÉMESIS: te acompaña toda la carrera compitiendo por los mismos focos.
+    rival: crearRival(d.pais, d.pos, nivelInicial),
     // Legado del potrero: estilo elegido (crack/killer/guerrero) + bonus aplicado.
     estilo: d._potStyle || null, potBonus,
     dif:(d.dif||'normal'), creado:Date.now()
@@ -767,6 +808,8 @@ window._carreraHub = function(){
           <div style="flex:1;"><div style="font-size:10px;color:#666;font-weight:800;">AST</div><div style="font-size:18px;font-weight:900;color:#fff;">${G.tot.a}</div></div>
           <div style="flex:1;"><div style="font-size:10px;color:#666;font-weight:800;">TÍTULOS</div><div style="font-size:18px;font-weight:900;color:${A};">${G.titulos}</div></div>
         </div>
+        ${(function(){ const R=G.rival; if(!R||!(R.ganados+R.perdidos)) return ''; const rel=R.relacion||0; const relTxt=rel<=-40?'Te odia':rel<=-15?'Rivalidad picante':rel>=30?'Respeto mutuo':'Rivalidad'; return `<div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.03);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:8px 12px;"><div style="font-size:11px;color:#8a8f96;font-weight:800;"><i class='bx bx-target-lock' style="color:#ef4444;"></i> Duelo con ${esc(R.nombre)} · ${relTxt}</div><div style="font-size:12px;font-weight:900;color:#fff;"><span style="color:#22c55e;">${R.ganados}</span>—<span style="color:#ef4444;">${R.perdidos}</span></div></div>`; })()}
+        ${(function(){ const F=G.flags||{}; const badges=[]; if(F.traidor) badges.push(['Traidor','#ef4444']); if(F.dopado&&!F.suspendido) badges.push(['Zona gris','#f59e0b']); if(F.suspendido) badges.push(['Sancionado','#ef4444']); if(F.ludopata) badges.push(['Ludopatía','#f59e0b']); if(F.deudaMafia) badges.push(['Deuda peligrosa','#dc2626']); if(F.arreglo) badges.push(['Amaño','#dc2626']); if(F.filantropo) badges.push(['Filántropo','#22c55e']); if(F.limpio) badges.push(['Limpio','#22c55e']); if(F.redimido) badges.push(['Redimido','#4fc3f7']); if(F.doblenac) badges.push(['Doble nacionalidad','#a78bfa']); if(F.villano) badges.push(['Villano','#ef4444']); if(!badges.length) return ''; return `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;">${badges.map(b=>`<span style="background:${b[1]}18;border:1px solid ${b[1]}55;color:${b[1]};border-radius:20px;padding:3px 9px;font-size:10px;font-weight:800;">${b[0]}</span>`).join('')}</div>`; })()}
         ${(function(){ const v=(G.idolatria&&G.idolatria[G.club])||0; const lbl=v>=70?'ÍDOLO ETERNO':v>=40?'Ídolo':v>=15?'Querido':v>=-10?'Uno más':v>=-40?'Cuestionado':'Odiado'; const col=v>=40?A:v>=15?'#4fc3f7':v>=-10?'#aaa':v>=-40?'#f59e0b':'#ef4444'; return `<div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.03);border:1px solid ${col}44;border-radius:10px;padding:8px 12px;"><div style="font-size:11px;color:#8a8f96;font-weight:800;"><i class='bx bx-heart' style="color:${col};"></i> Hinchada de ${esc(G.club)}</div><div style="font-size:12px;font-weight:900;color:${col};">${lbl} · ${v>0?'+':''}${v}</div></div>`; })()}
         <button onclick="window._carreraTemporada()" style="width:100%;margin-top:14px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:12px;padding:14px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">${G.edad>=16+G.years?'VER RETIRO':'JUGAR TEMPORADA '+G.temporada}  <i class='bx bx-right-arrow-alt'></i></button>
         <div style="display:flex;gap:8px;margin-top:8px;">
@@ -926,6 +969,25 @@ window._carreraTemporada = function(){
     const renta = G.bienes.reduce((s,b)=>{ const B=bienByld(b.id); return s+((B&&B.renta)?B.renta:0); },0);
     if(renta>0) G.dinero = (G.dinero||0) + renta;
   }
+  // ── DUELO CON EL NÉMESIS ────────────────────────────────────────────────────
+  // El rival juega su propia temporada. Se compara (G+A) y se define quién ganó el año.
+  let duelo = null;
+  if (!G.rival) G.rival = crearRival(G.pais, G.pos, Math.round(G.nivel));
+  {
+    const R = G.rival;
+    const rs = simularRival(R, G.edad);
+    const miAporte = g + a, suAporte = rs.g + rs.a;
+    const gane = miAporte > suAporte;
+    if (gane) R.ganados++; else R.perdidos++;
+    // Relación: si le ganás seguido te odia; si te gana seguido y sos digno, hay respeto.
+    R.relacion = clamp(R.relacion + (gane ? -6 : 3), -100, 100);
+    duelo = {
+      nombre: R.nombre, gane,
+      mio: { g, a }, suyo: { g: rs.g, a: rs.a },
+      nivel: Math.round(R.nivel), titulos: R.titulos,
+      ganados: R.ganados, perdidos: R.perdidos
+    };
+  }
   // IDOLATRÍA: cada temporada al mismo club suma. Títulos y buen rendimiento aceleran.
   if(!G.idolatria) G.idolatria = {};
   const idBase = 4 + (titulosGanados.length*10) + (pos===1?6:pos<=3?3:0) + (rend>0.5?4:rend<0.15?-3:0);
@@ -933,7 +995,7 @@ window._carreraTemporada = function(){
   G.temporada++; G.edad++; G.anio = (G.anio||2026) + 1;
   G._mercadoHecho = false;
   save();
-  resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa});
+  resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa,duelo});
 };
 
 function resumenTemporada(r){
@@ -957,6 +1019,15 @@ function resumenTemporada(r){
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;">
       ${st('PJ',r.pj)}${st('GOLES',r.g)}${st('ASIST',r.a)}${st('NIVEL',(r.dN>=0?'+':'')+r.dN)}
     </div>
+    ${r.duelo?`<div style="background:linear-gradient(160deg,${r.duelo.gane?'rgba(34,197,94,.08)':'rgba(239,68,68,.08)'},rgba(20,22,18,.5));border:1px solid ${r.duelo.gane?'rgba(34,197,94,.35)':'rgba(239,68,68,.35)'};border-radius:14px;padding:12px 14px;margin-bottom:14px;">
+      <div style="font-size:10px;font-weight:900;letter-spacing:1.5px;color:${r.duelo.gane?'#22c55e':'#ef4444'};margin-bottom:8px;"><i class='bx bx-target-lock'></i> DUELO CON ${esc(r.duelo.nombre).toUpperCase()}</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;text-align:center;"><div style="font-size:10px;color:#8a8f96;font-weight:800;">VOS</div><div style="font-size:17px;font-weight:900;color:#fff;">${r.duelo.mio.g}G ${r.duelo.mio.a}A</div></div>
+        <div style="font-size:12px;font-weight:900;color:${r.duelo.gane?'#22c55e':'#ef4444'};flex-shrink:0;">${r.duelo.gane?'GANASTE':'PERDISTE'}</div>
+        <div style="flex:1;text-align:center;"><div style="font-size:10px;color:#8a8f96;font-weight:800;">${esc(r.duelo.nombre)} · Nv ${r.duelo.nivel}</div><div style="font-size:17px;font-weight:900;color:#fff;">${r.duelo.suyo.g}G ${r.duelo.suyo.a}A</div></div>
+      </div>
+      <div style="font-size:10.5px;color:#8a8f96;text-align:center;margin-top:7px;">Historial: <b style="color:#22c55e;">${r.duelo.ganados}</b> a <b style="color:#ef4444;">${r.duelo.perdidos}</b> · Él lleva ${r.duelo.titulos} título${r.duelo.titulos!==1?'s':''}</div>
+    </div>`:''}
     <div id="cr-evwrap"></div>
   </div>`;
   // Decisiones de esta temporada según dificultad. Si hay título ganado, NO
@@ -1249,9 +1320,9 @@ function mostrarEvento(){
     const dText = `Un periodista descubre que tu abuelo era de <b>${esc(candidatas[0])}</b>` + (candidatas[1]?` y también hay linaje de <b>${esc(candidatas[1])}</b>`:'') + `. Podés elegir para qué selección jugar.`;
     const opts = [
       { txt: flagOf(G.pais) + 'Seguir defendiendo a ' + G.pais, ef:g=>{ g.moral+=8; g.fama+=3; return 'Fidelidad a tus colores. El hincha te lo agradece de por vida.'; } },
-      { txt: flagOf(candidatas[0]) + 'Jugar para ' + candidatas[0], ef:g=>{ g.pais = candidatas[0]; g.fama+=10; g.moral-=3; return 'Aceptaste la convocatoria de '+g.pais+'. Nuevo himno, nueva historia.'; } }
+      { txt: flagOf(candidatas[0]) + 'Jugar para ' + candidatas[0], ef:g=>{ g.pais = candidatas[0]; g.fama+=10; g.moral-=3; g.flags=g.flags||{}; g.flags.doblenac=true; return 'Aceptaste la convocatoria de '+g.pais+'. Nuevo himno, nueva historia.'; } }
     ];
-    if (candidatas[1]) opts.push({ txt: flagOf(candidatas[1]) + 'Jugar para ' + candidatas[1], ef:g=>{ g.pais = candidatas[1]; g.fama+=10; g.moral-=3; return 'Elegiste ' + g.pais + '. Debut internacional en camino.'; } });
+    if (candidatas[1]) opts.push({ txt: flagOf(candidatas[1]) + 'Jugar para ' + candidatas[1], ef:g=>{ g.pais = candidatas[1]; g.fama+=10; g.moral-=3; g.flags=g.flags||{}; g.flags.doblenac=true; return 'Elegiste ' + g.pais + '. Debut internacional en camino.'; } });
     ev = { t: ev.t, img: ev.img, d: dText, opts };
   }
   G._ev=ev;
@@ -1362,6 +1433,9 @@ window._carreraElegirOferta = function(kind, i){
       const idClub = G.idolatria[G.club]||0;
       const caida = idClub > 60 ? -80 : idClub > 30 ? -40 : idClub > 10 ? -20 : -5;
       G.idolatria[G.club] = clamp(idClub + caida, -100, 100);
+      // BANDERA: irte siendo ídolo te marca como traidor para siempre.
+      if(!G.flags) G.flags = {};
+      if (idClub > 50) { G.flags.traidor = true; G.flags.exClub = G.club; }
       G.idolatria[o.name] = 8; // nuevo club te recibe con expectativa
       G.club=o.name; G.clubStr=o.str; G.liga=o.liga; G.clubPais=o.pais; G.clubDesde=G.edad;
       G.fama+=8; G.moral+=4; G.dinero+=o.prima+Math.round(o.sueldo*0.15);
@@ -1489,7 +1563,7 @@ const EVENTOS=[
     { txt:'Competencia sana', ef:g=>{ g.nivel+=2; g.moral+=4; return 'Se exigen mutuamente y crecen los dos.'; } },
     { txt:'Marcar territorio', ef:g=>{ g.moral-=5; g.nivel+=1; return 'Ganaste el puesto pero perdiste un amigo.'; } } ] },
   { t:'Fundación o causa benéfica', img:'potrero', d:'Podés armar una fundación en tu barrio con parte de tus ingresos.', opts:[
-    { txt:'Devolverle al barrio', ef:g=>{ g.dinero-=40000; g.fama+=10; g.moral+=10; return 'Sos ejemplo. El barrio te lleva en el corazón.'; } },
+    { txt:'Devolverle al barrio', ef:g=>{ g.dinero-=40000; g.fama+=10; g.moral+=10; g.flags=g.flags||{}; g.flags.filantropo=true; return 'Sos ejemplo. El barrio te lleva en el corazón.'; } },
     { txt:'Todavía no es momento', ef:g=>{ g.dinero+=5000; return 'Lo dejás para más adelante.'; } } ] },
 
   // ── AMATEUR / VIDA (con consecuencias reales, buenas Y malas) ──────────────
@@ -1534,7 +1608,56 @@ const EVENTOS=[
   { t:'Descubren un abuelo extranjero', img:'seleccion', _dyn:true, d:'', opts:[] },
   { t:'Amague de retiro anticipado', img:'prensa', d:'Venís golpeado y frustrado. Se te cruza por la cabeza colgar los botines antes de tiempo.', opts:[
     { txt:'Seguir peleándola', ef:g=>{ g.moral+=6; g.nivel+=1; return 'Sacaste fuerzas. La resiliencia te devuelve al primer plano.'; } },
-    { txt:'Bajar un cambio y priorizar salud', ef:g=>{ g.moral+=4; g.nivel-=1; return 'Te cuidás más. Rendís un poco menos pero disfrutás de nuevo.'; } } ] }
+    { txt:'Bajar un cambio y priorizar salud', ef:g=>{ g.moral+=4; g.nivel-=1; return 'Te cuidás más. Rendís un poco menos pero disfrutás de nuevo.'; } } ] },
+
+  // ══ ÉTICA / LEGALIDAD — cadenas con consecuencias arrastradas ══════════════
+  { t:'Te ofrecen "vitaminas" del médico del club', img:'lesion', minAge:20, noFlag:'dopado', d:'El médico te ofrece un tratamiento "de recuperación" que está en zona gris. Todos en el plantel lo usan.', opts:[
+    { txt:'Aceptar el tratamiento', ef:g=>{ g.flags=g.flags||{}; g.flags.dopado=true; g.nivel+=4; return 'Te sentís una máquina. Recuperás en la mitad de tiempo. Nadie pregunta nada... por ahora.'; } },
+    { txt:'Rechazar, prefiero mi cuerpo limpio', ef:g=>{ g.flags=g.flags||{}; g.flags.limpio=true; g.moral+=6; return 'Dijiste que no. Vas a tardar más en recuperar, pero dormís tranquilo.'; } } ] },
+  { t:'Control antidopaje sorpresa', img:'prensa', reqFlag:'dopado', d:'Llega la AMA al entrenamiento sin aviso. Te toca a vos dar la muestra.', opts:[
+    { txt:'Dar la muestra y esperar', ef:g=>{
+      const cae = Math.random() < .55;
+      if(cae){ g.flags.suspendido=true; g.fama-=30; g.nivel-=6; g.moral-=20; return 'POSITIVO. Suspensión de 9 meses. Tu nombre en todos los diarios como tramposo.'; }
+      g.moral-=6; return 'Negativo. Zafaste por poco, pero el susto no te lo saca nadie.'; } },
+    { txt:'Inventar una excusa y no presentarme', ef:g=>{ g.flags.suspendido=true; g.fama-=35; g.moral-=15; return 'No presentarse equivale a positivo. Suspensión automática de 12 meses. Papelón total.'; } } ] },
+  { t:'Vuelta tras la suspensión', img:'titulo', reqFlag:'suspendido', d:'Se terminó la sanción. El vestuario te mira distinto y la hinchada está partida.', opts:[
+    { txt:'Pedir perdón públicamente', ef:g=>{ g.flags.redimido=true; g.fama+=12; g.moral+=10; return 'Diste la cara, pediste disculpas sin excusas. Media hinchada te perdona.'; } },
+    { txt:'Decir que fui víctima de un complot', ef:g=>{ g.fama-=8; g.moral-=5; return 'Nadie te creyó. Quedaste como el que ni siquiera asume.'; } } ] },
+
+  { t:'Una app de apuestas te tienta', img:'dinero', minAge:19, noFlag:'ludopata', d:'Bajaste una app "solo para probar" con los partidos que ya mirás igual. Un amigo del plantel dice que él saca un sueldo extra.', opts:[
+    { txt:'Meterle unos pesos, total es poco', ef:g=>{ g.flags=g.flags||{}; g.flags.ludopata=true; g.dinero+=15000; return 'Ganaste la primera. Esa sensación no se olvida... y ahí empieza el problema.'; } },
+    { txt:'Ni loco, conozco esas historias', ef:g=>{ g.moral+=4; return 'Borraste la app. Viste demasiados compañeros fundidos.'; } } ] },
+  { t:'La apuesta se te fue de las manos', img:'dinero', reqFlag:'ludopata', noFlag:'deudaMafia', d:'Ya no apostás por diversión. Debés una cifra que no podés pagar y el prestamista no es del banco.', opts:[
+    { txt:'Pedir ayuda al club y confesar', ef:g=>{ g.flags.enTratamiento=true; g.dinero=Math.max(0,g.dinero-80000); g.fama-=10; g.moral+=8; return 'El club te bancó y te puso en tratamiento. Fue humillante pero te salvó la vida.'; } },
+    { txt:'Pedirle plata al prestamista', ef:g=>{ g.flags.deudaMafia=true; g.dinero+=120000; g.moral-=15; return 'Te prestaron sin preguntar. Ahora le debés a gente que no acepta "la semana que viene".'; } } ] },
+  { t:'Vienen a cobrar la deuda', img:'pelea', reqFlag:'deudaMafia', d:'Te esperan afuera del entrenamiento. Quieren la plata o "un favor" en el próximo partido.', opts:[
+    { txt:'Pagar todo aunque me funda', ef:g=>{ g.dinero=Math.max(0,g.dinero-250000); g.flags.deudaMafia=false; g.moral+=5; return 'Vendiste hasta el auto. Estás en cero, pero estás libre.'; } },
+    { txt:'Aceptar el "favor" en el partido', ef:g=>{
+      g.flags.arreglo=true;
+      const cae=Math.random()<.55;
+      if(cae){ g.fama-=45; g.moral-=25; if(Math.random()<.4){ g._irCarcel='arreglo'; return 'Se abrió causa penal por amaño. Vas preso.'; } return 'Te descubrieron. Inhabilitación y carrera destruida.'; }
+      g.moral-=18; return 'Nadie se dio cuenta. Pero vos sabés lo que hiciste, y eso no se borra.'; } } ] },
+  { t:'Denuncia por el arreglo', img:'prensa', reqFlag:'arreglo', d:'Un periodista de investigación te encara con audios. Sabe todo.', opts:[
+    { txt:'Confesar y colaborar con la justicia', ef:g=>{ g.flags.arreglo=false; g.flags.delator=true; g.fama-=15; g.moral+=12; return 'Colaboraste y desarmaste la red. Perdiste amigos y ganaste algo de paz.'; } },
+    { txt:'Negar todo y contratar abogados', ef:g=>{ g.dinero=Math.max(0,g.dinero-200000); const zafa=Math.random()<.45; if(!zafa){ g._irCarcel='arreglo'; return 'Los abogados no alcanzaron. Vas preso por amaño de partidos.'; } g.fama-=20; return 'Zafaste por falta de pruebas. La sombra te va a seguir siempre.'; } } ] },
+
+  // ══ TRAIDOR — consecuencias de irte siendo ídolo ═══════════════════════════
+  { t:'Volvés a jugar contra tu ex club', img:'pelea', reqFlag:'traidor', d:'Te toca visitar el estadio donde eras ídolo. Te reciben con insultos, billetes falsos y una bandera con tu nombre tachado.', opts:[
+    { txt:'Meter el gol y no festejarlo', ef:g=>{ const gol=Math.random()<.5; if(gol){ g.fama+=10; g.moral+=6; return 'Marcaste y te quedaste quieto, pidiendo perdón con la mano. Hasta ellos lo respetaron.'; } g.moral-=3; return 'No pudiste marcar. Te fuiste silbado los 90 minutos.'; } },
+    { txt:'Meterlo y festejarlo en su cara', ef:g=>{ const gol=Math.random()<.45; if(gol){ g.fama+=6; g.moral-=8; g.flags.villano=true; return 'Gol y festejo provocador. Sos oficialmente el villano de esa hinchada. Para siempre.'; } g.fama-=6; return 'No metiste y encima habías avisado que ibas a festejar. Quedaste en offside.'; } } ] },
+  { t:'Ofertas del club que traicionaste', img:'fichaje', reqFlag:'traidor', minAge:31, d:'Increíblemente, el club del que te fuiste quiere que vuelvas para el final de tu carrera. La dirigencia cambió; los hinchas no.', opts:[
+    { txt:'Volver a casa y bancar los silbidos', ef:g=>{ g.flags.traidor=false; g.flags.redimido=true; g.moral+=15; if(g.flags.exClub){ g.idolatria=g.idolatria||{}; g.idolatria[g.flags.exClub]=30; } return 'Volviste. Los primeros meses fueron durísimos, pero terminaste reconciliado con la gente.'; } },
+    { txt:'Ya no es mi casa', ef:g=>{ g.moral-=5; return 'Cerraste la puerta definitivamente. Algunos capítulos no se reescriben.'; } } ] },
+
+  // ══ FILANTROPÍA / LEGADO ══════════════════════════════════════════════════
+  { t:'Un pibe de tu fundación llega a primera', img:'mentoria', reqFlag:'filantropo', d:'Uno de los chicos de tu fundación debuta en primera y dice en la nota que sos su ejemplo.', opts:[
+    { txt:'Ir a verlo debutar', ef:g=>{ g.moral+=14; g.fama+=8; return 'Estuviste en la tribuna llorando. Ese pibe es tu obra maestra.'; } },
+    { txt:'Mandarle un mensaje privado', ef:g=>{ g.moral+=7; return 'Le escribiste algo que se va a guardar toda la vida.'; } } ] },
+
+  // ══ DOBLE NACIONALIDAD — se abre tras el evento del abuelo ═════════════════
+  { t:'Te llama la selección de tu segundo país', img:'seleccion', reqFlag:'doblenac', d:'La federación del país que elegiste por linaje te quiere de titular. Pero la prensa del país donde naciste te trata de mercenario.', opts:[
+    { txt:'Aceptar y bancar la crítica', ef:g=>{ g.fama+=12; g.moral-=5; return 'Debutaste con el otro himno. Media patria te aplaude, la otra media te putea.'; } },
+    { txt:'Arrepentirme y volver a mis raíces', ef:g=>{ g.flags.doblenac=false; g.moral+=10; g.fama-=4; return 'Pediste volver. Burocracia FIFA de por medio, pero el corazón mandó.'; } } ] }
 ];
 // No repetir: mezcla los eventos aún NO vistos en esta carrera; cuando se agotan, resetea.
 function eventoRandom(){
@@ -1545,11 +1668,15 @@ function eventoRandom(){
     // Filtra por nivel de club: nada de "changa" o "ojeador de barrio" si jugás
     // en el Barcelona; nada de "reunión con dirigente de élite" si estás en el interior.
     var edad = G.edad || 20;
+    var F = G.flags || (G.flags = {});
     var ok = function(ev){
       if (ev.maxStr != null && str > ev.maxStr) return false;
       if (ev.minStr != null && str < ev.minStr) return false;
       if (ev.minAge != null && edad < ev.minAge) return false;
       if (ev.maxAge != null && edad > ev.maxAge) return false;
+      // BANDERAS: reqFlag = solo si ya pasó eso; noFlag = nunca si ya pasó eso.
+      if (ev.reqFlag && !F[ev.reqFlag]) return false;
+      if (ev.noFlag && F[ev.noFlag]) return false;
       return true;
     };
     var pool = EVENTOS.map(function(_,i){return i;}).filter(function(i){ return ok(EVENTOS[i]); });
@@ -1860,6 +1987,46 @@ function retiro(){
       ${honores.map(h=>`<span style="display:inline-flex;align-items:center;gap:5px;background:${h.c}18;border:1px solid ${h.c}55;color:${h.c};border-radius:20px;padding:5px 11px;font-size:11px;font-weight:800;"><i class='bx ${h.i}'></i>${h.t}</span>`).join('')}
     </div>`:''}
 
+    <!-- DUELO FINAL CON EL NÉMESIS -->
+    ${(G.rival && (G.rival.ganados+G.rival.perdidos)>0) ? (function(){
+      const R=G.rival; const gane=R.ganados>R.perdidos; const col=gane?'#22c55e':'#ef4444';
+      const veredicto = gane ? `Le ganaste el pulso de toda una generación.` : R.ganados===R.perdidos ? `Empate técnico: dos carreras que nunca se soltaron.` : `Él terminó arriba. Siempre vas a saber que estuvo ahí.`;
+      return `<div class="cr-fade cr-fade-d2" style="margin-top:20px;">
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:${col};margin-bottom:10px;padding-left:2px;"><i class='bx bx-target-lock'></i> LA RIVALIDAD DE TU VIDA</div>
+      <div style="background:linear-gradient(160deg,${col}12,rgba(20,22,18,.6));border:1px solid ${col}44;border-radius:14px;padding:16px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+          <div style="flex:1;text-align:center;"><div style="font-size:10px;color:#8a8f96;font-weight:800;">VOS</div><div style="font-size:22px;font-weight:900;color:#fff;">${G.tot.g}</div><div style="font-size:9px;color:#666;">GOLES · Nv ${nivelF} · ${G.titulos} tít.</div></div>
+          <div style="font-size:26px;font-weight:900;color:${col};flex-shrink:0;">${R.ganados}—${R.perdidos}</div>
+          <div style="flex:1;text-align:center;"><div style="font-size:10px;color:#8a8f96;font-weight:800;">${esc(R.nombre).toUpperCase()}</div><div style="font-size:22px;font-weight:900;color:#fff;">${R.tot.g}</div><div style="font-size:9px;color:#666;">GOLES · Nv ${Math.round(R.nivel)} · ${R.titulos} tít.</div></div>
+        </div>
+        <div style="font-size:12.5px;color:#c4ccc0;text-align:center;line-height:1.5;font-style:italic;">${veredicto}</div>
+      </div>
+    </div>`; })() : ''}
+
+    <!-- MARCAS DE TU HISTORIA (banderas) -->
+    ${(function(){ const F=G.flags||{}; const b=[];
+      if(F.traidor) b.push(['bx-run','#ef4444','Traidor','Te fuiste siendo ídolo. No te lo perdonaron.']);
+      if(F.redimido) b.push(['bx-heart','#4fc3f7','Redimido','Diste la cara y volviste a ganarte a la gente.']);
+      if(F.suspendido) b.push(['bx-block','#ef4444','Sancionado','Pasaste por una suspensión que marcó tu carrera.']);
+      if(F.limpio) b.push(['bx-shield-quarter','#22c55e','Siempre limpio','Rechazaste todos los atajos.']);
+      if(F.ludopata&&!F.enTratamiento) b.push(['bx-dice-5','#f59e0b','Ludopatía','El juego te siguió toda la carrera.']);
+      if(F.enTratamiento) b.push(['bx-plus-medical','#4fc3f7','Salió adelante','Pediste ayuda a tiempo con la ludopatía.']);
+      if(F.arreglo) b.push(['bx-money-withdraw','#dc2626','Amaño','Vendiste un partido. Nunca se supo del todo.']);
+      if(F.delator) b.push(['bx-microphone','#4fc3f7','Delator','Colaboraste y desarmaste una red de amaños.']);
+      if(F.filantropo) b.push(['bx-donate-heart','#22c55e','Filántropo','Tu fundación cambió vidas en el barrio.']);
+      if(F.doblenac) b.push(['bx-world','#a78bfa','Doble nacionalidad','Elegiste otro himno para tu selección.']);
+      if(F.villano) b.push(['bx-mask','#ef4444','Villano','Festejaste en la cara de tu ex hinchada.']);
+      if(!b.length) return '';
+      return `<div class="cr-fade cr-fade-d2" style="margin-top:20px;">
+        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:#94a3b8;margin-bottom:10px;padding-left:2px;"><i class='bx bx-bookmark'></i> LAS MARCAS DE TU HISTORIA</div>
+        <div style="display:flex;flex-direction:column;gap:7px;">
+          ${b.map(x=>`<div style="display:flex;align-items:center;gap:11px;background:${x[1]}0f;border:1px solid ${x[1]}44;border-radius:12px;padding:10px 13px;">
+            <i class='bx ${x[0]}' style="font-size:22px;color:${x[1]};flex-shrink:0;"></i>
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:900;color:${x[1]};">${x[2]}</div><div style="font-size:11px;color:#aaa;margin-top:1px;line-height:1.35;">${x[3]}</div></div>
+          </div>`).join('')}
+        </div>
+      </div>`; })()}
+
     <!-- VITRINA DE TROFEOS -->
     ${trofArr.length ? `<div class="cr-fade cr-fade-d2" style="margin-top:20px;">
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:#facc15;margin-bottom:10px;padding-left:2px;"><i class='bx bx-trophy'></i> VITRINA DE TÍTULOS · ${G.titulos}</div>
@@ -2125,6 +2292,7 @@ window._carreraCompartir = function(){
     `⚽ ${G.tot.pj} PJ · ${G.tot.g} goles · ${G.tot.a} asist.`,
     `🥇 ${G.titulos||0} títulos${trofArr.length?': '+trofArr.slice(0,4).join(', ')+(trofArr.length>4?`, +${trofArr.length-4}`:''):''}`,
     `👕 Trayectoria: ${clubes.slice(0,5).join(' → ')}${clubes.length>5?` (+${clubes.length-5})`:''}`,
+    ...(G.rival&&(G.rival.ganados+G.rival.perdidos)?[`⚔️ Duelo con ${G.rival.nombre}: ${G.rival.ganados}—${G.rival.perdidos}`]:[]),
     ``,
     `Jugalo en canchero.uy`
   ];
