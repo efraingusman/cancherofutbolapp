@@ -147,10 +147,11 @@ function trofeosDe(liga){ return LIGA_TROFEOS[liga] || { local: liga, copaNac: '
 // Cobreloa": si no hay imagen específica, devolvemos null y el UI muestra un
 // trofeo genérico (icono) con el nombre del torneo.
 const TROFEO_MAP = {
-  // Internacionales de clubes
+  // Internacionales de clubes — SOLO la Champions europea usa el trofeo de la Champions.
+  // Concachampions y la Champions de Asia son torneos distintos: van al trofeo genérico
+  // dorado hasta que existan sus imágenes propias.
   'champions league':'champions','uefa champions league':'champions',
-  'champions league de asia':'champions','concachampions':'champions',
-  'europa league':'europa','conference league':'europa',
+  'europa league':'europa',
   'copa libertadores':'libertadores','copa sudamericana':'sudamericana',
   'mundial de clubes':'mundial-clubes','intercontinental':'intercontinental',
   // Selecciones
@@ -171,16 +172,18 @@ const TROFEO_MAP = {
   'copa do brasil':'copa-brasil',
   'copa de portugal':'copa-portugal',
   'copa chile':'copa-chile',
-  'copa auf':'liga-uy'
+  'copa auf':'liga-uy',
+  'copa del rey':'copa-rey'
 };
 function trofeoImgSlug(nombre){
   const n = (nombre||'').toLowerCase().trim();
   if (TROFEO_MAP[n]) return TROFEO_MAP[n];
   // Fuzzy sólo para nombres muy conocidos (no meter falsos positivos).
-  if (n.includes('champions')) return 'champions';
+  // Ojo: "champions" solo si NO es la de Asia ni la Concacaf.
+  if (n.includes('champions') && !n.includes('asia') && !n.includes('concacaf') && !n.includes('concacham')) return 'champions';
   if (n.includes('libertadores')) return 'libertadores';
   if (n.includes('sudamericana')) return 'sudamericana';
-  if (n.includes('europa') || n.includes('conference')) return 'europa';
+  if (n.includes('europa league')) return 'europa';
   if (n.includes('mundial de clubes')) return 'mundial-clubes';
   if (n.includes('intercontinental')) return 'intercontinental';
   // Sin match → null (UI renderiza icono genérico dorado con el nombre).
@@ -918,7 +921,7 @@ window._carreraHub = function(){
           <div style="flex:1;"><div style="font-size:10px;color:#666;font-weight:800;">TÍTULOS</div><div style="font-size:18px;font-weight:900;color:${A};">${G.titulos}</div></div>
         </div>
         ${(function(){ const R=G.rival; if(!R||!(R.ganados+R.perdidos)) return ''; const rel=R.relacion||0; const relTxt=rel<=-40?'Te odia':rel<=-15?'Rivalidad picante':rel>=30?'Respeto mutuo':'Rivalidad'; return `<div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.03);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:8px 12px;"><div style="font-size:11px;color:#8a8f96;font-weight:800;"><i class='bx bx-target-lock' style="color:#ef4444;"></i> Duelo con ${esc(R.nombre)} · ${relTxt}</div><div style="font-size:12px;font-weight:900;color:#fff;"><span style="color:#22c55e;">${R.ganados}</span>—<span style="color:#ef4444;">${R.perdidos}</span></div></div>`; })()}
-        ${(function(){ const F=G.flags||{}; const badges=[]; if(F.traidor) badges.push(['Traidor','#ef4444']); if(F.dopado&&!F.suspendido) badges.push(['Zona gris','#f59e0b']); if(F.suspendido) badges.push(['Sancionado','#ef4444']); if(F.ludopata) badges.push(['Ludopatía','#f59e0b']); if(F.deudaMafia) badges.push(['Deuda peligrosa','#dc2626']); if(F.arreglo) badges.push(['Amaño','#dc2626']); if(F.filantropo) badges.push(['Filántropo','#22c55e']); if(F.limpio) badges.push(['Limpio','#22c55e']); if(F.redimido) badges.push(['Redimido','#4fc3f7']); if(F.doblenac) badges.push(['Doble nacionalidad','#a78bfa']); if(F.villano) badges.push(['Villano','#ef4444']); if(!badges.length) return ''; return `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;">${badges.map(b=>`<span style="background:${b[1]}18;border:1px solid ${b[1]}55;color:${b[1]};border-radius:20px;padding:3px 9px;font-size:10px;font-weight:800;">${b[0]}</span>`).join('')}</div>`; })()}
+        ${(function(){ const F=G.flags||{}; const badges=[]; if(F.marcado) badges.push(['En el banco','#ef4444']); if(F.pidioSalida) badges.push(['Pidió salida','#f59e0b']); if(F.rechazoRenov) badges.push(['Transferible','#f59e0b']); if(F.traidor) badges.push(['Traidor','#ef4444']); if(F.dopado&&!F.suspendido) badges.push(['Zona gris','#f59e0b']); if(F.suspendido) badges.push(['Sancionado','#ef4444']); if(F.ludopata) badges.push(['Ludopatía','#f59e0b']); if(F.deudaMafia) badges.push(['Deuda peligrosa','#dc2626']); if(F.arreglo) badges.push(['Amaño','#dc2626']); if(F.filantropo) badges.push(['Filántropo','#22c55e']); if(F.limpio) badges.push(['Limpio','#22c55e']); if(F.redimido) badges.push(['Redimido','#4fc3f7']); if(F.doblenac) badges.push(['Doble nacionalidad','#a78bfa']); if(F.villano) badges.push(['Villano','#ef4444']); if(!badges.length) return ''; return `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;">${badges.map(b=>`<span style="background:${b[1]}18;border:1px solid ${b[1]}55;color:${b[1]};border-radius:20px;padding:3px 9px;font-size:10px;font-weight:800;">${b[0]}</span>`).join('')}</div>`; })()}
         ${(function(){ const v=(G.idolatria&&G.idolatria[G.club])||0; const lbl=v>=70?'ÍDOLO ETERNO':v>=40?'Ídolo':v>=15?'Querido':v>=-10?'Uno más':v>=-40?'Cuestionado':'Odiado'; const col=v>=40?A:v>=15?'#4fc3f7':v>=-10?'#aaa':v>=-40?'#f59e0b':'#ef4444'; return `<div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.03);border:1px solid ${col}44;border-radius:10px;padding:8px 12px;"><div style="font-size:11px;color:#8a8f96;font-weight:800;"><i class='bx bx-heart' style="color:${col};"></i> Hinchada de ${esc(G.club)}</div><div style="font-size:12px;font-weight:900;color:${col};">${lbl} · ${v>0?'+':''}${v}</div></div>`; })()}
         <button onclick="window._carreraTemporada()" style="width:100%;margin-top:14px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:12px;padding:14px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">${G.edad>=edadRetiro()?'VER RETIRO':'JUGAR TEMPORADA '+G.temporada}  <i class='bx bx-right-arrow-alt'></i></button>
         <div style="display:flex;gap:8px;margin-top:8px;">
@@ -952,9 +955,12 @@ window._carreraHub = function(){
 window._carreraTemporada = function(){
   if(G.edad>=edadRetiro()) return retiro();
   // ── Rendimiento individual ──
-  const pj = ri(24,36);
+  // Si quedaste MARCADO (pediste salir o rechazaste renovar y te quedaste), jugás
+  // muchísimo menos: el técnico te manda al banco. Efecto mariposa real.
+  const _marcado = !!(G.flags && G.flags.marcado);
+  const pj = _marcado ? ri(6,16) : ri(24,36);
   const atk = {POR:0.02,DFC:0.05,LI:0.08,LD:0.08,MCD:0.12,MI:0.35,MD:0.35,MC:0.25,MCO:0.5,EI:0.55,ED:0.55,DC:0.75}[G.pos]||0.3;
-  const factor = (G.nivel/100) * (0.7+Math.random()*0.6);
+  const factor = (G.nivel/100) * (0.7+Math.random()*0.6) * (_marcado ? 0.75 : 1);
   const g = Math.round(pj*atk*factor);
   const a = Math.round(pj*(atk*0.6+0.1)*factor);
   G.tot.pj+=pj; G.tot.g+=g; G.tot.a+=a;
@@ -964,6 +970,7 @@ window._carreraTemporada = function(){
   if(G.edad<=20) dN=ri(2,5); else if(G.edad<=24) dN=ri(1,4); else if(G.edad<=28) dN=ri(0,2);
   else if(G.edad<=31) dN=ri(-1,1); else if(G.edad<=34) dN=ri(-3,0); else dN=ri(-5,-1);
   if(rend>0.6) dN+=2; else if(rend>0.35) dN+=1; else if(rend<0.15) dN-=1;   // el bajo rendimiento penaliza
+  if(_marcado) dN -= 3;   // sin minutos no se crece: la decisión te cuesta nivel
   G.nivel=clamp(G.nivel+dN,30,99);
   // ── POSICIÓN en la liga: depende de fuerza del club + tu aporte + azar ──
   const clubs = (LIGAS.find(L=>L.liga===G.liga)||{}).clubs || [];
@@ -1200,9 +1207,10 @@ function resumenTemporada(r){
       ${r.interLiteCopa?`<div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#f59e0b;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:20px;padding:5px 12px;"><i class='bx bx-medal'></i> ${esc(r.interLiteCopa)}</div>`:''}
       ${r.move?`<div style="margin-top:12px;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:900;color:${r.move.tipo==='asc'?'#22c55e':'#ef4444'};background:${r.move.tipo==='asc'?'rgba(34,197,94,.12)':'rgba(239,68,68,.12)'};border:1px solid ${r.move.tipo==='asc'?'rgba(34,197,94,.4)':'rgba(239,68,68,.4)'};border-radius:20px;padding:6px 14px;"><i class='bx ${r.move.tipo==='asc'?'bx-up-arrow-alt':'bx-down-arrow-alt'}'></i> ${r.move.tipo==='asc'?'¡ASCENSO! ':'DESCENSO. '}Ahora en <b>${esc(r.move.a)}</b></div>`:''}
     </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:${(G.flags&&G.flags.marcado)?'10px':'14px'};">
       ${st('PJ',r.pj)}${st('GOLES',r.g)}${st('ASIST',r.a)}${st('NIVEL',(r.dN>=0?'+':'')+r.dN)}
     </div>
+    ${(G.flags&&G.flags.marcado)?`<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:12px;padding:10px 13px;margin-bottom:14px;font-size:11.5px;color:#f8b4b4;line-height:1.45;"><i class='bx bx-error-circle' style="color:#f87171;"></i> <b style="color:#f87171;">Temporada desde el banco.</b> Después de pedir salir jugaste apenas ${r.pj} partidos y perdiste nivel. Buscá club o vas a seguir así.</div>`:''}
     ${r.bal?(function(){ const b=r.bal; const pos=b.neto>=0; return `<div style="background:linear-gradient(160deg,rgba(250,204,21,.07),rgba(20,22,18,.5));border:1px solid rgba(250,204,21,.25);border-radius:14px;padding:12px 14px;margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;">
         <div style="font-size:10px;font-weight:900;letter-spacing:1.5px;color:#facc15;"><i class='bx bx-wallet'></i> BALANCE DEL AÑO</div>
@@ -1279,11 +1287,13 @@ window._carreraMercadoForzado = function(){
   const picks = []; const seen = {};
   for(const c of mejores){ if(seen[c.name]) continue; seen[c.name]=1; picks.push(c); if(picks.length>=3) break; }
   G._offers = picks.map(ofertaDe);
-  // Renovación siempre disponible con el club actual.
+  // Renovación: SOLO si no rompiste el vínculo. Si pediste salida o rechazaste
+  // renovar, el club ya no te ofrece nada — tenés que irte o comerte el banco.
+  const _roto = !!(G.flags && (G.flags.pidioSalida || G.flags.rechazoRenov));
   const base = { name:G.club, str:G.clubStr, liga:G.liga, pais:G.clubPais };
   const baseO = ofertaDe(base);
   const _anios = _edadAnios(G.edad);
-  G._renov = [ Object.assign({}, baseO, { _v:'Renovar', anios: Math.max(1, _anios[0]) }) ];
+  G._renov = _roto ? [] : [ Object.assign({}, baseO, { _v:'Renovar', anios: Math.max(1, _anios[0]) }) ];
   save();
   // Muestra ambos: renovación arriba, ofertas abajo.
   const m = document.getElementById('carrera-modal') || overlay();
@@ -1293,13 +1303,16 @@ window._carreraMercadoForzado = function(){
       <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};">MERCADO DE PASES</div>
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;color:#fff;margin-top:4px;">¿Qué hacés esta temporada?</div>
     </div>
+    ${_roto?`<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:13px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;color:#f8b4b4;line-height:1.5;"><b style="color:#f87171;">${G.flags.pidioSalida?'Pediste salir':'Rechazaste renovar'}.</b> ${esc(G.club)} no te va a ofrecer contrato nuevo. Elegí destino o quedate a terminar el vínculo desde el banco.</div>`:''}
     <div id="cr-evwrap"></div>
-    <button onclick="window._carreraElegirOferta('quedarme',-1)" style="width:100%;margin-top:14px;background:#161616;color:#aaa;border:1px solid #262626;border-radius:12px;padding:13px;font-weight:800;font-size:13px;cursor:pointer;"><i class='bx bx-home-heart'></i> Seguir un año más en ${esc(G.club)} sin renovar</button>
+    <button onclick="window._carreraElegirOferta('quedarme',-1)" style="width:100%;margin-top:14px;background:${_roto?'rgba(239,68,68,.08)':'#161616'};color:${_roto?'#f87171':'#aaa'};border:1px solid ${_roto?'rgba(239,68,68,.3)':'#262626'};border-radius:12px;padding:13px;font-weight:800;font-size:13px;cursor:pointer;"><i class='bx bx-home-heart'></i> ${_roto?'Quedarme igual (voy al banco)':'Seguir un año más en '+esc(G.club)+' sin renovar'}</button>
   </div>`;
   const w = document.getElementById('cr-evwrap');
   let html = '';
-  html += `<div style="font-size:11px;font-weight:900;color:#8a8f96;letter-spacing:1px;margin-bottom:8px;">RENOVACIÓN</div>`;
-  html += `<div style="display:grid;grid-template-columns:1fr;gap:9px;margin-bottom:14px;">${G._renov.map((o,i)=>ofertaCard(o,i,'renov')).join('')}</div>`;
+  if (G._renov.length) {
+    html += `<div style="font-size:11px;font-weight:900;color:#8a8f96;letter-spacing:1px;margin-bottom:8px;">RENOVACIÓN</div>`;
+    html += `<div style="display:grid;grid-template-columns:1fr;gap:9px;margin-bottom:14px;">${G._renov.map((o,i)=>ofertaCard(o,i,'renov')).join('')}</div>`;
+  }
   if (picks.length) {
     html += `<div style="font-size:11px;font-weight:900;color:#8a8f96;letter-spacing:1px;margin-bottom:8px;">CLUBES QUE TE QUIEREN</div>`;
     html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">${G._offers.map((o,i)=>ofertaCard(o,i,'transfer')).join('')}</div>`;
@@ -1590,7 +1603,8 @@ function ofertaCard(o, i, kind){
   return `<button onclick="window._carreraElegirOferta('${kind}',${i})" style="display:flex;flex-direction:column;align-items:center;text-align:center;background:linear-gradient(160deg,rgba(255,255,255,.06),rgba(20,22,18,.6));border:1.5px solid #262626;border-radius:14px;padding:12px 10px;cursor:pointer;transition:.15s;" onmouseover="this.style.borderColor='${A}'" onmouseout="this.style.borderColor='#262626'">
     <div style="height:56px;display:flex;align-items:center;justify-content:center;margin-bottom:6px;">${clubBadge(o.name,54)}</div>
     <div style="font-size:13px;font-weight:900;color:#fff;line-height:1.15;min-height:30px;">${esc(o.name)}</div>
-    <div style="font-size:10px;color:#8a8f86;margin-top:2px;">${sub}</div>
+    <div style="font-size:10px;color:#8a8f86;margin-top:2px;display:flex;align-items:center;justify-content:center;gap:4px;">${kind!=='renov'&&o.pais?flagImgInline(o.pais):''}<span>${sub}</span></div>
+    ${kind!=='renov'&&o.pais&&G&&o.pais!==G.clubPais?`<div style="font-size:9.5px;color:#a78bfa;font-weight:800;margin-top:2px;"><i class='bx bx-plane'></i> Te vas a ${esc(o.pais)}</div>`:''}
     <div style="font-size:11px;color:#666;margin-top:1px;">Nivel ${o.str}</div>
     <div style="font-size:12px;color:${A};font-weight:900;margin-top:6px;">${eur(o.sueldo)}/año</div>
     <div style="font-size:10px;color:#aaa;">${o.anios} años${o.prima?' · prima '+eur(o.prima):''}</div>
@@ -1615,13 +1629,35 @@ function mostrarOfertas(kind){
 }
 window._carreraElegirOferta = function(kind, i){
   let msg;
+  if(!G.flags) G.flags = {};
   if(kind==='quedarme'){
-    G.moral+=8; G.fama+=3; msg='Te quedás. La hinchada lo valora.';
+    if (G.flags.pidioSalida) {
+      // Pediste salir y ahora te quedás: NO es gratis. Quedás marcado.
+      G.flags.marcado = true;          // el año que viene jugás menos
+      G.moral = clamp(G.moral - 12, 0, 100);
+      G.fama = clamp(G.fama - 4, 0, 100);
+      if(!G.idolatria) G.idolatria = {};
+      G.idolatria[G.club] = clamp((G.idolatria[G.club]||0) - 20, -100, 100);
+      msg = 'Te quedás, pero después de haber pedido salir nada vuelve a ser igual. El técnico te bajó a rotación, la hinchada te silba en el calentamiento y la dirigencia ya busca reemplazo.';
+    } else if (G.flags.rechazoRenov) {
+      // Rechazaste renovar y no aceptaste ninguna oferta: te quedás a préstamo del tiempo.
+      G.flags.marcado = true;
+      G.moral = clamp(G.moral - 8, 0, 100);
+      msg = 'Te quedás sin renovar. Vas a jugar el último año de contrato con la dirigencia enojada y sin lugar asegurado. En junio te vas libre.';
+    } else {
+      G.moral += 8; G.fama += 3;
+      if(!G.idolatria) G.idolatria = {};
+      G.idolatria[G.club] = clamp((G.idolatria[G.club]||0) + 12, -100, 100);
+      msg = 'Rechazaste todas las ofertas y te quedás. La hinchada te lo reconoce: sos de los que no se van.';
+    }
   } else if(kind==='rechazar_renov'){
-    // Bug reportado: al rechazar renovar salía "te quedás, la hinchada lo valora" como si
-    // hubieras aceptado. Ahora tiene su propio mensaje + consecuencia real (queda tenso).
-    G.moral-=4; G.fama-=1;
-    msg='Rechazaste la renovación. La dirigencia queda dolida y te van a buscar en el mercado. Podés terminar cedido o transferido.';
+    // Rechazar la renovación tiene consecuencia arrastrada: quedás en la lista de
+    // transferibles y con el vínculo roto.
+    G.flags.rechazoRenov = true;
+    G.moral = clamp(G.moral - 8, 0, 100); G.fama = clamp(G.fama - 2, 0, 100);
+    if(!G.idolatria) G.idolatria = {};
+    G.idolatria[G.club] = clamp((G.idolatria[G.club]||0) - 15, -100, 100);
+    msg = 'Rechazaste la renovación. La dirigencia te puso en la lista de transferibles y el técnico ya no te cuenta como intocable. Te conviene aparecer en el mercado.';
   } else {
     const o = (kind==='renov' ? (G._renov||[]) : (G._offers||[]))[i];
     if(!o){ window._carreraHub(); return; }
@@ -1642,6 +1678,8 @@ window._carreraElegirOferta = function(kind, i){
       G.idolatria[o.name] = 8; // nuevo club te recibe con expectativa
       G.club=o.name; G.clubStr=o.str; G.liga=o.liga; G.clubPais=o.pais; G.clubDesde=G.edad;
       G.sueldo=o.sueldo; G.contratoAnios=o.anios;
+      // Club nuevo = borrón y cuenta nueva con la dirigencia y el técnico.
+      G.flags.pidioSalida = false; G.flags.rechazoRenov = false; G.flags.marcado = false;
       G.fama+=8; G.moral+=4; G.dinero+=o.prima;
       G.valor=Math.round((G.valor||o.str*90000)*1.1);
       msg='¡Nuevo club: '+esc(o.name)+'! Firmaste por '+o.anios+' años ('+eur(o.sueldo)+'/año).' + (caida<=-40?' La hinchada de tu ex club nunca te va a perdonar.':'');
@@ -2042,13 +2080,25 @@ window._carreraPedirSalida = function(){
   const shuffled = candidatos.slice().sort(()=>Math.random()-0.5);
   const seen={}; const picks=[];
   for(const c of shuffled){ if(seen[c.name])continue; seen[c.name]=1; picks.push(c); if(picks.length>=4)break; }
-  G._offers = picks.map(ofertaDe); G.moral = clamp((G.moral||60)-4, 0, 100); save();
+  G._offers = picks.map(ofertaDe);
+  // EFECTO MARIPOSA REAL: pedir salida es un acto público. La dirigencia y la
+  // hinchada se enteran. Si después te quedás, NO es "como si nada": quedás
+  // marcado, perdés lugar en el equipo y la gente te lo cobra.
+  if(!G.flags) G.flags = {};
+  G.flags.pidioSalida = true;
+  G.moral = clamp((G.moral||60)-6, 0, 100);
+  if(!G.idolatria) G.idolatria = {};
+  G.idolatria[G.club] = clamp((G.idolatria[G.club]||0) - 25, -100, 100);
+  save();
   const m = overlay();
   m.innerHTML = `
     <div style="max-width:560px;margin:0 auto;padding:22px 18px calc(30px + env(safe-area-inset-bottom));">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
         <button onclick="window._carreraHub()" style="background:rgba(255,255,255,.06);border:none;color:#aaa;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button>
         <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;color:#fff;">Pediste salir del club</div>
+      </div>
+      <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:13px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;color:#f8b4b4;line-height:1.5;">
+        <b style="color:#f87171;">Ya no hay vuelta atrás.</b> Se filtró a la prensa que querés irte de ${esc(G.club)}. La hinchada te silba y la dirigencia te bajó del proyecto. Si al final te quedás, va a ser desde el banco.
       </div>
       <div id="cr-evwrap"></div>
     </div>`;
