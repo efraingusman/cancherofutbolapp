@@ -352,38 +352,57 @@ function clubBadge(name, size){
 // mix-blend-mode: multiply para preservar pliegues/costuras/sombras del template;
 // 4) apellido y número por SVG absoluto (textLength garantiza que entren SIEMPRE).
 const JERSEY_PNG = 'img/carrera/jersey-back.png?v=3';
-function jersey(size, apellido, numero, pais){
-  const k = KITS[pais] || {t:'solid',c:['#1b7a3e'],txt:'#ffffff'};
-  const base = k.c[0]; const alt = k.c[1] || '#ffffff'; const txt = k.txt || '#111';
-  const s = size;
-  const maskCSS = `-webkit-mask:url('${JERSEY_PNG}') center/contain no-repeat;mask:url('${JERSEY_PNG}') center/contain no-repeat;`;
-  let pattern = '';
-  if (k.t === 'stripes'){
-    // Franjas verticales del color secundario sobre base.
-    pattern = `<div style="position:absolute;inset:0;background:repeating-linear-gradient(90deg,${alt} 0 ${(s/6).toFixed(1)}px,transparent ${(s/6).toFixed(1)}px ${(s/3).toFixed(1)}px);${maskCSS}"></div>`;
-  } else if (k.t === 'sash'){
-    pattern = `<div style="position:absolute;inset:0;background:linear-gradient(120deg,transparent 42%,${alt} 42%,${alt} 58%,transparent 58%);${maskCSS}"></div>`;
+// ── CAMISETA PIXEL ART (SVG puro) ─────────────────────────────────────────────
+// Reemplaza el PNG con mix-blend-mode que arrastraba un cuadrado negro de fondo.
+// Se dibuja con la misma grilla de píxeles que el avatar: cero imágenes, cero
+// blend modes, fondo 100% transparente en cualquier contexto.
+// `kit` es {base, alt, txt, tipo} — lo que devuelve kitClub() o kitDe().
+function jerseyKit(size, apellido, numero, kit){
+  const k = kit || { base:'#1b7a3e', alt:'#ffffff', txt:'#ffffff', tipo:'solid' };
+  const W = 40, H = 40, S = size / W;
+  const base = k.base, alt = k.alt || '#ffffff', tipo = k.tipo || 'solid';
+  const txt = k.txt || _avContraste(base);
+  const dark = _avShade(base,-30), light = _avShade(base,18);
+  const px = [];
+  const R = (x,y,w,h,c)=>{ if(w<=0||h<=0) return; px.push(`<rect x="${(x*S).toFixed(2)}" y="${(y*S).toFixed(2)}" width="${(w*S).toFixed(2)}" height="${(h*S).toFixed(2)}" fill="${c}"/>`); };
+  // Silueta: hombros + mangas + cuerpo (todo con rectángulos, look 8-bit)
+  const cuerpoX = 11, cuerpoW = 18, cuerpoY = 9, cuerpoH = 25;
+  R(cuerpoX, cuerpoY, cuerpoW, cuerpoH, base);            // cuerpo
+  R(5, 9, 6, 10, base);  R(29, 9, 6, 10, base);           // mangas
+  R(9, 7, 22, 3, base);                                    // línea de hombros
+  // Patrón
+  if (tipo === 'stripes'){
+    for (let i = 0; i < cuerpoW; i += 6){ R(cuerpoX+i, cuerpoY, 3, cuerpoH, alt); R(cuerpoX+i, 7, 3, 3, alt); }
+    R(5, 9, 3, 10, alt); R(32, 9, 3, 10, alt);
+  } else if (tipo === 'sash'){
+    for (let i = 0; i < cuerpoH; i++){
+      const sx = cuerpoX + Math.round(i * (cuerpoW/cuerpoH)) - 4;
+      const x0 = Math.max(cuerpoX, sx), x1 = Math.min(cuerpoX+cuerpoW, sx+6);
+      if (x1 > x0) R(x0, cuerpoY+i, x1-x0, 1, alt);
+    }
   }
-  const apeUp = esc((apellido||'APELLIDO').toUpperCase()).slice(0,14);
-  const num   = esc(String(numero||10)).slice(0,2);
-  const apeLen = Math.min(140, 11*apeUp.length);
-  const numLen = num.length>=2 ? 92 : 50;
-  // Sin ningún background alrededor (transparent). Nombre MÁS ARRIBA (y=82) y número
-  // MÁS GRANDE (font 76) — más parecido a camiseta real.
-  // isolation:isolate en el CONTENEDOR crea un stacking context propio: así el
-  // mix-blend-mode:multiply del PNG mezcla SOLO con la capa tintada de abajo y no
-  // con el fondo negro de la página (era la causa del cuadrado negro).
-  return `<div style="position:relative;width:${s}px;height:${s}px;display:inline-block;background:transparent;isolation:isolate;">
-    <div style="position:absolute;inset:0;background:${base};${maskCSS}"></div>
-    ${pattern}
-    <img src="${JERSEY_PNG}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;pointer-events:none;background:transparent;-webkit-mask:url('${JERSEY_PNG}') center/contain no-repeat;mask:url('${JERSEY_PNG}') center/contain no-repeat;">
-    <svg viewBox="0 0 240 240" width="${s}" height="${s}" style="position:absolute;inset:0;pointer-events:none;background:transparent;" xmlns="http://www.w3.org/2000/svg">
-      <text x="120" y="82" text-anchor="middle" font-family="Outfit,Arial" font-weight="800" font-size="16" fill="${txt}" textLength="${apeLen}" lengthAdjust="spacingAndGlyphs" style="letter-spacing:1.2px;paint-order:stroke;stroke:rgba(0,0,0,.28);stroke-width:.5;">${apeUp}</text>
-      <text x="120" y="168" text-anchor="middle" font-family="Outfit,Arial" font-weight="900" font-size="76" fill="${txt}" textLength="${numLen}" lengthAdjust="spacingAndGlyphs" style="paint-order:stroke;stroke:rgba(0,0,0,.30)  ;stroke-width:1;">${num}</text>
-    </svg>
-  </div>`;
+  // Volumen
+  R(cuerpoX, cuerpoY, 2, cuerpoH, dark);
+  R(cuerpoX+cuerpoW-2, cuerpoY, 2, cuerpoH, dark);
+  R(5, 9, 2, 10, dark); R(33, 9, 2, 10, dark);
+  R(9, 7, 22, 1, light);
+  R(cuerpoX, cuerpoY+cuerpoH-2, cuerpoW, 2, dark);
+  R(5, 17, 6, 2, dark); R(29, 17, 6, 2, dark);            // puños
+  // Cuello
+  R(16, 7, 8, 3, _avShade(base,-52));
+  R(17, 7, 6, 2, 'rgba(0,0,0,.28)');
+  const ape = String(apellido||'').toUpperCase().slice(0,12);
+  const num = String(numero==null?'':numero).slice(0,2);
+  const cx = W/2;
+  let textos = '';
+  if (ape) textos += `<text x="${(cx*S).toFixed(1)}" y="${(15*S).toFixed(1)}" text-anchor="middle" font-family="Outfit,Arial Black,sans-serif" font-weight="900" font-size="${(3.4*S).toFixed(1)}" fill="${txt}" textLength="${(15*S).toFixed(1)}" lengthAdjust="spacingAndGlyphs" style="letter-spacing:.3px;">${esc(ape)}</text>`;
+  if (num) textos += `<text x="${(cx*S).toFixed(1)}" y="${(29*S).toFixed(1)}" text-anchor="middle" font-family="Outfit,Arial Black,sans-serif" font-weight="900" font-size="${(13*S).toFixed(1)}" fill="${txt}" style="letter-spacing:-1px;">${esc(num)}</text>`;
+  return `<svg viewBox="0 0 ${W*S} ${H*S}" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg" style="display:block;background:transparent;shape-rendering:crispEdges;overflow:visible;">${px.join('')}${textos}</svg>`;
 }
-
+// Compat: firma vieja por país (la usan pantallas antiguas).
+function jersey(size, apellido, numero, pais){
+  return jerseyKit(size, apellido, numero, kitDe(pais));
+}
 // ── CANCHA (para elegir posición) ──────────────────────────────────────────────
 function pitch(selId, onClickName){
   const dots = POSICIONES.map(p=>{
@@ -562,14 +581,21 @@ function _avContraste(hex){
 // ── POSES ─────────────────────────────────────────────────────────────────────
 // Cada pose mueve brazos, cabeza y piernas. Se usan según lo que pasa en la partida.
 const AV_POSES = {
-  idle:      { brazoL:0,   brazoR:0,   cabeza:0,  salto:0, cara:'normal' },
-  festejo:   { brazoL:-58, brazoR:58,  cabeza:-4, salto:3, cara:'feliz'  },
-  campeon:   { brazoL:-72, brazoR:72,  cabeza:-6, salto:5, cara:'feliz'  },
-  bajon:     { brazoL:8,   brazoR:-8,  cabeza:7,  salto:0, cara:'triste' },
-  lesion:    { brazoL:34,  brazoR:-16, cabeza:9,  salto:0, cara:'dolor'  },
-  pensando:  { brazoL:0,   brazoR:-42, cabeza:3,  salto:0, cara:'normal' },
-  saludo:    { brazoL:0,   brazoR:-88, cabeza:0,  salto:0, cara:'feliz'  },
-  correr:    { brazoL:-30, brazoR:30,  cabeza:0,  salto:2, cara:'normal' }
+  idle:      { brazoL:0,    brazoR:0,    cabeza:0,  salto:0, cara:'normal' },
+  festejo:   { brazoL:-58,  brazoR:58,   cabeza:-4, salto:3, cara:'feliz'  },
+  campeon:   { brazoL:-150, brazoR:150,  cabeza:-6, salto:5, cara:'feliz'  },  // copa en alto
+  bajon:     { brazoL:8,    brazoR:-8,   cabeza:7,  salto:0, cara:'triste' },
+  lesion:    { brazoL:34,   brazoR:-16,  cabeza:9,  salto:0, cara:'dolor'  },
+  pensando:  { brazoL:0,    brazoR:-42,  cabeza:3,  salto:0, cara:'normal' },
+  saludo:    { brazoL:0,    brazoR:-88,  cabeza:0,  salto:0, cara:'feliz'  },
+  correr:    { brazoL:-30,  brazoR:30,   cabeza:0,  salto:2, cara:'normal' },
+  // Nuevas emociones
+  posando:   { brazoL:-96,  brazoR:-96,  cabeza:0,  salto:0, cara:'feliz'  },  // sostiene la camiseta nueva
+  bronca:    { brazoL:22,   brazoR:-22,  cabeza:-2, salto:0, cara:'dolor'  },
+  agotado:   { brazoL:14,   brazoR:-14,  cabeza:11, salto:0, cara:'triste' },
+  aplaudir:  { brazoL:-42,  brazoR:-38,  cabeza:0,  salto:1, cara:'feliz'  },
+  pensativo: { brazoL:6,    brazoR:-118, cabeza:5,  salto:0, cara:'triste' },
+  orgullo:   { brazoL:-14,  brazoR:14,   cabeza:-3, salto:0, cara:'feliz'  }
 };
 
 /**
@@ -767,6 +793,30 @@ function avatarSprite(av, o){
   if (av.acc === 'cinta') CR(headX-1, headY+Math.round(cabezaH*0.20), cabezaW+2, 2, '#baff00');
 
   // ── ENSAMBLADO ──
+  // ── OBJETO EN LAS MANOS según la pose ──
+  // campeon → copa dorada en alto | posando → camiseta nueva del club estirada
+  let objeto = '';
+  if (o.pose === 'campeon'){
+    const cxo = cx, cyo = headY - 11;
+    const CO = (x,y,w,h,c)=>{ objeto += `<rect x="${(x*S).toFixed(1)}" y="${(y*S).toFixed(1)}" width="${(w*S).toFixed(1)}" height="${(h*S).toFixed(1)}" fill="${c}"/>`; };
+    CO(cxo-5, cyo,    10, 6, '#f5d14e');      // copa
+    CO(cxo-6, cyo,     1, 4, '#c9a227');      // asas
+    CO(cxo+5, cyo,     1, 4, '#c9a227');
+    CO(cxo-4, cyo+1,   8, 2, '#fff3b0');      // brillo
+    CO(cxo-2, cyo+6,   4, 3, '#c9a227');      // pie
+    CO(cxo-4, cyo+9,   8, 2, '#b8901f');      // base
+    objeto = `<g>${objeto}</g>`;
+  } else if (o.pose === 'posando'){
+    const jx = Math.round(cx - hombroW*0.55), jy = torsoY - 2, jw = Math.round(hombroW*1.1), jh = Math.round(torsoH*0.8);
+    const CO = (x,y,w,h,c)=>{ objeto += `<rect x="${(x*S).toFixed(1)}" y="${(y*S).toFixed(1)}" width="${(w*S).toFixed(1)}" height="${(h*S).toFixed(1)}" fill="${c}"/>`; };
+    CO(jx, jy, jw, jh, base);
+    if (tipo === 'stripes'){ const an=Math.max(2,Math.round(jw/7)); for(let i=0;i<jw;i+=an*2) CO(jx+i, jy, an, jh, alt); }
+    CO(jx, jy, jw, 1, baseL);
+    CO(jx, jy+jh-1, jw, 1, baseS);
+    CO(jx+Math.round(jw*0.40), jy, Math.round(jw*0.20), 2, _avShade(base,-50));   // cuello
+    objeto += `<text x="${(cx*S).toFixed(1)}" y="${((jy+jh*0.68)*S).toFixed(1)}" text-anchor="middle" font-family="Outfit,Arial Black,sans-serif" font-weight="900" font-size="${(7*S).toFixed(1)}" fill="${kitTxt}">${esc(String(o.num||''))}</text>`;
+    objeto = `<g>${objeto}</g>`;
+  }
   const cw = W*S, ch = H*S;
   const aura = o.aura
     ? `<defs><radialGradient id="${uid}a"><stop offset="0%" stop-color="#facc15" stop-opacity=".42"/><stop offset="60%" stop-color="#facc15" stop-opacity=".12"/><stop offset="100%" stop-color="#facc15" stop-opacity="0"/></radialGradient></defs><ellipse cx="${cw/2}" cy="${ch*0.62}" rx="${cw*0.5}" ry="${ch*0.46}" fill="url(#${uid}a)"/>`
@@ -775,7 +825,9 @@ function avatarSprite(av, o){
   const anim = o.anim === false ? '' :
     `<style>@keyframes ${uid}b{0%,100%{transform:translateY(0)}50%{transform:translateY(${(0.5*S).toFixed(1)}px)}}
      .${uid}body{animation:${uid}b ${o.pose==='correr'?'0.5s':'3.2s'} ease-in-out infinite;transform-origin:${cw/2}px ${ch}px}</style>`;
-  return `<svg viewBox="0 0 ${cw} ${ch}" width="${cw}" height="${ch}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;shape-rendering:crispEdges;">${anim}${aura}<g class="${uid}body">${p.join('')}${brazos}${textos}${cab.join('')}</g></svg>`;
+  // viewBox con margen arriba para que la copa/camiseta no se corten nunca.
+  const mTop = (o.pose === 'campeon' || o.pose === 'posando') ? 14*S : 4*S;
+  return `<svg viewBox="0 ${-mTop} ${cw} ${ch+mTop}" width="${cw}" height="${ch+mTop}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;shape-rendering:crispEdges;">${anim}${aura}<g class="${uid}body">${p.join('')}${brazos}${textos}${cab.join('')}${objeto}</g></svg>`;
 }
 
 function _avPelo(CR, tipo, hx, hy, hw, hh, c){
@@ -826,6 +878,156 @@ function _avPelo(CR, tipo, hx, hy, hw, hh, c){
 
 // ── Kit del club actual (colores reales del país del CLUB, no del jugador) ─────
 // Si estás con la selección, usa los colores de TU país.
+// ── CAMISETAS DE CLUB (colores reales) ────────────────────────────────────────
+// [base, secundario, tipo]. tipo: solid | stripes (rayas verticales) | sash (banda).
+// El avatar usa SIEMPRE la del club donde juega; sólo con la selección usa la del país.
+const CLUB_KITS = {
+  // Uruguay
+  'Nacional':['#ffffff','#1c4b9b','stripes'], 'Peñarol':['#f5c400','#111111','stripes'],
+  'Defensor Sporting':['#7b1fa2','#ffffff','solid'], 'Danubio':['#ffffff','#1a3d8f','sash'],
+  'Liverpool FC (UY)':['#1a3d8f','#000000','stripes'], 'Montevideo City':['#7ec8e3','#ffffff','solid'],
+  'Boston River':['#0d2b6b','#e63329','solid'], 'Cerro':['#1b6ec2','#ffffff','solid'],
+  'Wanderers':['#000000','#ffffff','stripes'], 'Cerro Largo':['#1f7a3d','#ffffff','solid'],
+  'Plaza Colonia':['#c8102e','#ffffff','solid'], 'Progreso':['#e63329','#ffffff','solid'],
+  'River Plate (UY)':['#e2231a','#ffffff','sash'], 'Racing (UY)':['#1b6ec2','#ffffff','stripes'],
+  // Argentina
+  'Boca Juniors':['#0d1a5c','#f5c400','solid'], 'River Plate':['#ffffff','#e2231a','sash'],
+  'Racing':['#7ec8e3','#ffffff','stripes'], 'Independiente':['#c8102e','#ffffff','solid'],
+  'San Lorenzo':['#1a3d8f','#c8102e','stripes'], 'Rosario Central':['#f5c400','#1a3d8f','stripes'],
+  "Newell's":['#c8102e','#000000','stripes'], 'Vélez':['#ffffff','#1a3d8f','sash'],
+  'Estudiantes':['#c8102e','#ffffff','stripes'], 'Talleres':['#1b6ec2','#ffffff','stripes'],
+  'Huracán':['#ffffff','#c8102e','solid'], 'Lanús':['#7b1c2e','#ffffff','solid'],
+  'Banfield':['#1f7a3d','#ffffff','stripes'], 'Defensa y Justicia':['#f5c400','#1f7a3d','solid'],
+  'Argentinos Jrs':['#c8102e','#ffffff','solid'], 'Gimnasia LP':['#1a3d8f','#ffffff','stripes'],
+  'Godoy Cruz':['#1a3d8f','#f5c400','solid'], 'Tigre':['#1a3d8f','#c8102e','solid'],
+  'Instituto':['#c8102e','#ffffff','stripes'], 'Belgrano':['#7ec8e3','#ffffff','stripes'],
+  'Platense':['#ffffff','#7b2d8f','solid'], 'Central Córdoba':['#000000','#ffffff','stripes'],
+  // Brasil
+  'Flamengo':['#c8102e','#000000','stripes'], 'Palmeiras':['#1f7a3d','#ffffff','solid'],
+  'São Paulo':['#ffffff','#c8102e','solid'], 'Corinthians':['#ffffff','#000000','solid'],
+  'Grêmio':['#1b6ec2','#000000','stripes'], 'Internacional':['#c8102e','#ffffff','solid'],
+  'Santos':['#ffffff','#000000','solid'], 'Fluminense':['#7b1c3d','#1f7a3d','stripes'],
+  'Atlético MG':['#000000','#ffffff','stripes'], 'Botafogo':['#000000','#ffffff','stripes'],
+  'Cruzeiro':['#1a3d8f','#ffffff','solid'], 'Vasco da Gama':['#000000','#ffffff','sash'],
+  'Bahia':['#ffffff','#1b6ec2','solid'], 'Fortaleza':['#1a3d8f','#c8102e','stripes'],
+  'Athletico PR':['#c8102e','#000000','stripes'], 'RB Bragantino':['#ffffff','#c8102e','solid'],
+  'Vitória':['#c8102e','#000000','stripes'], 'Juventude':['#1f7a3d','#ffffff','stripes'],
+  // España
+  'Real Madrid':['#ffffff','#d4af37','solid'], 'Barcelona':['#0d2b6b','#a50044','stripes'],
+  'Atlético':['#ffffff','#c8102e','stripes'], 'Sevilla':['#ffffff','#c8102e','solid'],
+  'Valencia':['#ffffff','#f5820d','solid'], 'Real Sociedad':['#ffffff','#1b6ec2','stripes'],
+  'Villarreal':['#f5d800','#1a3d8f','solid'], 'Betis':['#1f7a3d','#ffffff','stripes'],
+  'Athletic':['#ffffff','#c8102e','stripes'], 'Girona':['#c8102e','#ffffff','stripes'],
+  'Osasuna':['#c8102e','#0d2b6b','solid'], 'Getafe':['#1b6ec2','#ffffff','solid'],
+  'Celta':['#7ec8e3','#ffffff','solid'], 'Rayo Vallecano':['#ffffff','#c8102e','sash'],
+  'Mallorca':['#c8102e','#000000','solid'], 'Alavés':['#1a3d8f','#ffffff','stripes'],
+  'Las Palmas':['#f5d800','#1b6ec2','solid'],
+  // Inglaterra
+  'Man City':['#7ec8e3','#ffffff','solid'], 'Liverpool':['#c8102e','#ffffff','solid'],
+  'Arsenal':['#c8102e','#ffffff','solid'], 'Man United':['#c8102e','#000000','solid'],
+  'Chelsea':['#1a3d8f','#ffffff','solid'], 'Tottenham':['#ffffff','#0d1a4a','solid'],
+  'Newcastle':['#000000','#ffffff','stripes'], 'Aston Villa':['#7b1c3d','#7ec8e3','solid'],
+  'Brighton':['#1b6ec2','#ffffff','stripes'], 'West Ham':['#7b1c3d','#7ec8e3','solid'],
+  'Everton':['#0d2b6b','#ffffff','solid'], 'Wolves':['#f5a000','#000000','solid'],
+  'Fulham':['#ffffff','#000000','solid'], 'Crystal Palace':['#c8102e','#1a3d8f','stripes'],
+  'Brentford':['#c8102e','#ffffff','stripes'], 'Nottingham Forest':['#c8102e','#ffffff','solid'],
+  'Bournemouth':['#c8102e','#000000','stripes'],
+  // Italia
+  'Juventus':['#ffffff','#000000','stripes'], 'Inter':['#1b6ec2','#000000','stripes'],
+  'Milan':['#c8102e','#000000','stripes'], 'Napoli':['#1b9ee0','#ffffff','solid'],
+  'Roma':['#7b1c2e','#f5a000','solid'], 'Lazio':['#7ec8e3','#ffffff','solid'],
+  'Atalanta':['#1b6ec2','#000000','stripes'], 'Fiorentina':['#7b3d9e','#ffffff','solid'],
+  'Bologna':['#c8102e','#0d2b6b','stripes'], 'Torino':['#7b1c2e','#ffffff','solid'],
+  'Udinese':['#ffffff','#000000','stripes'], 'Genoa':['#c8102e','#0d2b6b','stripes'],
+  'Monza':['#c8102e','#ffffff','solid'], 'Empoli':['#1b6ec2','#ffffff','solid'],
+  'Como':['#1b6ec2','#ffffff','solid'],
+  // Francia
+  'PSG':['#0d1a4a','#c8102e','sash'], 'Marsella':['#ffffff','#7ec8e3','solid'],
+  'Mónaco':['#c8102e','#ffffff','sash'], 'Lyon':['#ffffff','#1a3d8f','solid'],
+  'Lille':['#c8102e','#1a3d8f','solid'], 'Rennes':['#c8102e','#000000','stripes'],
+  'Niza':['#c8102e','#000000','stripes'], 'Lens':['#f5c400','#c8102e','stripes'],
+  'Nantes':['#f5c400','#1f7a3d','solid'], 'Estrasburgo':['#1b6ec2','#ffffff','solid'],
+  'Reims':['#c8102e','#ffffff','stripes'], 'Toulouse':['#7b3d9e','#ffffff','solid'],
+  // Alemania
+  'Bayern':['#c8102e','#ffffff','solid'], 'Dortmund':['#f5d800','#000000','solid'],
+  'Leipzig':['#ffffff','#c8102e','solid'], 'Leverkusen':['#c8102e','#000000','solid'],
+  'Frankfurt':['#000000','#c8102e','solid'], 'Stuttgart':['#ffffff','#c8102e','solid'],
+  'Union Berlin':['#c8102e','#f5d800','solid'], 'Freiburg':['#c8102e','#ffffff','solid'],
+  'Wolfsburg':['#1f7a3d','#ffffff','solid'], 'Mainz':['#c8102e','#ffffff','solid'],
+  'Gladbach':['#ffffff','#000000','solid'], 'Hoffenheim':['#1b6ec2','#ffffff','solid'],
+  'Werder Bremen':['#1f7a3d','#ffffff','solid'],
+  // Portugal / Países Bajos / Bélgica / Turquía
+  'Benfica':['#c8102e','#ffffff','solid'], 'Porto':['#1a3d8f','#ffffff','stripes'],
+  'Sporting':['#1f9e5a','#ffffff','stripes'], 'Braga':['#c8102e','#ffffff','solid'],
+  'Vitória SC':['#ffffff','#000000','solid'], 'Boavista':['#000000','#ffffff','stripes'],
+  'Famalicão':['#ffffff','#1b6ec2','solid'], 'Gil Vicente':['#c8102e','#1a3d8f','stripes'],
+  'Ajax':['#ffffff','#c8102e','sash'], 'PSV':['#c8102e','#ffffff','solid'],
+  'Feyenoord':['#c8102e','#ffffff','solid'], 'AZ Alkmaar':['#c8102e','#ffffff','solid'],
+  'Twente':['#c8102e','#ffffff','solid'], 'Utrecht':['#c8102e','#ffffff','solid'],
+  'Vitesse':['#f5d800','#000000','solid'],
+  'Anderlecht':['#7b1c8f','#ffffff','solid'], 'Club Brujas':['#1b6ec2','#000000','stripes'],
+  'Genk':['#1b6ec2','#ffffff','solid'], 'Gante':['#1b6ec2','#ffffff','stripes'],
+  'Standard':['#c8102e','#ffffff','solid'], 'Amberes':['#c8102e','#ffffff','solid'],
+  'Galatasaray':['#c8102e','#f5c400','solid'], 'Fenerbahçe':['#f5d800','#0d2b6b','stripes'],
+  'Beşiktaş':['#000000','#ffffff','stripes'], 'Trabzonspor':['#7b1c2e','#7ec8e3','solid'],
+  'Başakşehir':['#f5820d','#0d2b6b','solid'],
+  // México / USA
+  'América':['#f5d800','#0d2b6b','solid'], 'Chivas':['#c8102e','#ffffff','stripes'],
+  'Monterrey':['#1a3d8f','#ffffff','stripes'], 'Tigres':['#f5c400','#1a3d8f','solid'],
+  'Cruz Azul':['#1a3d8f','#ffffff','solid'], 'Pumas':['#f5c400','#1a3d8f','solid'],
+  'Toluca':['#c8102e','#ffffff','stripes'], 'León':['#1f7a3d','#ffffff','solid'],
+  'Pachuca':['#1b6ec2','#ffffff','stripes'], 'Santos Laguna':['#1f7a3d','#ffffff','solid'],
+  'Atlas':['#c8102e','#000000','stripes'], 'Necaxa':['#c8102e','#ffffff','solid'],
+  'Inter Miami':['#f2a0c0','#000000','solid'], 'LA Galaxy':['#ffffff','#1a3d8f','solid'],
+  'LAFC':['#000000','#d4af37','solid'], 'Atlanta United':['#c8102e','#000000','stripes'],
+  'Seattle Sounders':['#1f9e5a','#1a3d8f','solid'], 'Portland Timbers':['#1f7a3d','#f5c400','solid'],
+  'NY Red Bulls':['#ffffff','#c8102e','solid'], 'NYCFC':['#7ec8e3','#0d2b6b','solid'],
+  'Columbus Crew':['#f5d800','#000000','solid'], 'FC Cincinnati':['#f5820d','#0d2b6b','solid'],
+  // Resto
+  'Colo-Colo':['#ffffff','#000000','solid'], 'U. de Chile':['#1a3d8f','#c8102e','solid'],
+  'U. Católica':['#ffffff','#1a3d8f','sash'], 'Everton (CL)':['#1b6ec2','#f5d800','solid'],
+  'Palestino':['#1f7a3d','#c8102e','solid'], 'Cobreloa':['#f5820d','#ffffff','solid'],
+  'Atl. Nacional':['#1f7a3d','#ffffff','solid'], 'Millonarios':['#1a3d8f','#ffffff','solid'],
+  'América de Cali':['#c8102e','#ffffff','solid'], 'Junior':['#c8102e','#ffffff','stripes'],
+  'Ind. Medellín':['#c8102e','#1a3d8f','stripes'], 'Deportivo Cali':['#1f7a3d','#ffffff','solid'],
+  'Dinamo Zagreb':['#1a3d8f','#ffffff','solid'], 'Hajduk Split':['#ffffff','#1b6ec2','solid'],
+  'Rijeka':['#ffffff','#1a3d8f','stripes'], 'Osijek':['#1a3d8f','#ffffff','solid'],
+  'RB Salzburg':['#c8102e','#ffffff','solid'], 'Sturm Graz':['#000000','#ffffff','solid'],
+  'Rapid Viena':['#1f7a3d','#ffffff','solid'], 'Austria Viena':['#7b3d9e','#ffffff','solid'],
+  'Vissel Kobe':['#7b1c2e','#ffffff','solid'], 'Urawa Reds':['#c8102e','#000000','solid'],
+  'Kawasaki':['#1b6ec2','#000000','solid'], 'Yokohama FM':['#1a3d8f','#c8102e','solid'],
+  'Kashima':['#7b1c2e','#ffffff','solid'],
+  'Al-Nassr':['#f5d800','#1a3d8f','solid'], 'Al-Hilal':['#1a3d8f','#ffffff','solid'],
+  'Al-Ittihad':['#f5d800','#000000','stripes'], 'Al-Ahli':['#1f7a3d','#ffffff','solid'],
+  'Al-Shabab':['#ffffff','#000000','solid'], 'Al-Ettifaq':['#1f7a3d','#ffffff','solid']
+};
+// Kit del CLUB. Si el club no está en la tabla, genera colores estables a partir
+// del nombre (hash) para que cada club amateur tenga igual su identidad propia.
+function kitClub(nombre, paisFallback){
+  const k = CLUB_KITS[nombre];
+  if (k) return { base:k[0], alt:k[1], txt:_avContraste(k[0]), tipo:k[2] };
+  if (nombre){
+    let h=0; for(let i=0;i<nombre.length;i++) h=(h*31+nombre.charCodeAt(i))>>>0;
+    const hue = h % 360;
+    // OJO: desplazamiento SIN SIGNO (>>>). Con >> los hashes grandes daban índice
+    // negativo y `tipo` quedaba undefined, rompiendo el kit de los clubes amateur.
+    const blanco = ((h>>>3) % 2) === 1;
+    const tipo = ['solid','stripes','solid','sash'][(h>>>5) % 4] || 'solid';
+    return {
+      base: _hslHex(hue, 62, 42),
+      alt:  blanco ? '#ffffff' : _hslHex((hue+180)%360, 55, 46),
+      txt:  '#ffffff',
+      tipo
+    };
+  }
+  return kitDe(paisFallback);
+}
+function _hslHex(h,s,l){
+  s/=100; l/=100;
+  const k=n=>(n+h/30)%12, a=s*Math.min(l,1-l);
+  const f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));
+  return '#'+[f(0),f(8),f(4)].map(x=>Math.round(x*255).toString(16).padStart(2,'0')).join('');
+}
 function kitDe(pais){
   const k = KITS[pais];
   if (k) return { base:k.c[0], alt:k.c[1]||'#ffffff', txt:k.txt||_avContraste(k.c[0]), tipo:k.t };
@@ -835,16 +1037,16 @@ function kitDe(pais){
 function avatarDeG(escala, pose, opts){
   if(!G) return '';
   opts = opts || {};
-  // Con la selección usa el kit del PAÍS del jugador; en el club, el del país del club.
-  const pais = opts.seleccion ? G.pais : (G.clubPais || G.pais);
-  const k = kitDe(pais);
+  // Con la SELECCIÓN, la camiseta del país. En el club, la camiseta REAL DEL CLUB.
+  const k = opts.seleccion ? kitDe(G.pais) : kitClub(G.club, G.clubPais || G.pais);
   return avatarSprite(G.avatar, {
-    edad: G.edad,
+    edad: opts.edad != null ? opts.edad : G.edad,
     kitBase:k.base, kitAlt:k.alt, kitTxt:k.txt, kitTipo:k.tipo,
     num: opts.seleccion ? (G.numSeleccion || G.num) : G.num,
     apellido: G.apellido,
     dorso: !!opts.dorso,
     pose: pose || 'idle',
+    trofeo: opts.trofeo || null,
     aura: opts.aura != null ? opts.aura : ((G.nivel||0) >= 88 || (G.titulos||0) >= 8),
     capitan: !!(G.idolatria && G.idolatria[G.club] >= 55),
     escala: escala || 4,
@@ -852,10 +1054,12 @@ function avatarDeG(escala, pose, opts){
   });
 }
 // Marco reutilizable para mostrar el avatar (fondo de cancha nocturna, como el juego).
+// overflow:visible para que el sprite NUNCA se corte (la copa y la camiseta
+// levantada se dibujan por encima del alto nominal del lienzo).
 function avatarBox(inner, pad){
-  return `<div style="background:linear-gradient(180deg,#16200f 0%,#0c1208 70%,#080b06 100%);border:1px solid #26361c;border-radius:12px;padding:${pad||'10px 14px'};display:inline-flex;align-items:flex-end;justify-content:center;position:relative;overflow:hidden;">
-    <div style="position:absolute;left:0;right:0;bottom:0;height:34%;background:linear-gradient(180deg,rgba(70,140,50,.13),rgba(70,140,50,.04));"></div>
-    <div style="position:relative;">${inner}</div>
+  return `<div style="background:linear-gradient(180deg,#16200f 0%,#0c1208 70%,#080b06 100%);border:1px solid #26361c;border-radius:12px;padding:${pad||'10px 14px'};display:inline-flex;align-items:flex-end;justify-content:center;position:relative;">
+    <div style="position:absolute;left:0;right:0;bottom:0;height:34%;background:linear-gradient(180deg,rgba(70,140,50,.13),rgba(70,140,50,.04));border-radius:0 0 11px 11px;"></div>
+    <div style="position:relative;line-height:0;">${inner}</div>
   </div>`;
 }
 
@@ -1013,7 +1217,7 @@ function renderIdent(){
       <!-- Panel compacto: avatar fijo arriba + pestañas abajo (entra en una pantalla) -->
       <div style="background:rgba(255,255,255,.03);border:1px solid #1c1c1c;border-radius:16px;padding:12px;">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-          ${avatarBox(`<div id="cr-avatar">${avatarSprite(d.avatar, _avOpts(d, _avEscalaIdent()))}</div>`, '8px 12px')}
+          ${avatarBox(`<div id="cr-avatar" style="display:flex;align-items:flex-end;justify-content:center;">${avatarSprite(d.avatar, _avOpts(d, _avEscalaIdent()))}</div>`, '10px 14px')}
           <div style="flex:1;min-width:0;">
             <div style="display:flex;gap:6px;">
               <div style="flex:2;"><label style="font-size:9px;font-weight:800;color:#5f6a58;display:block;margin-bottom:3px;">APELLIDO</label><input id="cr-ape" value="${esc(d.apellido)}" placeholder="APELLIDO" oninput="window._carreraSet('apellido',this.value)" style="${inp()};padding:8px;font-size:13px;"></div>
@@ -1481,7 +1685,10 @@ window._carreraDebut = function(){
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
   <div style="max-width:520px;margin:0 auto;padding:50px 20px 40px;text-align:center;">
-    <div style="display:flex;justify-content:center;margin-bottom:16px;">${jersey(140, G.apellido, G.num, G.pais)}</div>
+    <div style="display:flex;align-items:flex-end;justify-content:center;gap:14px;margin-bottom:16px;flex-wrap:wrap;">
+      ${avatarBox(avatarDeG(3.4, 'posando', { edad:G.edad }), '12px 18px')}
+      ${jerseyKit(120, G.apellido, G.num, kitClub(G.club, G.clubPais||G.pais))}
+    </div>
     <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:${A};margin-bottom:8px;">${temprano?'DEBUT PRECOZ':'DEBUT EN PRIMERA'}</div>
     <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:28px;color:#fff;line-height:1.15;margin-bottom:10px;">${G.edad} años</div>
     <div style="font-size:14px;color:#c4ccc0;line-height:1.6;max-width:380px;margin:0 auto 22px;">${temprano
@@ -1503,7 +1710,6 @@ window._carreraHub = function(){
   const tline = (G.timeline||[]).slice().sort((a,b)=>a.edad-b.edad);
   m.innerHTML=`
   <div style="max-width:1040px;margin:0 auto;padding:16px 16px calc(96px + env(safe-area-inset-bottom));">
-    ${hudHTML()}
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
       <button onclick="window._carreraStart()" style="background:rgba(255,255,255,.06);border:none;color:#aaa;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button>
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:18px;color:#fff;">Tu carrera</div>
@@ -1830,7 +2036,7 @@ function resumenTemporada(r){
   <div style="max-width:520px;margin:0 auto;padding:30px 22px calc(30px + env(safe-area-inset-bottom));min-height:100%;display:flex;flex-direction:column;">
     <div style="text-align:center;margin-bottom:18px;">
       <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};">TEMPORADA ${G.temporada-1} · ${G.edad-1} AÑOS</div>
-      <div style="display:flex;justify-content:center;margin:8px 0 4px;"><div style="background:linear-gradient(180deg,#1a2416,#0d120b);border:1px solid #2a3a22;border-radius:12px;padding:8px 14px;">${avatarDeG(3.2)}</div></div>
+      <div style="display:flex;justify-content:center;margin:8px 0 4px;">${avatarBox(avatarDeG(3.2, _poseTemporada(r), { edad:G.edad-1 }), '10px 16px')}</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px;">${clubBadge(G.club,26)}<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:20px;color:#fff;">${esc(G.club)}</div></div>
       <div style="font-size:12px;color:#9aa0a6;margin-top:2px;">${esc(G.liga)} · ${posLabel(r.pos)} de ${r.totalEq}</div>
       ${r.titulo?`<div style="margin-top:14px;display:flex;flex-direction:column;align-items:center;">
@@ -1985,6 +2191,20 @@ window._carreraMercadoForzado = function(){
   }
   w.innerHTML = html;
 };
+// La pose del avatar en el resumen refleja CÓMO te fue la temporada.
+function _poseTemporada(r){
+  if (!r) return 'idle';
+  if (r.titulo) return 'campeon';                       // levanta la copa
+  if (G.flags && G.flags.marcado) return 'pensativo';   // temporada de banco
+  if (r.premios && r.premios.length) return 'orgullo';
+  if (r.move && r.move.tipo === 'asc') return 'festejo';
+  if (r.move && r.move.tipo === 'desc') return 'bajon';
+  if (r.pos === 1) return 'festejo';
+  if (r.totalEq && r.pos >= r.totalEq - 1) return 'bajon';
+  if (r.pj != null && r.pj < 14) return 'agotado';
+  if (r.g != null && r.pj && (r.g + (r.a||0)) / r.pj > 0.55) return 'orgullo';
+  return 'idle';
+}
 function posLabel(pos){ return pos===1?'1º 🏆':(pos+'º'); }
 function posLabelLargo(p){
   return {POR:'arquero',LI:'lateral izquierdo',DFC:'defensor central',LD:'lateral derecho',MCD:'volante central',
@@ -2439,7 +2659,15 @@ window._carreraElegirOferta = function(kind, i){
   G.fama=clamp(G.fama,0,100); G.moral=clamp(G.moral,0,100); G.dinero=Math.max(0,G.dinero);
   G._offers=null; G._renov=null; save();
   const wrap=document.getElementById('cr-evwrap');
-  if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:10px 0;"><div style="font-size:15px;color:#fff;font-weight:700;margin-bottom:16px;line-height:1.5;">${msg}</div><button onclick="window._carreraContinuar()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 28px;font-weight:900;cursor:pointer;">Continuar</button></div>`;
+  // Si firmaste en un club nuevo, POSÁS con la camiseta recién estrenada.
+  const _fichaje = (kind !== 'quedarme' && kind !== 'rechazar_renov' && kind !== 'renov');
+  if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:10px 0;">
+    ${_fichaje?`<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:14px;">
+      ${avatarBox(avatarDeG(3.4,'posando'), '12px 18px')}
+      <div style="display:flex;align-items:center;gap:8px;">${clubBadge(G.club,24)}<span style="font-size:15px;font-weight:900;color:#fff;">${esc(G.club)}</span></div>
+    </div>`:''}
+    <div style="font-size:15px;color:#fff;font-weight:700;margin-bottom:16px;line-height:1.5;">${msg}</div>
+    <button onclick="window._carreraContinuar()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 28px;font-weight:900;cursor:pointer;">Continuar</button></div>`;
 };
 // Compat: viejos guardados que quedaron a mitad de camino.
 window._carreraTransfer = function(go,name,str,liga,pais){
@@ -3088,7 +3316,7 @@ function retiro(){
     </div>`;
   }).join('');
   // Camiseta grande al centro (con país)
-  const jerseyHtml = jersey(140, G.apellido, G.num, G.pais);
+  const jerseyHtml = jerseyKit(140, G.apellido, G.num, kitClub(G.club, G.clubPais||G.pais));
   m.innerHTML = `
   <style>@keyframes crFadeUp{0%{transform:translateY(18px);opacity:0}100%{transform:none;opacity:1}}
    .cr-fade{animation:crFadeUp .6s cubic-bezier(.2,1,.3,1) both}
@@ -3711,7 +3939,7 @@ window._vidaLapso = function(){
   const s = G.vidaStats;
   const estado = R.estado(s);
   const m = document.getElementById('carrera-modal') || overlay();
-  const kit = kitDe(G.clubPais || G.pais);
+  const kit = kitClub(G.club, G.clubPais || G.pais);
   m.innerHTML = `
   <div style="min-height:100%;background:#000;display:flex;flex-direction:column;">
     <!-- Título del período (como el nombre de ánimo del juego) -->
@@ -3778,7 +4006,7 @@ window._vidaElegir = function(i){
     const col = bueno ? '#4ade80' : '#ff6b6b';
     return `<span style="display:inline-flex;align-items:center;gap:3px;background:${col}18;border:1px solid ${col}55;color:${col};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;"><i class='bx bx-${d>0?'up':'down'}-arrow-alt'></i>${b[0]} ${d>0?'+':''}${d}</span>`;
   }).filter(Boolean).join('');
-  const kit = kitDe(G.clubPais || G.pais);
+  const kit = kitClub(G.club, G.clubPais || G.pais);
   const ultimo = G.vidaLapso >= VIDA_LAPSOS.length - 1;
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
@@ -3843,7 +4071,7 @@ window._vidaFinal = function(){
   G.segundaVida = { rol:R.n, icon:R.icon, res:texto, titulo, key:rol, prom:Math.round(prom) };
   try { saveCareer(G); } catch(e) {}
   save();
-  const kit = kitDe(G.clubPais || G.pais);
+  const kit = kitClub(G.club, G.clubPais || G.pais);
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
   <div style="min-height:100%;background:#000;display:flex;flex-direction:column;">
