@@ -32,7 +32,9 @@ const MOM_CAT_ICONS = new Proxy({}, { get:(t,k)=>`<i class='bx ${MOM_CAT_BX[k]||
 let E = {}; // estado editor
 
 window._openCrearMomento = function(){
-  if (!me()){ toast('Iniciá sesión para subir un momento','error'); return; }
+  // Invitado: gate branded en vez de un toast seco.
+  if (window._isGuest && window._promptRegister){ window._promptRegister('publicar'); return; }
+  if (!me()){ if(window._promptRegister){ window._promptRegister('publicar'); return; } toast('Iniciá sesión para subir un momento','error'); return; }
   E = { filter:'none', texts:[], stickers:[], drawing:false, mediaType:null, mediaURL:null, file:null, category:'Mi Día' };
   let m=document.getElementById('mom-editor'); if(m)m.remove();
   m=document.createElement('div'); m.id='mom-editor';

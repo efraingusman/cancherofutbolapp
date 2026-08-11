@@ -557,12 +557,14 @@ window._enterGuest = function(role){
     // Identidad mínima de invitado (sin email → las acciones de escritura piden cuenta).
     // OJO: hay que asignar la variable de MÓDULO `userData` (no solo window.userData),
     // porque navigate()/switchDashboardTab leen la local; si no, navigate rebota a home.
-    // Avatar del invitado: candado SVG inline (evita que aparezca la "I" de "Invitado"
-    // en los circulitos de perfil/momentos/composer). name vacio para no colorear con letra.
-    var _guestAvatar = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#1a1a1a"/><path d="M35 45 v-8 a15 15 0 0 1 30 0 v8" fill="none" stroke="#666" stroke-width="6" stroke-linecap="round"/><rect x="30" y="45" width="40" height="30" rx="4" fill="#666"/></svg>');
+    // Avatar del invitado: silueta neutra (NO candado — el candado da sensacion de
+    // castigo). Sin nombre inventado: el invitado NO es un perfil, es un visitante.
+    var _guestAvatar = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#141614"/><circle cx="50" cy="38" r="16" fill="#3a3f38"/><path d="M20 88 a30 30 0 0 1 60 0 z" fill="#3a3f38"/></svg>');
     userData = { name:'', role:'jugador', _guest:true, _guestRole:role, email:null, stats:{}, photo:_guestAvatar };
     window.userData = userData;
     try { document.body.classList.add('is-guest'); } catch(e){}
+    // Barra superior: mostrar REGISTRARME mientras sea invitado.
+    try { var _gb = document.getElementById('btn-guest-register'); if (_gb) _gb.style.display = 'inline-flex'; } catch(e){}
     try { navigate('jugador'); } catch(e){}
     try { if (window._rebuildBottomNav) window._rebuildBottomNav(); } catch(e){}
     setTimeout(function(){ try { switchDashboardTab('jugador','feed',null); } catch(e){} }, 60);
@@ -574,31 +576,89 @@ window._requireAccount = function(accion){
     window._promptRegister(accion);
     return false;
 };
+// ── GATE DE REGISTRO (branded, amable) ────────────────────────────────────────
+// Reemplaza los candados. Muestra el logo de Canchero, dice QUÉ desbloquea la
+// acción concreta que intentó hacer, y deja seguir mirando sin culpa.
+// Copys por acción: el gate habla de lo que gana, no de lo que le falta.
+window._GATE_COPY = {
+    'comentar':      { i:'bx-message-rounded-dots', t:'Sumate a la conversación', s:'Comentá, bancá a tu equipo y metete en la discusión con toda la comunidad.' },
+    'dar like':      { i:'bx-heart',                t:'Bancá lo que te gusta',    s:'Dejá tu like y guardá los momentos que más te representan.' },
+    'publicar':      { i:'bx-camera',               t:'Mostrá tu fútbol',         s:'Subí tus goles, tus jugadas y tus momentos. Que te vean jugar.' },
+    'seguir':        { i:'bx-user-plus',            t:'Seguí a quien te copa',    s:'Armá tu feed con jugadores, clubes y ligas que te interesan.' },
+    'chatear':       { i:'bx-conversation',         t:'Hablá con la comunidad',   s:'Mensajeate con jugadores, coordiná partidos y armá tu equipo.' },
+    'crear partido': { i:'bx-football',             t:'Armá tu partido',          s:'Creá el partido, invitá a los pibes y llevá las estadísticas.' },
+    'debatir':       { i:'bx-chat',                 t:'Metete en el debate',      s:'Bancá tu postura en los debates más picantes del fútbol.' },
+    'perfil':        { i:'bx-id-card',              t:'Armá tu perfil de jugador',s:'Tu ficha, tus stats, tus logros y tu carrera futbolera en un solo lugar.' }
+};
+window._gateCopy = function(accion){
+    var c = window._GATE_COPY[accion];
+    if (c) return c;
+    return { i:'bx-rocket', t:'Creá tu perfil en Canchero', s:'Es gratis y toma menos de un minuto. Desbloqueás todo lo que la comunidad ya está usando.' };
+};
 window._promptRegister = function(accion){
     var role = window._guestRole || 'jugador';
+    var c = window._gateCopy(accion);
+    var ex = document.getElementById('canchero-gate'); if (ex) ex.remove();
+    var m = document.createElement('div'); m.id = 'canchero-gate';
+    m.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:20px;animation:gateIn .22s ease-out;';
+    m.innerHTML = ''
+      + '<style>@keyframes gateIn{from{opacity:0}to{opacity:1}}@keyframes gateUp{from{transform:translateY(22px);opacity:0}to{transform:none;opacity:1}}</style>'
+      + '<div style="background:linear-gradient(170deg,#141812,#0b0d0b);border:1px solid rgba(186,255,0,0.22);border-radius:24px;width:100%;max-width:390px;padding:26px 24px 22px;box-shadow:0 24px 70px rgba(0,0,0,0.9),0 0 60px rgba(186,255,0,0.06);text-align:center;animation:gateUp .3s cubic-bezier(.2,1,.3,1) both;">'
+      +   '<img src="logo-oficial.png" alt="Canchero" style="height:52px;width:auto;margin:0 auto 4px;display:block;filter:drop-shadow(0 4px 16px rgba(186,255,0,0.3));" onerror="this.style.display=\'none\'">'
+      +   '<div style="font-size:10px;font-weight:900;letter-spacing:3px;color:var(--accent,#baff00);margin-bottom:18px;">CANCHERO</div>'
+      +   '<div style="width:58px;height:58px;border-radius:18px;background:rgba(186,255,0,0.1);border:1px solid rgba(186,255,0,0.25);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;"><i class="bx ' + c.i + '" style="font-size:30px;color:var(--accent,#baff00);"></i></div>'
+      +   '<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:21px;color:#fff;line-height:1.2;">' + c.t + '</div>'
+      +   '<div style="font-size:13.5px;color:#a8b0a2;margin:9px 0 20px;line-height:1.55;">' + c.s + '</div>'
+      +   '<button onclick="window._gateGo()" style="width:100%;background:linear-gradient(135deg,#16a34a,#baff00);color:#000;border:none;border-radius:15px;padding:16px;font-family:Outfit,sans-serif;font-weight:900;font-size:15.5px;cursor:pointer;box-shadow:0 10px 30px rgba(80,220,110,0.3);">CREAR MI PERFIL GRATIS</button>'
+      +   '<button onclick="window._gateGo(1)" style="width:100%;margin-top:9px;background:transparent;border:1px solid rgba(255,255,255,0.14);color:#cfe5b0;border-radius:15px;padding:13px;font-weight:800;font-size:13.5px;cursor:pointer;">Ya tengo cuenta, entrar</button>'
+      +   '<button onclick="document.getElementById(\'canchero-gate\').remove()" style="width:100%;margin-top:12px;background:transparent;color:#6b736a;border:none;padding:6px;font-size:12.5px;cursor:pointer;font-weight:700;">Seguir mirando sin cuenta</button>'
+      +   '<div style="font-size:11px;color:#4f554d;margin-top:14px;line-height:1.5;">Gratis, sin tarjeta. Mirar el feed y jugar siempre es libre.</div>'
+      + '</div>';
+    m.addEventListener('click', function(e){ if(e.target===m) m.remove(); });
+    document.body.appendChild(m);
+};
+// Salir del gate hacia el registro/login real.
+window._gateGo = function(){
+    var role = window._guestRole || 'jugador';
+    var g = document.getElementById('canchero-gate'); if (g) g.remove();
     try { window._isGuest = false; document.body.classList.remove('is-guest'); } catch(e){}
-    // Reusar el flujo de registro/login existente — crea el rol que el invitado eligió.
+    try { var _gb = document.getElementById('btn-guest-register'); if (_gb) _gb.style.display = 'none'; } catch(e){}
     if (window._showLoginModal) window._showLoginModal(role);
     else { try { navigate('register'); } catch(e){} }
-    if (window.showToast && accion) showToast('Creá tu perfil gratis para ' + accion + '.', 'info');
 };
-// Candado genérico para secciones bloqueadas en invitado (chats, debates, etc.).
+// Pantalla de invitación para secciones que necesitan cuenta. Sin candados: muestra
+// el logo, lo que gana, y una lista de beneficios concretos.
 window._guestLockedSectionHTML = function(titulo, texto, accion){
-    return '<div style="max-width:440px;margin:0 auto;padding:60px 22px;text-align:center;display:flex;flex-direction:column;align-items:center;">'
-      + '<div style="width:88px;height:88px;border-radius:50%;background:rgba(255,255,255,0.05);border:1px solid #2a2a2a;display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><i class="bx bx-lock-alt" style="font-size:42px;color:#666;"></i></div>'
-      + '<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:20px;color:#fff;">' + (titulo||'Sección bloqueada') + '</div>'
-      + '<div style="font-size:13.5px;color:#9aa0a6;margin:8px 0 20px;line-height:1.55;max-width:320px;">' + (texto||'Creá tu perfil gratis para desbloquear esta sección.') + '</div>'
-      + '<button onclick="window._promptRegister(\'' + (accion||'usar esta sección') + '\')" style="width:100%;max-width:300px;background:linear-gradient(135deg,#16a34a,#baff00);color:#000;border:none;border-radius:14px;padding:14px;font-family:Outfit,sans-serif;font-weight:900;font-size:14px;cursor:pointer;"><i class="bx bx-rocket"></i> CREAR MI PERFIL GRATIS</button>'
+    var c = window._gateCopy(accion);
+    return '<div style="max-width:440px;margin:0 auto;padding:44px 22px;text-align:center;display:flex;flex-direction:column;align-items:center;">'
+      + '<img src="logo-oficial.png" alt="Canchero" style="height:56px;width:auto;margin-bottom:16px;filter:drop-shadow(0 4px 18px rgba(186,255,0,0.28));" onerror="this.style.display=\'none\'">'
+      + '<div style="width:62px;height:62px;border-radius:19px;background:rgba(186,255,0,0.1);border:1px solid rgba(186,255,0,0.25);display:flex;align-items:center;justify-content:center;margin-bottom:15px;"><i class="bx ' + c.i + '" style="font-size:32px;color:var(--accent,#baff00);"></i></div>'
+      + '<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;color:#fff;line-height:1.2;">' + c.t + '</div>'
+      + '<div style="font-size:13.5px;color:#a8b0a2;margin:9px 0 22px;line-height:1.6;max-width:330px;">' + c.s + '</div>'
+      + '<button onclick="window._promptRegister(\'' + (accion||'') + '\')" style="width:100%;max-width:310px;background:linear-gradient(135deg,#16a34a,#baff00);color:#000;border:none;border-radius:15px;padding:16px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;box-shadow:0 10px 30px rgba(80,220,110,0.28);">CREAR MI PERFIL GRATIS</button>'
+      + '<div style="font-size:12px;color:#5c635a;margin-top:14px;line-height:1.5;">Gratis y en un minuto. Seguí mirando el feed y jugando mientras tanto.</div>'
       + '</div>';
 };
 
 window._guestLockedProfileHTML = function(){
-    return '<div style="max-width:440px;margin:0 auto;padding:40px 22px;text-align:center;display:flex;flex-direction:column;align-items:center;">'
-      + '<div style="width:96px;height:96px;border-radius:50%;background:rgba(255,255,255,0.05);border:1px solid #2a2a2a;display:flex;align-items:center;justify-content:center;margin-bottom:18px;"><i class="bx bx-lock-alt" style="font-size:46px;color:#666;"></i></div>'
-      + '<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;color:#fff;">Tu perfil está bloqueado</div>'
-      + '<div style="font-size:14px;color:#9aa0a6;margin:10px 0 22px;line-height:1.6;max-width:340px;">Creá tu perfil gratis para desbloquear tus <b style="color:#fff;">stats</b>, tus <b style="color:#fff;">equipos</b>, tus <b style="color:#fff;">logros</b> y jugar partidos y torneos.</div>'
-      + '<button onclick="window._promptRegister(\'desbloquear tu perfil\')" style="width:100%;max-width:320px;background:linear-gradient(135deg,#16a34a,#baff00);color:#000;border:none;border-radius:15px;padding:16px;font-family:Outfit,sans-serif;font-weight:900;font-size:16px;cursor:pointer;box-shadow:0 10px 30px rgba(80,220,110,.28);"><i class="bx bx-rocket"></i> CREAR MI PERFIL GRATIS</button>'
-      + '<div style="font-size:12px;color:#666;margin-top:14px;">Mientras tanto podés mirar el feed, buscar jugadores/canchas y jugar los juegos.</div>'
+    var items = [
+        ['bx-id-card',   'Tu ficha de jugador', 'Posición, pierna hábil, número y foto'],
+        ['bx-bar-chart-alt-2', 'Tus estadísticas', 'Goles, asistencias, partidos y rating'],
+        ['bx-medal',     'Tus logros',          'Trofeos, rachas y reconocimientos'],
+        ['bx-group',     'Tus equipos',         'Los planteles donde jugás']
+    ];
+    return '<div style="max-width:440px;margin:0 auto;padding:34px 22px;display:flex;flex-direction:column;align-items:center;text-align:center;">'
+      + '<img src="logo-oficial.png" alt="Canchero" style="height:60px;width:auto;margin-bottom:14px;filter:drop-shadow(0 4px 18px rgba(186,255,0,0.28));" onerror="this.style.display=\'none\'">'
+      + '<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:24px;color:#fff;line-height:1.2;">Armá tu perfil de jugador</div>'
+      + '<div style="font-size:13.5px;color:#a8b0a2;margin:9px 0 20px;line-height:1.6;max-width:330px;">Tu carrera futbolera, en un solo lugar. Todavía no tenés perfil — creálo gratis y empezá a sumar.</div>'
+      + '<div style="width:100%;max-width:330px;display:flex;flex-direction:column;gap:9px;margin-bottom:22px;">'
+      + items.map(function(it){ return '<div style="display:flex;align-items:center;gap:13px;background:rgba(255,255,255,0.03);border:1px solid #1c1f1b;border-radius:13px;padding:12px 14px;text-align:left;">'
+          + '<i class="bx ' + it[0] + '" style="font-size:23px;color:var(--accent,#baff00);flex-shrink:0;"></i>'
+          + '<div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:800;color:#fff;">' + it[1] + '</div><div style="font-size:11.5px;color:#7d857a;margin-top:1px;">' + it[2] + '</div></div>'
+          + '</div>'; }).join('')
+      + '</div>'
+      + '<button onclick="window._promptRegister(\'perfil\')" style="width:100%;max-width:330px;background:linear-gradient(135deg,#16a34a,#baff00);color:#000;border:none;border-radius:15px;padding:16px;font-family:Outfit,sans-serif;font-weight:900;font-size:16px;cursor:pointer;box-shadow:0 10px 30px rgba(80,220,110,0.28);">CREAR MI PERFIL GRATIS</button>'
+      + '<div style="font-size:12px;color:#5c635a;margin-top:14px;line-height:1.5;">Mientras tanto podés mirar el feed, buscar canchas y jugar los juegos.</div>'
       + '</div>';
 };
 
@@ -9991,6 +10051,7 @@ function updateRating() {
 }
 
 window.crearPartido = function() {
+    if (window._isGuest) { window._promptRegister('crear partido'); return; }
     const fecha = document.getElementById('cp-fecha').value;
     const hora = document.getElementById('cp-hora').value;
     const cancha = document.getElementById('cp-cancha').value;
@@ -19263,6 +19324,7 @@ const social = (() => {
 window.social = social;
 // Alias global para que los onclick="window.openComments(id)" en Reels funcionen
 window.openComments = function(postId) {
+    if (window._isGuest) { window._promptRegister('comentar'); return; }
     if (window.social && window.social.openComments) window.social.openComments(postId);
 };
 
@@ -20149,7 +20211,7 @@ setTimeout(function(){
 // Patch social.toggleLike to also create notification
 const _origToggleLike = window.likePost;
 window.likePost = async function(el) {
-    if (window._isGuest) { window._promptRegister('dar me gusta'); return; }
+    if (window._isGuest) { window._promptRegister('dar like'); return; }
     const postId = el.dataset ? el.dataset.postId : null;
     await social.toggleLike(el);
     // Notify post owner usando el cliente compartido
@@ -21677,7 +21739,12 @@ window.loadMainFeed = function() {
     try { window._bindFeedSwipe && window._bindFeedSwipe(); } catch(e){}
     container.innerHTML = '<div style="text-align:center;padding:30px;color:#555;"><i class="bx bx-loader-alt bx-spin" style="font-size:24px;"></i></div>';
     const sb = _sb || window._sb;
-    if (!sb) { container.innerHTML = '<div style="padding:20px;color:#666;text-align:center;">Iniciá sesión para ver el feed.</div>'; return; }
+    // El feed es PÚBLICO: se ve sin cuenta (como TikTok/Facebook). Si el cliente
+    // todavía no está listo, reintentamos en vez de pedir sesión.
+    if (!sb) {
+        setTimeout(() => { try { loadMainFeed(); } catch(e){} }, 900);
+        return;
+    }
     const now = new Date().toISOString();
     const _cut12 = new Date(Date.now() - 12 * 3600000).toISOString();
     let query = sb.from('posts').select('*')
@@ -21719,7 +21786,25 @@ window.loadMainFeed = function() {
     }
 
     query.then(async ({ data, error }) => {
-        if (error) { container.innerHTML = `<div style="padding:30px;color:#f44;text-align:center;font-size:13px;">Error: ${error.message}</div>`; return; }
+        if (error) {
+            // Fallo de red o RLS: no mostrar el error crudo al usuario. Reintento
+            // automático una vez y, si sigue, mensaje humano con botón de reintentar.
+            const esRed = /fetch|network|failed/i.test(error.message || '');
+            if (esRed && !window._feedRetried) {
+                window._feedRetried = true;
+                setTimeout(() => { try { loadMainFeed(); } catch(e){} }, 1200);
+                return;
+            }
+            window._feedRetried = false;
+            container.innerHTML = '<div style="padding:44px 24px;text-align:center;">'
+                + '<i class="bx bx-wifi-off" style="font-size:40px;color:#333;display:block;margin-bottom:12px;"></i>'
+                + '<div style="font-size:14px;color:#9aa0a6;font-weight:700;">No pudimos cargar el feed</div>'
+                + '<div style="font-size:12.5px;color:#666;margin:6px 0 16px;">Revisá tu conexión y probá de nuevo.</div>'
+                + '<button onclick="window._feedRetried=false;loadMainFeed()" style="background:var(--accent,#baff00);color:#000;border:none;border-radius:12px;padding:10px 22px;font-weight:900;font-size:13px;cursor:pointer;">Reintentar</button>'
+                + '</div>';
+            return;
+        }
+        window._feedRetried = false;
         let posts = data || [];
         // Sub-filtro de tipo de profesional (filtrado client-side)
         if (_feedFilter === 'profesional' && _feedSubFilter !== 'all') {
