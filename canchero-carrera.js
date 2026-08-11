@@ -171,6 +171,20 @@ const TROFEO_MAP = {
   'brasileirão':'copa-brasil.webp','brasileirao':'copa-brasil.webp',
   'primeira liga':'copa-portugal.webp',
   'campeonato uruguayo':'campeonato-uruguayo.png',
+  // Ligas sin copa propia: se usa el LOGO OFICIAL de la liga (mejor que un genérico).
+  'bundesliga':'liga-bundesliga.png',
+  'eredivisie':'liga-eredivisie.png',
+  'jupiler pro league':'liga-jupiler.png',
+  'süper lig':'liga-superlig.png','super lig':'liga-superlig.png',
+  'liga mx':'liga-mx.png',
+  'mls cup':'liga-mls.png',
+  'primera división de chile':'liga-chile.png','primera division de chile':'liga-chile.png',
+  'liga colombiana':'liga-colombia.png',
+  'hnl':'liga-hnl.png',
+  'bundesliga austríaca':'liga-austria.png','bundesliga austriaca':'liga-austria.png',
+  'j1 league':'liga-j1.png',
+  'liga profesional':'liga-argentina.png',
+  'primera nacional':'liga-primeranacional.png',
   // ── Copas nacionales ──
   'copa italia':'coppa-italia.webp','coppa italia':'coppa-italia.webp',
   'copa argentina':'copa-argentina.webp',
@@ -470,9 +484,248 @@ window._carreraLen = function(){
 };
 
 // ── IDENTIDAD ───────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// AVATAR 8-BIT — tu jugador como sprite pixel art que crece y cambia con vos.
+// Se dibuja en un canvas de 32×40 "píxeles" escalados. Cambia con la EDAD (nene →
+// juvenil → adulto → veterano), con el CLUB (camiseta con los colores reales) y
+// con las decisiones (barba, tatuajes, cinta de capitán, aura de leyenda).
+// ══════════════════════════════════════════════════════════════════════════════
+const AV_PIELES = [
+  { id:'clara',   n:'Clara',   c:'#f0c8a0', s:'#d4a276' },
+  { id:'media',   n:'Media',   c:'#d9a066', s:'#b07d4a' },
+  { id:'trigena', n:'Trigueña',c:'#a9714b', s:'#8a5636' },
+  { id:'morena',  n:'Morena',  c:'#7a4a2b', s:'#5c3520' },
+  { id:'oscura',  n:'Oscura',  c:'#4a2f1d', s:'#341f12' }
+];
+const AV_PELOS = [
+  { id:'corto',   n:'Corto' },
+  { id:'rapado',  n:'Rapado' },
+  { id:'largo',   n:'Largo' },
+  { id:'afro',    n:'Afro' },
+  { id:'tupe',    n:'Tupé' },
+  { id:'mohawk',  n:'Mohicano' },
+  { id:'rastas',  n:'Rastas' },
+  { id:'calvo',   n:'Pelado' }
+];
+const AV_COLORES_PELO = [
+  { id:'negro',    n:'Negro',    c:'#1a1a1a' },
+  { id:'castano',  n:'Castaño',  c:'#4a2f1a' },
+  { id:'rubio',    n:'Rubio',    c:'#e8c96a' },
+  { id:'rojo',     n:'Colorado', c:'#a83a20' },
+  { id:'canoso',   n:'Canoso',   c:'#c8c8c8' },
+  { id:'platino',  n:'Platinado',c:'#f5f5e8' },
+  { id:'fantasia', n:'Fantasía', c:'#baff00' }
+];
+const AV_ACCS = [
+  { id:'nada',    n:'Nada' },
+  { id:'cinta',   n:'Vincha' },
+  { id:'guantes', n:'Guantes' },
+  { id:'tatuajes',n:'Tatuajes' }
+];
+function avatarDefault(){
+  return { piel:'media', pelo:'corto', peloColor:'negro', barba:0, acc:'nada' };
+}
+// Etapa visual según edad: define altura del cuerpo y proporciones.
+function avEtapa(edad){
+  if (edad <= 14) return { id:'nene',     h:0.72, cabeza:1.18, lbl:'Pibe de potrero' };
+  if (edad <= 17) return { id:'juvenil',  h:0.86, cabeza:1.08, lbl:'Juvenil' };
+  if (edad <= 30) return { id:'adulto',   h:1.00, cabeza:1.00, lbl:'En su mejor momento' };
+  if (edad <= 35) return { id:'maduro',   h:1.00, cabeza:1.00, lbl:'Veterano' };
+  return { id:'veterano', h:0.97, cabeza:1.00, lbl:'Último tramo' };
+}
+// Dibuja el sprite en un <canvas>. `opts`: {edad, kitBase, kitAlt, kitTxt, kitTipo,
+// num, aura, capitan, escala}
+function avatarSprite(av, opts){
+  av = av || avatarDefault();
+  opts = opts || {};
+  const P = (AV_PIELES.find(x=>x.id===av.piel) || AV_PIELES[1]);
+  const HC = (AV_COLORES_PELO.find(x=>x.id===av.peloColor) || AV_COLORES_PELO[0]).c;
+  const edad = opts.edad != null ? opts.edad : 22;
+  const E = avEtapa(edad);
+  const esc_ = opts.escala || 6;
+  const W = 32, H = 40;
+  const base = opts.kitBase || '#1b7a3e';
+  const alt  = opts.kitAlt  || '#ffffff';
+  const txt  = opts.kitTxt  || '#ffffff';
+  const tipo = opts.kitTipo || 'solid';
+  // Paleta de sombra del kit (para dar volumen)
+  const dark = _avShade(base, -28);
+  const px = [];   // [x,y,w,h,color]
+  const R = (x,y,w,h,c)=>px.push([x,y,w,h,c]);
+  // Desplazamiento vertical: los chicos son más bajos (se apoyan en el piso).
+  const off = Math.round((1 - E.h) * 14);
+  const headY = 4 + off;
+  const hs = E.cabeza;          // escala de cabeza (los nenes tienen cabeza grande)
+  const hw = Math.round(10 * hs);
+  const hx = Math.round((W - hw) / 2);
+  // ── CABEZA ──
+  R(hx, headY, hw, Math.round(9*hs), P.c);
+  R(hx, headY + Math.round(7*hs), hw, Math.round(2*hs), P.s);           // sombra mandíbula
+  // Orejas
+  R(hx-1, headY+Math.round(4*hs), 1, 2, P.s);
+  R(hx+hw, headY+Math.round(4*hs), 1, 2, P.s);
+  // Ojos
+  const eyeY = headY + Math.round(4*hs);
+  R(hx+Math.round(2*hs), eyeY, 2, 2, '#ffffff');
+  R(hx+Math.round(6*hs), eyeY, 2, 2, '#ffffff');
+  R(hx+Math.round(2.6*hs), eyeY, 1, 2, '#101010');
+  R(hx+Math.round(6.6*hs), eyeY, 1, 2, '#101010');
+  // Boca
+  R(hx+Math.round(4*hs), headY+Math.round(7*hs), Math.round(3*hs), 1, _avShade(P.s,-30));
+  // ── BARBA (crece con la edad si el jugador la eligió) ──
+  const barbaLvl = Math.min(3, (av.barba||0) + (edad>=30?1:0));
+  if (barbaLvl >= 1) {
+    R(hx, headY+Math.round(6*hs), hw, Math.round(3*hs), HC);
+    R(hx+Math.round(3*hs), headY+Math.round(7*hs), Math.round(4*hs), 1, _avShade(P.s,-30)); // boca encima
+  }
+  if (barbaLvl >= 2) { R(hx-1, headY+Math.round(4*hs), 1, Math.round(4*hs), HC); R(hx+hw, headY+Math.round(4*hs), 1, Math.round(4*hs), HC); }
+  if (barbaLvl >= 3) { R(hx, headY+Math.round(9*hs), hw, 2, HC); }
+  // ── PELO ──
+  _avPelo(R, av.pelo, hx, headY, hw, hs, HC);
+  // ── CUERPO / CAMISETA ──
+  const torsoY = headY + Math.round(9*hs) + 1;
+  const tw = 14, tx = Math.round((W - tw)/2), th = Math.round(11 * E.h);
+  R(tx, torsoY, tw, th, base);
+  // Patrón del kit
+  if (tipo === 'stripes') {
+    for (let i = 0; i < tw; i += 4) R(tx+i, torsoY, 2, th, alt);
+  } else if (tipo === 'sash') {
+    for (let i = 0; i < th; i++) { const sx = tx + Math.round(i * (tw/th)) - 3; R(Math.max(tx,sx), torsoY+i, 4, 1, alt); }
+  }
+  R(tx, torsoY+th-2, tw, 2, dark);                        // sombra inferior
+  // Cuello
+  R(tx+5, torsoY, 4, 2, _avShade(base,-45));
+  // Número en el pecho
+  if (opts.num) R(tx+6, torsoY+4, 2, 3, txt);
+  // Brazos
+  const armH = Math.round(9 * E.h);
+  R(tx-3, torsoY+1, 3, armH, base);
+  R(tx+tw, torsoY+1, 3, armH, base);
+  R(tx-3, torsoY+armH, 3, 3, P.c);                        // manos
+  R(tx+tw, torsoY+armH, 3, 3, P.c);
+  // Cinta de capitán
+  if (opts.capitan) R(tx-3, torsoY+3, 3, 2, '#facc15');
+  // Tatuajes
+  if (av.acc === 'tatuajes') { R(tx-3, torsoY+5, 3, 1, _avShade(P.c,-55)); R(tx+tw, torsoY+6, 3, 1, _avShade(P.c,-55)); }
+  // Guantes de arquero
+  if (av.acc === 'guantes') { R(tx-3, torsoY+armH, 3, 3, '#f97316'); R(tx+tw, torsoY+armH, 3, 3, '#f97316'); }
+  // ── SHORT ──
+  const shY = torsoY + th;
+  const shH = Math.round(6 * E.h);
+  R(tx+1, shY, tw-2, shH, alt === base ? '#ffffff' : alt);
+  R(tx+1, shY+shH-1, tw-2, 1, _avShade(alt === base ? '#ffffff' : alt, -30));
+  // ── PIERNAS ──
+  const lgY = shY + shH;
+  const lgH = Math.round(7 * E.h);
+  R(tx+2, lgY, 4, lgH, P.c);
+  R(tx+8, lgY, 4, lgH, P.c);
+  // Medias
+  R(tx+2, lgY+lgH-3, 4, 3, base);
+  R(tx+8, lgY+lgH-3, 4, 3, base);
+  // ── BOTINES ──
+  R(tx+1, lgY+lgH, 5, 2, '#141414');
+  R(tx+8, lgY+lgH, 5, 2, '#141414');
+  // ── VINCHA ──
+  if (av.acc === 'cinta') R(hx, headY+1, hw, 2, '#baff00');
+  // Render a canvas
+  const cw = W * esc_, ch = H * esc_;
+  let rects = px.map(p=>`<rect x="${p[0]*esc_}" y="${p[1]*esc_}" width="${p[2]*esc_}" height="${p[3]*esc_}" fill="${p[4]}"/>`).join('');
+  // Aura de leyenda (nivel alto / muchos títulos)
+  const aura = opts.aura ? `<defs><radialGradient id="avAura"><stop offset="0%" stop-color="#facc15" stop-opacity=".45"/><stop offset="100%" stop-color="#facc15" stop-opacity="0"/></radialGradient></defs><ellipse cx="${cw/2}" cy="${ch*0.55}" rx="${cw*0.55}" ry="${ch*0.5}" fill="url(#avAura)"/>` : '';
+  return `<svg viewBox="0 0 ${cw} ${ch}" width="${cw}" height="${ch}" xmlns="http://www.w3.org/2000/svg" style="image-rendering:pixelated;display:block;shape-rendering:crispEdges;">${aura}${rects}</svg>`;
+}
+function _avPelo(R, tipo, hx, headY, hw, hs, c){
+  const t = Math.round(hs);
+  switch(tipo){
+    case 'calvo': R(hx, headY, hw, 1, _avShade(c,-10)); break;
+    case 'rapado': R(hx, headY, hw, 2, c); break;
+    case 'corto': R(hx, headY-1, hw, 3, c); R(hx-1, headY, 1, 2, c); R(hx+hw, headY, 1, 2, c); break;
+    case 'largo': R(hx, headY-1, hw, 3, c); R(hx-1, headY-1, 1, Math.round(9*hs), c); R(hx+hw, headY-1, 1, Math.round(9*hs), c); break;
+    case 'afro': R(hx-2, headY-3, hw+4, 5, c); R(hx-2, headY, 2, 3, c); R(hx+hw, headY, 2, 3, c); break;
+    case 'tupe': R(hx, headY-1, hw, 2, c); R(hx+2, headY-4, hw-5, 3, c); break;
+    case 'mohawk': R(hx+Math.round(3*hs), headY-5, Math.round(4*hs), 6, c); R(hx, headY, hw, 1, _avShade(c,-20)); break;
+    case 'rastas': R(hx, headY-2, hw, 3, c); for(let i=0;i<hw;i+=3) R(hx+i, headY+1, 2, Math.round(10*hs), c); break;
+    default: R(hx, headY-1, hw, 3, c);
+  }
+}
+function _avShade(hex, amt){
+  try{
+    let h = hex.replace('#','');
+    if (h.length === 3) h = h.split('').map(x=>x+x).join('');
+    const n = parseInt(h,16);
+    let r = clamp(((n>>16)&255) + amt, 0, 255);
+    let g = clamp(((n>>8)&255) + amt, 0, 255);
+    let b = clamp((n&255) + amt, 0, 255);
+    return '#' + [r,g,b].map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');
+  }catch(e){ return hex; }
+}
+// Sprite del jugador ACTUAL (usa club, edad, nivel y títulos de la partida en curso).
+function avatarDeG(escala){
+  if(!G) return '';
+  const k = KITS[G.clubPais || G.pais] || { t:'solid', c:['#1b7a3e'], txt:'#fff' };
+  return avatarSprite(G.avatar, {
+    edad: G.edad,
+    kitBase: k.c[0], kitAlt: k.c[1] || '#ffffff', kitTxt: k.txt, kitTipo: k.t,
+    num: G.num,
+    aura: (G.nivel >= 88 || (G.titulos||0) >= 8),
+    capitan: (G.idolatria && G.idolatria[G.club] >= 55),
+    escala: escala || 5
+  });
+}
+
+// Opciones de render del avatar durante la creación (usa el kit del país elegido).
+function _avOpts(d, escala){
+  const k = KITS[d.pais] || { t:'solid', c:['#1b7a3e'], txt:'#fff' };
+  return { edad:12, kitBase:k.c[0], kitAlt:k.c[1]||'#ffffff', kitTxt:k.txt, kitTipo:k.t, num:d.num, escala:escala||10 };
+}
+// Editor visual del personaje: piel, pelo, color, barba y accesorio.
+function _avEditorHTML(d){
+  const av = d.avatar;
+  const fila = (titulo, items, key, activo, render) => `
+    <div style="margin-bottom:12px;">
+      <div style="font-size:10px;font-weight:800;color:#666;letter-spacing:1px;margin-bottom:6px;text-align:left;">${titulo}</div>
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:3px;">
+        ${items.map(it=>`<button onclick="window._avSet('${key}','${it.id}')" title="${esc(it.n)}" style="flex-shrink:0;background:${activo===it.id?'rgba(186,255,0,.14)':'rgba(255,255,255,.04)'};border:1.5px solid ${activo===it.id?A:'#262626'};border-radius:11px;padding:7px 10px;cursor:pointer;min-width:48px;">
+          ${render ? render(it) : ''}
+          <div style="font-size:9.5px;color:${activo===it.id?A:'#999'};font-weight:800;margin-top:${render?'4px':'0'};white-space:nowrap;">${esc(it.n)}</div>
+        </button>`).join('')}
+      </div>
+    </div>`;
+  return `<div style="max-width:340px;margin:0 auto;text-align:left;">
+    ${fila('PIEL', AV_PIELES, 'piel', av.piel, it=>`<div style="width:26px;height:20px;border-radius:5px;background:${it.c};border:1px solid rgba(0,0,0,.4);margin:0 auto;"></div>`)}
+    ${fila('PELO', AV_PELOS, 'pelo', av.pelo, null)}
+    ${fila('COLOR DE PELO', AV_COLORES_PELO, 'peloColor', av.peloColor, it=>`<div style="width:26px;height:20px;border-radius:5px;background:${it.c};border:1px solid rgba(255,255,255,.15);margin:0 auto;"></div>`)}
+    ${fila('BARBA', [{id:'0',n:'Sin barba'},{id:'1',n:'Candado'},{id:'2',n:'Corta'},{id:'3',n:'Tupida'}], 'barba', String(av.barba||0), null)}
+    ${fila('DETALLE', AV_ACCS, 'acc', av.acc, null)}
+    <button onclick="window._avRandom()" style="width:100%;background:rgba(255,255,255,.05);border:1px solid #262626;border-radius:11px;padding:10px;color:#c4ccc0;font-weight:800;font-size:12.5px;cursor:pointer;margin-top:2px;"><i class='bx bx-dice-5'></i> Sorprendeme</button>
+  </div>`;
+}
+window._avSet = function(k, v){
+  if(!_draft) return;
+  if(!_draft.avatar) _draft.avatar = avatarDefault();
+  _draft.avatar[k] = (k === 'barba') ? parseInt(v,10) : v;
+  const el = document.getElementById('cr-avatar');
+  if (el) el.innerHTML = avatarSprite(_draft.avatar, _avOpts(_draft, 12));
+  // Repintar solo los botones de esa fila (evita perder el scroll horizontal).
+  const cont = el && el.closest('div[style*="border-radius:16px"]');
+  if (cont) { const ed = cont.querySelector('div[style*="max-width:340px"]'); if (ed) ed.outerHTML = _avEditorHTML(_draft); }
+};
+window._avRandom = function(){
+  if(!_draft) return;
+  _draft.avatar = {
+    piel: pick(AV_PIELES).id,
+    pelo: pick(AV_PELOS).id,
+    peloColor: pick(AV_COLORES_PELO).id,
+    barba: ri(0,3),
+    acc: pick(AV_ACCS).id
+  };
+  renderIdent();
+};
+
 let _draft=null;
 window._carreraIdent = function(years){
-  _draft = _draft || { years, apellido:(me().name||'').split(' ').slice(-1)[0]||'', num:10, pie:'Derecha', pais:(me().nat||me().country||'Uruguay'), pos:'DC', filtro:'' };
+  _draft = _draft || { years, apellido:(me().name||'').split(' ').slice(-1)[0]||'', num:10, pie:'Derecha', pais:(me().nat||me().country||'Uruguay'), pos:'DC', filtro:'', avatar:avatarDefault() };
+  if(!_draft.avatar) _draft.avatar = avatarDefault();
   _draft.dif = window._crDif || 'normal';
   _draft.years = years;
   renderIdent();
@@ -484,10 +737,17 @@ function renderIdent(){
   <div style="max-width:1040px;margin:0 auto;padding:18px 18px calc(96px + env(safe-area-inset-bottom));">
     <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;color:#fff;margin-bottom:16px;">Definí tu identidad</div>
     <div style="display:grid;grid-template-columns:1fr;gap:18px;">
-      <!-- Identidad: camiseta -->
+      <!-- Identidad: avatar 8-bit + camiseta -->
       <div style="background:rgba(255,255,255,.03);border:1px solid #1c1c1c;border-radius:16px;padding:18px;text-align:center;">
-        <div style="font-size:12px;font-weight:900;letter-spacing:1px;color:#9aa0a6;margin-bottom:12px;">IDENTIDAD</div>
-        <div id="cr-jersey" style="display:flex;justify-content:center;margin-bottom:14px;">${jersey(150, d.apellido, d.num, d.pais)}</div>
+        <div style="font-size:12px;font-weight:900;letter-spacing:1px;color:#9aa0a6;margin-bottom:12px;">TU JUGADOR</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;margin-bottom:14px;">
+          <div style="background:linear-gradient(180deg,#1a2416,#0d120b);border:1px solid #2a3a22;border-radius:14px;padding:14px 20px;position:relative;">
+            <div id="cr-avatar" style="display:flex;justify-content:center;">${avatarSprite(d.avatar, _avOpts(d, 12))}</div>
+            <div style="font-size:9px;color:#6b7a5e;font-weight:800;letter-spacing:1px;margin-top:6px;">12 AÑOS · POTRERO</div>
+          </div>
+          <div id="cr-jersey">${jersey(130, d.apellido, d.num, d.pais)}</div>
+        </div>
+        ${_avEditorHTML(d)}
         <div style="display:flex;gap:8px;max-width:320px;margin:0 auto;">
           <div style="flex:2;"><label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:4px;">APELLIDO</label><input id="cr-ape" value="${esc(d.apellido)}" placeholder="APELLIDO" oninput="window._carreraSet('apellido',this.value)" style="${inp()}"></div>
           <div style="flex:1;"><label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:4px;">NÚMERO</label><input id="cr-num" type="number" min="1" max="99" value="${d.num}" oninput="window._carreraSet('num',this.value)" style="${inp()}"></div>
@@ -522,7 +782,10 @@ window._carreraSet = function(k,v){
   if(k==='num') v=clamp(parseInt(v)||10,1,99);
   _draft[k]=v;
   // Refrescos parciales para no perder foco al tipear.
-  if(k==='apellido'||k==='num'||k==='pais'){ const j=document.getElementById('cr-jersey'); if(j) j.innerHTML=jersey(150,_draft.apellido,_draft.num,_draft.pais); }
+  if(k==='apellido'||k==='num'||k==='pais'){
+    const j=document.getElementById('cr-jersey'); if(j) j.innerHTML=jersey(130,_draft.apellido,_draft.num,_draft.pais);
+    const av=document.getElementById('cr-avatar'); if(av) av.innerHTML=avatarSprite(_draft.avatar, _avOpts(_draft, 12));
+  }
   if(k==='pais'||k==='pie'||k==='pos'||k==='filtro') renderIdent();
 };
 function inp(){ return 'width:100%;background:#161616;border:1px solid #262626;color:#fff;border-radius:10px;padding:11px;font-size:14px;box-sizing:border-box;outline:none;font-family:inherit;'; }
@@ -808,6 +1071,8 @@ window._carreraFichar = function(i){
     rival: crearRival(d.pais, d.pos, nivelInicial),
     // Legado del potrero: estilo elegido (crack/killer/guerrero) + bonus aplicado.
     estilo: d._potStyle || null, potBonus,
+    // Avatar 8-bit diseñado por el jugador (evoluciona con la edad y el club).
+    avatar: d.avatar || avatarDefault(),
     dif:(d.dif||'normal'), creado:Date.now()
   };
   save(); window._carreraJuveniles(0);
@@ -938,7 +1203,10 @@ window._carreraHub = function(){
       <!-- Cabecera del jugador -->
       <div style="background:rgba(255,255,255,.03);border:1px solid #1c1c1c;border-radius:16px;padding:16px;">
         <div style="display:flex;align-items:center;gap:14px;">
-          <div style="width:64px;height:64px;border-radius:14px;background:linear-gradient(150deg,#e08a1e,#a85e0e);display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;"><div style="font-size:9px;font-weight:800;color:rgba(255,255,255,.8);letter-spacing:1px;">NIVEL</div><div style="font-size:26px;font-weight:900;color:#fff;line-height:1;">${Math.round(G.nivel)}</div></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;">
+            <div style="background:linear-gradient(180deg,#1a2416,#0d120b);border:1px solid #2a3a22;border-radius:12px;padding:6px 10px;">${avatarDeG(2.6)}</div>
+            <div style="width:64px;border-radius:10px;background:linear-gradient(150deg,#e08a1e,#a85e0e);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px 0;"><div style="font-size:8px;font-weight:800;color:rgba(255,255,255,.8);letter-spacing:1px;">NIVEL</div><div style="font-size:20px;font-weight:900;color:#fff;line-height:1;">${Math.round(G.nivel)}</div></div>
+          </div>
           <div style="flex:1;min-width:0;">
             <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px;">${flagImg(G.pais,20)}<span style="font-size:11px;font-weight:900;color:#fff;">${esc((G.pais||'').slice(0,3).toUpperCase())}</span><span style="font-size:10px;font-weight:900;color:${A};background:rgba(186,255,0,.12);border:1px solid rgba(186,255,0,.3);border-radius:6px;padding:2px 7px;">#${G.num} ${esc(G.pos)}</span></div>
             <div style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${clubBadge(G.club,22)} ${esc(G.club)}</div>
@@ -1231,6 +1499,7 @@ function resumenTemporada(r){
   <div style="max-width:520px;margin:0 auto;padding:30px 22px calc(30px + env(safe-area-inset-bottom));min-height:100%;display:flex;flex-direction:column;">
     <div style="text-align:center;margin-bottom:18px;">
       <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};">TEMPORADA ${G.temporada-1} · ${G.edad-1} AÑOS</div>
+      <div style="display:flex;justify-content:center;margin:8px 0 4px;"><div style="background:linear-gradient(180deg,#1a2416,#0d120b);border:1px solid #2a3a22;border-radius:12px;padding:8px 14px;">${avatarDeG(3.2)}</div></div>
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px;">${clubBadge(G.club,26)}<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:20px;color:#fff;">${esc(G.club)}</div></div>
       <div style="font-size:12px;color:#9aa0a6;margin-top:2px;">${esc(G.liga)} · ${posLabel(r.pos)} de ${r.totalEq}</div>
       ${r.titulo?`<div style="margin-top:14px;display:flex;flex-direction:column;align-items:center;">
@@ -2505,7 +2774,10 @@ function retiro(){
       <div style="position:absolute;inset:0;background-image:radial-gradient(circle at 20% 20%, ${rangoColor}22, transparent 55%),radial-gradient(circle at 80% 80%, ${rangoColor}22, transparent 55%);pointer-events:none;"></div>
       <div style="position:relative;">
         <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(0,0,0,.35);border:1px solid ${rangoColor}88;border-radius:99px;padding:5px 14px;font-size:11px;font-weight:900;letter-spacing:2px;color:${rangoColor};margin-bottom:14px;"><i class='bx ${rangoIcon}'></i>${rangoTxt}</div>
-        <div style="display:flex;justify-content:center;margin-bottom:10px;">${jerseyHtml}</div>
+        <div style="display:flex;align-items:flex-end;justify-content:center;gap:14px;margin-bottom:10px;flex-wrap:wrap;">
+          <div style="background:linear-gradient(180deg,#1a2416,#0d120b);border:1px solid #2a3a22;border-radius:14px;padding:12px 16px;">${avatarDeG(4.2)}</div>
+          ${jerseyHtml}
+        </div>
         <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:30px;color:#fff;letter-spacing:-.5px;">${esc(G.apellido)} <span style="color:${A};">#${G.num}</span></div>
         <div style="font-size:12.5px;color:#c4ccc0;margin-top:4px;display:inline-flex;align-items:center;gap:6px;">${flagImg(G.pais,18)} ${esc(G.pais)} · <span style="color:#888;">${anios} temp. · ${anios+16-G.years+G.years}—</span></div>
       </div>
@@ -2527,6 +2799,26 @@ function retiro(){
     ${honores.length?`<div class="cr-fade cr-fade-d2" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;justify-content:center;">
       ${honores.map(h=>`<span style="display:inline-flex;align-items:center;gap:5px;background:${h.c}18;border:1px solid ${h.c}55;color:${h.c};border-radius:20px;padding:5px 11px;font-size:11px;font-weight:800;"><i class='bx ${h.i}'></i>${h.t}</span>`).join('')}
     </div>`:''}
+
+    <!-- CÓMO CAMBIASTE (evolución del sprite a lo largo de la carrera) -->
+    ${(function(){
+      const tl = G.timeline || []; if(!tl.length) return '';
+      const hitos = [{ edad:12, lbl:'Potrero' }];
+      const paso = Math.max(1, Math.floor(tl.length / 4));
+      for(let i=0;i<tl.length;i+=paso){ if(hitos.length>=5) break; hitos.push({ edad:tl[i].edad, lbl:tl[i].club }); }
+      const ult = tl[tl.length-1];
+      if(ult && hitos[hitos.length-1].edad !== ult.edad) hitos.push({ edad:ult.edad, lbl:ult.club });
+      const k = KITS[G.clubPais||G.pais] || { t:'solid', c:['#1b7a3e'], txt:'#fff' };
+      return `<div class="cr-fade cr-fade-d1" style="margin-top:20px;">
+        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:${A};margin-bottom:10px;padding-left:2px;"><i class='bx bx-git-commit'></i> CÓMO CAMBIASTE</div>
+        <div style="background:linear-gradient(180deg,#141a10,#0a0d08);border:1px solid #1f2a1a;border-radius:14px;padding:14px 10px;display:flex;gap:10px;overflow-x:auto;align-items:flex-end;">
+          ${hitos.map(h=>`<div style="flex-shrink:0;text-align:center;min-width:66px;">
+              ${avatarSprite(G.avatar, { edad:h.edad, kitBase:k.c[0], kitAlt:k.c[1]||'#fff', kitTxt:k.txt, kitTipo:k.t, num:G.num, escala:2.2, aura:(ult&&h.edad===ult.edad&&(nivelF>=88||G.titulos>=8)) })}
+              <div style="font-size:9px;color:#8a9580;font-weight:900;margin-top:5px;">${h.edad} años</div>
+              <div style="font-size:8.5px;color:#5c6655;margin-top:1px;max-width:66px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(h.lbl||'')}</div>
+            </div>`).join('')}
+        </div>
+      </div>`; })()}
 
     <!-- PATRIMONIO FINAL -->
     ${(function(){
