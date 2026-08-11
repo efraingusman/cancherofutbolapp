@@ -185,6 +185,9 @@ const TROFEO_MAP = {
   'j1 league':'liga-j1.png',
   'liga profesional':'liga-argentina.png',
   'primera nacional':'liga-primeranacional.png',
+  'liga del interior':'liga-interior.png',
+  'copa nacional':'copa-nacional-interior.png',
+  'saudi pro league':'saudi-pro-league.png',
   // ── Copas nacionales ──
   'copa italia':'coppa-italia.webp','coppa italia':'coppa-italia.webp',
   'copa argentina':'copa-argentina.webp',
@@ -367,7 +370,10 @@ function jersey(size, apellido, numero, pais){
   const numLen = num.length>=2 ? 92 : 50;
   // Sin ningún background alrededor (transparent). Nombre MÁS ARRIBA (y=82) y número
   // MÁS GRANDE (font 76) — más parecido a camiseta real.
-  return `<div style="position:relative;width:${s}px;height:${s}px;display:inline-block;background:transparent;">
+  // isolation:isolate en el CONTENEDOR crea un stacking context propio: así el
+  // mix-blend-mode:multiply del PNG mezcla SOLO con la capa tintada de abajo y no
+  // con el fondo negro de la página (era la causa del cuadrado negro).
+  return `<div style="position:relative;width:${s}px;height:${s}px;display:inline-block;background:transparent;isolation:isolate;">
     <div style="position:absolute;inset:0;background:${base};${maskCSS}"></div>
     ${pattern}
     <img src="${JERSEY_PNG}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;pointer-events:none;background:transparent;-webkit-mask:url('${JERSEY_PNG}') center/contain no-repeat;mask:url('${JERSEY_PNG}') center/contain no-repeat;">
@@ -485,219 +491,490 @@ window._carreraLen = function(){
 
 // ── IDENTIDAD ───────────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
-// AVATAR 8-BIT — tu jugador como sprite pixel art que crece y cambia con vos.
-// Se dibuja en un canvas de 32×40 "píxeles" escalados. Cambia con la EDAD (nene →
-// juvenil → adulto → veterano), con el CLUB (camiseta con los colores reales) y
-// con las decisiones (barba, tatuajes, cinta de capitán, aura de leyenda).
+// AVATAR PIXEL ART — tu jugador dibujado a 48×72 "píxeles" (antes 32×40), en el
+// estilo de los simuladores pixel-art modernos: figura de cuerpo entero de frente,
+// proporciones humanas reales, sombreado en 3 tonos y CAMISETA con nombre y número
+// legibles. Reacciona: respira, festeja, se agarra la cabeza, se lesiona.
+// Todo es SVG generado (cero imágenes externas, cero librerías).
 // ══════════════════════════════════════════════════════════════════════════════
 const AV_PIELES = [
-  { id:'clara',   n:'Clara',   c:'#f0c8a0', s:'#d4a276' },
-  { id:'media',   n:'Media',   c:'#d9a066', s:'#b07d4a' },
-  { id:'trigena', n:'Trigueña',c:'#a9714b', s:'#8a5636' },
-  { id:'morena',  n:'Morena',  c:'#7a4a2b', s:'#5c3520' },
-  { id:'oscura',  n:'Oscura',  c:'#4a2f1d', s:'#341f12' }
+  { id:'clara',   n:'Clara',    c:'#f2cfa8', s:'#d9ad81', d:'#b8875e' },
+  { id:'media',   n:'Media',    c:'#dda877', s:'#c08a55', d:'#9a6a3c' },
+  { id:'trigena', n:'Trigueña', c:'#b57e52', s:'#96633c', d:'#754a2a' },
+  { id:'morena',  n:'Morena',   c:'#8a5533', s:'#6d4126', d:'#4f2d19' },
+  { id:'oscura',  n:'Oscura',   c:'#5c3520', s:'#452716', d:'#2e190e' }
 ];
 const AV_PELOS = [
-  { id:'corto',   n:'Corto' },
-  { id:'rapado',  n:'Rapado' },
-  { id:'largo',   n:'Largo' },
-  { id:'afro',    n:'Afro' },
-  { id:'tupe',    n:'Tupé' },
-  { id:'mohawk',  n:'Mohicano' },
-  { id:'rastas',  n:'Rastas' },
-  { id:'calvo',   n:'Pelado' }
+  { id:'corto',  n:'Corto' },   { id:'rapado', n:'Rapado' },
+  { id:'largo',  n:'Largo' },   { id:'afro',   n:'Afro' },
+  { id:'tupe',   n:'Tupé' },    { id:'mohawk', n:'Mohicano' },
+  { id:'rastas', n:'Rastas' },  { id:'colita', n:'Colita' },
+  { id:'calvo',  n:'Pelado' }
 ];
 const AV_COLORES_PELO = [
-  { id:'negro',    n:'Negro',    c:'#1a1a1a' },
-  { id:'castano',  n:'Castaño',  c:'#4a2f1a' },
-  { id:'rubio',    n:'Rubio',    c:'#e8c96a' },
-  { id:'rojo',     n:'Colorado', c:'#a83a20' },
-  { id:'canoso',   n:'Canoso',   c:'#c8c8c8' },
-  { id:'platino',  n:'Platinado',c:'#f5f5e8' },
-  { id:'fantasia', n:'Fantasía', c:'#baff00' }
+  { id:'negro',   n:'Negro',     c:'#181410' },
+  { id:'castano', n:'Castaño',   c:'#4a2f1a' },
+  { id:'rubio',   n:'Rubio',     c:'#d9b45c' },
+  { id:'rojo',    n:'Colorado',  c:'#9c3d1c' },
+  { id:'canoso',  n:'Canoso',    c:'#a8a8a4' },
+  { id:'platino', n:'Platinado', c:'#ece7d8' },
+  { id:'fantasia',n:'Fantasía',  c:'#baff00' }
 ];
 const AV_ACCS = [
-  { id:'nada',    n:'Nada' },
-  { id:'cinta',   n:'Vincha' },
-  { id:'guantes', n:'Guantes' },
-  { id:'tatuajes',n:'Tatuajes' }
+  { id:'nada',     n:'Nada' },      { id:'cinta',   n:'Vincha' },
+  { id:'guantes',  n:'Guantes' },   { id:'tatuajes',n:'Tatuajes' },
+  { id:'muneq',    n:'Muñequera' }
 ];
-function avatarDefault(){
-  return { piel:'media', pelo:'corto', peloColor:'negro', barba:0, acc:'nada' };
-}
-// Etapa visual según edad: define altura del cuerpo y proporciones.
+function avatarDefault(){ return { piel:'media', pelo:'corto', peloColor:'negro', barba:0, acc:'nada' }; }
+
+// Etapa física por edad: altura relativa, ancho de hombros y tamaño de cabeza.
+// Un pibe de 12 es bajito y cabezón; un adulto tiene proporción 1:7.5.
 function avEtapa(edad){
-  if (edad <= 14) return { id:'nene',     h:0.72, cabeza:1.18, lbl:'Pibe de potrero' };
-  if (edad <= 17) return { id:'juvenil',  h:0.86, cabeza:1.08, lbl:'Juvenil' };
-  if (edad <= 30) return { id:'adulto',   h:1.00, cabeza:1.00, lbl:'En su mejor momento' };
-  if (edad <= 35) return { id:'maduro',   h:1.00, cabeza:1.00, lbl:'Veterano' };
-  return { id:'veterano', h:0.97, cabeza:1.00, lbl:'Último tramo' };
-}
-// Dibuja el sprite en un <canvas>. `opts`: {edad, kitBase, kitAlt, kitTxt, kitTipo,
-// num, aura, capitan, escala}
-function avatarSprite(av, opts){
-  av = av || avatarDefault();
-  opts = opts || {};
-  const P = (AV_PIELES.find(x=>x.id===av.piel) || AV_PIELES[1]);
-  const HC = (AV_COLORES_PELO.find(x=>x.id===av.peloColor) || AV_COLORES_PELO[0]).c;
-  const edad = opts.edad != null ? opts.edad : 22;
-  const E = avEtapa(edad);
-  const esc_ = opts.escala || 6;
-  const W = 32, H = 40;
-  const base = opts.kitBase || '#1b7a3e';
-  const alt  = opts.kitAlt  || '#ffffff';
-  const txt  = opts.kitTxt  || '#ffffff';
-  const tipo = opts.kitTipo || 'solid';
-  // Paleta de sombra del kit (para dar volumen)
-  const dark = _avShade(base, -28);
-  const px = [];   // [x,y,w,h,color]
-  const R = (x,y,w,h,c)=>px.push([x,y,w,h,c]);
-  // Desplazamiento vertical: los chicos son más bajos (se apoyan en el piso).
-  const off = Math.round((1 - E.h) * 14);
-  const headY = 4 + off;
-  const hs = E.cabeza;          // escala de cabeza (los nenes tienen cabeza grande)
-  const hw = Math.round(10 * hs);
-  const hx = Math.round((W - hw) / 2);
-  // ── CABEZA ──
-  R(hx, headY, hw, Math.round(9*hs), P.c);
-  R(hx, headY + Math.round(7*hs), hw, Math.round(2*hs), P.s);           // sombra mandíbula
-  // Orejas
-  R(hx-1, headY+Math.round(4*hs), 1, 2, P.s);
-  R(hx+hw, headY+Math.round(4*hs), 1, 2, P.s);
-  // Ojos
-  const eyeY = headY + Math.round(4*hs);
-  R(hx+Math.round(2*hs), eyeY, 2, 2, '#ffffff');
-  R(hx+Math.round(6*hs), eyeY, 2, 2, '#ffffff');
-  R(hx+Math.round(2.6*hs), eyeY, 1, 2, '#101010');
-  R(hx+Math.round(6.6*hs), eyeY, 1, 2, '#101010');
-  // Boca
-  R(hx+Math.round(4*hs), headY+Math.round(7*hs), Math.round(3*hs), 1, _avShade(P.s,-30));
-  // ── BARBA (crece con la edad si el jugador la eligió) ──
-  const barbaLvl = Math.min(3, (av.barba||0) + (edad>=30?1:0));
-  if (barbaLvl >= 1) {
-    R(hx, headY+Math.round(6*hs), hw, Math.round(3*hs), HC);
-    R(hx+Math.round(3*hs), headY+Math.round(7*hs), Math.round(4*hs), 1, _avShade(P.s,-30)); // boca encima
-  }
-  if (barbaLvl >= 2) { R(hx-1, headY+Math.round(4*hs), 1, Math.round(4*hs), HC); R(hx+hw, headY+Math.round(4*hs), 1, Math.round(4*hs), HC); }
-  if (barbaLvl >= 3) { R(hx, headY+Math.round(9*hs), hw, 2, HC); }
-  // ── PELO ──
-  _avPelo(R, av.pelo, hx, headY, hw, hs, HC);
-  // ── CUERPO / CAMISETA ──
-  const torsoY = headY + Math.round(9*hs) + 1;
-  const tw = 14, tx = Math.round((W - tw)/2), th = Math.round(11 * E.h);
-  R(tx, torsoY, tw, th, base);
-  // Patrón del kit
-  if (tipo === 'stripes') {
-    for (let i = 0; i < tw; i += 4) R(tx+i, torsoY, 2, th, alt);
-  } else if (tipo === 'sash') {
-    for (let i = 0; i < th; i++) { const sx = tx + Math.round(i * (tw/th)) - 3; R(Math.max(tx,sx), torsoY+i, 4, 1, alt); }
-  }
-  R(tx, torsoY+th-2, tw, 2, dark);                        // sombra inferior
-  // Cuello
-  R(tx+5, torsoY, 4, 2, _avShade(base,-45));
-  // Número en el pecho
-  if (opts.num) R(tx+6, torsoY+4, 2, 3, txt);
-  // Brazos
-  const armH = Math.round(9 * E.h);
-  R(tx-3, torsoY+1, 3, armH, base);
-  R(tx+tw, torsoY+1, 3, armH, base);
-  R(tx-3, torsoY+armH, 3, 3, P.c);                        // manos
-  R(tx+tw, torsoY+armH, 3, 3, P.c);
-  // Cinta de capitán
-  if (opts.capitan) R(tx-3, torsoY+3, 3, 2, '#facc15');
-  // Tatuajes
-  if (av.acc === 'tatuajes') { R(tx-3, torsoY+5, 3, 1, _avShade(P.c,-55)); R(tx+tw, torsoY+6, 3, 1, _avShade(P.c,-55)); }
-  // Guantes de arquero
-  if (av.acc === 'guantes') { R(tx-3, torsoY+armH, 3, 3, '#f97316'); R(tx+tw, torsoY+armH, 3, 3, '#f97316'); }
-  // ── SHORT ──
-  const shY = torsoY + th;
-  const shH = Math.round(6 * E.h);
-  R(tx+1, shY, tw-2, shH, alt === base ? '#ffffff' : alt);
-  R(tx+1, shY+shH-1, tw-2, 1, _avShade(alt === base ? '#ffffff' : alt, -30));
-  // ── PIERNAS ──
-  const lgY = shY + shH;
-  const lgH = Math.round(7 * E.h);
-  R(tx+2, lgY, 4, lgH, P.c);
-  R(tx+8, lgY, 4, lgH, P.c);
-  // Medias
-  R(tx+2, lgY+lgH-3, 4, 3, base);
-  R(tx+8, lgY+lgH-3, 4, 3, base);
-  // ── BOTINES ──
-  R(tx+1, lgY+lgH, 5, 2, '#141414');
-  R(tx+8, lgY+lgH, 5, 2, '#141414');
-  // ── VINCHA ──
-  if (av.acc === 'cinta') R(hx, headY+1, hw, 2, '#baff00');
-  // Render a canvas
-  const cw = W * esc_, ch = H * esc_;
-  let rects = px.map(p=>`<rect x="${p[0]*esc_}" y="${p[1]*esc_}" width="${p[2]*esc_}" height="${p[3]*esc_}" fill="${p[4]}"/>`).join('');
-  // Aura de leyenda (nivel alto / muchos títulos)
-  const aura = opts.aura ? `<defs><radialGradient id="avAura"><stop offset="0%" stop-color="#facc15" stop-opacity=".45"/><stop offset="100%" stop-color="#facc15" stop-opacity="0"/></radialGradient></defs><ellipse cx="${cw/2}" cy="${ch*0.55}" rx="${cw*0.55}" ry="${ch*0.5}" fill="url(#avAura)"/>` : '';
-  return `<svg viewBox="0 0 ${cw} ${ch}" width="${cw}" height="${ch}" xmlns="http://www.w3.org/2000/svg" style="image-rendering:pixelated;display:block;shape-rendering:crispEdges;">${aura}${rects}</svg>`;
-}
-function _avPelo(R, tipo, hx, headY, hw, hs, c){
-  const t = Math.round(hs);
-  switch(tipo){
-    case 'calvo': R(hx, headY, hw, 1, _avShade(c,-10)); break;
-    case 'rapado': R(hx, headY, hw, 2, c); break;
-    case 'corto': R(hx, headY-1, hw, 3, c); R(hx-1, headY, 1, 2, c); R(hx+hw, headY, 1, 2, c); break;
-    case 'largo': R(hx, headY-1, hw, 3, c); R(hx-1, headY-1, 1, Math.round(9*hs), c); R(hx+hw, headY-1, 1, Math.round(9*hs), c); break;
-    case 'afro': R(hx-2, headY-3, hw+4, 5, c); R(hx-2, headY, 2, 3, c); R(hx+hw, headY, 2, 3, c); break;
-    case 'tupe': R(hx, headY-1, hw, 2, c); R(hx+2, headY-4, hw-5, 3, c); break;
-    case 'mohawk': R(hx+Math.round(3*hs), headY-5, Math.round(4*hs), 6, c); R(hx, headY, hw, 1, _avShade(c,-20)); break;
-    case 'rastas': R(hx, headY-2, hw, 3, c); for(let i=0;i<hw;i+=3) R(hx+i, headY+1, 2, Math.round(10*hs), c); break;
-    default: R(hx, headY-1, hw, 3, c);
-  }
+  if (edad <= 13) return { id:'nene',     esc:0.62, hombro:0.78, cabeza:1.30, lbl:'Pibe' };
+  if (edad <= 16) return { id:'juvenil',  esc:0.80, hombro:0.88, cabeza:1.14, lbl:'Juvenil' };
+  if (edad <= 19) return { id:'joven',    esc:0.93, hombro:0.96, cabeza:1.05, lbl:'Joven' };
+  if (edad <= 30) return { id:'adulto',   esc:1.00, hombro:1.00, cabeza:1.00, lbl:'Plenitud' };
+  if (edad <= 35) return { id:'maduro',   esc:1.00, hombro:1.02, cabeza:1.00, lbl:'Veterano' };
+  if (edad <= 45) return { id:'retirado', esc:0.99, hombro:1.00, cabeza:1.00, lbl:'Ex jugador' };
+  if (edad <= 60) return { id:'mayor',    esc:0.97, hombro:0.98, cabeza:1.00, lbl:'Mayor' };
+  return { id:'anciano', esc:0.94, hombro:0.94, cabeza:1.00, lbl:'Anciano' };
 }
 function _avShade(hex, amt){
   try{
-    let h = hex.replace('#','');
+    let h = String(hex||'#888').replace('#','');
     if (h.length === 3) h = h.split('').map(x=>x+x).join('');
     const n = parseInt(h,16);
-    let r = clamp(((n>>16)&255) + amt, 0, 255);
-    let g = clamp(((n>>8)&255) + amt, 0, 255);
-    let b = clamp((n&255) + amt, 0, 255);
+    const r = clamp(((n>>16)&255) + amt, 0, 255);
+    const g = clamp(((n>>8)&255) + amt, 0, 255);
+    const b = clamp((n&255) + amt, 0, 255);
     return '#' + [r,g,b].map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');
   }catch(e){ return hex; }
 }
-// Sprite del jugador ACTUAL (usa club, edad, nivel y títulos de la partida en curso).
-function avatarDeG(escala){
-  if(!G) return '';
-  const k = KITS[G.clubPais || G.pais] || { t:'solid', c:['#1b7a3e'], txt:'#fff' };
-  return avatarSprite(G.avatar, {
-    edad: G.edad,
-    kitBase: k.c[0], kitAlt: k.c[1] || '#ffffff', kitTxt: k.txt, kitTipo: k.t,
-    num: G.num,
-    aura: (G.nivel >= 88 || (G.titulos||0) >= 8),
-    capitan: (G.idolatria && G.idolatria[G.club] >= 55),
-    escala: escala || 5
-  });
+// ¿El texto va en blanco o negro sobre este color? (para nombre/número de camiseta)
+function _avContraste(hex){
+  try{
+    let h = String(hex||'#888').replace('#',''); if(h.length===3) h=h.split('').map(x=>x+x).join('');
+    const n=parseInt(h,16); const lum=(0.299*((n>>16)&255)+0.587*((n>>8)&255)+0.114*(n&255))/255;
+    return lum > 0.6 ? '#14140f' : '#ffffff';
+  }catch(e){ return '#ffffff'; }
 }
 
-// Opciones de render del avatar durante la creación (usa el kit del país elegido).
-function _avOpts(d, escala){
-  const k = KITS[d.pais] || { t:'solid', c:['#1b7a3e'], txt:'#fff' };
-  return { edad:12, kitBase:k.c[0], kitAlt:k.c[1]||'#ffffff', kitTxt:k.txt, kitTipo:k.t, num:d.num, escala:escala||10 };
+// ── POSES ─────────────────────────────────────────────────────────────────────
+// Cada pose mueve brazos, cabeza y piernas. Se usan según lo que pasa en la partida.
+const AV_POSES = {
+  idle:      { brazoL:0,   brazoR:0,   cabeza:0,  salto:0, cara:'normal' },
+  festejo:   { brazoL:-58, brazoR:58,  cabeza:-4, salto:3, cara:'feliz'  },
+  campeon:   { brazoL:-72, brazoR:72,  cabeza:-6, salto:5, cara:'feliz'  },
+  bajon:     { brazoL:8,   brazoR:-8,  cabeza:7,  salto:0, cara:'triste' },
+  lesion:    { brazoL:34,  brazoR:-16, cabeza:9,  salto:0, cara:'dolor'  },
+  pensando:  { brazoL:0,   brazoR:-42, cabeza:3,  salto:0, cara:'normal' },
+  saludo:    { brazoL:0,   brazoR:-88, cabeza:0,  salto:0, cara:'feliz'  },
+  correr:    { brazoL:-30, brazoR:30,  cabeza:0,  salto:2, cara:'normal' }
+};
+
+/**
+ * Dibuja el sprite completo.
+ * @param av    {piel,pelo,peloColor,barba,acc}
+ * @param o     {edad, kitBase, kitAlt, kitTxt, kitTipo, num, apellido, escala,
+ *               pose, aura, capitan, dorso, anim}
+ */
+function avatarSprite(av, o){
+  av = av || avatarDefault();
+  o = o || {};
+  const P  = AV_PIELES.find(x=>x.id===av.piel) || AV_PIELES[1];
+  const HC = (AV_COLORES_PELO.find(x=>x.id===av.peloColor) || AV_COLORES_PELO[0]).c;
+  const edad = o.edad != null ? o.edad : 24;
+  const E = avEtapa(edad);
+  const pose = AV_POSES[o.pose || 'idle'] || AV_POSES.idle;
+  const S = o.escala || 4;
+  const W = 48, H = 72;                                   // lienzo lógico
+  const base = o.kitBase || '#1b7a3e';
+  const alt  = o.kitAlt  || '#ffffff';
+  const tipo = o.kitTipo || 'solid';
+  const kitTxt = o.kitTxt || _avContraste(base);
+  const baseS = _avShade(base, -26), baseL = _avShade(base, 20);
+  const uid = 'av' + Math.random().toString(36).slice(2,8);
+  const p = [];
+  const R = (x,y,w,h,c,extra)=>{ if(w<=0||h<=0) return; p.push(`<rect x="${(x*S).toFixed(1)}" y="${(y*S).toFixed(1)}" width="${(w*S).toFixed(1)}" height="${(h*S).toFixed(1)}" fill="${c}"${extra||''}/>`); };
+
+  // ── Geometría base, escalada por etapa ──
+  const cx = W/2;
+  const pisoY = 68;
+  const alturaTotal = 56 * E.esc;
+  const topY = pisoY - alturaTotal;
+  const cabezaH = Math.round(13 * E.cabeza * (0.85 + 0.15*E.esc));
+  const cabezaW = Math.round(11 * E.cabeza * (0.85 + 0.15*E.esc));
+  const headX = Math.round(cx - cabezaW/2);
+  const headY = Math.round(topY) - pose.salto;
+  const cuelloY = headY + cabezaH;
+  const hombroW = Math.round(18 * E.hombro);
+  const torsoX = Math.round(cx - hombroW/2);
+  const torsoY = cuelloY + 2;
+  const torsoH = Math.round(20 * E.esc);
+  const shortY = torsoY + torsoH;
+  const shortH = Math.round(9 * E.esc);
+  const piernaY = shortY + shortH;
+  const piernaH = pisoY - piernaY - 2;
+
+  // ── SOMBRA EN EL PISO ──
+  p.push(`<ellipse cx="${(cx*S).toFixed(1)}" cy="${((pisoY+1.5)*S).toFixed(1)}" rx="${(hombroW*0.62*S).toFixed(1)}" ry="${(2.4*S).toFixed(1)}" fill="rgba(0,0,0,.34)"/>`);
+
+  // ── PIERNAS ──
+  const pw = Math.round(hombroW*0.30);
+  const gapP = Math.round(hombroW*0.10);
+  const lx1 = Math.round(cx - gapP/2 - pw), lx2 = Math.round(cx + gapP/2);
+  [lx1, lx2].forEach((lx,i)=>{
+    R(lx, piernaY, pw, piernaH, P.c);
+    R(lx, piernaY, 1, piernaH, P.s);                        // sombra lateral
+    R(lx+pw-1, piernaY, 1, piernaH, P.d);
+    // medias (color del kit)
+    const medH = Math.round(piernaH*0.42);
+    R(lx, piernaY+piernaH-medH, pw, medH, base);
+    R(lx, piernaY+piernaH-medH, 1, medH, baseS);
+    // botín
+    R(lx-1, pisoY-2, pw+2, 2, '#15150f');
+    R(lx-1, pisoY-2, pw+2, 1, '#2a2a20');
+  });
+
+  // ── SHORT ──
+  const shW = hombroW - 1;
+  const shX = Math.round(cx - shW/2);
+  const shortCol = (alt.toLowerCase()===base.toLowerCase()) ? '#f2f2ee' : alt;
+  R(shX, shortY, shW, shortH, shortCol);
+  R(shX, shortY, 1, shortH, _avShade(shortCol,-30));
+  R(shX+shW-1, shortY, 1, shortH, _avShade(shortCol,-40));
+  R(shX, shortY+shortH-1, shW, 1, _avShade(shortCol,-45));
+  R(Math.round(cx)-1, shortY+2, 2, shortH-2, _avShade(shortCol,-22));   // costura central
+
+  // ── TORSO / CAMISETA ──
+  R(torsoX, torsoY, hombroW, torsoH, base);
+  // patrón del kit
+  if (tipo === 'stripes'){
+    const ancho = Math.max(2, Math.round(hombroW/6));
+    for (let i = 0; i < hombroW; i += ancho*2) R(torsoX+i, torsoY, ancho, torsoH, alt);
+  } else if (tipo === 'sash'){
+    for (let i = 0; i < torsoH; i++){
+      const sx = torsoX + Math.round(i * (hombroW/torsoH)) - Math.round(hombroW*0.22);
+      const w = Math.round(hombroW*0.26);
+      const x0 = Math.max(torsoX, sx), x1 = Math.min(torsoX+hombroW, sx+w);
+      if (x1 > x0) R(x0, torsoY+i, x1-x0, 1, alt);
+    }
+  }
+  // volumen del torso
+  R(torsoX, torsoY, 2, torsoH, baseS);
+  R(torsoX+hombroW-2, torsoY, 2, torsoH, baseS);
+  R(torsoX+2, torsoY, hombroW-4, 1, baseL);
+  R(torsoX, torsoY+torsoH-2, hombroW, 2, baseS);
+  // cuello redondo
+  const cuW = Math.round(hombroW*0.36), cuX = Math.round(cx - cuW/2);
+  R(cuX, torsoY, cuW, 2, _avShade(base,-48));
+  R(cuX+1, torsoY, cuW-2, 1, P.d);
+
+  // ── NOMBRE Y NÚMERO EN LA CAMISETA (legibles de verdad) ──
+  const ape = String(o.apellido||'').toUpperCase().slice(0,12);
+  const num = String(o.num||'');
+  const dorso = !!o.dorso;
+  let textos = '';
+  if (dorso){
+    // Vista de espaldas: apellido arriba, número grande abajo.
+    if (ape) textos += `<text x="${(cx*S).toFixed(1)}" y="${((torsoY+5)*S).toFixed(1)}" text-anchor="middle" font-family="Outfit,Arial Black,sans-serif" font-weight="900" font-size="${(3.4*S).toFixed(1)}" fill="${kitTxt}" textLength="${(hombroW*0.82*S).toFixed(1)}" lengthAdjust="spacingAndGlyphs" style="letter-spacing:.4px">${esc(ape)}</text>`;
+    if (num) textos += `<text x="${(cx*S).toFixed(1)}" y="${((torsoY+torsoH*0.82)*S).toFixed(1)}" text-anchor="middle" font-family="Outfit,Arial Black,sans-serif" font-weight="900" font-size="${(11*S*E.esc).toFixed(1)}" fill="${kitTxt}" style="letter-spacing:-.5px">${esc(num)}</text>`;
+  } else if (num){
+    // Vista de frente: número chico en el pecho.
+    textos += `<text x="${((torsoX+hombroW*0.26)*S).toFixed(1)}" y="${((torsoY+torsoH*0.52)*S).toFixed(1)}" text-anchor="middle" font-family="Outfit,Arial Black,sans-serif" font-weight="900" font-size="${(4.6*S*E.esc).toFixed(1)}" fill="${kitTxt}">${esc(num)}</text>`;
+  }
+  // Escudito del club en el pecho (lado contrario al número)
+  if (!dorso) R(Math.round(torsoX+hombroW*0.62), torsoY+Math.round(torsoH*0.28), 3, 4, kitTxt === '#ffffff' ? 'rgba(255,255,255,.75)' : 'rgba(0,0,0,.5)');
+  // Cinta de capitán
+  if (o.capitan) { R(torsoX-1, torsoY+Math.round(torsoH*0.22), 3, 4, '#facc15'); R(torsoX-1, torsoY+Math.round(torsoH*0.22), 3, 1, '#fde68a'); }
+
+  // ── BRAZOS (rotan según la pose) ──
+  const brW = Math.max(2, Math.round(hombroW*0.19));
+  const brH = Math.round(torsoH*0.92);
+  const hombroY = torsoY + 2;
+  const brazos = [
+    { x: torsoX - brW, ang: pose.brazoL, dir:-1 },
+    { x: torsoX + hombroW, ang: pose.brazoR, dir: 1 }
+  ].map(b=>{
+    const ox = (b.x + brW/2) * S, oy = (hombroY + 1) * S;
+    const manoY = hombroY + brH;
+    let mano = `<rect x="${(b.x*S).toFixed(1)}" y="${(manoY*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brW*1.1*S).toFixed(1)}" fill="${av.acc==='guantes'?'#f97316':P.c}"/>`;
+    let manga = `<rect x="${(b.x*S).toFixed(1)}" y="${(hombroY*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brH*0.34*S).toFixed(1)}" fill="${tipo==='stripes'?alt:base}"/>`;
+    let piel = `<rect x="${(b.x*S).toFixed(1)}" y="${((hombroY+brH*0.34)*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brH*0.66*S).toFixed(1)}" fill="${P.c}"/>`;
+    let sombra = `<rect x="${(b.x*S).toFixed(1)}" y="${(hombroY*S).toFixed(1)}" width="${(1*S).toFixed(1)}" height="${(brH*S).toFixed(1)}" fill="${P.s}" opacity=".55"/>`;
+    let tat = (av.acc==='tatuajes') ? `<rect x="${(b.x*S).toFixed(1)}" y="${((hombroY+brH*0.5)*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brH*0.22*S).toFixed(1)}" fill="${_avShade(P.c,-58)}" opacity=".75"/>` : '';
+    let mun = (av.acc==='muneq') ? `<rect x="${(b.x*S).toFixed(1)}" y="${((manoY-1.6)*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(1.6*S).toFixed(1)}" fill="#baff00"/>` : '';
+    return `<g transform="rotate(${b.ang} ${ox.toFixed(1)} ${oy.toFixed(1)})">${manga}${piel}${sombra}${tat}${mun}${mano}</g>`;
+  }).join('');
+
+  // ── CABEZA ──
+  const cab = [];
+  const CR = (x,y,w,h,c)=>{ if(w<=0||h<=0) return; cab.push(`<rect x="${(x*S).toFixed(1)}" y="${(y*S).toFixed(1)}" width="${(w*S).toFixed(1)}" height="${(h*S).toFixed(1)}" fill="${c}"/>`); };
+  // cuello
+  CR(Math.round(cx-cabezaW*0.20), cuelloY-1, Math.round(cabezaW*0.40), 3, P.s);
+  // cara
+  CR(headX, headY, cabezaW, cabezaH, P.c);
+  CR(headX, headY, 1, cabezaH, P.s);
+  CR(headX+cabezaW-1, headY, 1, cabezaH, P.d);
+  CR(headX+1, headY+cabezaH-2, cabezaW-2, 2, P.s);       // mentón
+  // orejas
+  CR(headX-1, headY+Math.round(cabezaH*0.42), 1, Math.round(cabezaH*0.22), P.s);
+  CR(headX+cabezaW, headY+Math.round(cabezaH*0.42), 1, Math.round(cabezaH*0.22), P.s);
+  // cejas + ojos
+  const ojoY = headY + Math.round(cabezaH*0.42);
+  const ojoW = Math.max(2, Math.round(cabezaW*0.20));
+  const ojoIzq = headX + Math.round(cabezaW*0.18), ojoDer = headX + cabezaW - Math.round(cabezaW*0.18) - ojoW;
+  const cejaOff = pose.cara==='dolor' ? 1 : pose.cara==='triste' ? 1 : 0;
+  CR(ojoIzq, ojoY-2+cejaOff, ojoW, 1, _avShade(HC,-14));
+  CR(ojoDer, ojoY-2+cejaOff, ojoW, 1, _avShade(HC,-14));
+  if (pose.cara === 'feliz'){
+    CR(ojoIzq, ojoY+1, ojoW, 1, '#16130f');               // ojos cerrados de alegría
+    CR(ojoDer, ojoY+1, ojoW, 1, '#16130f');
+  } else if (pose.cara === 'dolor'){
+    CR(ojoIzq, ojoY, ojoW, 1, '#16130f');
+    CR(ojoDer, ojoY, ojoW, 1, '#16130f');
+  } else {
+    CR(ojoIzq, ojoY, ojoW, 2, '#f6f2e8');
+    CR(ojoDer, ojoY, ojoW, 2, '#f6f2e8');
+    CR(ojoIzq+(ojoW>2?1:0), ojoY, 1, 2, '#16130f');
+    CR(ojoDer+(ojoW>2?1:0), ojoY, 1, 2, '#16130f');
+  }
+  // nariz
+  CR(headX+Math.round(cabezaW*0.45), ojoY+2, 1, 2, P.s);
+  // boca según ánimo
+  const bocaY = headY + Math.round(cabezaH*0.74);
+  const bocaX = headX + Math.round(cabezaW*0.32), bocaW = Math.round(cabezaW*0.36);
+  if (pose.cara === 'feliz'){ CR(bocaX, bocaY, bocaW, 2, '#7a3b34'); CR(bocaX, bocaY, bocaW, 1, '#f6f2e8'); }
+  else if (pose.cara === 'triste'){ CR(bocaX, bocaY+1, bocaW, 1, P.d); CR(bocaX, bocaY, 1, 1, P.d); CR(bocaX+bocaW-1, bocaY, 1, 1, P.d); }
+  else if (pose.cara === 'dolor'){ CR(bocaX, bocaY, bocaW, 2, '#5c2b26'); }
+  else CR(bocaX, bocaY, bocaW, 1, P.d);
+  // ── BARBA (crece sola con los años) ──
+  const barba = Math.min(3, (av.barba||0) + (edad>=32?1:0) + (edad>=45?1:0));
+  if (barba >= 1){
+    CR(headX+1, headY+Math.round(cabezaH*0.68), cabezaW-2, Math.round(cabezaH*0.30), HC);
+    if (pose.cara==='feliz'){ CR(bocaX, bocaY, bocaW, 2, '#7a3b34'); CR(bocaX, bocaY, bocaW, 1, '#f6f2e8'); }
+    else CR(bocaX, bocaY, bocaW, 1, _avShade(P.d,-18));
+  }
+  if (barba >= 2){
+    CR(headX, headY+Math.round(cabezaH*0.48), 1, Math.round(cabezaH*0.42), HC);
+    CR(headX+cabezaW-1, headY+Math.round(cabezaH*0.48), 1, Math.round(cabezaH*0.42), HC);
+    CR(headX+Math.round(cabezaW*0.30), headY+Math.round(cabezaH*0.62), Math.round(cabezaW*0.40), 1, HC); // bigote
+  }
+  if (barba >= 3) CR(headX+1, headY+cabezaH-1, cabezaW-2, 3, HC);
+  // ── PELO ──
+  _avPelo(CR, av.pelo, headX, headY, cabezaW, cabezaH, HC);
+  // vincha
+  if (av.acc === 'cinta') CR(headX-1, headY+Math.round(cabezaH*0.20), cabezaW+2, 2, '#baff00');
+
+  // ── ENSAMBLADO ──
+  const cw = W*S, ch = H*S;
+  const aura = o.aura
+    ? `<defs><radialGradient id="${uid}a"><stop offset="0%" stop-color="#facc15" stop-opacity=".42"/><stop offset="60%" stop-color="#facc15" stop-opacity=".12"/><stop offset="100%" stop-color="#facc15" stop-opacity="0"/></radialGradient></defs><ellipse cx="${cw/2}" cy="${ch*0.62}" rx="${cw*0.5}" ry="${ch*0.46}" fill="url(#${uid}a)"/>`
+    : '';
+  // Animación de respiración/idle (suave, no molesta)
+  const anim = o.anim === false ? '' :
+    `<style>@keyframes ${uid}b{0%,100%{transform:translateY(0)}50%{transform:translateY(${(0.5*S).toFixed(1)}px)}}
+     .${uid}body{animation:${uid}b ${o.pose==='correr'?'0.5s':'3.2s'} ease-in-out infinite;transform-origin:${cw/2}px ${ch}px}</style>`;
+  return `<svg viewBox="0 0 ${cw} ${ch}" width="${cw}" height="${ch}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;shape-rendering:crispEdges;">${anim}${aura}<g class="${uid}body">${p.join('')}${brazos}${textos}${cab.join('')}</g></svg>`;
 }
-// Editor visual del personaje: piel, pelo, color, barba y accesorio.
+
+function _avPelo(CR, tipo, hx, hy, hw, hh, c){
+  const cS = _avShade(c, -22), cL = _avShade(c, 26);
+  const t = Math.max(1, Math.round(hh*0.14));
+  switch(tipo){
+    case 'calvo':
+      CR(hx+1, hy, hw-2, 1, _avShade(c, 40)); break;
+    case 'rapado':
+      CR(hx, hy, hw, Math.round(hh*0.16), c);
+      CR(hx+1, hy, hw-2, 1, cL); break;
+    case 'corto':
+      CR(hx-1, hy-1, hw+2, Math.round(hh*0.30), c);
+      CR(hx-1, hy+Math.round(hh*0.18), 1, Math.round(hh*0.20), c);
+      CR(hx+hw, hy+Math.round(hh*0.18), 1, Math.round(hh*0.20), c);
+      CR(hx+1, hy-1, hw-3, 1, cL); break;
+    case 'largo':
+      CR(hx-1, hy-1, hw+2, Math.round(hh*0.28), c);
+      CR(hx-2, hy, 2, Math.round(hh*1.05), c);
+      CR(hx+hw, hy, 2, Math.round(hh*1.05), c);
+      CR(hx+1, hy-1, hw-3, 1, cL); break;
+    case 'afro':
+      CR(hx-2, hy-4, hw+4, Math.round(hh*0.42), c);
+      CR(hx-3, hy-2, 2, Math.round(hh*0.40), c);
+      CR(hx+hw+1, hy-2, 2, Math.round(hh*0.40), c);
+      CR(hx, hy-4, hw-2, 1, cL); break;
+    case 'tupe':
+      CR(hx-1, hy-1, hw+2, Math.round(hh*0.22), c);
+      CR(hx+Math.round(hw*0.18), hy-Math.round(hh*0.30), Math.round(hw*0.62), Math.round(hh*0.32), c);
+      CR(hx+Math.round(hw*0.22), hy-Math.round(hh*0.30), Math.round(hw*0.40), 1, cL); break;
+    case 'mohawk':
+      CR(hx, hy, hw, Math.round(hh*0.14), cS);
+      CR(hx+Math.round(hw*0.34), hy-Math.round(hh*0.44), Math.round(hw*0.32), Math.round(hh*0.56), c);
+      CR(hx+Math.round(hw*0.38), hy-Math.round(hh*0.44), Math.round(hw*0.16), Math.round(hh*0.20), cL); break;
+    case 'rastas':
+      CR(hx-1, hy-2, hw+2, Math.round(hh*0.26), c);
+      for (let i = -1; i < hw+1; i += 3) CR(hx+i, hy+Math.round(hh*0.14), 2, Math.round(hh*(0.75 + (i%2?0.22:0))), c);
+      break;
+    case 'colita':
+      CR(hx-1, hy-1, hw+2, Math.round(hh*0.26), c);
+      CR(hx+hw, hy+Math.round(hh*0.16), 2, Math.round(hh*0.14), c);
+      CR(hx+hw+1, hy+Math.round(hh*0.22), 3, Math.round(hh*0.44), c);
+      CR(hx+1, hy-1, hw-3, 1, cL); break;
+    default:
+      CR(hx-1, hy-1, hw+2, Math.round(hh*0.28), c);
+  }
+}
+
+// ── Kit del club actual (colores reales del país del CLUB, no del jugador) ─────
+// Si estás con la selección, usa los colores de TU país.
+function kitDe(pais){
+  const k = KITS[pais];
+  if (k) return { base:k.c[0], alt:k.c[1]||'#ffffff', txt:k.txt||_avContraste(k.c[0]), tipo:k.t };
+  return { base:'#1b7a3e', alt:'#ffffff', txt:'#ffffff', tipo:'solid' };
+}
+// Sprite del jugador ACTUAL de la partida.
+function avatarDeG(escala, pose, opts){
+  if(!G) return '';
+  opts = opts || {};
+  // Con la selección usa el kit del PAÍS del jugador; en el club, el del país del club.
+  const pais = opts.seleccion ? G.pais : (G.clubPais || G.pais);
+  const k = kitDe(pais);
+  return avatarSprite(G.avatar, {
+    edad: G.edad,
+    kitBase:k.base, kitAlt:k.alt, kitTxt:k.txt, kitTipo:k.tipo,
+    num: opts.seleccion ? (G.numSeleccion || G.num) : G.num,
+    apellido: G.apellido,
+    dorso: !!opts.dorso,
+    pose: pose || 'idle',
+    aura: opts.aura != null ? opts.aura : ((G.nivel||0) >= 88 || (G.titulos||0) >= 8),
+    capitan: !!(G.idolatria && G.idolatria[G.club] >= 55),
+    escala: escala || 4,
+    anim: opts.anim
+  });
+}
+// Marco reutilizable para mostrar el avatar (fondo de cancha nocturna, como el juego).
+function avatarBox(inner, pad){
+  return `<div style="background:linear-gradient(180deg,#16200f 0%,#0c1208 70%,#080b06 100%);border:1px solid #26361c;border-radius:12px;padding:${pad||'10px 14px'};display:inline-flex;align-items:flex-end;justify-content:center;position:relative;overflow:hidden;">
+    <div style="position:absolute;left:0;right:0;bottom:0;height:34%;background:linear-gradient(180deg,rgba(70,140,50,.13),rgba(70,140,50,.04));"></div>
+    <div style="position:relative;">${inner}</div>
+  </div>`;
+}
+
+// ── BARRA SUPERIOR PERSISTENTE (estilo HUD de simulador) ──────────────────────
+// Siempre visible: avatar chico, edad/etapa, club actual y el marcador del duelo
+// con el némesis. Se toca para abrir la ficha completa del rival.
+function hudHTML(){
+  if(!G) return '';
+  const E = avEtapa(G.edad);
+  const R = G.rival;
+  const dueloOn = R && (R.ganados + R.perdidos) > 0;
+  const gano = dueloOn && R.ganados > R.perdidos;
+  return `<div style="position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(8,10,7,.97),rgba(8,10,7,.88));backdrop-filter:blur(8px);border-bottom:1px solid #1e2619;padding:6px 10px;display:flex;align-items:center;gap:9px;margin:-16px -16px 12px;">
+    <div style="background:linear-gradient(180deg,#16200f,#0a0f07);border:1px solid #26361c;border-radius:9px;padding:2px 5px;flex-shrink:0;">
+      ${avatarDeG(0.95, 'idle', { anim:true })}
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div style="display:flex;align-items:center;gap:5px;">
+        <span style="font-size:12.5px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(G.apellido||'—')}</span>
+        <span style="font-size:9px;font-weight:900;color:${A};background:rgba(186,255,0,.12);border-radius:4px;padding:1px 5px;flex-shrink:0;">#${G.num}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;margin-top:1px;">
+        <span style="flex-shrink:0;">${clubBadge(G.club,14)}</span>
+        <span style="font-size:10px;color:#8a9280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(G.club)}</span>
+      </div>
+    </div>
+    <div style="text-align:center;flex-shrink:0;padding:0 6px;border-left:1px solid #1e2619;border-right:1px solid #1e2619;">
+      <div style="font-size:8.5px;color:#5f6a58;font-weight:900;">EDAD</div>
+      <div style="font-size:14px;font-weight:900;color:#fff;line-height:1;">${G.edad}</div>
+      <div style="font-size:7.5px;color:#5f6a58;">${E.lbl}</div>
+    </div>
+    <div style="text-align:center;flex-shrink:0;">
+      <div style="font-size:8.5px;color:#5f6a58;font-weight:900;">NIVEL</div>
+      <div style="font-size:14px;font-weight:900;color:${A};line-height:1;">${Math.round(G.nivel)}</div>
+    </div>
+    ${dueloOn?`<button onclick="window._rivalFicha()" style="flex-shrink:0;background:${gano?'rgba(34,197,94,.1)':'rgba(239,68,68,.1)'};border:1px solid ${gano?'rgba(34,197,94,.35)':'rgba(239,68,68,.35)'};border-radius:8px;padding:4px 7px;cursor:pointer;text-align:center;">
+      <div style="font-size:8px;color:#8a9280;font-weight:900;white-space:nowrap;">${esc(R.nombre).slice(0,8).toUpperCase()}</div>
+      <div style="font-size:12px;font-weight:900;color:${gano?'#22c55e':'#ef4444'};line-height:1.1;">${R.ganados}-${R.perdidos}</div>
+    </button>`:''}
+  </div>`;
+}
+// Ficha completa del némesis: club por temporada, valor, stats y vitrina.
+window._rivalFicha = function(){
+  if(!G || !G.rival) return;
+  const R = G.rival;
+  const m = document.getElementById('carrera-modal') || overlay();
+  const hist = (R.hist||[]).slice().reverse();
+  const kR = kitDe(R.pais);
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:18px 16px calc(30px + env(safe-area-inset-bottom));">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <button onclick="window._carreraHub()" style="background:rgba(255,255,255,.06);border:none;color:#aaa;width:32px;height:32px;border-radius:50%;font-size:17px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:18px;color:#fff;">Tu némesis</div>
+    </div>
+    <div style="background:linear-gradient(160deg,rgba(239,68,68,.09),rgba(20,22,18,.6));border:1px solid rgba(239,68,68,.3);border-radius:16px;padding:16px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:14px;">
+        ${avatarBox(avatarSprite(R.avatar||avatarDefault(), { edad:G.edad, kitBase:kR.base, kitAlt:kR.alt, kitTxt:kR.txt, kitTipo:kR.tipo, num:R.num||9, apellido:R.nombre, escala:2.2 }), '8px 12px')}
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:20px;color:#fff;">${esc(R.nombre)}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:3px;">${flagImg(R.pais,16)}<span style="font-size:11.5px;color:#9aa294;">${esc(posLabelLargo(R.pos))}</span></div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:5px;">${clubBadge(R.club,20)}<span style="font-size:12px;color:#fff;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(R.club)}</span></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:13px;">
+        ${cell('NIVEL', Math.round(R.nivel), '#ef4444')}
+        ${cell('GOLES', R.tot.g, '#fff')}
+        ${cell('ASIST', R.tot.a, '#fff')}
+        ${cell('TÍTULOS', R.titulos, '#facc15')}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
+        ${cell('VALOR', eur(R.valor||0), '#22d3ee')}
+        ${cell('DUELO', R.ganados+'—'+R.perdidos, R.ganados>=R.perdidos?'#22c55e':'#ef4444')}
+      </div>
+      ${(R.vitrina&&R.vitrina.length)?`<div style="margin-top:12px;">
+        <div style="font-size:9.5px;font-weight:900;color:#facc15;letter-spacing:1px;margin-bottom:6px;">SU VITRINA</div>
+        <div style="display:flex;gap:7px;overflow-x:auto;padding-bottom:3px;">
+          ${R.vitrina.map(v=>`<div style="flex-shrink:0;width:52px;text-align:center;"><div style="height:36px;display:flex;align-items:center;justify-content:center;">${trofeoRender(v.nombre,34)}</div><div style="font-size:7.5px;color:#999;margin-top:2px;line-height:1.15;">${esc(v.nombre).slice(0,18)}</div></div>`).join('')}
+        </div>
+      </div>`:''}
+    </div>
+    <div style="font-size:10px;font-weight:900;color:#8a9280;letter-spacing:1.5px;margin-bottom:7px;">SU CARRERA TEMPORADA A TEMPORADA</div>
+    <div style="background:#0d100d;border:1px solid #1c211a;border-radius:13px;overflow:hidden;">
+      <div style="display:flex;font-size:9px;font-weight:900;color:#5f6a58;padding:8px 10px;border-bottom:1px solid #1c211a;"><span style="width:28px;">EDAD</span><span style="flex:1;">CLUB</span><span style="width:28px;text-align:center;">NIV</span><span style="width:26px;text-align:center;">G</span><span style="width:26px;text-align:center;">A</span><span style="width:22px;text-align:center;">🏆</span></div>
+      ${hist.length ? hist.map(h=>`<div style="display:flex;align-items:center;font-size:11.5px;padding:8px 10px;border-bottom:1px solid #141814;color:#fff;">
+        <span style="width:28px;font-weight:800;color:#8a9280;">${h.edad}</span>
+        <span style="flex:1;display:flex;align-items:center;gap:6px;min-width:0;">${clubBadge(h.club,16)}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(h.club)}</span>${h.cambio?`<i class='bx bx-transfer' title="Se cambió de club" style="color:#a78bfa;font-size:12px;flex-shrink:0;"></i>`:''}</span>
+        <span style="width:28px;text-align:center;font-weight:900;color:#ef4444;">${h.niv}</span>
+        <span style="width:26px;text-align:center;">${h.g}</span>
+        <span style="width:26px;text-align:center;">${h.a}</span>
+        <span style="width:22px;text-align:center;">${h.titulo?'<i class="bx bxs-trophy" style="color:#facc15;font-size:12px;"></i>':''}</span>
+      </div>`).join('') : `<div style="padding:24px;text-align:center;color:#555;font-size:12px;">Todavía no jugó ninguna temporada.</div>`}
+    </div>
+  </div>`;
+};
+
+// Opciones de render durante la creación del personaje.
+function _avOpts(d, escala){
+  const k = kitDe(d.pais);
+  return { edad:13, kitBase:k.base, kitAlt:k.alt, kitTxt:k.txt, kitTipo:k.tipo, num:d.num, apellido:d.apellido, escala:escala||4, pose:'idle' };
+}
+// Editor visual del personaje (compacto: chips en filas con scroll horizontal).
 function _avEditorHTML(d){
   const av = d.avatar;
-  const fila = (titulo, items, key, activo, render) => `
-    <div style="margin-bottom:12px;">
-      <div style="font-size:10px;font-weight:800;color:#666;letter-spacing:1px;margin-bottom:6px;text-align:left;">${titulo}</div>
-      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:3px;">
-        ${items.map(it=>`<button onclick="window._avSet('${key}','${it.id}')" title="${esc(it.n)}" style="flex-shrink:0;background:${activo===it.id?'rgba(186,255,0,.14)':'rgba(255,255,255,.04)'};border:1.5px solid ${activo===it.id?A:'#262626'};border-radius:11px;padding:7px 10px;cursor:pointer;min-width:48px;">
-          ${render ? render(it) : ''}
-          <div style="font-size:9.5px;color:${activo===it.id?A:'#999'};font-weight:800;margin-top:${render?'4px':'0'};white-space:nowrap;">${esc(it.n)}</div>
+  const fila = (titulo, items, key, activo, swatch) => `
+    <div style="margin-bottom:9px;">
+      <div style="font-size:9px;font-weight:900;color:#5f6a58;letter-spacing:1.2px;margin-bottom:4px;">${titulo}</div>
+      <div style="display:flex;gap:5px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;">
+        ${items.map(it=>`<button onclick="window._avSet('${key}','${it.id}')" style="flex-shrink:0;background:${activo===it.id?'rgba(186,255,0,.15)':'rgba(255,255,255,.04)'};border:1.5px solid ${activo===it.id?A:'#242a20'};border-radius:9px;padding:${swatch?'5px 7px':'6px 9px'};cursor:pointer;">
+          ${swatch ? `<div style="width:22px;height:15px;border-radius:4px;background:${it.c};border:1px solid rgba(0,0,0,.35);"></div>` : `<span style="font-size:10.5px;color:${activo===it.id?A:'#9aa294'};font-weight:800;white-space:nowrap;">${esc(it.n)}</span>`}
         </button>`).join('')}
       </div>
     </div>`;
-  return `<div style="max-width:340px;margin:0 auto;text-align:left;">
-    ${fila('PIEL', AV_PIELES, 'piel', av.piel, it=>`<div style="width:26px;height:20px;border-radius:5px;background:${it.c};border:1px solid rgba(0,0,0,.4);margin:0 auto;"></div>`)}
-    ${fila('PELO', AV_PELOS, 'pelo', av.pelo, null)}
-    ${fila('COLOR DE PELO', AV_COLORES_PELO, 'peloColor', av.peloColor, it=>`<div style="width:26px;height:20px;border-radius:5px;background:${it.c};border:1px solid rgba(255,255,255,.15);margin:0 auto;"></div>`)}
-    ${fila('BARBA', [{id:'0',n:'Sin barba'},{id:'1',n:'Candado'},{id:'2',n:'Corta'},{id:'3',n:'Tupida'}], 'barba', String(av.barba||0), null)}
-    ${fila('DETALLE', AV_ACCS, 'acc', av.acc, null)}
-    <button onclick="window._avRandom()" style="width:100%;background:rgba(255,255,255,.05);border:1px solid #262626;border-radius:11px;padding:10px;color:#c4ccc0;font-weight:800;font-size:12.5px;cursor:pointer;margin-top:2px;"><i class='bx bx-dice-5'></i> Sorprendeme</button>
+  return `<div class="cr-av-editor">
+    ${fila('PIEL', AV_PIELES, 'piel', av.piel, true)}
+    ${fila('PELO', AV_PELOS, 'pelo', av.pelo, false)}
+    ${fila('COLOR', AV_COLORES_PELO, 'peloColor', av.peloColor, true)}
+    ${fila('BARBA', [{id:'0',n:'Sin barba'},{id:'1',n:'Candado'},{id:'2',n:'Corta'},{id:'3',n:'Tupida'}], 'barba', String(av.barba||0), false)}
+    ${fila('DETALLE', AV_ACCS, 'acc', av.acc, false)}
+    <button onclick="window._avRandom()" style="width:100%;background:rgba(255,255,255,.05);border:1px solid #242a20;border-radius:9px;padding:8px;color:#9aa294;font-weight:800;font-size:11.5px;cursor:pointer;"><i class='bx bx-dice-5'></i> Sorprendeme</button>
   </div>`;
 }
 window._avSet = function(k, v){
@@ -705,23 +982,19 @@ window._avSet = function(k, v){
   if(!_draft.avatar) _draft.avatar = avatarDefault();
   _draft.avatar[k] = (k === 'barba') ? parseInt(v,10) : v;
   const el = document.getElementById('cr-avatar');
-  if (el) el.innerHTML = avatarSprite(_draft.avatar, _avOpts(_draft, 12));
-  // Repintar solo los botones de esa fila (evita perder el scroll horizontal).
-  const cont = el && el.closest('div[style*="border-radius:16px"]');
-  if (cont) { const ed = cont.querySelector('div[style*="max-width:340px"]'); if (ed) ed.outerHTML = _avEditorHTML(_draft); }
+  if (el) el.innerHTML = avatarSprite(_draft.avatar, _avOpts(_draft, _avEscalaIdent()));
+  const ed = document.querySelector('.cr-av-editor');
+  if (ed) ed.outerHTML = _avEditorHTML(_draft);
 };
 window._avRandom = function(){
   if(!_draft) return;
-  _draft.avatar = {
-    piel: pick(AV_PIELES).id,
-    pelo: pick(AV_PELOS).id,
-    peloColor: pick(AV_COLORES_PELO).id,
-    barba: ri(0,3),
-    acc: pick(AV_ACCS).id
-  };
-  renderIdent();
+  _draft.avatar = { piel:pick(AV_PIELES).id, pelo:pick(AV_PELOS).id, peloColor:pick(AV_COLORES_PELO).id, barba:ri(0,3), acc:pick(AV_ACCS).id };
+  const el = document.getElementById('cr-avatar');
+  if (el) el.innerHTML = avatarSprite(_draft.avatar, _avOpts(_draft, _avEscalaIdent()));
+  const ed = document.querySelector('.cr-av-editor');
+  if (ed) ed.outerHTML = _avEditorHTML(_draft);
 };
-
+function _avEscalaIdent(){ return (window.innerWidth||400) < 420 ? 3 : 3.6; }
 let _draft=null;
 window._carreraIdent = function(years){
   _draft = _draft || { years, apellido:(me().name||'').split(' ').slice(-1)[0]||'', num:10, pie:'Derecha', pais:(me().nat||me().country||'Uruguay'), pos:'DC', filtro:'', avatar:avatarDefault() };
@@ -735,41 +1008,42 @@ function renderIdent(){
   const list = PAISES.filter(p=>p.toLowerCase().includes((d.filtro||'').toLowerCase()));
   m.innerHTML=`
   <div style="max-width:1040px;margin:0 auto;padding:18px 18px calc(96px + env(safe-area-inset-bottom));">
-    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;color:#fff;margin-bottom:16px;">Definí tu identidad</div>
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;color:#fff;margin-bottom:10px;">Definí tu jugador</div>
     <div style="display:grid;grid-template-columns:1fr;gap:18px;">
-      <!-- Identidad: avatar 8-bit + camiseta -->
-      <div style="background:rgba(255,255,255,.03);border:1px solid #1c1c1c;border-radius:16px;padding:18px;text-align:center;">
-        <div style="font-size:12px;font-weight:900;letter-spacing:1px;color:#9aa0a6;margin-bottom:12px;">TU JUGADOR</div>
-        <div style="display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;margin-bottom:14px;">
-          <div style="background:linear-gradient(180deg,#1a2416,#0d120b);border:1px solid #2a3a22;border-radius:14px;padding:14px 20px;position:relative;">
-            <div id="cr-avatar" style="display:flex;justify-content:center;">${avatarSprite(d.avatar, _avOpts(d, 12))}</div>
-            <div style="font-size:9px;color:#6b7a5e;font-weight:800;letter-spacing:1px;margin-top:6px;">12 AÑOS · POTRERO</div>
+      <!-- Panel compacto: avatar fijo arriba + pestañas abajo (entra en una pantalla) -->
+      <div style="background:rgba(255,255,255,.03);border:1px solid #1c1c1c;border-radius:16px;padding:12px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+          ${avatarBox(`<div id="cr-avatar">${avatarSprite(d.avatar, _avOpts(d, _avEscalaIdent()))}</div>`, '8px 12px')}
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;gap:6px;">
+              <div style="flex:2;"><label style="font-size:9px;font-weight:800;color:#5f6a58;display:block;margin-bottom:3px;">APELLIDO</label><input id="cr-ape" value="${esc(d.apellido)}" placeholder="APELLIDO" oninput="window._carreraSet('apellido',this.value)" style="${inp()};padding:8px;font-size:13px;"></div>
+              <div style="width:62px;"><label style="font-size:9px;font-weight:800;color:#5f6a58;display:block;margin-bottom:3px;">Nº</label><input id="cr-num" type="number" min="1" max="99" value="${d.num}" oninput="window._carreraSet('num',this.value)" style="${inp()};padding:8px;font-size:13px;text-align:center;"></div>
+            </div>
+            <div style="margin-top:7px;"><label style="font-size:9px;font-weight:800;color:#5f6a58;display:block;margin-bottom:3px;">PIERNA</label>
+              <div style="display:flex;gap:5px;">
+                ${['Izquierda','Derecha'].map(x=>`<button onclick="window._carreraSet('pie','${x}')" style="flex:1;background:${d.pie===x?A:'#161616'};color:${d.pie===x?'#000':'#9aa294'};border:1px solid ${d.pie===x?A:'#242a20'};border-radius:8px;padding:7px 4px;font-weight:800;font-size:11.5px;cursor:pointer;">${x.slice(0,3)}</button>`).join('')}
+              </div>
+            </div>
+            <div style="margin-top:7px;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.03);border:1px solid #242a20;border-radius:8px;padding:6px 8px;">
+              ${flagImg(d.pais,18)}<span style="font-size:11.5px;color:#c4ccc0;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(d.pais)}</span>
+              <span style="font-size:10px;font-weight:900;color:${A};background:rgba(186,255,0,.12);border-radius:5px;padding:2px 6px;">${esc(d.pos)}</span>
+            </div>
           </div>
-          <div id="cr-jersey">${jersey(130, d.apellido, d.num, d.pais)}</div>
         </div>
-        ${_avEditorHTML(d)}
-        <div style="display:flex;gap:8px;max-width:320px;margin:0 auto;">
-          <div style="flex:2;"><label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:4px;">APELLIDO</label><input id="cr-ape" value="${esc(d.apellido)}" placeholder="APELLIDO" oninput="window._carreraSet('apellido',this.value)" style="${inp()}"></div>
-          <div style="flex:1;"><label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:4px;">NÚMERO</label><input id="cr-num" type="number" min="1" max="99" value="${d.num}" oninput="window._carreraSet('num',this.value)" style="${inp()}"></div>
+        <!-- Pestañas -->
+        <div style="display:flex;gap:5px;margin-bottom:10px;">
+          ${[['look','Aspecto','bx-user'],['pais','País','bx-world'],['pos','Puesto','bx-football']].map(t=>`
+            <button onclick="window._identTab('${t[0]}')" style="flex:1;background:${(d.tab||'look')===t[0]?'rgba(186,255,0,.13)':'rgba(255,255,255,.03)'};border:1.5px solid ${(d.tab||'look')===t[0]?A:'#242a20'};border-radius:10px;padding:8px 4px;cursor:pointer;color:${(d.tab||'look')===t[0]?A:'#8a9280'};font-weight:900;font-size:11.5px;"><i class='bx ${t[2]}'></i> ${t[1]}</button>`).join('')}
         </div>
-        <div style="max-width:320px;margin:12px auto 0;"><label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:4px;">PIERNA HÁBIL</label>
-          <div style="display:flex;gap:6px;">
-            ${['Izquierda','Derecha'].map(x=>`<button onclick="window._carreraSet('pie','${x}')" style="flex:1;background:${d.pie===x?A:'#161616'};color:${d.pie===x?'#000':'#aaa'};border:1px solid ${d.pie===x?A:'#262626'};border-radius:10px;padding:11px;font-weight:800;font-size:13px;cursor:pointer;">${x}</button>`).join('')}
-          </div>
+        <div style="min-height:250px;">
+          ${(d.tab||'look')==='look' ? _avEditorHTML(d) : ''}
+          ${d.tab==='pais' ? `
+            <input value="${esc(d.filtro)}" placeholder="Buscar país" oninput="window._carreraSet('filtro',this.value)" style="${inp()};margin-bottom:8px;padding:9px;">
+            <div style="max-height:220px;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:5px;">
+              ${list.map(p=>`<button onclick="window._carreraSet('pais','${p.replace(/'/g,"\\'")}')" style="display:flex;align-items:center;gap:7px;background:${d.pais===p?'rgba(186,255,0,.1)':'transparent'};border:1px solid ${d.pais===p?'rgba(186,255,0,.3)':'#1c211a'};border-radius:9px;padding:8px;color:#fff;cursor:pointer;text-align:left;font-size:11.5px;font-weight:700;">${flagImg(p,18)}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(p)}</span></button>`).join('')}
+            </div>` : ''}
+          ${d.tab==='pos' ? pitch(d.pos,'window._carreraSet.bind(null,\'pos\')') : ''}
         </div>
-      </div>
-      <!-- Nacionalidad -->
-      <div style="background:rgba(255,255,255,.03);border:1px solid #1c1c1c;border-radius:16px;padding:18px;">
-        <div style="font-size:12px;font-weight:900;letter-spacing:1px;color:#9aa0a6;text-align:center;margin-bottom:12px;">NACIONALIDAD</div>
-        <input value="${esc(d.filtro)}" placeholder="Buscar país" oninput="window._carreraSet('filtro',this.value)" style="${inp()};margin-bottom:12px;">
-        <div style="max-height:230px;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-          ${list.map(p=>`<button onclick="window._carreraSet('pais','${p.replace(/'/g,"\\'")}')" style="display:flex;align-items:center;gap:8px;background:${d.pais===p?'rgba(186,255,0,.1)':'transparent'};border:1px solid ${d.pais===p?'rgba(186,255,0,.3)':'#1c1c1c'};border-radius:10px;padding:9px 10px;color:#fff;cursor:pointer;text-align:left;font-size:12.5px;font-weight:700;">${flagImg(p,22)}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(p)}</span></button>`).join('')}
-        </div>
-      </div>
-      <!-- Posición -->
-      <div style="background:rgba(255,255,255,.03);border:1px solid #1c1c1c;border-radius:16px;padding:18px;">
-        <div style="font-size:12px;font-weight:900;letter-spacing:1px;color:#9aa0a6;text-align:center;margin-bottom:12px;">POSICIÓN</div>
-        ${pitch(d.pos,'window._carreraSet.bind(null,\'pos\')')}
       </div>
     </div>
     <div style="position:fixed;left:0;right:0;bottom:0;z-index:20;background:#0a0c0a;border-top:1px solid #1c1c1c;padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:flex;gap:10px;max-width:1040px;margin:0 auto;box-shadow:0 -8px 24px rgba(0,0,0,.6);">
@@ -778,13 +1052,13 @@ function renderIdent(){
     </div>
   </div>`;
 }
+window._identTab = function(t){ if(!_draft) return; _draft.tab = t; renderIdent(); };
 window._carreraSet = function(k,v){
   if(k==='num') v=clamp(parseInt(v)||10,1,99);
   _draft[k]=v;
   // Refrescos parciales para no perder foco al tipear.
   if(k==='apellido'||k==='num'||k==='pais'){
-    const j=document.getElementById('cr-jersey'); if(j) j.innerHTML=jersey(130,_draft.apellido,_draft.num,_draft.pais);
-    const av=document.getElementById('cr-avatar'); if(av) av.innerHTML=avatarSprite(_draft.avatar, _avOpts(_draft, 12));
+    const av=document.getElementById('cr-avatar'); if(av) av.innerHTML=avatarSprite(_draft.avatar, _avOpts(_draft, _avEscalaIdent()));
   }
   if(k==='pais'||k==='pie'||k==='pos'||k==='filtro') renderIdent();
 };
@@ -1011,17 +1285,21 @@ window._carreraOfertas = function(){
 // Su relación con vos evoluciona (respeto / rivalidad / odio) según quién gane.
 const RIVAL_NOMBRES = ['Ferreyra','Cardozo','Almeida','Sosa','Benítez','Núñez','Vargas','Ibáñez','Quintana','Bermúdez','Olivera','Rojas','Silveira','Acuña','Zambrano','Da Silva','Moretti','Kovač','Bakayoko','Lindqvist','Van Dijk','Okafor','Petrov','Haaland','Mbeki'];
 function crearRival(pais, pos, nivel){
+  // Arranca en un club real del mismo país (no en "cantera rival" genérica).
+  const locales = todosClubs().filter(c=>c.pais===pais && c.str>=50 && c.str<=72);
+  const c0 = locales.length ? pick(locales) : { name:'Cantera '+pais, str:56, liga:'Amateur '+pais, pais };
   return {
     nombre: pick(RIVAL_NOMBRES),
-    pais,
-    pos,
-    nivel: clamp(nivel + ri(-3, 5), 40, 70),   // arranca parejo o un poco arriba
-    club: 'Cantera rival',
+    pais, pos,
+    nivel: clamp(nivel + ri(-3, 5), 40, 70),
+    club: c0.name, clubStr: c0.str, liga: c0.liga, clubPais: c0.pais,
+    num: ri(7, 11),
+    avatar: { piel:pick(AV_PIELES).id, pelo:pick(AV_PELOS).id, peloColor:pick(AV_COLORES_PELO).id, barba:ri(0,2), acc:pick(AV_ACCS).id },
+    valor: Math.max(300, Math.round((c0.str-42) * 260 * (1 + ligaNivel(c0.liga)*0.28))),
     tot: { pj:0, g:0, a:0 },
-    titulos: 0,
-    // Relación: 0 = neutro, sube a "respeto" si te va bien y sos noble; baja a "odio".
+    titulos: 0, vitrina: [],
+    hist: [],                 // una fila por temporada: club, nivel, goles, título
     relacion: 0,
-    // Historial de duelos ganados/perdidos
     ganados: 0, perdidos: 0
   };
 }
@@ -1038,8 +1316,38 @@ function simularRival(R, anioEdad){
   if(anioEdad<=20) dN=ri(2,5); else if(anioEdad<=24) dN=ri(1,4); else if(anioEdad<=28) dN=ri(0,2);
   else if(anioEdad<=31) dN=ri(-1,1); else if(anioEdad<=34) dN=ri(-3,0); else dN=ri(-5,-1);
   R.nivel = clamp(R.nivel + dN, 30, 99);
-  if (Math.random() < clamp((R.nivel-70)/90, 0, 0.28)) R.titulos++;
-  return { pj, g, a };
+  // ── El rival TAMBIÉN tiene carrera: se transfiere si crece y gana títulos ──
+  let cambio = false;
+  if (anioEdad >= 18 && anioEdad <= 33 && Math.random() < 0.42){
+    const mejores = todosClubs().filter(c =>
+      c.name !== R.club && c.str > (R.clubStr||55) + 1 && R.nivel >= c.str - 10
+    );
+    if (mejores.length){
+      const nuevo = pick(mejores);
+      R.club = nuevo.name; R.clubStr = nuevo.str; R.liga = nuevo.liga; R.clubPais = nuevo.pais;
+      cambio = true;
+    }
+  }
+  // Títulos coherentes con la liga donde juega (no "Champions con Cobreloa").
+  let titulo = null;
+  const T = trofeosDe(R.liga || '');
+  const chanceLiga = clamp(((R.clubStr||55) - 68) / 70, 0, 0.30);
+  if (T.local && Math.random() < chanceLiga){ titulo = T.local; }
+  else if (T.copaNac && Math.random() < clamp(((R.clubStr||55)-62)/150, 0.02, 0.16)){ titulo = T.copaNac; }
+  else if (T.inter && (R.clubStr||55) >= 80 && Math.random() < 0.10){ titulo = T.inter; }
+  if (titulo){
+    R.titulos++;
+    if(!R.vitrina) R.vitrina = [];
+    R.vitrina.push({ nombre:titulo, edad:anioEdad, club:R.club });
+  }
+  // Valor de mercado del rival, con la misma fórmula que la tuya.
+  const edadF = anioEdad<28?1.25:anioEdad<32?0.85:0.45;
+  const ligaM = 0.05 + ligaNivel(R.liga||'')*0.10;
+  const clubM = Math.max(0.15, ((R.clubStr||55)-45)/40);
+  R.valor = Math.max(300, Math.round(((R.nivel**2.4)*edadF*20 + R.titulos*80000) * ligaM * clubM));
+  if(!R.hist) R.hist = [];
+  R.hist.push({ edad:anioEdad, club:R.club, niv:Math.round(R.nivel), g, a, titulo, cambio });
+  return { pj, g, a, titulo, cambio };
 }
 window._draftYears = function(){ return _draft?_draft.years:15; };
 function flagImgInline(p){ const c=FLAG[p]; return c?`<img src="https://flagcdn.com/w20/${c}.png" style="width:14px;height:auto;vertical-align:-2px;border-radius:2px;">`:''; }
@@ -1195,6 +1503,7 @@ window._carreraHub = function(){
   const tline = (G.timeline||[]).slice().sort((a,b)=>a.edad-b.edad);
   m.innerHTML=`
   <div style="max-width:1040px;margin:0 auto;padding:16px 16px calc(96px + env(safe-area-inset-bottom));">
+    ${hudHTML()}
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
       <button onclick="window._carreraStart()" style="background:rgba(255,255,255,.06);border:none;color:#aaa;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button>
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:18px;color:#fff;">Tu carrera</div>
@@ -1235,7 +1544,10 @@ window._carreraHub = function(){
         <div style="display:flex;font-size:10px;font-weight:800;color:#666;padding:6px 0;border-bottom:1px solid #1c1c1c;"><span style="width:30px;">EDAD</span><span style="flex:1;">CLUB</span><span style="width:34px;text-align:center;">POS</span><span style="width:30px;text-align:center;">NIV</span><span style="width:28px;text-align:center;">PJ</span><span style="width:28px;text-align:center;">GLS</span><span style="width:28px;text-align:center;">AST</span></div>
         ${tline.length?tline.map(t=>`<div style="display:flex;align-items:center;font-size:12px;padding:9px 0;border-bottom:1px solid #131313;color:#fff;">
           <span style="width:30px;font-weight:800;">${t.edad}</span>
-          <span style="flex:1;display:flex;align-items:center;gap:7px;min-width:0;"><span style="flex-shrink:0;">${clubBadge(t.club,20)}</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.club)}</span>${t.titulo?`<i class='bx bxs-trophy' title="${esc(t.titulo)}" style="color:${A};font-size:13px;flex-shrink:0;"></i>`:''}</span>
+          <span style="flex:1;display:flex;align-items:center;gap:6px;min-width:0;"><span style="flex-shrink:0;">${clubBadge(t.club,20)}</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.club)}</span>
+            ${(t.titulos||(t.titulo?[t.titulo]:[])).map(tt=>`<span title="${esc(tt)}" style="flex-shrink:0;display:inline-flex;">${trofeoRender(tt,16)}</span>`).join('')}
+            ${(t.premios||[]).map(pn=>`<span title="${esc(pn)}" style="flex-shrink:0;display:inline-flex;">${premioRender(pn,15)}</span>`).join('')}
+          </span>
           <span style="width:34px;text-align:center;font-weight:800;color:${t.pos===1?A:t.pos<=4?'#4fc3f7':'#999'};">${t.pos?t.pos+'º':'—'}</span>
           <span style="width:30px;text-align:center;font-weight:900;color:${A};">${t.niv}</span>
           <span style="width:28px;text-align:center;">${t.pj}</span>
@@ -1358,17 +1670,27 @@ function _finTemporada(ctx){
   // ── TÍTULOS coherentes con la liga (pueden acumularse en la misma temporada) ──
   const T = trofeosDe(G.liga);
   const titulosGanados = [];
-  // Liga local: SOLO si sos primero
-  if (pos === 1) titulosGanados.push(T.local);
+  // ── ANTI-DINASTÍA ────────────────────────────────────────────────────────────
+  // Ganar el mismo torneo muchos años seguidos no es realista ni divertido. Cada
+  // título consecutivo reduce fuerte la chance del siguiente (fatiga de campeón,
+  // rivales que refuerzan, presión). Se resetea cuando cortás la racha.
+  if(!G.rachaTitulos) G.rachaTitulos = {};
+  const _racha = (t)=> G.rachaTitulos[t] || 0;
+  const _penal = (t)=> Math.pow(0.55, _racha(t));     // 1ª:100% 2ª:55% 3ª:30% 4ª:17%
+  // Liga local: SOLO si sos primero — y si venís de ganarla, cuesta bastante más.
+  if (pos === 1){
+    if (_racha(T.local) === 0 || Math.random() < _penal(T.local)) titulosGanados.push(T.local);
+    else { pos = ri(2,4); }   // el equipo se relajó: termina 2º-4º
+  }
   // Copa nacional: chance INDEPENDIENTE de la liga (grandes la ganan más seguido, pero
   // con techo bajo — la copa es a eliminación directa, cualquiera te puede voltear).
-  if (T.copaNac && Math.random() < clamp((G.clubStr-58)/160, 0.03, 0.22)) titulosGanados.push(T.copaNac);
+  if (T.copaNac && Math.random() < clamp((G.clubStr-58)/160, 0.03, 0.22) * _penal(T.copaNac)) titulosGanados.push(T.copaNac);
   // Copa internacional (Champions/Libertadores): si el club es GRANDE y clasificó.
   // Guardo la RONDA alcanzada para mostrarla aunque no gane.
   let interRonda = null, interLiteRonda = null;
   const rondasInter = ['Fase de grupos','Octavos','Cuartos','Semifinal','Final'];
   if (G.clasificadoInter && T.inter) {
-    const chance = clamp((G.clubStr-72)/85, 0, 0.28);
+    const chance = clamp((G.clubStr-72)/85, 0, 0.28) * _penal(T.inter);
     const gano = Math.random() < chance;
     if (gano) { titulosGanados.push(T.inter); interRonda = 'CAMPEÓN'; }
     else {
@@ -1386,11 +1708,14 @@ function _finTemporada(ctx){
       interLiteRonda = rondasInter[ri(0, maxR)];
     }
   }
-  // Persistir cada trofeo ganado en la vitrina.
+  // Persistir cada trofeo en la vitrina — guardando SIEMPRE el club donde se ganó.
   titulosGanados.forEach(t => {
     G.titulos++; if(!G.vitrina) G.vitrina=[];
-    G.vitrina.push({ nombre:t, edad:G.edad, club:G.club, img:trofeoImgSlug(t) });
+    G.vitrina.push({ nombre:t, edad:G.edad, club:G.club, liga:G.liga, anio:G.anio, img:trofeoImgSlug(t) });
   });
+  // Actualizar rachas: +1 a los ganados este año, reset a los que se cortaron.
+  Object.keys(G.rachaTitulos).forEach(k => { if (titulosGanados.indexOf(k) < 0) G.rachaTitulos[k] = 0; });
+  titulosGanados.forEach(t => { G.rachaTitulos[t] = (G.rachaTitulos[t] || 0) + 1; });
   // El "titulo" del resumen: prioriza internacional > copa nacional > liga (el mas importante).
   const priTitulo = (arr) => {
     if (!arr.length) return null;
@@ -1404,21 +1729,27 @@ function _finTemporada(ctx){
   // Balón de Oro / Bota de Oro / The Best se otorgan segun rendimiento excepcional
   // de la temporada. NO todos juntos siempre, cada uno con umbral distinto.
   if(!G.premios) G.premios = [];
-  const gpPJ = pj > 0 ? g / pj : 0;
-  if (g >= 30 && G.nivel >= 82 && Math.random() < 0.55) {
-    G.premios.push({ nombre:'Bota de Oro', edad:G.edad, temporada:G.temporada, img:'bota-oro' });
+  if(!G.rachaTitulos) G.rachaTitulos = {};
+  const premiosAnio = [];   // los de ESTA temporada, para mostrarlos ya en el resumen
+  const _darPremio = (nombre) => {
+    G.premios.push({ nombre, edad:G.edad, temporada:G.temporada, club:G.club, anio:G.anio });
+    premiosAnio.push(nombre);
+  };
+  // El mismo premio dos años seguidos también cuesta más (anti-dinastía individual).
+  const _pPen = (n)=> Math.pow(0.6, G.rachaTitulos['_p_'+n] || 0);
+  if (g >= 30 && G.nivel >= 82 && Math.random() < 0.55 * _pPen('Bota de Oro')) _darPremio('Bota de Oro');
+  if (G.nivel >= 88 && (titulosGanados.length >= 2 || (titulosGanados.includes(T.inter))) && Math.random() < 0.35 * _pPen('Balón de Oro')) {
+    _darPremio('Balón de Oro');
+  } else if (G.nivel >= 86 && titulosGanados.length >= 1 && Math.random() < 0.25 * _pPen('The Best')) {
+    _darPremio('The Best');
   }
-  if (G.nivel >= 88 && (titulosGanados.length >= 2 || (titulosGanados.includes(T.inter))) && Math.random() < 0.35) {
-    G.premios.push({ nombre:'Balón de Oro', edad:G.edad, temporada:G.temporada, img:'balon-oro' });
-  } else if (G.nivel >= 86 && titulosGanados.length >= 1 && Math.random() < 0.25) {
-    G.premios.push({ nombre:'The Best', edad:G.edad, temporada:G.temporada, img:'the-best' });
-  }
-  if (G.pos === 'POR' && G.nivel >= 80 && Math.random() < 0.30) {
-    G.premios.push({ nombre:'Guante de Oro', edad:G.edad, temporada:G.temporada, img:'guante-oro' });
-  }
-  if (G.edad <= 21 && G.nivel >= 78 && Math.random() < 0.30) {
-    G.premios.push({ nombre:'Mejor Jugador Joven', edad:G.edad, temporada:G.temporada, img:'mejor-joven' });
-  }
+  if (G.pos === 'POR' && G.nivel >= 80 && Math.random() < 0.30 * _pPen('Guante de Oro')) _darPremio('Guante de Oro');
+  if (G.edad <= 21 && G.nivel >= 78 && Math.random() < 0.30) _darPremio('Mejor Jugador Joven');
+  // Rachas de premios
+  ['Bota de Oro','Balón de Oro','The Best','Guante de Oro'].forEach(n=>{
+    const k = '_p_'+n;
+    G.rachaTitulos[k] = premiosAnio.indexOf(n) >= 0 ? (G.rachaTitulos[k]||0)+1 : 0;
+  });
   // Clasificación a copa internacional del PRÓXIMO año según puesto.
   G.clasificadoInter = (pos<=4 && ligaNivel(G.liga)>=6);
   G.clasificadoInterLite = (pos>=5 && pos<=6 && ligaNivel(G.liga)>=6);
@@ -1450,7 +1781,7 @@ function _finTemporada(ctx){
   // Texto de participación en copa internacional (aunque no gane).
   const interCopa = interRonda ? `${T.inter}: ${interRonda}` : null;
   const interLiteCopa = interLiteRonda ? `${T.interLite}: ${interLiteRonda}` : null;
-  G.timeline.push({ edad:G.edad, temporada:G.temporada, club:G.club, liga:G.liga, niv:Math.round(G.nivel), pj, g, a, dN, pos, totalEq, titulo, clasif:clasifText, move:G.moveLiga, interCopa, interLiteCopa });
+  G.timeline.push({ edad:G.edad, temporada:G.temporada, club:G.club, liga:G.liga, niv:Math.round(G.nivel), pj, g, a, dN, pos, totalEq, titulo, titulos:titulosGanados.slice(), premios:premiosAnio.slice(), clasif:clasifText, move:G.moveLiga, interCopa, interLiteCopa });
   // ── BALANCE ANUAL + RENDIMIENTO DE INVERSIONES ──────────────────────────────
   const bal = balanceAnual();
   const inv = rendirInversiones();
@@ -1490,7 +1821,7 @@ function _finTemporada(ctx){
   save();
   // Nota del diario local sobre tu temporada.
   const prensa = notaPrensa({ pj, g, a, pos, totalEq, titulo, rend });
-  resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa,duelo,momento,bal,inv,prensa});
+  resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,titulos:titulosGanados,premios:premiosAnio,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa,duelo,momento,bal,inv,prensa});
 }
 
 function resumenTemporada(r){
@@ -1513,9 +1844,13 @@ function resumenTemporada(r){
       ${r.interLiteCopa?`<div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#f59e0b;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:20px;padding:5px 12px;"><i class='bx bx-medal'></i> ${esc(r.interLiteCopa)}</div>`:''}
       ${r.move?`<div style="margin-top:12px;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:900;color:${r.move.tipo==='asc'?'#22c55e':'#ef4444'};background:${r.move.tipo==='asc'?'rgba(34,197,94,.12)':'rgba(239,68,68,.12)'};border:1px solid ${r.move.tipo==='asc'?'rgba(34,197,94,.4)':'rgba(239,68,68,.4)'};border-radius:20px;padding:6px 14px;"><i class='bx ${r.move.tipo==='asc'?'bx-up-arrow-alt':'bx-down-arrow-alt'}'></i> ${r.move.tipo==='asc'?'¡ASCENSO! ':'DESCENSO. '}Ahora en <b>${esc(r.move.a)}</b></div>`:''}
     </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:${(G.flags&&G.flags.marcado)?'10px':'14px'};">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">
       ${st('PJ',r.pj)}${st('GOLES',r.g)}${st('ASIST',r.a)}${st('NIVEL',(r.dN>=0?'+':'')+r.dN)}
     </div>
+    ${((r.titulos&&r.titulos.length)||(r.premios&&r.premios.length))?`<div style="display:flex;gap:7px;overflow-x:auto;padding:9px 10px;margin-bottom:12px;background:rgba(250,204,21,.06);border:1px solid rgba(250,204,21,.22);border-radius:12px;">
+      ${(r.titulos||[]).map(t=>`<div style="flex-shrink:0;width:56px;text-align:center;"><div style="height:38px;display:flex;align-items:center;justify-content:center;">${trofeoRender(t,36)}</div><div style="font-size:8px;color:#e4e4d8;font-weight:800;margin-top:3px;line-height:1.15;">${esc(t)}</div></div>`).join('')}
+      ${(r.premios||[]).map(pn=>`<div style="flex-shrink:0;width:56px;text-align:center;"><div style="height:38px;display:flex;align-items:center;justify-content:center;">${premioRender(pn,34)}</div><div style="font-size:8px;color:#fbbf24;font-weight:800;margin-top:3px;line-height:1.15;">${esc(pn)}</div></div>`).join('')}
+    </div>`:''}
     ${(G.flags&&G.flags.marcado)?`<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:12px;padding:10px 13px;margin-bottom:14px;font-size:11.5px;color:#f8b4b4;line-height:1.45;"><i class='bx bx-error-circle' style="color:#f87171;"></i> <b style="color:#f87171;">Temporada desde el banco.</b> Después de pedir salir jugaste apenas ${r.pj} partidos y perdiste nivel. Buscá club o vas a seguir así.</div>`:''}
     ${r.bal?(function(){ const b=r.bal; const pos=b.neto>=0; return `<div style="background:linear-gradient(160deg,rgba(250,204,21,.07),rgba(20,22,18,.5));border:1px solid rgba(250,204,21,.25);border-radius:14px;padding:12px 14px;margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;">
@@ -1600,6 +1935,10 @@ window._carreraMercadoForzado = function(){
   if(!G){ window._carreraHub(); return; }
   G._mercadoHecho = true;
   if(G.edad >= 34){ window._carreraHub(); return; }
+  // Si acabás de firmar, NO puede haber mercado: hay que jugar al menos una
+  // temporada en el club antes de que te ofrezcan renovar o irte.
+  const temporadasEnClub = G.edad - (G.clubDesde != null ? G.clubDesde : G.edad);
+  if (temporadasEnClub < 1){ window._carreraHub(); return; }
   const mejores = todosClubs().filter(c => {
     if (c.name === G.club) return false;
     if (c.str <= G.clubStr - 4) return false;
@@ -2730,7 +3069,7 @@ function retiro(){
   if (preso) honores.push({i:'bx-lock-alt', c:'#ef4444', t:'Pasó por la cárcel'});
   // Vitrina: agrupa por trofeo y cuenta (Champions ×2, etc.)
   const grupTrof = {};
-  (G.vitrina||[]).forEach(v=>{ const k=v.nombre; grupTrof[k]=(grupTrof[k]||{n:v.nombre,slug:trofeoImgSlug(v.nombre),count:0}); grupTrof[k].count++; });
+  (G.vitrina||[]).forEach(v=>{ const k=v.nombre; grupTrof[k]=(grupTrof[k]||{n:v.nombre,slug:trofeoImgSlug(v.nombre),count:0,clubes:[]}); grupTrof[k].count++; if(v.club) grupTrof[k].clubes.push({club:v.club, edad:v.edad}); });
   const trofArr = Object.values(grupTrof).sort((a,b)=>b.count-a.count);
   // Timeline: fila por temporada
   const timelineHtml = (G.timeline||[]).slice().reverse().map(t=>{
@@ -2849,14 +3188,12 @@ function retiro(){
         </div>
       </div>`; })()}
 
-    <!-- FORMACIÓN EN JUVENILES -->
-    ${(G.juvHist&&G.juvHist.length)?`<div class="cr-fade cr-fade-d2" style="margin-top:20px;">
-      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:#4fc3f7;margin-bottom:10px;padding-left:2px;"><i class='bx bx-child'></i> CÓMO TE FORMASTE</div>
+    <!-- FORMACIÓN EN JUVENILES (plegable) -->
+    ${seccion('juveniles','bx-child','CÓMO TE FORMASTE','#4fc3f7', (G.juvHist&&G.juvHist.length)?`
       <div style="background:linear-gradient(160deg,rgba(79,195,247,.08),rgba(20,22,18,.5));border:1px solid rgba(79,195,247,.25);border-radius:14px;padding:13px 15px;">
         ${G.juvHist.map(v=>`<div style="display:flex;gap:9px;padding:5px 0;font-size:11.5px;color:#c4ccc0;line-height:1.45;"><span style="font-weight:900;color:#4fc3f7;flex-shrink:0;">${v.edad}</span><span style="flex:1;"><b style="color:#fff;">${esc(v.t)}.</b> ${esc(v.res)}</span></div>`).join('')}
         <div style="margin-top:9px;padding-top:9px;border-top:1px solid rgba(79,195,247,.18);font-size:11px;color:#8a8f96;">Debutaste en primera a los <b style="color:#fff;">${G.debutEdad||18}</b> años${G.flags&&G.flags.debutPrecoz?' — <span style="color:#facc15;font-weight:800;">antes de tiempo</span>':''}.</div>
-      </div>
-    </div>`:''}
+      </div>`:'', false)}
 
     <!-- DUELO FINAL CON EL NÉMESIS -->
     ${(G.rival && (G.rival.ganados+G.rival.perdidos)>0) ? (function(){
@@ -2888,15 +3225,13 @@ function retiro(){
       if(F.doblenac) b.push(['bx-world','#a78bfa','Doble nacionalidad','Elegiste otro himno para tu selección.']);
       if(F.villano) b.push(['bx-mask','#ef4444','Villano','Festejaste en la cara de tu ex hinchada.']);
       if(!b.length) return '';
-      return `<div class="cr-fade cr-fade-d2" style="margin-top:20px;">
-        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:#94a3b8;margin-bottom:10px;padding-left:2px;"><i class='bx bx-bookmark'></i> LAS MARCAS DE TU HISTORIA</div>
+      return seccion('marcas','bx-bookmark','LAS MARCAS DE TU HISTORIA','#94a3b8', `
         <div style="display:flex;flex-direction:column;gap:7px;">
           ${b.map(x=>`<div style="display:flex;align-items:center;gap:11px;background:${x[1]}0f;border:1px solid ${x[1]}44;border-radius:12px;padding:10px 13px;">
             <i class='bx ${x[0]}' style="font-size:22px;color:${x[1]};flex-shrink:0;"></i>
             <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:900;color:${x[1]};">${x[2]}</div><div style="font-size:11px;color:#aaa;margin-top:1px;line-height:1.35;">${x[3]}</div></div>
           </div>`).join('')}
-        </div>
-      </div>`; })()}
+        </div>`, false, b.length); })()}
 
     <!-- PREMIOS INDIVIDUALES (se guardaban pero nunca se mostraban) -->
     ${(function(){
@@ -2904,8 +3239,7 @@ function retiro(){
       const grup = {};
       pr.forEach(p=>{ grup[p.nombre] = grup[p.nombre] || { n:p.nombre, count:0, edades:[] }; grup[p.nombre].count++; grup[p.nombre].edades.push(p.edad); });
       const arr = Object.values(grup).sort((a,b)=>b.count-a.count);
-      return `<div class="cr-fade cr-fade-d2" style="margin-top:20px;">
-        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:#f59e0b;margin-bottom:10px;padding-left:2px;"><i class='bx bxs-medal'></i> PREMIOS INDIVIDUALES · ${pr.length}</div>
+      return seccion('premios','bxs-medal','PREMIOS INDIVIDUALES','#f59e0b', `
         <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(88px,1fr));gap:10px;">
           ${arr.map(p=>`<div style="background:linear-gradient(160deg,rgba(245,158,11,.10),rgba(20,22,18,.6));border:1px solid rgba(245,158,11,.3);border-radius:14px;padding:10px 6px;text-align:center;">
             <div style="position:relative;height:60px;display:flex;align-items:center;justify-content:center;">
@@ -2915,30 +3249,28 @@ function retiro(){
             <div style="font-size:9.5px;color:#eee;font-weight:800;margin-top:6px;line-height:1.2;">${esc(p.n)}</div>
             <div style="font-size:8.5px;color:#777;margin-top:2px;">${p.edades.slice(0,3).join(', ')} años</div>
           </div>`).join('')}
-        </div>
-      </div>`; })()}
+        </div>`, true, pr.length); })()}
 
-    <!-- VITRINA DE TROFEOS -->
-    ${trofArr.length ? `<div class="cr-fade cr-fade-d2" style="margin-top:20px;">
-      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:#facc15;margin-bottom:10px;padding-left:2px;"><i class='bx bx-trophy'></i> VITRINA DE TÍTULOS · ${G.titulos}</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(88px,1fr));gap:10px;">
-        ${trofArr.map(t=>`<div style="background:linear-gradient(160deg,rgba(250,204,21,.10),rgba(20,22,18,.6));border:1px solid rgba(250,204,21,.28);border-radius:14px;padding:10px 6px;text-align:center;">
-          <div style="position:relative;height:64px;display:flex;align-items:center;justify-content:center;">
-            ${trofeoRender(t.n, 60)}
-            ${t.count>1?`<span style="position:absolute;top:-4px;right:-4px;background:${A};color:#000;font-size:10px;font-weight:900;border-radius:11px;padding:2px 7px;">×${t.count}</span>`:''}
+    <!-- VITRINA DE TROFEOS (plegable, con el club de cada título) -->
+    ${seccion('vitrina','bx-trophy','VITRINA DE TÍTULOS','#facc15', trofArr.length ? `
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${trofArr.map(t=>`<div style="display:flex;align-items:center;gap:12px;background:linear-gradient(160deg,rgba(250,204,21,.09),rgba(20,22,18,.6));border:1px solid rgba(250,204,21,.25);border-radius:13px;padding:10px 12px;">
+          <div style="position:relative;width:48px;height:48px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            ${trofeoRender(t.n, 46)}
+            ${t.count>1?`<span style="position:absolute;top:-3px;right:-6px;background:${A};color:#000;font-size:9.5px;font-weight:900;border-radius:10px;padding:1px 6px;">×${t.count}</span>`:''}
           </div>
-          <div style="font-size:9.5px;color:#eee;font-weight:800;margin-top:6px;line-height:1.2;">${esc(t.n)}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;color:#fff;font-weight:900;line-height:1.2;">${esc(t.n)}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">
+              ${t.clubes.map(c=>`<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.05);border:1px solid #2a2a24;border-radius:20px;padding:2px 8px 2px 3px;font-size:10px;color:#d4d4c8;font-weight:700;">${clubBadge(c.club,14)}${esc(c.club)} <span style="color:#7a8070;">·${c.edad}a</span></span>`).join('')}
+            </div>
+          </div>
         </div>`).join('')}
-      </div>
-    </div>` : ''}
+      </div>` : '', true, G.titulos)}
 
-    <!-- TIMELINE POR TEMPORADA -->
-    ${timelineHtml ? `<div class="cr-fade cr-fade-d3" style="margin-top:20px;">
-      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:${A};margin-bottom:6px;padding-left:2px;"><i class='bx bx-timer'></i> LÍNEA DE TIEMPO</div>
-      <div style="background:#0d100d;border:1px solid #1c1c1c;border-radius:14px;padding:6px 12px;">
-        ${timelineHtml}
-      </div>
-    </div>` : ''}
+    <!-- TIMELINE POR TEMPORADA (plegable) -->
+    ${seccion('timeline','bx-timer','LÍNEA DE TIEMPO', A, timelineHtml ? `
+      <div style="background:#0d100d;border:1px solid #1c1c1c;border-radius:14px;padding:6px 12px;">${timelineHtml}</div>` : '', false, anios + ' temp.')}
 
     ${G.segundaVida ? `
     <!-- SEGUNDA VIDA + CRONOLOGÍA POST-RETIRO -->
@@ -3201,6 +3533,29 @@ window._carreraCompartir = function(){
   }catch(e){
     prompt('Copiá y compartí tu carrera:', texto);
   }
+};
+// ── SECCIÓN PLEGABLE (para que el resumen final no sea un muro infinito) ──────
+// Por defecto cerrada salvo que se pida abierta. Guarda el estado en G._abiertas.
+function seccion(id, icono, titulo, color, contenido, abierta, badge){
+  if(!contenido) return '';
+  const ab = (G && G._abiertas && G._abiertas[id] != null) ? G._abiertas[id] : !!abierta;
+  return `<div class="cr-fade cr-fade-d2" style="margin-top:10px;">
+    <button onclick="window._toggleSec('${id}')" style="width:100%;display:flex;align-items:center;gap:9px;background:linear-gradient(160deg,${color}12,rgba(20,22,18,.55));border:1px solid ${color}35;border-radius:13px;padding:12px 14px;cursor:pointer;text-align:left;">
+      <i class='bx ${icono}' style="font-size:19px;color:${color};flex-shrink:0;"></i>
+      <span style="flex:1;font-family:Outfit,sans-serif;font-weight:900;font-size:12.5px;letter-spacing:1.2px;color:${color};">${titulo}</span>
+      ${badge?`<span style="font-size:11px;font-weight:900;color:#fff;background:${color}28;border-radius:11px;padding:2px 9px;">${badge}</span>`:''}
+      <i class='bx bx-chevron-${ab?'up':'down'}' id="sec-i-${id}" style="font-size:20px;color:${color};flex-shrink:0;"></i>
+    </button>
+    <div id="sec-${id}" style="display:${ab?'block':'none'};padding-top:9px;">${contenido}</div>
+  </div>`;
+}
+window._toggleSec = function(id){
+  const el = document.getElementById('sec-'+id), ic = document.getElementById('sec-i-'+id);
+  if(!el) return;
+  const ab = el.style.display !== 'none';
+  el.style.display = ab ? 'none' : 'block';
+  if(ic) ic.className = 'bx bx-chevron-' + (ab ? 'down' : 'up');
+  if(G){ if(!G._abiertas) G._abiertas = {}; G._abiertas[id] = !ab; save(); }
 };
 function cell(l, v, col){ col = col || '#fff'; return `<div style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:11px 4px;text-align:center;"><div style="font-size:20px;font-weight:900;color:${col};line-height:1;">${esc(v)}</div><div style="font-size:9px;color:#666;font-weight:800;letter-spacing:1px;margin-top:5px;">${l}</div></div>`; }
 function st2(l,v){ return `<div style="background:rgba(255,255,255,.04);border:1px solid #1e1e1e;border-radius:12px;padding:12px;"><div style="font-size:9px;color:#666;font-weight:800;letter-spacing:1px;">${l}</div><div style="font-size:16px;font-weight:900;color:${A};margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(v)}</div></div>`; }
