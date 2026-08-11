@@ -544,19 +544,70 @@ const AV_ACCS = [
   { id:'guantes',  n:'Guantes' },   { id:'tatuajes',n:'Tatuajes' },
   { id:'muneq',    n:'Muñequera' }
 ];
-function avatarDefault(){ return { piel:'media', pelo:'corto', peloColor:'negro', barba:0, acc:'nada' }; }
 
-// Etapa física por edad: altura relativa, ancho de hombros y tamaño de cabeza.
-// Un pibe de 12 es bajito y cabezón; un adulto tiene proporción 1:7.5.
+// ══════════════════════════════════════════════════════════════════════════════
+// ESTADO EVOLUTIVO DEL AVATAR
+// Lo que elegís al crearlo es sólo el punto de partida. A partir de ahí el cuerpo
+// va contando tu historia: se te cae el pelo, encanecés, engordás, te queda una
+// cicatriz de una lesión, te llenás de cadenas cuando te hacés rico, te ponen el
+// uniforme si vas preso. Cada decisión puede dejar una marca visible permanente.
+// ══════════════════════════════════════════════════════════════════════════════
+function avatarDefault(){
+  return {
+    // Base elegida por el jugador
+    piel:'media', pelo:'corto', peloColor:'negro', barba:0, acc:'nada',
+    // Evolutivo — se modifica solo con las decisiones y la edad
+    calvicie:0,    // 0 nada · 1 entradas · 2 coronilla · 3 pelado
+    implante:false,// se hizo el injerto (revierte la calvicie)
+    canas:0,       // 0-2
+    cicatriz:0,    // 0-2 (ceja / mejilla)
+    peso:0,        // -1 flaco · 0 normal · 1 pasado de kilos
+    tatus:0,       // 0-3 brazos
+    bling:0,       // 0-2 cadenas y reloj de oro
+    vendaje:false, // lesión activa (rodilla vendada)
+    muletas:false,
+    preso:false,   // uniforme carcelario
+    traje:false,   // saco (dirigente / empresario)
+    lentes:false,
+    capitanPerm:false
+  };
+}
+// Aplica cambios permanentes al avatar. Devuelve una frase describiendo lo visible.
+function avMutar(cambios){
+  if(!G) return '';
+  if(!G.avatar) G.avatar = avatarDefault();
+  const a = G.avatar;
+  Object.keys(cambios||{}).forEach(k=>{
+    const v = cambios[k];
+    if (typeof v === 'number' && typeof a[k] === 'number') a[k] = clamp(a[k] + v, 0, k==='peso'?1:3);
+    else a[k] = v;
+  });
+  if (a.peso < -1) a.peso = -1;
+  return '';
+}
+// Envejecimiento automático: cada temporada el cuerpo acusa el paso del tiempo.
+function avEnvejecer(edad){
+  if(!G || !G.avatar) return;
+  const a = G.avatar;
+  if (a.implante) return;                       // el injerto frena la caída
+  if (edad >= 29 && a.calvicie === 0 && Math.random() < 0.16) a.calvicie = 1;
+  else if (edad >= 34 && a.calvicie === 1 && Math.random() < 0.20) a.calvicie = 2;
+  else if (edad >= 40 && a.calvicie === 2 && Math.random() < 0.22) a.calvicie = 3;
+  if (edad >= 33 && a.canas === 0 && Math.random() < 0.22) a.canas = 1;
+  else if (edad >= 45 && a.canas === 1 && Math.random() < 0.30) a.canas = 2;
+  if (edad >= 38 && !a.lentes && Math.random() < 0.10) a.lentes = true;
+}
+
+// Etapa física por edad.
 function avEtapa(edad){
   if (edad <= 13) return { id:'nene',     esc:0.62, hombro:0.78, cabeza:1.30, lbl:'Pibe' };
   if (edad <= 16) return { id:'juvenil',  esc:0.80, hombro:0.88, cabeza:1.14, lbl:'Juvenil' };
   if (edad <= 19) return { id:'joven',    esc:0.93, hombro:0.96, cabeza:1.05, lbl:'Joven' };
   if (edad <= 30) return { id:'adulto',   esc:1.00, hombro:1.00, cabeza:1.00, lbl:'Plenitud' };
   if (edad <= 35) return { id:'maduro',   esc:1.00, hombro:1.02, cabeza:1.00, lbl:'Veterano' };
-  if (edad <= 45) return { id:'retirado', esc:0.99, hombro:1.00, cabeza:1.00, lbl:'Ex jugador' };
+  if (edad <= 45) return { id:'retirado', esc:0.99, hombro:1.01, cabeza:1.00, lbl:'Ex jugador' };
   if (edad <= 60) return { id:'mayor',    esc:0.97, hombro:0.98, cabeza:1.00, lbl:'Mayor' };
-  return { id:'anciano', esc:0.94, hombro:0.94, cabeza:1.00, lbl:'Anciano' };
+  return { id:'anciano', esc:0.93, hombro:0.93, cabeza:1.00, lbl:'Anciano' };
 }
 function _avShade(hex, amt){
   try{
@@ -569,7 +620,6 @@ function _avShade(hex, amt){
     return '#' + [r,g,b].map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');
   }catch(e){ return hex; }
 }
-// ¿El texto va en blanco o negro sobre este color? (para nombre/número de camiseta)
 function _avContraste(hex){
   try{
     let h = String(hex||'#888').replace('#',''); if(h.length===3) h=h.split('').map(x=>x+x).join('');
@@ -577,55 +627,66 @@ function _avContraste(hex){
     return lum > 0.6 ? '#14140f' : '#ffffff';
   }catch(e){ return '#ffffff'; }
 }
+// Mezcla dos colores (para las canas)
+function _avMix(a,b,t){
+  const p=x=>{ let h=String(x||'#888').replace('#',''); if(h.length===3)h=h.split('').map(y=>y+y).join(''); const n=parseInt(h,16); return [(n>>16)&255,(n>>8)&255,n&255]; };
+  const A=p(a),B=p(b);
+  return '#'+A.map((v,i)=>Math.round(v+(B[i]-v)*t).toString(16).padStart(2,'0')).join('');
+}
 
-// ── POSES ─────────────────────────────────────────────────────────────────────
-// Cada pose mueve brazos, cabeza y piernas. Se usan según lo que pasa en la partida.
+// ── POSES Y MOVIMIENTOS ───────────────────────────────────────────────────────
+// `piernas` define el ciclo: 0 = quieto, 1 = caminar, 2 = correr, 3 = paso corto.
 const AV_POSES = {
-  idle:      { brazoL:0,    brazoR:0,    cabeza:0,  salto:0, cara:'normal' },
-  festejo:   { brazoL:-58,  brazoR:58,   cabeza:-4, salto:3, cara:'feliz'  },
-  campeon:   { brazoL:-150, brazoR:150,  cabeza:-6, salto:5, cara:'feliz'  },  // copa en alto
-  bajon:     { brazoL:8,    brazoR:-8,   cabeza:7,  salto:0, cara:'triste' },
-  lesion:    { brazoL:34,   brazoR:-16,  cabeza:9,  salto:0, cara:'dolor'  },
-  pensando:  { brazoL:0,    brazoR:-42,  cabeza:3,  salto:0, cara:'normal' },
-  saludo:    { brazoL:0,    brazoR:-88,  cabeza:0,  salto:0, cara:'feliz'  },
-  correr:    { brazoL:-30,  brazoR:30,   cabeza:0,  salto:2, cara:'normal' },
-  // Nuevas emociones
-  posando:   { brazoL:-96,  brazoR:-96,  cabeza:0,  salto:0, cara:'feliz'  },  // sostiene la camiseta nueva
-  bronca:    { brazoL:22,   brazoR:-22,  cabeza:-2, salto:0, cara:'dolor'  },
-  agotado:   { brazoL:14,   brazoR:-14,  cabeza:11, salto:0, cara:'triste' },
-  aplaudir:  { brazoL:-42,  brazoR:-38,  cabeza:0,  salto:1, cara:'feliz'  },
-  pensativo: { brazoL:6,    brazoR:-118, cabeza:5,  salto:0, cara:'triste' },
-  orgullo:   { brazoL:-14,  brazoR:14,   cabeza:-3, salto:0, cara:'feliz'  }
+  idle:      { brazoL:0,    brazoR:0,    cabeza:0,  salto:0, cara:'normal', piernas:0 },
+  caminar:   { brazoL:-26,  brazoR:26,   cabeza:0,  salto:1, cara:'normal', piernas:1 },
+  correr:    { brazoL:-52,  brazoR:52,   cabeza:-2, salto:2, cara:'normal', piernas:2 },
+  festejo:   { brazoL:-58,  brazoR:58,   cabeza:-4, salto:3, cara:'feliz',  piernas:0 },
+  campeon:   { brazoL:-150, brazoR:150,  cabeza:-6, salto:5, cara:'feliz',  piernas:0 },
+  bajon:     { brazoL:8,    brazoR:-8,   cabeza:7,  salto:0, cara:'triste', piernas:0 },
+  lesion:    { brazoL:34,   brazoR:-16,  cabeza:9,  salto:0, cara:'dolor',  piernas:3 },
+  pensando:  { brazoL:0,    brazoR:-42,  cabeza:3,  salto:0, cara:'normal', piernas:0 },
+  saludo:    { brazoL:0,    brazoR:-88,  cabeza:0,  salto:0, cara:'feliz',  piernas:0 },
+  posando:   { brazoL:-96,  brazoR:-96,  cabeza:0,  salto:0, cara:'feliz',  piernas:0 },
+  bronca:    { brazoL:22,   brazoR:-22,  cabeza:-2, salto:0, cara:'dolor',  piernas:0 },
+  agotado:   { brazoL:14,   brazoR:-14,  cabeza:11, salto:0, cara:'triste', piernas:0 },
+  aplaudir:  { brazoL:-42,  brazoR:-38,  cabeza:0,  salto:1, cara:'feliz',  piernas:0 },
+  pensativo: { brazoL:6,    brazoR:-118, cabeza:5,  salto:0, cara:'triste', piernas:0 },
+  orgullo:   { brazoL:-14,  brazoR:14,   cabeza:-3, salto:0, cara:'feliz',  piernas:0 },
+  esposado:  { brazoL:-70,  brazoR:70,   cabeza:8,  salto:0, cara:'triste', piernas:3 },
+  rico:      { brazoL:-30,  brazoR:30,   cabeza:-4, salto:0, cara:'feliz',  piernas:0 },
+  entrenar:  { brazoL:-70,  brazoR:-70,  cabeza:0,  salto:1, cara:'normal', piernas:3 }
 };
 
 /**
- * Dibuja el sprite completo.
- * @param av    {piel,pelo,peloColor,barba,acc}
- * @param o     {edad, kitBase, kitAlt, kitTxt, kitTipo, num, apellido, escala,
- *               pose, aura, capitan, dorso, anim}
+ * Sprite del jugador. 48×72 lógicos, escalados por `escala`.
+ * o = {edad, kitBase, kitAlt, kitTxt, kitTipo, num, apellido, escala, pose,
+ *      aura, capitan, dorso, anim, trofeo}
  */
 function avatarSprite(av, o){
-  av = av || avatarDefault();
+  av = Object.assign(avatarDefault(), av || {});
   o = o || {};
   const P  = AV_PIELES.find(x=>x.id===av.piel) || AV_PIELES[1];
-  const HC = (AV_COLORES_PELO.find(x=>x.id===av.peloColor) || AV_COLORES_PELO[0]).c;
+  let HCbase = (AV_COLORES_PELO.find(x=>x.id===av.peloColor) || AV_COLORES_PELO[0]).c;
+  // Canas: mezcla progresiva hacia el gris
+  const HC = av.canas ? _avMix(HCbase, '#cfcfc8', av.canas === 1 ? 0.42 : 0.78) : HCbase;
   const edad = o.edad != null ? o.edad : 24;
   const E = avEtapa(edad);
   const pose = AV_POSES[o.pose || 'idle'] || AV_POSES.idle;
   const S = o.escala || 4;
-  const W = 48, H = 72;                                   // lienzo lógico
-  const base = o.kitBase || '#1b7a3e';
-  const alt  = o.kitAlt  || '#ffffff';
-  const tipo = o.kitTipo || 'solid';
-  const kitTxt = o.kitTxt || _avContraste(base);
+  const W = 48, H = 72;
+  // Si está preso, el kit se reemplaza por el uniforme naranja
+  const preso = !!av.preso;
+  const base = preso ? '#e07b18' : (o.kitBase || '#1b7a3e');
+  const alt  = preso ? '#f2a340' : (o.kitAlt  || '#ffffff');
+  const tipo = preso ? 'stripes' : (o.kitTipo || 'solid');
+  const kitTxt = preso ? '#3d1f04' : (o.kitTxt || _avContraste(base));
   const baseS = _avShade(base, -26), baseL = _avShade(base, 20);
   const uid = 'av' + Math.random().toString(36).slice(2,8);
   const p = [];
-  const R = (x,y,w,h,c,extra)=>{ if(w<=0||h<=0) return; p.push(`<rect x="${(x*S).toFixed(1)}" y="${(y*S).toFixed(1)}" width="${(w*S).toFixed(1)}" height="${(h*S).toFixed(1)}" fill="${c}"${extra||''}/>`); };
+  const R = (x,y,w,h,c,op)=>{ if(w<=0||h<=0) return; p.push(`<rect x="${(x*S).toFixed(1)}" y="${(y*S).toFixed(1)}" width="${(w*S).toFixed(1)}" height="${(h*S).toFixed(1)}" fill="${c}"${op?` opacity="${op}"`:''}/>`); };
 
-  // ── Geometría base, escalada por etapa ──
-  const cx = W/2;
-  const pisoY = 68;
+  // ── Geometría ──
+  const cx = W/2, pisoY = 68;
   const alturaTotal = 56 * E.esc;
   const topY = pisoY - alturaTotal;
   const cabezaH = Math.round(13 * E.cabeza * (0.85 + 0.15*E.esc));
@@ -633,7 +694,9 @@ function avatarSprite(av, o){
   const headX = Math.round(cx - cabezaW/2);
   const headY = Math.round(topY) - pose.salto;
   const cuelloY = headY + cabezaH;
-  const hombroW = Math.round(18 * E.hombro);
+  // El peso cambia el ancho del torso
+  const gordo = av.peso > 0 ? 3 : av.peso < 0 ? -2 : 0;
+  const hombroW = Math.round(18 * E.hombro) + gordo;
   const torsoX = Math.round(cx - hombroW/2);
   const torsoY = cuelloY + 2;
   const torsoH = Math.round(20 * E.esc);
@@ -642,39 +705,42 @@ function avatarSprite(av, o){
   const piernaY = shortY + shortH;
   const piernaH = pisoY - piernaY - 2;
 
-  // ── SOMBRA EN EL PISO ──
+  // Sombra
   p.push(`<ellipse cx="${(cx*S).toFixed(1)}" cy="${((pisoY+1.5)*S).toFixed(1)}" rx="${(hombroW*0.62*S).toFixed(1)}" ry="${(2.4*S).toFixed(1)}" fill="rgba(0,0,0,.34)"/>`);
 
-  // ── PIERNAS ──
-  const pw = Math.round(hombroW*0.30);
-  const gapP = Math.round(hombroW*0.10);
+  // ── PIERNAS (con ciclo de movimiento) ──
+  const pw = Math.round(hombroW*0.30), gapP = Math.round(hombroW*0.10);
   const lx1 = Math.round(cx - gapP/2 - pw), lx2 = Math.round(cx + gapP/2);
-  [lx1, lx2].forEach((lx,i)=>{
-    R(lx, piernaY, pw, piernaH, P.c);
-    R(lx, piernaY, 1, piernaH, P.s);                        // sombra lateral
-    R(lx+pw-1, piernaY, 1, piernaH, P.d);
-    // medias (color del kit)
+  const piernaSVG = [];
+  [[lx1,-1],[lx2,1]].forEach(([lx,dir],i)=>{
+    const ang = pose.piernas === 0 ? 0 : (pose.piernas === 2 ? 34 : pose.piernas === 1 ? 20 : 9) * (i===0?-1:1);
+    const ox = (lx + pw/2) * S, oy = piernaY * S;
+    let seg = '';
+    const SR=(x,y,w,h,c)=>{ if(w<=0||h<=0)return; seg += `<rect x="${(x*S).toFixed(1)}" y="${(y*S).toFixed(1)}" width="${(w*S).toFixed(1)}" height="${(h*S).toFixed(1)}" fill="${c}"/>`; };
+    SR(lx, piernaY, pw, piernaH, P.c);
+    SR(lx, piernaY, 1, piernaH, P.s);
+    SR(lx+pw-1, piernaY, 1, piernaH, P.d);
+    // Vendaje de lesión en la rodilla
+    if (av.vendaje && i===0) SR(lx-1, piernaY+Math.round(piernaH*0.30), pw+2, 3, '#f0ece0');
     const medH = Math.round(piernaH*0.42);
-    R(lx, piernaY+piernaH-medH, pw, medH, base);
-    R(lx, piernaY+piernaH-medH, 1, medH, baseS);
-    // botín
-    R(lx-1, pisoY-2, pw+2, 2, '#15150f');
-    R(lx-1, pisoY-2, pw+2, 1, '#2a2a20');
+    SR(lx, piernaY+piernaH-medH, pw, medH, base);
+    SR(lx, piernaY+piernaH-medH, 1, medH, baseS);
+    SR(lx-1, pisoY-2, pw+2, 2, '#15150f');
+    SR(lx-1, pisoY-2, pw+2, 1, '#2a2a20');
+    piernaSVG.push(ang ? `<g transform="rotate(${ang} ${ox.toFixed(1)} ${oy.toFixed(1)})">${seg}</g>` : seg);
   });
 
-  // ── SHORT ──
-  const shW = hombroW - 1;
-  const shX = Math.round(cx - shW/2);
-  const shortCol = (alt.toLowerCase()===base.toLowerCase()) ? '#f2f2ee' : alt;
+  // ── SHORT / PANTALÓN ──
+  const shW = hombroW - 1, shX = Math.round(cx - shW/2);
+  const shortCol = preso ? '#c96a10' : ((alt||'').toLowerCase()===(base||'').toLowerCase() ? '#f2f2ee' : alt);
   R(shX, shortY, shW, shortH, shortCol);
   R(shX, shortY, 1, shortH, _avShade(shortCol,-30));
   R(shX+shW-1, shortY, 1, shortH, _avShade(shortCol,-40));
   R(shX, shortY+shortH-1, shW, 1, _avShade(shortCol,-45));
-  R(Math.round(cx)-1, shortY+2, 2, shortH-2, _avShade(shortCol,-22));   // costura central
+  R(Math.round(cx)-1, shortY+2, 2, shortH-2, _avShade(shortCol,-22));
 
-  // ── TORSO / CAMISETA ──
+  // ── TORSO ──
   R(torsoX, torsoY, hombroW, torsoH, base);
-  // patrón del kit
   if (tipo === 'stripes'){
     const ancho = Math.max(2, Math.round(hombroW/6));
     for (let i = 0; i < hombroW; i += ancho*2) R(torsoX+i, torsoY, ancho, torsoH, alt);
@@ -686,95 +752,115 @@ function avatarSprite(av, o){
       if (x1 > x0) R(x0, torsoY+i, x1-x0, 1, alt);
     }
   }
-  // volumen del torso
   R(torsoX, torsoY, 2, torsoH, baseS);
   R(torsoX+hombroW-2, torsoY, 2, torsoH, baseS);
   R(torsoX+2, torsoY, hombroW-4, 1, baseL);
   R(torsoX, torsoY+torsoH-2, hombroW, 2, baseS);
-  // cuello redondo
+  // Panza si está pasado de kilos
+  if (av.peso > 0) R(torsoX+2, torsoY+Math.round(torsoH*0.55), hombroW-4, Math.round(torsoH*0.42), _avShade(base,-10));
+  // Saco de dirigente/empresario encima de la camiseta
+  if (av.traje){
+    R(torsoX, torsoY, Math.round(hombroW*0.34), torsoH, '#1c2230');
+    R(torsoX+hombroW-Math.round(hombroW*0.34), torsoY, Math.round(hombroW*0.34), torsoH, '#1c2230');
+    R(torsoX, torsoY, Math.round(hombroW*0.34), 1, '#2c3444');
+    R(torsoX+hombroW-Math.round(hombroW*0.34), torsoY, Math.round(hombroW*0.34), 1, '#2c3444');
+    R(Math.round(cx)-1, torsoY+2, 2, Math.round(torsoH*0.45), '#8a1f2a');    // corbata
+  }
   const cuW = Math.round(hombroW*0.36), cuX = Math.round(cx - cuW/2);
   R(cuX, torsoY, cuW, 2, _avShade(base,-48));
   R(cuX+1, torsoY, cuW-2, 1, P.d);
+  // Cadenas de oro cuando te hacés rico
+  if (av.bling >= 1){ R(cuX, torsoY+2, cuW, 1, '#f5d14e'); R(Math.round(cx)-1, torsoY+3, 2, 2, '#f5d14e'); }
+  if (av.bling >= 2){ R(cuX-1, torsoY+4, cuW+2, 1, '#f5d14e'); }
 
-  // ── NOMBRE Y NÚMERO EN LA CAMISETA (legibles de verdad) ──
+  // ── NOMBRE Y NÚMERO ──
   const ape = String(o.apellido||'').toUpperCase().slice(0,12);
   const num = String(o.num||'');
   const dorso = !!o.dorso;
   let textos = '';
-  if (dorso){
-    // Vista de espaldas: apellido arriba, número grande abajo.
+  if (!preso && dorso){
     if (ape) textos += `<text x="${(cx*S).toFixed(1)}" y="${((torsoY+5)*S).toFixed(1)}" text-anchor="middle" font-family="Outfit,Arial Black,sans-serif" font-weight="900" font-size="${(3.4*S).toFixed(1)}" fill="${kitTxt}" textLength="${(hombroW*0.82*S).toFixed(1)}" lengthAdjust="spacingAndGlyphs" style="letter-spacing:.4px">${esc(ape)}</text>`;
     if (num) textos += `<text x="${(cx*S).toFixed(1)}" y="${((torsoY+torsoH*0.82)*S).toFixed(1)}" text-anchor="middle" font-family="Outfit,Arial Black,sans-serif" font-weight="900" font-size="${(11*S*E.esc).toFixed(1)}" fill="${kitTxt}" style="letter-spacing:-.5px">${esc(num)}</text>`;
-  } else if (num){
-    // Vista de frente: número chico en el pecho.
+  } else if (!preso && !av.traje && num){
     textos += `<text x="${((torsoX+hombroW*0.26)*S).toFixed(1)}" y="${((torsoY+torsoH*0.52)*S).toFixed(1)}" text-anchor="middle" font-family="Outfit,Arial Black,sans-serif" font-weight="900" font-size="${(4.6*S*E.esc).toFixed(1)}" fill="${kitTxt}">${esc(num)}</text>`;
+  } else if (preso){
+    textos += `<text x="${(cx*S).toFixed(1)}" y="${((torsoY+torsoH*0.5)*S).toFixed(1)}" text-anchor="middle" font-family="Outfit,monospace" font-weight="900" font-size="${(3.6*S).toFixed(1)}" fill="#3d1f04">${(o.num||'000')}</text>`;
   }
-  // Escudito del club en el pecho (lado contrario al número)
-  if (!dorso) R(Math.round(torsoX+hombroW*0.62), torsoY+Math.round(torsoH*0.28), 3, 4, kitTxt === '#ffffff' ? 'rgba(255,255,255,.75)' : 'rgba(0,0,0,.5)');
-  // Cinta de capitán
-  if (o.capitan) { R(torsoX-1, torsoY+Math.round(torsoH*0.22), 3, 4, '#facc15'); R(torsoX-1, torsoY+Math.round(torsoH*0.22), 3, 1, '#fde68a'); }
+  if (!dorso && !preso && !av.traje) R(Math.round(torsoX+hombroW*0.62), torsoY+Math.round(torsoH*0.28), 3, 4, kitTxt === '#ffffff' ? 'rgba(255,255,255,.75)' : 'rgba(0,0,0,.5)');
+  if (o.capitan || av.capitanPerm) { R(torsoX-1, torsoY+Math.round(torsoH*0.22), 3, 4, '#facc15'); R(torsoX-1, torsoY+Math.round(torsoH*0.22), 3, 1, '#fde68a'); }
 
-  // ── BRAZOS (rotan según la pose) ──
+  // ── BRAZOS ──
   const brW = Math.max(2, Math.round(hombroW*0.19));
   const brH = Math.round(torsoH*0.92);
   const hombroY = torsoY + 2;
   const brazos = [
-    { x: torsoX - brW, ang: pose.brazoL, dir:-1 },
-    { x: torsoX + hombroW, ang: pose.brazoR, dir: 1 }
+    { x: torsoX - brW, ang: pose.brazoL, i:0 },
+    { x: torsoX + hombroW, ang: pose.brazoR, i:1 }
   ].map(b=>{
     const ox = (b.x + brW/2) * S, oy = (hombroY + 1) * S;
     const manoY = hombroY + brH;
-    let mano = `<rect x="${(b.x*S).toFixed(1)}" y="${(manoY*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brW*1.1*S).toFixed(1)}" fill="${av.acc==='guantes'?'#f97316':P.c}"/>`;
-    let manga = `<rect x="${(b.x*S).toFixed(1)}" y="${(hombroY*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brH*0.34*S).toFixed(1)}" fill="${tipo==='stripes'?alt:base}"/>`;
-    let piel = `<rect x="${(b.x*S).toFixed(1)}" y="${((hombroY+brH*0.34)*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brH*0.66*S).toFixed(1)}" fill="${P.c}"/>`;
-    let sombra = `<rect x="${(b.x*S).toFixed(1)}" y="${(hombroY*S).toFixed(1)}" width="${(1*S).toFixed(1)}" height="${(brH*S).toFixed(1)}" fill="${P.s}" opacity=".55"/>`;
-    let tat = (av.acc==='tatuajes') ? `<rect x="${(b.x*S).toFixed(1)}" y="${((hombroY+brH*0.5)*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brH*0.22*S).toFixed(1)}" fill="${_avShade(P.c,-58)}" opacity=".75"/>` : '';
-    let mun = (av.acc==='muneq') ? `<rect x="${(b.x*S).toFixed(1)}" y="${((manoY-1.6)*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(1.6*S).toFixed(1)}" fill="#baff00"/>` : '';
-    return `<g transform="rotate(${b.ang} ${ox.toFixed(1)} ${oy.toFixed(1)})">${manga}${piel}${sombra}${tat}${mun}${mano}</g>`;
+    const mangaCol = av.traje ? '#1c2230' : (tipo==='stripes' ? alt : base);
+    let g = '';
+    g += `<rect x="${(b.x*S).toFixed(1)}" y="${(hombroY*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brH*0.34*S).toFixed(1)}" fill="${mangaCol}"/>`;
+    g += `<rect x="${(b.x*S).toFixed(1)}" y="${((hombroY+brH*0.34)*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brH*0.66*S).toFixed(1)}" fill="${P.c}"/>`;
+    g += `<rect x="${(b.x*S).toFixed(1)}" y="${(hombroY*S).toFixed(1)}" width="${(1*S).toFixed(1)}" height="${(brH*S).toFixed(1)}" fill="${P.s}" opacity=".55"/>`;
+    // Tatuajes acumulados
+    const nt = Math.max(av.tatus||0, av.acc==='tatuajes'?1:0);
+    for(let t=0;t<nt;t++) g += `<rect x="${(b.x*S).toFixed(1)}" y="${((hombroY+brH*(0.44+t*0.16))*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brH*0.11*S).toFixed(1)}" fill="${_avShade(P.c,-58)}" opacity=".78"/>`;
+    if (av.acc==='muneq') g += `<rect x="${(b.x*S).toFixed(1)}" y="${((manoY-1.6)*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(1.6*S).toFixed(1)}" fill="#baff00"/>`;
+    // Reloj de oro
+    if (av.bling >= 2 && b.i===1) g += `<rect x="${(b.x*S).toFixed(1)}" y="${((manoY-2)*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(2*S).toFixed(1)}" fill="#f5d14e"/>`;
+    g += `<rect x="${(b.x*S).toFixed(1)}" y="${(manoY*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brW*1.1*S).toFixed(1)}" fill="${av.acc==='guantes'?'#f97316':P.c}"/>`;
+    return `<g transform="rotate(${b.ang} ${ox.toFixed(1)} ${oy.toFixed(1)})">${g}</g>`;
   }).join('');
+  // Esposas si está detenido
+  let extras = '';
+  if (o.pose === 'esposado'){
+    extras += `<rect x="${((cx-4)*S).toFixed(1)}" y="${((hombroY+brH+1)*S).toFixed(1)}" width="${(8*S).toFixed(1)}" height="${(2*S).toFixed(1)}" fill="#9aa0a6"/>`;
+  }
 
   // ── CABEZA ──
   const cab = [];
   const CR = (x,y,w,h,c)=>{ if(w<=0||h<=0) return; cab.push(`<rect x="${(x*S).toFixed(1)}" y="${(y*S).toFixed(1)}" width="${(w*S).toFixed(1)}" height="${(h*S).toFixed(1)}" fill="${c}"/>`); };
-  // cuello
   CR(Math.round(cx-cabezaW*0.20), cuelloY-1, Math.round(cabezaW*0.40), 3, P.s);
-  // cara
   CR(headX, headY, cabezaW, cabezaH, P.c);
   CR(headX, headY, 1, cabezaH, P.s);
   CR(headX+cabezaW-1, headY, 1, cabezaH, P.d);
-  CR(headX+1, headY+cabezaH-2, cabezaW-2, 2, P.s);       // mentón
-  // orejas
+  CR(headX+1, headY+cabezaH-2, cabezaW-2, 2, P.s);
+  CR(headX+2, headY+1, cabezaW-5, 1, _avShade(P.c, 22));      // brillo en la frente
   CR(headX-1, headY+Math.round(cabezaH*0.42), 1, Math.round(cabezaH*0.22), P.s);
   CR(headX+cabezaW, headY+Math.round(cabezaH*0.42), 1, Math.round(cabezaH*0.22), P.s);
-  // cejas + ojos
   const ojoY = headY + Math.round(cabezaH*0.42);
   const ojoW = Math.max(2, Math.round(cabezaW*0.20));
   const ojoIzq = headX + Math.round(cabezaW*0.18), ojoDer = headX + cabezaW - Math.round(cabezaW*0.18) - ojoW;
-  const cejaOff = pose.cara==='dolor' ? 1 : pose.cara==='triste' ? 1 : 0;
+  const cejaOff = (pose.cara==='dolor' || pose.cara==='triste') ? 1 : 0;
   CR(ojoIzq, ojoY-2+cejaOff, ojoW, 1, _avShade(HC,-14));
   CR(ojoDer, ojoY-2+cejaOff, ojoW, 1, _avShade(HC,-14));
-  if (pose.cara === 'feliz'){
-    CR(ojoIzq, ojoY+1, ojoW, 1, '#16130f');               // ojos cerrados de alegría
-    CR(ojoDer, ojoY+1, ojoW, 1, '#16130f');
-  } else if (pose.cara === 'dolor'){
-    CR(ojoIzq, ojoY, ojoW, 1, '#16130f');
-    CR(ojoDer, ojoY, ojoW, 1, '#16130f');
-  } else {
-    CR(ojoIzq, ojoY, ojoW, 2, '#f6f2e8');
-    CR(ojoDer, ojoY, ojoW, 2, '#f6f2e8');
-    CR(ojoIzq+(ojoW>2?1:0), ojoY, 1, 2, '#16130f');
-    CR(ojoDer+(ojoW>2?1:0), ojoY, 1, 2, '#16130f');
+  if (pose.cara === 'feliz'){ CR(ojoIzq, ojoY+1, ojoW, 1, '#16130f'); CR(ojoDer, ojoY+1, ojoW, 1, '#16130f'); }
+  else if (pose.cara === 'dolor'){ CR(ojoIzq, ojoY, ojoW, 1, '#16130f'); CR(ojoDer, ojoY, ojoW, 1, '#16130f'); }
+  else {
+    CR(ojoIzq, ojoY, ojoW, 2, '#f6f2e8'); CR(ojoDer, ojoY, ojoW, 2, '#f6f2e8');
+    CR(ojoIzq+(ojoW>2?1:0), ojoY, 1, 2, '#16130f'); CR(ojoDer+(ojoW>2?1:0), ojoY, 1, 2, '#16130f');
   }
-  // nariz
+  // Anteojos
+  if (av.lentes){
+    CR(ojoIzq-1, ojoY-1, ojoW+2, 4, 'rgba(210,220,230,.30)');
+    CR(ojoDer-1, ojoY-1, ojoW+2, 4, 'rgba(210,220,230,.30)');
+    CR(ojoIzq-1, ojoY-1, ojoW+2, 1, '#2a2a2a'); CR(ojoDer-1, ojoY-1, ojoW+2, 1, '#2a2a2a');
+    CR(ojoIzq-1, ojoY+3, ojoW+2, 1, '#2a2a2a'); CR(ojoDer-1, ojoY+3, ojoW+2, 1, '#2a2a2a');
+    CR(ojoIzq+ojoW, ojoY, ojoDer-ojoIzq-ojoW, 1, '#2a2a2a');
+  }
   CR(headX+Math.round(cabezaW*0.45), ojoY+2, 1, 2, P.s);
-  // boca según ánimo
+  // Cicatrices de lesiones
+  if (av.cicatriz >= 1) CR(ojoIzq-1, ojoY-3, 3, 1, _avShade(P.d,-20));
+  if (av.cicatriz >= 2) CR(headX+cabezaW-3, ojoY+3, 2, 3, _avShade(P.d,-20));
   const bocaY = headY + Math.round(cabezaH*0.74);
   const bocaX = headX + Math.round(cabezaW*0.32), bocaW = Math.round(cabezaW*0.36);
   if (pose.cara === 'feliz'){ CR(bocaX, bocaY, bocaW, 2, '#7a3b34'); CR(bocaX, bocaY, bocaW, 1, '#f6f2e8'); }
   else if (pose.cara === 'triste'){ CR(bocaX, bocaY+1, bocaW, 1, P.d); CR(bocaX, bocaY, 1, 1, P.d); CR(bocaX+bocaW-1, bocaY, 1, 1, P.d); }
   else if (pose.cara === 'dolor'){ CR(bocaX, bocaY, bocaW, 2, '#5c2b26'); }
   else CR(bocaX, bocaY, bocaW, 1, P.d);
-  // ── BARBA (crece sola con los años) ──
+  // Barba
   const barba = Math.min(3, (av.barba||0) + (edad>=32?1:0) + (edad>=45?1:0));
   if (barba >= 1){
     CR(headX+1, headY+Math.round(cabezaH*0.68), cabezaW-2, Math.round(cabezaH*0.30), HC);
@@ -784,78 +870,95 @@ function avatarSprite(av, o){
   if (barba >= 2){
     CR(headX, headY+Math.round(cabezaH*0.48), 1, Math.round(cabezaH*0.42), HC);
     CR(headX+cabezaW-1, headY+Math.round(cabezaH*0.48), 1, Math.round(cabezaH*0.42), HC);
-    CR(headX+Math.round(cabezaW*0.30), headY+Math.round(cabezaH*0.62), Math.round(cabezaW*0.40), 1, HC); // bigote
+    CR(headX+Math.round(cabezaW*0.30), headY+Math.round(cabezaH*0.62), Math.round(cabezaW*0.40), 1, HC);
   }
   if (barba >= 3) CR(headX+1, headY+cabezaH-1, cabezaW-2, 3, HC);
-  // ── PELO ──
-  _avPelo(CR, av.pelo, headX, headY, cabezaW, cabezaH, HC);
-  // vincha
+  // PELO — la calvicie manda sobre el corte elegido
+  const pelo = av.calvicie >= 3 ? 'calvo' : av.calvicie === 2 ? 'coronilla' : av.pelo;
+  _avPelo(CR, pelo, headX, headY, cabezaW, cabezaH, HC, av.calvicie);
+  // Cicatriz del implante capilar (línea fina en la frente)
+  if (av.implante) CR(headX+2, headY+1, cabezaW-4, 1, _avShade(P.d,-6));
   if (av.acc === 'cinta') CR(headX-1, headY+Math.round(cabezaH*0.20), cabezaW+2, 2, '#baff00');
 
-  // ── ENSAMBLADO ──
-  // ── OBJETO EN LAS MANOS según la pose ──
-  // campeon → copa dorada en alto | posando → camiseta nueva del club estirada
+  // ── OBJETOS EN LAS MANOS ──
   let objeto = '';
   if (o.pose === 'campeon'){
     const cxo = cx, cyo = headY - 11;
     const CO = (x,y,w,h,c)=>{ objeto += `<rect x="${(x*S).toFixed(1)}" y="${(y*S).toFixed(1)}" width="${(w*S).toFixed(1)}" height="${(h*S).toFixed(1)}" fill="${c}"/>`; };
-    CO(cxo-5, cyo,    10, 6, '#f5d14e');      // copa
-    CO(cxo-6, cyo,     1, 4, '#c9a227');      // asas
-    CO(cxo+5, cyo,     1, 4, '#c9a227');
-    CO(cxo-4, cyo+1,   8, 2, '#fff3b0');      // brillo
-    CO(cxo-2, cyo+6,   4, 3, '#c9a227');      // pie
-    CO(cxo-4, cyo+9,   8, 2, '#b8901f');      // base
-    objeto = `<g>${objeto}</g>`;
+    CO(cxo-5, cyo, 10, 6, '#f5d14e'); CO(cxo-6, cyo, 1, 4, '#c9a227'); CO(cxo+5, cyo, 1, 4, '#c9a227');
+    CO(cxo-4, cyo+1, 8, 2, '#fff3b0'); CO(cxo-2, cyo+6, 4, 3, '#c9a227'); CO(cxo-4, cyo+9, 8, 2, '#b8901f');
   } else if (o.pose === 'posando'){
     const jx = Math.round(cx - hombroW*0.55), jy = torsoY - 2, jw = Math.round(hombroW*1.1), jh = Math.round(torsoH*0.8);
     const CO = (x,y,w,h,c)=>{ objeto += `<rect x="${(x*S).toFixed(1)}" y="${(y*S).toFixed(1)}" width="${(w*S).toFixed(1)}" height="${(h*S).toFixed(1)}" fill="${c}"/>`; };
     CO(jx, jy, jw, jh, base);
     if (tipo === 'stripes'){ const an=Math.max(2,Math.round(jw/7)); for(let i=0;i<jw;i+=an*2) CO(jx+i, jy, an, jh, alt); }
-    CO(jx, jy, jw, 1, baseL);
-    CO(jx, jy+jh-1, jw, 1, baseS);
-    CO(jx+Math.round(jw*0.40), jy, Math.round(jw*0.20), 2, _avShade(base,-50));   // cuello
+    CO(jx, jy, jw, 1, baseL); CO(jx, jy+jh-1, jw, 1, baseS);
+    CO(jx+Math.round(jw*0.40), jy, Math.round(jw*0.20), 2, _avShade(base,-50));
     objeto += `<text x="${(cx*S).toFixed(1)}" y="${((jy+jh*0.68)*S).toFixed(1)}" text-anchor="middle" font-family="Outfit,Arial Black,sans-serif" font-weight="900" font-size="${(7*S).toFixed(1)}" fill="${kitTxt}">${esc(String(o.num||''))}</text>`;
-    objeto = `<g>${objeto}</g>`;
   }
+  // Muletas
+  if (av.muletas){
+    const mx = torsoX - brW - 3;
+    objeto += `<rect x="${(mx*S).toFixed(1)}" y="${((hombroY+2)*S).toFixed(1)}" width="${(1.4*S).toFixed(1)}" height="${((pisoY-hombroY-2)*S).toFixed(1)}" fill="#8a8f86"/>`;
+    objeto += `<rect x="${((mx-1)*S).toFixed(1)}" y="${((hombroY+2)*S).toFixed(1)}" width="${(3.4*S).toFixed(1)}" height="${(1.4*S).toFixed(1)}" fill="#6b7066"/>`;
+  }
+
+  // ── ENSAMBLADO ──
   const cw = W*S, ch = H*S;
   const aura = o.aura
     ? `<defs><radialGradient id="${uid}a"><stop offset="0%" stop-color="#facc15" stop-opacity=".42"/><stop offset="60%" stop-color="#facc15" stop-opacity=".12"/><stop offset="100%" stop-color="#facc15" stop-opacity="0"/></radialGradient></defs><ellipse cx="${cw/2}" cy="${ch*0.62}" rx="${cw*0.5}" ry="${ch*0.46}" fill="url(#${uid}a)"/>`
     : '';
-  // Animación de respiración/idle (suave, no molesta)
-  const anim = o.anim === false ? '' :
-    `<style>@keyframes ${uid}b{0%,100%{transform:translateY(0)}50%{transform:translateY(${(0.5*S).toFixed(1)}px)}}
-     .${uid}body{animation:${uid}b ${o.pose==='correr'?'0.5s':'3.2s'} ease-in-out infinite;transform-origin:${cw/2}px ${ch}px}</style>`;
-  // viewBox con margen arriba para que la copa/camiseta no se corten nunca.
+  // Animación: respiración, caminata o carrera
+  let anim = '';
+  if (o.anim !== false){
+    const dur = pose.piernas === 2 ? '0.42s' : pose.piernas === 1 ? '0.75s' : '3.2s';
+    const amp = pose.piernas ? 1.1 : 0.5;
+    anim = `<style>@keyframes ${uid}b{0%,100%{transform:translateY(0)}50%{transform:translateY(${(amp*S).toFixed(1)}px)}}
+      .${uid}body{animation:${uid}b ${dur} ease-in-out infinite;transform-origin:${cw/2}px ${ch}px}
+      @keyframes ${uid}p{0%,100%{transform:rotate(0deg)}50%{transform:rotate(${pose.piernas===2?'-16':'-9'}deg)}}
+      .${uid}pierna{animation:${uid}p ${dur} ease-in-out infinite;transform-origin:${(cx*S).toFixed(1)}px ${(piernaY*S).toFixed(1)}px}
+      .${uid}pierna2{animation:${uid}p ${dur} ease-in-out infinite reverse;transform-origin:${(cx*S).toFixed(1)}px ${(piernaY*S).toFixed(1)}px}</style>`;
+  }
+  const piernasHTML = pose.piernas
+    ? `<g class="${uid}pierna">${piernaSVG[0]}</g><g class="${uid}pierna2">${piernaSVG[1]}</g>`
+    : piernaSVG.join('');
   const mTop = (o.pose === 'campeon' || o.pose === 'posando') ? 14*S : 4*S;
-  return `<svg viewBox="0 ${-mTop} ${cw} ${ch+mTop}" width="${cw}" height="${ch+mTop}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;shape-rendering:crispEdges;">${anim}${aura}<g class="${uid}body">${p.join('')}${brazos}${textos}${cab.join('')}${objeto}</g></svg>`;
+  return `<svg viewBox="0 ${-mTop} ${cw} ${ch+mTop}" width="${cw}" height="${ch+mTop}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;shape-rendering:crispEdges;">${anim}${aura}<g class="${uid}body">${piernasHTML}${p.join('')}${brazos}${extras}${textos}${cab.join('')}${objeto}</g></svg>`;
 }
 
-function _avPelo(CR, tipo, hx, hy, hw, hh, c){
+function _avPelo(CR, tipo, hx, hy, hw, hh, c, calvicie){
   const cS = _avShade(c, -22), cL = _avShade(c, 26);
-  const t = Math.max(1, Math.round(hh*0.14));
+  // Entradas: el pelo retrocede en las sienes
+  const ent = calvicie === 1 ? Math.round(hw*0.20) : 0;
   switch(tipo){
     case 'calvo':
-      CR(hx+1, hy, hw-2, 1, _avShade(c, 40)); break;
+      CR(hx+1, hy, hw-2, 1, _avShade(c, 40));
+      CR(hx, hy+Math.round(hh*0.16), 1, Math.round(hh*0.14), c);
+      CR(hx+hw-1, hy+Math.round(hh*0.16), 1, Math.round(hh*0.14), c); break;
+    case 'coronilla':
+      CR(hx, hy+Math.round(hh*0.06), 2, Math.round(hh*0.22), c);
+      CR(hx+hw-2, hy+Math.round(hh*0.06), 2, Math.round(hh*0.22), c);
+      CR(hx+1, hy, hw-2, 1, _avShade(c, 30)); break;
     case 'rapado':
-      CR(hx, hy, hw, Math.round(hh*0.16), c);
-      CR(hx+1, hy, hw-2, 1, cL); break;
+      CR(hx+ent, hy, hw-ent*2, Math.round(hh*0.16), c);
+      CR(hx+1+ent, hy, hw-2-ent*2, 1, cL); break;
     case 'corto':
-      CR(hx-1, hy-1, hw+2, Math.round(hh*0.30), c);
+      CR(hx-1+ent, hy-1, hw+2-ent*2, Math.round(hh*0.30), c);
       CR(hx-1, hy+Math.round(hh*0.18), 1, Math.round(hh*0.20), c);
       CR(hx+hw, hy+Math.round(hh*0.18), 1, Math.round(hh*0.20), c);
-      CR(hx+1, hy-1, hw-3, 1, cL); break;
+      CR(hx+1+ent, hy-1, hw-3-ent*2, 1, cL); break;
     case 'largo':
-      CR(hx-1, hy-1, hw+2, Math.round(hh*0.28), c);
+      CR(hx-1+ent, hy-1, hw+2-ent*2, Math.round(hh*0.28), c);
       CR(hx-2, hy, 2, Math.round(hh*1.05), c);
       CR(hx+hw, hy, 2, Math.round(hh*1.05), c);
-      CR(hx+1, hy-1, hw-3, 1, cL); break;
+      CR(hx+1+ent, hy-1, hw-3-ent*2, 1, cL); break;
     case 'afro':
       CR(hx-2, hy-4, hw+4, Math.round(hh*0.42), c);
       CR(hx-3, hy-2, 2, Math.round(hh*0.40), c);
       CR(hx+hw+1, hy-2, 2, Math.round(hh*0.40), c);
       CR(hx, hy-4, hw-2, 1, cL); break;
     case 'tupe':
-      CR(hx-1, hy-1, hw+2, Math.round(hh*0.22), c);
+      CR(hx-1+ent, hy-1, hw+2-ent*2, Math.round(hh*0.22), c);
       CR(hx+Math.round(hw*0.18), hy-Math.round(hh*0.30), Math.round(hw*0.62), Math.round(hh*0.32), c);
       CR(hx+Math.round(hw*0.22), hy-Math.round(hh*0.30), Math.round(hw*0.40), 1, cL); break;
     case 'mohawk':
@@ -867,12 +970,12 @@ function _avPelo(CR, tipo, hx, hy, hw, hh, c){
       for (let i = -1; i < hw+1; i += 3) CR(hx+i, hy+Math.round(hh*0.14), 2, Math.round(hh*(0.75 + (i%2?0.22:0))), c);
       break;
     case 'colita':
-      CR(hx-1, hy-1, hw+2, Math.round(hh*0.26), c);
+      CR(hx-1+ent, hy-1, hw+2-ent*2, Math.round(hh*0.26), c);
       CR(hx+hw, hy+Math.round(hh*0.16), 2, Math.round(hh*0.14), c);
       CR(hx+hw+1, hy+Math.round(hh*0.22), 3, Math.round(hh*0.44), c);
-      CR(hx+1, hy-1, hw-3, 1, cL); break;
+      CR(hx+1+ent, hy-1, hw-3-ent*2, 1, cL); break;
     default:
-      CR(hx-1, hy-1, hw+2, Math.round(hh*0.28), c);
+      CR(hx-1+ent, hy-1, hw+2-ent*2, Math.round(hh*0.28), c);
   }
 }
 
@@ -1436,11 +1539,16 @@ window._potElegir = function(paso, idx){
   const res = o.ef(_draft);
   _draft._potHist.push({ t: ev.t, res });
   // Mostrar resultado y avanzar al siguiente paso.
+  const pose = _poseReaccion(res, { nivel:0, moral:0, fama:0, dinero:0 });
+  const kitPot = kitDe(_draft.pais);
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
-    <div style="max-width:520px;margin:0 auto;padding:60px 20px 40px;text-align:center;">
+    <div style="max-width:520px;margin:0 auto;padding:40px 20px 40px;text-align:center;">
+      <div style="display:flex;justify-content:center;margin-bottom:14px;">
+        ${avatarBox(avatarSprite(_draft.avatar, { edad:11+paso*2, kitBase:kitPot.base, kitAlt:kitPot.alt, kitTxt:kitPot.txt, kitTipo:kitPot.tipo, num:_draft.num, apellido:_draft.apellido, pose, escala:2.8 }), '10px 16px')}
+      </div>
       <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};margin-bottom:12px;">${esc(ev.t)}</div>
-      <div style="font-size:16px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:26px;">${esc(res)}</div>
+      <div style="font-size:16px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:22px;">${esc(res)}</div>
       <button onclick="window._carreraPotrero(${paso+1})" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 30px;font-weight:900;cursor:pointer;">${paso+1>=(_draft._potSet||[]).length?'Ir a la cantera':'Continuar'} <i class='bx bx-right-arrow-alt'></i></button>
     </div>`;
 };
@@ -1661,9 +1769,11 @@ window._juvElegir = function(paso, idx){
   G.juvHist.push({ edad:15+paso, t:ev.t, res });
   save();
   const dNiv = Math.round(G.nivel - antesNiv);
+  const pose = _poseReaccion(res, { nivel:dNiv, moral:0, fama:0, dinero:0 });
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
-    <div style="max-width:520px;margin:0 auto;padding:60px 20px 40px;text-align:center;">
+    <div style="max-width:520px;margin:0 auto;padding:40px 20px 40px;text-align:center;">
+      <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(avatarDeG(2.8, pose, { edad:15+paso }), '10px 16px')}</div>
       <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:#4fc3f7;margin-bottom:12px;">${esc(ev.t)}</div>
       <div style="font-size:16px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:16px;">${esc(res)}</div>
       ${dNiv?`<div style="margin-bottom:22px;">${deltaChip('Nivel', dNiv)}</div>`:'<div style="margin-bottom:22px;"></div>'}
@@ -2023,6 +2133,10 @@ function _finTemporada(ctx){
   const idBase = 4 + (titulosGanados.length*10) + (pos===1?6:pos<=3?3:0) + (rend>0.5?4:rend<0.15?-3:0);
   G.idolatria[G.club] = clamp((G.idolatria[G.club]||0) + idBase, -100, 100);
   G.temporada++; G.edad++; G.anio = (G.anio||2026) + 1;
+  // El cuerpo acusa el paso del tiempo: entradas, canas, anteojos.
+  avEnvejecer(G.edad);
+  // Las lesiones se curan solas al pasar la temporada.
+  if(G.avatar){ G.avatar.vendaje = false; G.avatar.muletas = false; }
   G._mercadoHecho = false;
   save();
   // Nota del diario local sobre tu temporada.
@@ -2686,6 +2800,30 @@ const EVENTOS=[
   { t:'Tentación fácil', img:'dinero', d:'Te ofrecen un negocio turbio para ganar plata rápida.', opts:[
     { txt:'Aceptar (riesgoso)', ef:g=>{ const mal=Math.random()<.5; g.dinero+=mal?0:50000; g.fama+=mal?-15:0; g.moral+=mal?-14:2; return mal?'Se supo todo. Escándalo.':'Salió bien... esta vez.'; } },
     { txt:'Rechazar y seguir limpio', ef:g=>{ g.moral+=6; return 'Buena decisión. Tu carrera va por buen camino.'; } } ] },
+  // ══ ASPECTO — decisiones que dejan MARCA VISIBLE permanente en el avatar ════
+  { t:'Se te está cayendo el pelo', img:'prensa', minAge:27, noFlag:'implante', d:'Te mirás en el espejo del vestuario y las entradas ya no se disimulan con nada. Los compañeros empezaron con las cargadas.', opts:[
+    { txt:'Injerto capilar en Turquía', ef:g=>{ g.dinero=Math.max(0,(g.dinero||0)-18000); g.flags=g.flags||{}; g.flags.implante=true; avMutar({implante:true, calvicie:-3}); return 'Volviste de Estambul con la cabeza vendada y el pelo nuevo. En dos meses no te reconocía nadie.'; } },
+    { txt:'Raparme y asumirlo', ef:g=>{ g.moral+=6; avMutar({pelo:'rapado', calvicie:1}); return 'Te rapaste al cero y te quedó bien. Dejaste de pensar en eso para siempre.'; } },
+    { txt:'Disimularlo como pueda', ef:g=>{ g.moral-=3; avMutar({calvicie:1}); return 'Gorra en toda foto y peinado estratégico. Todos se dan cuenta igual.'; } } ] },
+  { t:'Te querés tatuar', img:'joda', minAge:19, d:'Un tatuador famoso te ofrece hacerte una manga completa. Es para siempre.', opts:[
+    { txt:'Hacerme la manga entera', ef:g=>{ g.fama+=5; avMutar({tatus:2}); return 'Te tatuaste el brazo entero con la historia de tu vida. Ahora sos reconocible hasta de espaldas.'; } },
+    { txt:'Algo chico y con sentido', ef:g=>{ g.moral+=4; avMutar({tatus:1}); return 'Un tatuaje discreto con la fecha de tu debut. Sólo vos sabés lo que significa.'; } },
+    { txt:'Mi piel queda como está', ef:g=>{ return 'Le dijiste que no. No es lo tuyo y está bien.'; } } ] },
+  { t:'Volviste pesado de las vacaciones', img:'lesion', minAge:24, d:'El control de peso de pretemporada no miente: volviste con cinco kilos de más.', opts:[
+    { txt:'Dieta estricta y doble turno', ef:g=>{ g.nivel+=2; g.moral-=3; avMutar({peso:0}); return 'Dos meses de sacrificio y volviste al peso ideal. El cuerpo técnico lo notó.'; } },
+    { txt:'Ya los bajo jugando', ef:g=>{ const mal=Math.random()<.6; g.nivel+=mal?-3:0; if(mal) avMutar({peso:1}); return mal?'Nunca los bajaste. Se te nota en la cancha y en las fotos.':'Los fuiste bajando de a poco. Zafaste.'; } } ] },
+  { t:'Golpe en la cara', img:'lesion', d:'Un codazo en un córner te abre la ceja. Seis puntos y sangre por todos lados.', opts:[
+    { txt:'Que me cosan y sigo jugando', ef:g=>{ g.fama+=6; g.moral+=5; avMutar({cicatriz:1}); return 'Volviste con la cabeza vendada y jugaste los 90. Te quedó la cicatriz de recuerdo y el respeto de todos.'; } },
+    { txt:'Salir y que me revisen bien', ef:g=>{ avMutar({cicatriz:1}); return 'Te sacaron por precaución. Seis puntos y una cicatriz fina sobre la ceja.'; } } ] },
+  { t:'Rotura de ligamentos', img:'lesion', minAge:22, d:'Caíste mal y el crujido lo escuchó todo el estadio. Los estudios confirman lo peor: ligamentos cruzados.', opts:[
+    { txt:'Operarme y hacer la rehabilitación completa', ef:g=>{ g.nivel-=5; g.moral-=10; avMutar({vendaje:true, muletas:true, cicatriz:1});
+      return 'Ocho meses afuera. Muletas, gimnasio y mucha cabeza. Volviste, pero nunca fuiste exactamente el mismo.'; } },
+    { txt:'Tratamiento conservador para volver antes', ef:g=>{ const mal=Math.random()<.65; g.nivel-=mal?9:3; avMutar({vendaje:true, cicatriz:1});
+      return mal?'Volviste antes y te rompiste de nuevo a los tres partidos. Un año perdido.':'Arriesgaste y salió bien. Volviste en cuatro meses con la rodilla vendada.'; } } ] },
+  { t:'Sesión de fotos para una marca', img:'sponsor', minStr:70, minAge:23, d:'Una marca de lujo te quiere para su campaña global. Estilistas, relojes y cadenas de oro.', opts:[
+    { txt:'Entrar al juego del lujo', ef:g=>{ g.dinero=(g.dinero||0)+180000; g.fama+=12; avMutar({bling:2}); return 'Cadena de oro, reloj carísimo y tu cara en Times Square. Bienvenido a las ligas mayores.'; } },
+    { txt:'Hacerla, pero sin disfrazarme', ef:g=>{ g.dinero=(g.dinero||0)+90000; g.fama+=5; return 'Hiciste la campaña con tu ropa de siempre. La marca no quedó del todo conforme.'; } } ] },
+
   { t:'Molestia física', img:'lesion', d:'Sentís una molestia fuerte en el entrenamiento.', opts:[
     { txt:'Parar y recuperarte', ef:g=>{ g.moral-=4; return 'Te perdés unos partidos pero volvés entero.'; } },
     { txt:'Jugar infiltrado', ef:g=>{ const peor=Math.random()<.5; g.nivel+=peor?-4:1; g.moral-=peor?8:0; g.fama+=peor?0:4; return peor?'La lesión empeoró.':'Aguantaste y fuiste figura.'; } } ] },
@@ -2809,7 +2947,7 @@ const EVENTOS=[
       if (cae) {
         g.fama -= 40; g.moral -= 30;
         // 35% de que además vayas PRESO por soborno deportivo → final alternativo.
-        if (Math.random() < .35) { g._irCarcel = 'soborno'; return 'Te descubrieron y hay causa penal. Vas preso por soborno deportivo.'; }
+        if (Math.random() < .35) { g._irCarcel = 'soborno'; avMutar({preso:true,bling:-3}); return 'Te descubrieron y hay causa penal. Vas preso por soborno deportivo.'; }
         return 'Te descubrieron. Suspensión, escándalo y tu carrera al borde del final.';
       }
       g.dinero += 200000; g.moral -= 6;
@@ -2819,7 +2957,7 @@ const EVENTOS=[
   { t:'Pelea en un after fuera de control', img:'joda', d:'A la salida de un boliche, se arma una pelea. Vos estás en el medio. Hay heridos.', opts:[
     { txt:'Encarar y bancar la parada', ef:g=>{
       const mal = Math.random() < .5;
-      if (mal) { g.fama -= 25; g.moral -= 15; g._irCarcel = 'pelea'; return 'Cámaras te filman siendo el más agresivo. La policía te lleva. Vas preso.'; }
+      if (mal) { g.fama -= 25; g.moral -= 15; g._irCarcel = 'pelea'; avMutar({preso:true,cicatriz:1}); return 'Cámaras te filman siendo el más agresivo. La policía te lleva. Vas preso.'; }
       g.fama -= 8; return 'Te frenaron a tiempo. Escándalo mediano, no fue a mayores.';
     } },
     { txt:'Salir corriendo, no meterme', ef:g=>{ g.moral+=3; g.fama-=2; return 'Te fuiste. Bien hecho — no estabas para líos.'; } } ] },
@@ -2833,7 +2971,7 @@ const EVENTOS=[
 
   // ══ ÉTICA / LEGALIDAD — cadenas con consecuencias arrastradas ══════════════
   { t:'Te ofrecen "vitaminas" del médico del club', img:'lesion', minAge:20, noFlag:'dopado', d:'El médico te ofrece un tratamiento "de recuperación" que está en zona gris. Todos en el plantel lo usan.', opts:[
-    { txt:'Aceptar el tratamiento', ef:g=>{ g.flags=g.flags||{}; g.flags.dopado=true; g.nivel+=4; return 'Te sentís una máquina. Recuperás en la mitad de tiempo. Nadie pregunta nada... por ahora.'; } },
+    { txt:'Aceptar el tratamiento', ef:g=>{ g.flags=g.flags||{}; g.flags.dopado=true; g.nivel+=4; avMutar({peso:-1}); return 'Te sentís una máquina. Recuperás en la mitad de tiempo. Nadie pregunta nada... por ahora.'; } },
     { txt:'Rechazar, prefiero mi cuerpo limpio', ef:g=>{ g.flags=g.flags||{}; g.flags.limpio=true; g.moral+=6; return 'Dijiste que no. Vas a tardar más en recuperar, pero dormís tranquilo.'; } } ] },
   { t:'Control antidopaje sorpresa', img:'prensa', reqFlag:'dopado', d:'Llega la AMA al entrenamiento sin aviso. Te toca a vos dar la muestra.', opts:[
     { txt:'Dar la muestra y esperar', ef:g=>{
@@ -2846,7 +2984,7 @@ const EVENTOS=[
     { txt:'Decir que fui víctima de un complot', ef:g=>{ g.fama-=8; g.moral-=5; return 'Nadie te creyó. Quedaste como el que ni siquiera asume.'; } } ] },
 
   { t:'Una app de apuestas te tienta', img:'dinero', minAge:19, noFlag:'ludopata', d:'Bajaste una app "solo para probar" con los partidos que ya mirás igual. Un amigo del plantel dice que él saca un sueldo extra.', opts:[
-    { txt:'Meterle unos pesos, total es poco', ef:g=>{ g.flags=g.flags||{}; g.flags.ludopata=true; g.dinero+=15000; return 'Ganaste la primera. Esa sensación no se olvida... y ahí empieza el problema.'; } },
+    { txt:'Meterle unos pesos, total es poco', ef:g=>{ g.flags=g.flags||{}; g.flags.ludopata=true; g.dinero+=15000; avMutar({bling:1}); return 'Ganaste la primera. Esa sensación no se olvida... y ahí empieza el problema.'; } },
     { txt:'Ni loco, conozco esas historias', ef:g=>{ g.moral+=4; return 'Borraste la app. Viste demasiados compañeros fundidos.'; } } ] },
   { t:'La apuesta se te fue de las manos', img:'dinero', reqFlag:'ludopata', noFlag:'deudaMafia', d:'Ya no apostás por diversión. Debés una cifra que no podés pagar y el prestamista no es del banco.', opts:[
     { txt:'Pedir ayuda al club y confesar', ef:g=>{ g.flags.enTratamiento=true; g.dinero=Math.max(0,g.dinero-80000); g.fama-=10; g.moral+=8; return 'El club te bancó y te puso en tratamiento. Fue humillante pero te salvó la vida.'; } },
@@ -2856,11 +2994,11 @@ const EVENTOS=[
     { txt:'Aceptar el "favor" en el partido', ef:g=>{
       g.flags.arreglo=true;
       const cae=Math.random()<.55;
-      if(cae){ g.fama-=45; g.moral-=25; if(Math.random()<.4){ g._irCarcel='arreglo'; return 'Se abrió causa penal por amaño. Vas preso.'; } return 'Te descubrieron. Inhabilitación y carrera destruida.'; }
+      if(cae){ g.fama-=45; g.moral-=25; if(Math.random()<.4){ g._irCarcel='arreglo'; avMutar({preso:true}); return 'Se abrió causa penal por amaño. Vas preso.'; } return 'Te descubrieron. Inhabilitación y carrera destruida.'; }
       g.moral-=18; return 'Nadie se dio cuenta. Pero vos sabés lo que hiciste, y eso no se borra.'; } } ] },
   { t:'Denuncia por el arreglo', img:'prensa', reqFlag:'arreglo', d:'Un periodista de investigación te encara con audios. Sabe todo.', opts:[
     { txt:'Confesar y colaborar con la justicia', ef:g=>{ g.flags.arreglo=false; g.flags.delator=true; g.fama-=15; g.moral+=12; return 'Colaboraste y desarmaste la red. Perdiste amigos y ganaste algo de paz.'; } },
-    { txt:'Negar todo y contratar abogados', ef:g=>{ g.dinero=Math.max(0,g.dinero-200000); const zafa=Math.random()<.45; if(!zafa){ g._irCarcel='arreglo'; return 'Los abogados no alcanzaron. Vas preso por amaño de partidos.'; } g.fama-=20; return 'Zafaste por falta de pruebas. La sombra te va a seguir siempre.'; } } ] },
+    { txt:'Negar todo y contratar abogados', ef:g=>{ g.dinero=Math.max(0,g.dinero-200000); const zafa=Math.random()<.45; if(!zafa){ g._irCarcel='arreglo'; avMutar({preso:true}); return 'Los abogados no alcanzaron. Vas preso por amaño de partidos.'; } g.fama-=20; return 'Zafaste por falta de pruebas. La sombra te va a seguir siempre.'; } } ] },
 
   // ══ TRAIDOR — consecuencias de irte siendo ídolo ═══════════════════════════
   { t:'Volvés a jugar contra tu ex club', img:'pelea', reqFlag:'traidor', d:'Te toca visitar el estadio donde eras ídolo. Te reciben con insultos, billetes falsos y una bandera con tu nombre tachado.', opts:[
@@ -2947,26 +3085,49 @@ function deltaChip(lbl, d, money){
   const val = money ? (up?'+':'−')+'€'+(Math.abs(d)>=1000?(Math.abs(d)/1000|0)+'k':Math.abs(d)) : (up?'+':'−')+Math.abs(d);
   return `<span style="display:inline-flex;align-items:center;gap:3px;background:${up?'rgba(74,222,128,.12)':'rgba(255,107,107,.12)'};border:1px solid ${col}55;color:${col};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;"><i class='bx ${up?'bx-up-arrow-alt':'bx-down-arrow-alt'}'></i>${lbl} ${val}</span>`;
 }
+// Elige la POSE con la que el avatar reacciona al resultado de una decisión.
+// Lee el texto del resultado y los deltas: si mejoró festeja, si empeoró se hunde.
+function _poseReaccion(res, d){
+  const t = (res||'').toLowerCase();
+  if (/preso|cárcel|carcel|detenid|policía|policia/.test(t)) return 'esposado';
+  if (/lesion|lesión|rompi|desgarr|ligament|operar|quirófano|quirofano|muleta/.test(t)) return 'lesion';
+  if (/campeón|campeon|copa|título|titulo|ganaste|levant/.test(t)) return 'campeon';
+  if (/injerto|estambul|turquía|turquia|rapaste|tatua/.test(t)) return 'posando';
+  if (/fortuna|millon|cadena|reloj|oro|fichaste|firmaste/.test(t)) return 'rico';
+  if (/escándalo|escandalo|papelón|papelon|suspensión|suspension|echaron|silbid|traidor/.test(t)) return 'bronca';
+  if (d.moral <= -8 || d.fama <= -10) return 'bajon';
+  if (d.nivel <= -3) return 'agotado';
+  if (d.moral >= 8 || d.fama >= 8) return 'festejo';
+  if (d.nivel >= 2) return 'orgullo';
+  if (d.dinero >= 100000) return 'rico';
+  return 'pensando';
+}
 window._carreraElegir = function(i){
   const ev=G._ev; const o=ev.opts[i]; if(!o) return;
-  // Snapshot para medir el IMPACTO real de la decisión.
+  // Snapshot para medir el IMPACTO real de la decisión (stats y aspecto).
   const b={ nivel:G.nivel, moral:G.moral, fama:G.fama, dinero:G.dinero, valor:G.valor||0 };
+  const avAntes = JSON.stringify(G.avatar||{});
   const res=o.ef(G);
   G.nivel=clamp(G.nivel,30,99); G.fama=clamp(G.fama,0,100); G.moral=clamp(G.moral,0,100); G.dinero=Math.max(0,G.dinero);
+  const d = { nivel:Math.round(G.nivel-b.nivel), moral:Math.round(G.moral-b.moral), fama:Math.round(G.fama-b.fama), dinero:Math.round(G.dinero-b.dinero) };
   const chips = [
-    deltaChip('Nivel', Math.round(G.nivel-b.nivel)),
-    deltaChip('Moral', Math.round(G.moral-b.moral)),
-    deltaChip('Fama', Math.round(G.fama-b.fama)),
-    deltaChip('$', Math.round(G.dinero-b.dinero), true)
+    deltaChip('Nivel', d.nivel), deltaChip('Moral', d.moral),
+    deltaChip('Fama', d.fama), deltaChip('$', d.dinero, true)
   ].filter(Boolean).join('');
+  // ¿La decisión cambió el ASPECTO del avatar? Se avisa para que se note.
+  const cambioAspecto = JSON.stringify(G.avatar||{}) !== avAntes;
   G.hist.push({t:ev.t,res}); save();
-  // ¿La decisión terminó en la cárcel? → pantalla especial con desafío del lechón.
   if (G._irCarcel) {
     const motivo = G._irCarcel; G._irCarcel = null; save();
     setTimeout(()=>_carreraCarcel(motivo), 500);
   }
+  const pose = _poseReaccion(res, d);
   const wrap=document.getElementById('cr-evwrap');
   if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:6px 0;">
+    <div style="display:flex;justify-content:center;margin-bottom:10px;">
+      ${avatarBox(avatarDeG(2.6, pose), '10px 16px')}
+    </div>
+    ${cambioAspecto?`<div style="display:inline-flex;align-items:center;gap:5px;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.35);color:#c4b5fd;border-radius:20px;padding:3px 11px;font-size:10.5px;font-weight:800;margin-bottom:9px;"><i class='bx bx-body'></i> Esto te cambió por dentro y por fuera</div>`:''}
     <div style="font-size:15px;color:#fff;font-weight:700;line-height:1.55;margin-bottom:12px;">${esc(res)}</div>
     ${chips?`<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:16px;">${chips}</div>`:'<div style="height:6px;"></div>'}
     <button onclick="window._carreraContinuar()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 28px;font-weight:900;cursor:pointer;">Continuar</button>
@@ -3956,7 +4117,7 @@ window._vidaLapso = function(){
         ${vidaEscena(rol, 320, 150)}
         <!-- Avatar parado en la habitación -->
         <div style="position:absolute;left:50%;bottom:11%;transform:translateX(-50%);">
-          ${avatarSprite(G.avatar, { edad:G.vidaEdad, kitBase:kit.base, kitAlt:kit.alt, kitTxt:kit.txt, kitTipo:kit.tipo, num:G.num, apellido:G.apellido, escala:2.1, pose:'idle' })}
+          ${avatarSprite(G.avatar, { edad:G.vidaEdad, kitBase:kit.base, kitAlt:kit.alt, kitTxt:kit.txt, kitTipo:kit.tipo, num:G.num, apellido:G.apellido, escala:2.1, pose:_poseReaccion(res,{nivel:0,moral:0,fama:0,dinero:0}) })}
         </div>
         <!-- Panel de período y objetivos, arriba a la derecha -->
         <div style="position:absolute;top:6px;right:6px;background:rgba(10,14,8,.82);border:1px solid ${R.color}44;border-radius:7px;padding:7px 10px;max-width:52%;">
@@ -3995,6 +4156,8 @@ window._vidaElegir = function(i){
   // Desgaste natural del paso del tiempo (5 años por lapso)
   s.salud = clamp(s.salud - ri(3, 8), 0, 100);
   (G._vidaSeen = G._vidaSeen || []).push(picked.idx);
+  avEnvejecer(G.vidaEdad + 5);
+  if(G.vidaRol==='dirigente'||G.vidaRol==='empresario') avMutar({traje:true});
   const L = VIDA_LAPSOS[G.vidaLapso];
   G.vidaHist.push({ lapso:L.lbl, t:picked.ev.t, res, rol });
   save();
