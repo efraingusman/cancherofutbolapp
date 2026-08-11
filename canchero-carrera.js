@@ -146,66 +146,98 @@ function trofeosDe(liga){ return LIGA_TROFEOS[liga] || { local: liga, copaNac: '
 // Mapeo EXPLÍCITO por nombre exacto (case-insensitive). Nada de "Champions con
 // Cobreloa": si no hay imagen específica, devolvemos null y el UI muestra un
 // trofeo genérico (icono) con el nombre del torneo.
+// Los valores son el NOMBRE DE ARCHIVO COMPLETO (con extensión), porque conviven
+// .webp y .png según de dónde salió cada imagen.
 const TROFEO_MAP = {
-  // Internacionales de clubes — SOLO la Champions europea usa el trofeo de la Champions.
-  // Concachampions y la Champions de Asia son torneos distintos: van al trofeo genérico
-  // dorado hasta que existan sus imágenes propias.
-  'champions league':'champions','uefa champions league':'champions',
-  'europa league':'europa',
-  'copa libertadores':'libertadores','copa sudamericana':'sudamericana',
-  'mundial de clubes':'mundial-clubes','intercontinental':'intercontinental',
-  // Selecciones
-  'mundial':'mundial','copa del mundo':'mundial',
-  'eurocopa':'eurocopa','copa américa':'copa-america','copa america':'copa-america',
-  'oro olímpico':'oro-olimpico','oro olimpico':'oro-olimpico',
-  // Ligas nacionales (torneo local)
-  'laliga':'laliga','la liga':'laliga',
-  'premier league':'premier',
-  'ligue 1':'ligue1',
-  'serie a':'coppa-italia',
-  'brasileirão':'copa-brasil','brasileirao':'copa-brasil',
-  'primeira liga':'copa-portugal',
-  'campeonato uruguayo':'liga-uy',
-  // Copas nacionales con imagen propia
-  'copa italia':'coppa-italia','coppa italia':'coppa-italia',
-  'copa argentina':'copa-argentina',
-  'copa do brasil':'copa-brasil',
-  'copa de portugal':'copa-portugal',
-  'copa chile':'copa-chile',
-  'copa auf':'liga-uy',
-  'copa del rey':'copa-rey'
+  // ── Internacionales de clubes ──
+  'champions league':'champions.webp','uefa champions league':'champions.webp',
+  'europa league':'europa.webp',
+  'conference league':'conference-league.webp',
+  'copa libertadores':'libertadores.webp','copa sudamericana':'sudamericana.webp',
+  'mundial de clubes':'mundial-clubes.webp','intercontinental':'intercontinental.webp',
+  'concachampions':'concachampions.png',
+  'champions league de asia':'champions-asia.png',
+  // ── Selecciones ──
+  'mundial':'mundial.webp','copa del mundo':'mundial.webp',
+  'eurocopa':'eurocopa.webp','copa américa':'copa-america.webp','copa america':'copa-america.webp',
+  'oro olímpico':'oro-olimpico.webp','oro olimpico':'oro-olimpico.webp',
+  'juegos olímpicos':'oro-olimpico.webp','juegos olimpicos':'oro-olimpico.webp',
+  'mundial sub-20':'mundial.webp','mundial sub-17':'mundial.webp','sudamericano sub-15':'copa-america.webp',
+  // ── Ligas nacionales ──
+  'laliga':'laliga.webp','la liga':'laliga.webp',
+  'premier league':'premier.webp',
+  'ligue 1':'ligue1.webp',
+  'serie a':'coppa-italia.webp',
+  'brasileirão':'copa-brasil.webp','brasileirao':'copa-brasil.webp',
+  'primeira liga':'copa-portugal.webp',
+  'campeonato uruguayo':'campeonato-uruguayo.png',
+  // ── Copas nacionales ──
+  'copa italia':'coppa-italia.webp','coppa italia':'coppa-italia.webp',
+  'copa argentina':'copa-argentina.webp',
+  'copa do brasil':'copa-brasil.webp',
+  'copa de portugal':'copa-portugal.webp',
+  'copa chile':'copa-chile.webp',
+  'copa auf':'liga-uy.webp',
+  'copa del rey':'copa-rey.png',
+  'fa cup':'fa-cup.png',
+  'dfb-pokal':'dfb-pokal.png','dfb pokal':'dfb-pokal.png',
+  'copa de francia':'copa-francia.png',
+  'knvb beker':'knvb-beker.webp',
+  'copa de bélgica':'copa-belgica.webp','copa de belgica':'copa-belgica.webp',
+  'copa de turquía':'copa-turquia.png','copa de turquia':'copa-turquia.png',
+  'copa mx':'copa-mx.png',
+  'us open cup':'us-open-cup.png',
+  'copa colombia':'copa-colombia.png',
+  'copa de croacia':'copa-croacia.png',
+  'copa de austria':'copa-austria.webp',
+  'copa del emperador':'copa-emperador.webp',
+  "king's cup":'kings-cup.png','kings cup':'kings-cup.png'
 };
 function trofeoImgSlug(nombre){
   const n = (nombre||'').toLowerCase().trim();
   if (TROFEO_MAP[n]) return TROFEO_MAP[n];
   // Fuzzy sólo para nombres muy conocidos (no meter falsos positivos).
   // Ojo: "champions" solo si NO es la de Asia ni la Concacaf.
-  if (n.includes('champions') && !n.includes('asia') && !n.includes('concacaf') && !n.includes('concacham')) return 'champions';
-  if (n.includes('libertadores')) return 'libertadores';
-  if (n.includes('sudamericana')) return 'sudamericana';
-  if (n.includes('europa league')) return 'europa';
-  if (n.includes('mundial de clubes')) return 'mundial-clubes';
-  if (n.includes('intercontinental')) return 'intercontinental';
+  if (n.includes('concacham')) return 'concachampions.png';
+  if (n.includes('champions') && n.includes('asia')) return 'champions-asia.png';
+  if (n.includes('champions')) return 'champions.webp';
+  if (n.includes('conference')) return 'conference-league.webp';
+  if (n.includes('libertadores')) return 'libertadores.webp';
+  if (n.includes('sudamericana')) return 'sudamericana.webp';
+  if (n.includes('europa league')) return 'europa.webp';
+  if (n.includes('mundial de clubes')) return 'mundial-clubes.webp';
+  if (n.includes('intercontinental')) return 'intercontinental.webp';
+  if (n.includes('mundial')) return 'mundial.webp';
   // Sin match → null (UI renderiza icono genérico dorado con el nombre).
   return null;
 }
-// Renderiza un trofeo: usa imagen si hay slug; si no, un icono genérico dorado.
+// Renderiza un trofeo: usa imagen si hay archivo; si no, un icono genérico dorado.
 function trofeoRender(nombre, size){
-  const slug = trofeoImgSlug(nombre);
+  const file = trofeoImgSlug(nombre);
   const s = size || 60;
-  if (slug) return `<img src="img/trofeos/${slug}.webp" alt="" style="max-height:${s}px;max-width:100%;object-fit:contain;filter:drop-shadow(0 4px 12px rgba(250,204,21,.35));" onerror="this.style.display='none'">`;
-  return `<div style="width:${s}px;height:${s}px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 35%, #facc15 0%, #b8860b 65%, #6b4d08 100%);border-radius:50%;box-shadow:0 4px 12px rgba(250,204,21,.35), inset 0 -6px 12px rgba(0,0,0,.35), inset 0 4px 8px rgba(255,255,255,.35);"><i class='bx bxs-trophy' style="font-size:${Math.round(s*0.55)}px;color:#fff8dc;text-shadow:0 1px 2px rgba(0,0,0,.4);"></i></div>`;
+  const generico = `<div style="width:${s}px;height:${s}px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 35%, #facc15 0%, #b8860b 65%, #6b4d08 100%);border-radius:50%;box-shadow:0 4px 12px rgba(250,204,21,.35), inset 0 -6px 12px rgba(0,0,0,.35), inset 0 4px 8px rgba(255,255,255,.35);"><i class='bx bxs-trophy' style="font-size:${Math.round(s*0.55)}px;color:#fff8dc;text-shadow:0 1px 2px rgba(0,0,0,.4);"></i></div>`;
+  if (!file) return generico;
+  // Si la imagen falla, cae al trofeo dorado genérico (nunca a otra copa equivocada).
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;position:relative;"><img src="img/trofeos/${file}" alt="" style="max-height:${s}px;max-width:100%;object-fit:contain;filter:drop-shadow(0 4px 12px rgba(250,204,21,.35));" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><span style="display:none;">${generico}</span></span>`;
 }
-// Premios individuales — se mostrarán como logros aparte.
+// Premios individuales — nombre de archivo completo (con extensión).
 function premioImgSlug(nombre){
   const n = (nombre||'').toLowerCase();
-  if (n.includes('balón de oro') || n.includes('balon de oro')) return 'balon-oro';
-  if (n.includes('the best')) return 'the-best';
-  if (n.includes('fifa mejor') || n.includes('mejor jugador de la fifa')) return 'fifa-mejor';
-  if (n.includes('bota de oro')) return 'bota-oro';
-  if (n.includes('guante')) return 'guante-oro';
-  if (n.includes('joven')) return 'mejor-joven';
+  if (n.includes('balón de oro') || n.includes('balon de oro')) return 'balon-oro.webp';
+  if (n.includes('the best')) return 'the-best.webp';
+  if (n.includes('fifa mejor') || n.includes('mejor jugador de la fifa')) return 'fifa-mejor.png';
+  if (n.includes('bota de oro')) return 'bota-oro.webp';
+  if (n.includes('guante')) return 'guante-oro.png';
+  if (n.includes('joven')) return 'mejor-joven.png';
   return null;
+}
+// Render de premio individual, con fallback a medalla dorada genérica.
+function premioRender(nombre, size){
+  const file = premioImgSlug(nombre);
+  const s = size || 56;
+  const gen = `<div style="width:${s}px;height:${s}px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 35%, #fde68a 0%, #d97706 70%, #7c4a03 100%);border-radius:50%;box-shadow:0 4px 12px rgba(217,119,6,.4);"><i class='bx bxs-medal' style="font-size:${Math.round(s*0.55)}px;color:#fff8dc;"></i></div>`;
+  if (!file) return gen;
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;"><img src="img/trofeos/${file}" alt="" style="max-height:${s}px;max-width:100%;object-fit:contain;filter:drop-shadow(0 4px 12px rgba(250,204,21,.35));" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><span style="display:none;">${gen}</span></span>`;
 }
 function todosClubs(){ const out=[]; LIGAS.forEach(L=>L.clubs.forEach(c=>out.push({name:c[0],str:c[1],liga:L.liga,pais:L.pais}))); return out; }
 // ── ASCENSO / DESCENSO ─────────────────────────────────────────────────────────
@@ -1175,7 +1207,10 @@ function _finTemporada(ctx){
       nombre: R.nombre, gane,
       mio: { g, a }, suyo: { g: rs.g, a: rs.a },
       nivel: Math.round(R.nivel), titulos: R.titulos,
-      ganados: R.ganados, perdidos: R.perdidos
+      ganados: R.ganados, perdidos: R.perdidos,
+      // Primera vez: el resumen lo PRESENTA en vez de tirar un marcador sin contexto.
+      primero: (R.ganados + R.perdidos) === 1,
+      pos: R.pos, pais: R.pais
     };
   }
   // IDOLATRÍA: cada temporada al mismo club suma. Títulos y buen rendimiento aceleran.
@@ -1185,7 +1220,9 @@ function _finTemporada(ctx){
   G.temporada++; G.edad++; G.anio = (G.anio||2026) + 1;
   G._mercadoHecho = false;
   save();
-  resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa,duelo,momento,bal,inv});
+  // Nota del diario local sobre tu temporada.
+  const prensa = notaPrensa({ pj, g, a, pos, totalEq, titulo, rend });
+  resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa,duelo,momento,bal,inv,prensa});
 }
 
 function resumenTemporada(r){
@@ -1230,8 +1267,13 @@ function resumenTemporada(r){
       </div>`:''}
       <div style="margin-top:8px;text-align:center;font-size:11px;color:#8a8f96;">Capital: <b style="color:#facc15;font-size:13px;">${eur(G.dinero||0)}</b>${G.flags&&G.flags.enRojo?' <span style="color:#ef4444;font-weight:900;">· EN ROJO</span>':''}</div>
     </div>`; })():''}
+    ${(r.duelo&&r.duelo.primero)?`<div style="background:linear-gradient(160deg,rgba(239,68,68,.12),rgba(20,22,18,.6));border:1.5px solid rgba(239,68,68,.4);border-radius:14px;padding:14px;margin-bottom:12px;">
+      <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#ef4444;margin-bottom:8px;">⚔️ APARECE TU NÉMESIS</div>
+      <div style="font-size:13px;color:#e8e8e0;line-height:1.6;">Toda tu camada habla de <b style="color:#fff;">${esc(r.duelo.nombre)}</b>, un ${esc(posLabelLargo(r.duelo.pos))} de ${esc(r.duelo.pais)} de tu misma edad. Arrancaron juntos y los van a comparar toda la carrera: quién mete más, quién gana más, quién llega más lejos.<br><br><span style="color:#f8b4b4;">Cada temporada vas a ver quién de los dos rindió más. No lo controlás — solo podés ser mejor.</span></div>
+    </div>`:''}
     ${r.duelo?`<div style="background:linear-gradient(160deg,${r.duelo.gane?'rgba(34,197,94,.08)':'rgba(239,68,68,.08)'},rgba(20,22,18,.5));border:1px solid ${r.duelo.gane?'rgba(34,197,94,.35)':'rgba(239,68,68,.35)'};border-radius:14px;padding:12px 14px;margin-bottom:14px;">
-      <div style="font-size:10px;font-weight:900;letter-spacing:1.5px;color:${r.duelo.gane?'#22c55e':'#ef4444'};margin-bottom:8px;"><i class='bx bx-target-lock'></i> DUELO CON ${esc(r.duelo.nombre).toUpperCase()}</div>
+      <div style="font-size:10px;font-weight:900;letter-spacing:1.5px;color:${r.duelo.gane?'#22c55e':'#ef4444'};margin-bottom:4px;"><i class='bx bx-target-lock'></i> DUELO CON ${esc(r.duelo.nombre).toUpperCase()}</div>
+      <div style="font-size:10.5px;color:#8a8f96;margin-bottom:8px;">Quién rindió más esta temporada (goles + asistencias)</div>
       <div style="display:flex;align-items:center;gap:10px;">
         <div style="flex:1;text-align:center;"><div style="font-size:10px;color:#8a8f96;font-weight:800;">VOS</div><div style="font-size:17px;font-weight:900;color:#fff;">${r.duelo.mio.g}G ${r.duelo.mio.a}A</div></div>
         <div style="font-size:12px;font-weight:900;color:${r.duelo.gane?'#22c55e':'#ef4444'};flex-shrink:0;">${r.duelo.gane?'GANASTE':'PERDISTE'}</div>
@@ -1239,6 +1281,20 @@ function resumenTemporada(r){
       </div>
       <div style="font-size:10.5px;color:#8a8f96;text-align:center;margin-top:7px;">Historial: <b style="color:#22c55e;">${r.duelo.ganados}</b> a <b style="color:#ef4444;">${r.duelo.perdidos}</b> · Él lleva ${r.duelo.titulos} título${r.duelo.titulos!==1?'s':''}</div>
     </div>`:''}
+    ${r.prensa?(function(){ const p=r.prensa;
+      const col = p.tono==='gloria'?'#facc15':p.tono==='bueno'?'#22c55e':p.tono==='malo'?'#ef4444':'#94a3b8';
+      return `<div style="background:linear-gradient(175deg,#f4f1e8,#e8e4d8);border-radius:12px;padding:14px 15px;margin-bottom:14px;box-shadow:0 6px 20px rgba(0,0,0,.5);transform:rotate(-.5deg);">
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1a1a1a;padding-bottom:6px;margin-bottom:8px;">
+        <div style="font-family:Georgia,serif;font-weight:900;font-size:13px;color:#1a1a1a;letter-spacing:-.3px;">${esc(p.diario)}</div>
+        <div style="font-size:9px;color:#666;font-weight:700;">${G.anio-1}</div>
+      </div>
+      <div style="font-family:Georgia,serif;font-weight:900;font-size:16.5px;color:#111;line-height:1.25;margin-bottom:7px;">${esc(p.titular)}</div>
+      <div style="font-family:Georgia,serif;font-size:12px;color:#333;line-height:1.55;">${esc(p.cuerpo)}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:9px;padding-top:7px;border-top:1px solid #c8c4b8;">
+        <div style="width:5px;height:5px;border-radius:50%;background:${col};"></div>
+        <div style="font-size:10px;color:#555;font-style:italic;">por ${esc(p.firma)}</div>
+      </div>
+    </div>`; })():''}
     <div id="cr-evwrap"></div>
   </div>`;
   // Decisiones de esta temporada según dificultad. Si hay título ganado, NO
@@ -1322,6 +1378,93 @@ window._carreraMercadoForzado = function(){
   w.innerHTML = html;
 };
 function posLabel(pos){ return pos===1?'1º 🏆':(pos+'º'); }
+function posLabelLargo(p){
+  return {POR:'arquero',LI:'lateral izquierdo',DFC:'defensor central',LD:'lateral derecho',MCD:'volante central',
+    MI:'volante por izquierda',MC:'mediocampista',MD:'volante por derecha',MCO:'enganche',
+    EI:'extremo izquierdo',DC:'delantero',ED:'extremo derecho'}[p] || 'jugador';
+}
+
+// ── PRENSA LOCAL ──────────────────────────────────────────────────────────────
+// Cada país tiene sus diarios y sus periodistas. Opinan de TU temporada según cómo
+// rendiste, qué ganó el equipo y en qué estado está tu vínculo con el club.
+const PRENSA = {
+  'Uruguay':        { diarios:['Ovación','El País Deportes','Referí','Tenfield Digital'], firmas:['Rodrigo Píriz','Martín Charquero','Alberto Kesman','Diego Muñoz'] },
+  'Argentina':      { diarios:['Olé','TyC Sports','La Nación Deportes','Doble Amarilla'], firmas:['Juan Pablo Varsky','Liliana Caruso','Gastón Edul','Marcelo Benedetto'] },
+  'Brasil':         { diarios:['Globo Esporte','Lance!','ESPN Brasil','UOL Esporte'], firmas:['Ana Thaís Matos','Tiago Leifert','Renata Fan','Mauro Cezar'] },
+  'España':         { diarios:['MARCA','AS','Mundo Deportivo','Sport'], firmas:['Manolo Lama','Paco González','Ángels Barceló','Guillem Balagué'] },
+  'Inglaterra':     { diarios:['The Guardian','Sky Sports','The Athletic','BBC Sport'], firmas:['Gary Lineker','Jamie Carragher','Alison Bender','Henry Winter'] },
+  'Italia':         { diarios:['La Gazzetta dello Sport','Corriere dello Sport','Tuttosport','Sky Sport Italia'], firmas:['Fabrizio Romano','Paola Ferrari','Massimo Ambrosini','Giorgia Rossi'] },
+  'Francia':        { diarios:['L\'Équipe','RMC Sport','Le Parisien Sports','Canal+ Foot'], firmas:['Daniel Riolo','Carine Galli','Pierre Ménès','Julien Laurens'] },
+  'Alemania':       { diarios:['Kicker','BILD Sport','Sky Sport DE','SPORT1'], firmas:['Christoph Kramer','Laura Wontorra','Jan Åge Fjørtoft','Esther Sedlaczek'] },
+  'Portugal':       { diarios:['A Bola','Record','O Jogo','Sport TV'], firmas:['Pedro Sousa','Cátia Fonseca','Nuno Matos','Rui Santos'] },
+  'México':         { diarios:['Récord','ESTO','TUDN','Mediotiempo'], firmas:['David Faitelson','Marion Reimers','Christian Martinoli','Luis García'] },
+  'Estados Unidos': { diarios:['ESPN FC','The Athletic US','Sports Illustrated','CBS Sports Golazo'], firmas:['Taylor Twellman','Kate Abdo','Alexi Lalas','Sebastian Salazar'] },
+  'Colombia':       { diarios:['Win Sports','El Tiempo Deportes','Gol Caracol','AS Colombia'], firmas:['Carolina Bermúdez','Javier Hernández Bonnet','Andrés Marocco','Ricardo Orrego'] },
+  'Chile':          { diarios:['El Mercurio Deportes','La Tercera Deportes','TNT Sports CL','ADN Deportes'], firmas:['Grace Lazcano','Rodrigo Herrera','Manuel de Tezanos','Danilo Díaz'] }
+};
+function prensaDe(pais){
+  return PRENSA[pais] || { diarios:['Diario Deportivo','Radio Gol','Canal Deportes'], firmas:['un periodista local','el cronista del club','la prensa deportiva'] };
+}
+// Genera la nota del año. Combina rendimiento propio + resultado del equipo + estado
+// del vínculo. Nunca repite el mismo titular dos años seguidos.
+function notaPrensa(ctx){
+  const { pj, g, a, pos, totalEq, titulo, rend } = ctx;
+  const P = prensaDe(G.clubPais || G.pais);
+  const diario = pick(P.diarios), firma = pick(P.firmas);
+  const F = G.flags || {};
+  const gaTot = g + a;
+  let tono, titular, cuerpo;
+  // El vínculo roto manda sobre todo lo demás: es LA noticia.
+  if (F.marcado) {
+    tono = 'malo';
+    titular = pick([
+      `"${G.apellido} ya no es del ${G.club}"`,
+      `El ocaso de ${G.apellido} en ${G.club}`,
+      `${G.apellido}, de titular indiscutido al banco`
+    ]);
+    cuerpo = pick([
+      `Apenas ${pj} partidos en toda la temporada. Desde que pidió irse, el técnico dejó de contarlo y el vestuario se partió. En el club nadie lo dice en voz alta, pero todos saben que en junio se va.`,
+      `Lo que empezó como una negociación terminó en divorcio. ${pj} partidos, la mayoría entrando desde el banco, y una hinchada que ya lo silba en el calentamiento. Una historia que se pudo escribir distinto.`
+    ]);
+  } else if (titulo) {
+    tono = 'gloria';
+    titular = pick([
+      `¡${G.club} campeón! Y ${G.apellido} fue protagonista`,
+      `${G.apellido} levantó la copa que ${G.club} esperaba`,
+      `La temporada perfecta de ${G.apellido}`
+    ]);
+    cuerpo = `${g} goles y ${a} asistencias en ${pj} partidos. El ${titulo} tiene su firma. ${gaTot>=25?'Números de los que se recuerdan una década.':'Cuando el equipo lo necesitó, apareció.'}`;
+  } else if (rend > 0.55) {
+    tono = 'bueno';
+    titular = pick([
+      `${G.apellido}, lo mejor de un ${G.club} irregular`,
+      `Si no fuera por ${G.apellido}...`,
+      `${G.apellido} juega en otra categoría`
+    ]);
+    cuerpo = `${g} goles y ${a} asistencias, y el equipo apenas ${pos}º de ${totalEq}. ${pick([`Los números individuales gritan lo que el equipo calla.`,`Habrá que ver cuánto lo aguanta un club que no está a su altura.`,`Los grandes de Europa ya preguntaron por él.`])}`;
+  } else if (pos <= 3) {
+    tono = 'bueno';
+    titular = `${G.club} terminó ${pos}º y ${G.apellido} cumplió`;
+    cuerpo = `${pj} partidos, ${g} goles, ${a} asistencias. Sin fuegos artificiales, pero siempre estuvo. ${pick(['El técnico lo pone todas las fechas por algo.','De esos que no salen en las fotos pero se notan cuando faltan.'])}`;
+  } else if (rend < 0.15 && pj > 12) {
+    tono = 'malo';
+    titular = pick([
+      `¿Qué le pasa a ${G.apellido}?`,
+      `${G.apellido}, una temporada para olvidar`,
+      `La sequía de ${G.apellido} preocupa en ${G.club}`
+    ]);
+    cuerpo = `${pj} partidos y apenas ${g} gol${g===1?'':'es'}. ${pick(['La hinchada empieza a impacientarse.','En el club dicen que es cuestión de tiempo. La tribuna no piensa lo mismo.','Necesita un gol urgente para sacarse la mochila.'])}`;
+  } else {
+    tono = 'neutro';
+    titular = pick([
+      `${G.apellido} cerró un año correcto en ${G.club}`,
+      `Balance tibio para ${G.apellido}`,
+      `${G.club} terminó ${pos}º: ni gloria ni tragedia`
+    ]);
+    cuerpo = `${pj} partidos, ${g} goles y ${a} asistencias. ${pick(['Cumplió sin brillar.','Un año de transición que ojalá sea sólo eso.','El equipo quedó a mitad de tabla y él acompañó.'])}`;
+  }
+  return { diario, firma, titular, cuerpo, tono };
+}
 function st(l,v){ return `<div style="background:rgba(255,255,255,.04);border:1px solid #1e1e1e;border-radius:12px;padding:11px 4px;text-align:center;"><div style="font-size:9px;color:#666;font-weight:800;">${l}</div><div style="font-size:19px;font-weight:900;color:${A};">${esc(v)}</div></div>`; }
 
 // ── LÓGICA REALISTA DE OFERTAS ─────────────────────────────────────────────────
@@ -2459,6 +2602,26 @@ function retiro(){
           ${b.map(x=>`<div style="display:flex;align-items:center;gap:11px;background:${x[1]}0f;border:1px solid ${x[1]}44;border-radius:12px;padding:10px 13px;">
             <i class='bx ${x[0]}' style="font-size:22px;color:${x[1]};flex-shrink:0;"></i>
             <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:900;color:${x[1]};">${x[2]}</div><div style="font-size:11px;color:#aaa;margin-top:1px;line-height:1.35;">${x[3]}</div></div>
+          </div>`).join('')}
+        </div>
+      </div>`; })()}
+
+    <!-- PREMIOS INDIVIDUALES (se guardaban pero nunca se mostraban) -->
+    ${(function(){
+      const pr = G.premios || []; if(!pr.length) return '';
+      const grup = {};
+      pr.forEach(p=>{ grup[p.nombre] = grup[p.nombre] || { n:p.nombre, count:0, edades:[] }; grup[p.nombre].count++; grup[p.nombre].edades.push(p.edad); });
+      const arr = Object.values(grup).sort((a,b)=>b.count-a.count);
+      return `<div class="cr-fade cr-fade-d2" style="margin-top:20px;">
+        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:#f59e0b;margin-bottom:10px;padding-left:2px;"><i class='bx bxs-medal'></i> PREMIOS INDIVIDUALES · ${pr.length}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(88px,1fr));gap:10px;">
+          ${arr.map(p=>`<div style="background:linear-gradient(160deg,rgba(245,158,11,.10),rgba(20,22,18,.6));border:1px solid rgba(245,158,11,.3);border-radius:14px;padding:10px 6px;text-align:center;">
+            <div style="position:relative;height:60px;display:flex;align-items:center;justify-content:center;">
+              ${premioRender(p.n, 56)}
+              ${p.count>1?`<span style="position:absolute;top:-4px;right:-4px;background:#f59e0b;color:#000;font-size:10px;font-weight:900;border-radius:11px;padding:2px 7px;">×${p.count}</span>`:''}
+            </div>
+            <div style="font-size:9.5px;color:#eee;font-weight:800;margin-top:6px;line-height:1.2;">${esc(p.n)}</div>
+            <div style="font-size:8.5px;color:#777;margin-top:2px;">${p.edades.slice(0,3).join(', ')} años</div>
           </div>`).join('')}
         </div>
       </div>`; })()}
