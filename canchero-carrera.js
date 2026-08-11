@@ -864,6 +864,9 @@ window._carreraDebut = function(){
   const temprano = disc >= 3 || (disc >= 1 && G.nivel >= 58);
   G.edad = temprano ? 17 : 18;
   G.debutEdad = G.edad;   // la duración elegida se cuenta DESDE el debut
+  // Primer contrato profesional: sueldo coherente con el club donde debutás.
+  G.sueldo = ofertaDe({ name:G.club, str:G.clubStr, liga:G.liga, pais:G.clubPais }).sueldo;
+  G.contratoAnios = 3;
   G.anio = 2026 + (G.edad - 16);
   if(temprano){ G.nivel = clamp(G.nivel + 2, 30, 78); G.flags = G.flags||{}; G.flags.debutPrecoz = true; }
   save();
@@ -1141,11 +1144,14 @@ function _finTemporada(ctx){
   const interCopa = interRonda ? `${T.inter}: ${interRonda}` : null;
   const interLiteCopa = interLiteRonda ? `${T.interLite}: ${interLiteRonda}` : null;
   G.timeline.push({ edad:G.edad, temporada:G.temporada, club:G.club, liga:G.liga, niv:Math.round(G.nivel), pj, g, a, dN, pos, totalEq, titulo, clasif:clasifText, move:G.moveLiga, interCopa, interLiteCopa });
-  // Rentas anuales de bienes (restaurante/escuela): entran una vez por temporada.
-  if(G.bienes && G.bienes.length){
-    const renta = G.bienes.reduce((s,b)=>{ const B=bienByld(b.id); return s+((B&&B.renta)?B.renta:0); },0);
-    if(renta>0) G.dinero = (G.dinero||0) + renta;
-  }
+  // ── BALANCE ANUAL + RENDIMIENTO DE INVERSIONES ──────────────────────────────
+  const bal = balanceAnual();
+  const inv = rendirInversiones();
+  G.dinero = Math.max(0, Math.round((G.dinero||0) + bal.neto));
+  // Bancarrota: si el tren de vida te comió todo, tenés que vender.
+  if(!G.flags) G.flags = {};
+  if (G.dinero <= 0 && bal.egresos > bal.ingresos && (G.bienes||[]).length) G.flags.enRojo = true;
+  else if (G.dinero > (bal.egresos||0)) G.flags.enRojo = false;
   // ── DUELO CON EL NÉMESIS ────────────────────────────────────────────────────
   // El rival juega su propia temporada. Se compara (G+A) y se define quién ganó el año.
   let duelo = null;
@@ -1172,7 +1178,7 @@ function _finTemporada(ctx){
   G.temporada++; G.edad++; G.anio = (G.anio||2026) + 1;
   G._mercadoHecho = false;
   save();
-  resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa,duelo,momento});
+  resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa,duelo,momento,bal,inv});
 }
 
 function resumenTemporada(r){
@@ -1197,6 +1203,25 @@ function resumenTemporada(r){
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;">
       ${st('PJ',r.pj)}${st('GOLES',r.g)}${st('ASIST',r.a)}${st('NIVEL',(r.dN>=0?'+':'')+r.dN)}
     </div>
+    ${r.bal?(function(){ const b=r.bal; const pos=b.neto>=0; return `<div style="background:linear-gradient(160deg,rgba(250,204,21,.07),rgba(20,22,18,.5));border:1px solid rgba(250,204,21,.25);border-radius:14px;padding:12px 14px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;">
+        <div style="font-size:10px;font-weight:900;letter-spacing:1.5px;color:#facc15;"><i class='bx bx-wallet'></i> BALANCE DEL AÑO</div>
+        <div style="font-size:15px;font-weight:900;color:${pos?'#4ade80':'#ff6b6b'};">${pos?'+':'−'}${eur(Math.abs(b.neto))}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:10.5px;">
+        <div style="display:flex;justify-content:space-between;color:#8a8f96;"><span>Sueldo</span><b style="color:#4ade80;">+${eur(b.sueldo)}</b></div>
+        <div style="display:flex;justify-content:space-between;color:#8a8f96;"><span>Tren de vida</span><b style="color:#ff6b6b;">−${eur(b.vida)}</b></div>
+        ${b.sponsors?`<div style="display:flex;justify-content:space-between;color:#8a8f96;"><span>Sponsors</span><b style="color:#4ade80;">+${eur(b.sponsors)}</b></div>`:''}
+        ${b.mant?`<div style="display:flex;justify-content:space-between;color:#8a8f96;"><span>Mantenimiento</span><b style="color:#ff6b6b;">−${eur(b.mant)}</b></div>`:''}
+        ${b.rentas?`<div style="display:flex;justify-content:space-between;color:#8a8f96;"><span>Rentas</span><b style="color:#4ade80;">+${eur(b.rentas)}</b></div>`:''}
+        <div style="display:flex;justify-content:space-between;color:#8a8f96;"><span>Impuestos</span><b style="color:#ff6b6b;">−${eur(b.impuestos)}</b></div>
+      </div>
+      ${r.inv?`<div style="margin-top:9px;padding-top:9px;border-top:1px solid rgba(250,204,21,.18);display:flex;justify-content:space-between;align-items:center;font-size:11px;">
+        <span style="color:#8a8f96;"><i class='bx bx-line-chart' style="color:${r.inv.col};"></i> ${esc(r.inv.perfil)}</span>
+        <span style="font-weight:900;color:${r.inv.roi>=0?'#4ade80':'#ff6b6b'};">${r.inv.roi>=0?'+':''}${r.inv.roi}% → ${eur(r.inv.ahora)}</span>
+      </div>`:''}
+      <div style="margin-top:8px;text-align:center;font-size:11px;color:#8a8f96;">Capital: <b style="color:#facc15;font-size:13px;">${eur(G.dinero||0)}</b>${G.flags&&G.flags.enRojo?' <span style="color:#ef4444;font-weight:900;">· EN ROJO</span>':''}</div>
+    </div>`; })():''}
     ${r.duelo?`<div style="background:linear-gradient(160deg,${r.duelo.gane?'rgba(34,197,94,.08)':'rgba(239,68,68,.08)'},rgba(20,22,18,.5));border:1px solid ${r.duelo.gane?'rgba(34,197,94,.35)':'rgba(239,68,68,.35)'};border-radius:14px;padding:12px 14px;margin-bottom:14px;">
       <div style="font-size:10px;font-weight:900;letter-spacing:1.5px;color:${r.duelo.gane?'#22c55e':'#ef4444'};margin-bottom:8px;"><i class='bx bx-target-lock'></i> DUELO CON ${esc(r.duelo.nombre).toUpperCase()}</div>
       <div style="display:flex;align-items:center;gap:10px;">
@@ -1601,9 +1626,9 @@ window._carreraElegirOferta = function(kind, i){
     const o = (kind==='renov' ? (G._renov||[]) : (G._offers||[]))[i];
     if(!o){ window._carreraHub(); return; }
     if(kind==='renov'){
-      if(o._riesgo && Math.random()<0.4){ G.moral-=6; G.fama-=2; msg='El club se ofendió con tu pedido. Renovación fría, pero seguís.'; }
-      else { G.dinero+=o.prima+Math.round(o.sueldo*0.15); G.moral+=6; msg='Renovaste con '+esc(G.club)+' por '+o.anios+' años ('+eur(o.sueldo)+'/año).'; }
-      G.clubStr=Math.min(99,G.clubStr+1);
+      if(o._riesgo && Math.random()<0.4){ G.moral-=6; G.fama-=2; G.sueldo=Math.round((G.sueldo||o.sueldo)*0.95); msg='El club se ofendió con tu pedido. Renovación fría y sin aumento, pero seguís.'; }
+      else { G.dinero+=o.prima; G.sueldo=o.sueldo; G.moral+=6; msg='Renovaste con '+esc(G.club)+' por '+o.anios+' años ('+eur(o.sueldo)+'/año).'; }
+      G.contratoAnios=o.anios; G.clubStr=Math.min(99,G.clubStr+1);
     } else {
       // Al irte: si eras ídolo (>50), la hinchada se siente traicionada (idolatría cae).
       // Si estabas <20 (poco tiempo, poco vínculo), el impacto es menor.
@@ -1616,7 +1641,8 @@ window._carreraElegirOferta = function(kind, i){
       if (idClub > 50) { G.flags.traidor = true; G.flags.exClub = G.club; }
       G.idolatria[o.name] = 8; // nuevo club te recibe con expectativa
       G.club=o.name; G.clubStr=o.str; G.liga=o.liga; G.clubPais=o.pais; G.clubDesde=G.edad;
-      G.fama+=8; G.moral+=4; G.dinero+=o.prima+Math.round(o.sueldo*0.15);
+      G.sueldo=o.sueldo; G.contratoAnios=o.anios;
+      G.fama+=8; G.moral+=4; G.dinero+=o.prima;
       G.valor=Math.round((G.valor||o.str*90000)*1.1);
       msg='¡Nuevo club: '+esc(o.name)+'! Firmaste por '+o.anios+' años ('+eur(o.sueldo)+'/año).' + (caida<=-40?' La hinchada de tu ex club nunca te va a perdonar.':'');
     }
@@ -1832,6 +1858,37 @@ const EVENTOS=[
     { txt:'Ir a verlo debutar', ef:g=>{ g.moral+=14; g.fama+=8; return 'Estuviste en la tribuna llorando. Ese pibe es tu obra maestra.'; } },
     { txt:'Mandarle un mensaje privado', ef:g=>{ g.moral+=7; return 'Le escribiste algo que se va a guardar toda la vida.'; } } ] },
 
+  // ══ FINANZAS — cadenas de plata con consecuencias arrastradas ══════════════
+  { t:'Estás gastando más de lo que entra', img:'dinero', reqFlag:'enRojo', d:'Tu contador te muestra los números: el tren de vida y el mantenimiento de tus cosas se comen todo lo que cobrás. Así no llegás a fin de año.', opts:[
+    { txt:'Vender lo que más me drena', ef:g=>{
+      const bienes=(g.bienes||[]).slice().sort((x,y)=>((bienByld(y.id)||{}).mant||0)-((bienByld(x.id)||{}).mant||0));
+      if(!bienes.length) return 'No tenés nada para vender. Vas a tener que bajar el tren de vida a la fuerza.';
+      const b=bienes[0]; const B=bienByld(b.id)||{n:'un bien'};
+      const rec=Math.round((b.precio||B.p||0)*0.6);
+      g.bienes=g.bienes.filter(x=>x.id!==b.id); g.dinero=(g.dinero||0)+rec;
+      g.fama=clamp((g.fama||0)-Math.round((B.fama||0)/2),0,100); g.flags.enRojo=false;
+      return 'Vendiste '+B.n+' por '+eur(rec)+'. Duele el orgullo, pero volviste a números negros.'; } },
+    { txt:'Pedir un préstamo y seguir igual', ef:g=>{ g.dinero=(g.dinero||0)+300000; g.flags.endeudado=true; return 'El banco te dio el préstamo mirando tu contrato. Ahora debés con intereses y no cambiaste nada.'; } } ] },
+  { t:'Vence el préstamo del banco', img:'dinero', reqFlag:'endeudado', d:'El banco quiere su plata de vuelta, con intereses. Son 420 mil y tu cuenta no está para eso.', opts:[
+    { txt:'Liquidar inversiones y pagar', ef:g=>{
+      let disp=(g.dinero||0)+((g.inversiones&&g.inversiones.monto)||0);
+      if(disp>=420000){ const falta=Math.max(0,420000-(g.dinero||0)); if(falta&&g.inversiones){ g.inversiones.monto-=falta; if(g.inversiones.monto<=0) g.inversiones=null; }
+        g.dinero=Math.max(0,(g.dinero||0)-Math.min(g.dinero||0,420000)); g.flags.endeudado=false;
+        return 'Liquidaste todo y pagaste. Empezás de cero, pero sin deuda arriba.'; }
+      g.flags.embargo=true; return 'No te alcanzó. El banco inició acciones y te embargan el sueldo.'; } },
+    { txt:'Refinanciar a más años', ef:g=>{ g.dinero=Math.max(0,(g.dinero||0)-60000); const b=Math.random()<.5; if(b){ g.flags.endeudado=false; return 'Refinanciaste en buenos términos y en dos años lo cancelaste.'; } return 'Refinanciaste pero la cuota te va a seguir ahogando un buen tiempo.'; } } ] },
+  { t:'Te embargan parte del sueldo', img:'dinero', reqFlag:'embargo', d:'Cada mes te descuentan directo del contrato. El vestuario se enteró y la prensa también.', opts:[
+    { txt:'Poner la cara y ordenarme', ef:g=>{ g.flags.embargo=false; g.flags.endeudado=false; g.moral+=8; g.fama-=6; g.dinero=Math.max(0,(g.dinero||0)-120000); return 'Contrataste un administrador serio, vendiste lo que sobraba y saliste. Lección aprendida.'; } },
+    { txt:'Buscar un contrato gordo en Arabia', ef:g=>{ g.dinero+=800000; g.flags.embargo=false; g.flags.endeudado=false; g.fama-=4; g.nivel-=2; return 'Firmaste en el Golfo por una fortuna. Pagaste todo, pero tu nivel competitivo se resintió.'; } } ] },
+  { t:'Un amigo te propone un negocio', img:'dinero', minAge:24, noFlag:'socioEstafador', d:'Un amigo de toda la vida te ofrece entrar como socio en su empresa. Dice que en dos años se triplica. No hay papeles todavía.', opts:[
+    { txt:'Poner plata sin contrato, es mi amigo', ef:g=>{ const monto=Math.min(g.dinero||0, 200000); g.dinero-=monto; const b=Math.random()<.4;
+      if(b){ g.dinero+=monto*3; return 'Salió redondo. Triplicaste la inversión y siguen siendo amigos.'; }
+      g.flags=g.flags||{}; g.flags.socioEstafador=true; return 'Se fundió (o te fundió). Sin papeles, no hay nada que reclamar. Perdiste '+eur(monto)+' y un amigo.'; } },
+    { txt:'Que lo revise mi abogado primero', ef:g=>{ g.dinero=Math.max(0,(g.dinero||0)-8000); return 'El abogado encontró tres cláusulas raras. Le dijiste que no. Tu amigo se ofendió, pero te salvaste.'; } } ] },
+  { t:'Crisis económica global', img:'dinero', minAge:25, d:'Se derrumban los mercados. Tus inversiones y ahorros están en riesgo, y todos los medios hablan de pánico financiero.', opts:[
+    { txt:'Aguantar sin tocar nada', ef:g=>{ if(g.inversiones&&g.inversiones.monto){ const b=Math.random()<.6; g.inversiones.monto=Math.round(g.inversiones.monto*(b?1.35:0.55)); return b?'Aguantaste el temporal y cuando rebotó ganaste fuerte.':'Siguió cayendo. Perdiste casi la mitad de tu cartera.'; } return 'No tenías inversiones expuestas. Viste el incendio desde afuera.'; } },
+    { txt:'Vender todo y pasarme a ladrillos', ef:g=>{ if(g.inversiones&&g.inversiones.monto){ g.dinero+=Math.round(g.inversiones.monto*0.8); g.inversiones=null; return 'Saliste con una pérdida del 20% pero dormís tranquilo. El ladrillo no cotiza en pánico.'; } return 'No tenías nada invertido. Pusiste tus ahorros en un departamento.'; } } ] },
+
   // ══ DOBLE NACIONALIDAD — se abre tras el evento del abuelo ═════════════════
   { t:'Te llama la selección de tu segundo país', img:'seleccion', reqFlag:'doblenac', d:'La federación del país que elegiste por linaje te quiere de titular. Pero la prensa del país donde naciste te trata de mercenario.', opts:[
     { txt:'Aceptar y bancar la crítica', ef:g=>{ g.fama+=12; g.moral-=5; return 'Debutaste con el otro himno. Media patria te aplaude, la otra media te putea.'; } },
@@ -2001,18 +2058,57 @@ window._carreraPedirSalida = function(){
 // ── MIS BIENES: comprar/vender con el capital acumulado ────────────────────────
 // Ítems tienen precio, efecto en fama/moral/valor y valor de reventa. Podés vender
 // para recuperar 60-80% del precio original.
+// `mant` = costo de mantenimiento ANUAL. Los lujos drenan plata todos los años;
+// los negocios (renta) la generan. Un yate sin sueldo que lo banque te funde.
 const BIENES = [
-  { id:'auto',        n:'Auto de lujo',          i:'bx-car',         p:120000,  fama:8,  moral:2 },
-  { id:'casa',        n:'Casa premium',          i:'bx-home',        p:600000,  fama:6,  moral:8 },
-  { id:'yate',        n:'Yate',                  i:'bxs-ship',       p:1500000, fama:20, moral:5 },
-  { id:'avion',       n:'Avión privado',         i:'bx-plane-alt',   p:5000000, fama:35, moral:3 },
-  { id:'reloj',       n:'Reloj de colección',    i:'bx-time-five',   p:80000,   fama:5,  moral:1 },
-  { id:'restaurante', n:'Restaurante propio',    i:'bx-restaurant',  p:400000,  fama:6,  moral:5, renta:60000 },
-  { id:'escuela',     n:'Escuela de fútbol',     i:'bx-award',       p:250000,  fama:10, moral:12, renta:40000 },
-  { id:'fundacion',   n:'Fundación benéfica',    i:'bxs-donate-heart', p:200000, fama:15, moral:20 },
-  { id:'inversion',   n:'Inversión bursátil',    i:'bx-line-chart',  p:100000,  fama:0,  moral:0,  invert:true }
+  { id:'auto',        n:'Auto de lujo',          i:'bx-car',         p:120000,  fama:8,  moral:2,  mant:9000 },
+  { id:'casa',        n:'Casa premium',          i:'bx-home',        p:600000,  fama:6,  moral:8,  mant:28000 },
+  { id:'yate',        n:'Yate',                  i:'bxs-ship',       p:1500000, fama:20, moral:5,  mant:180000 },
+  { id:'avion',       n:'Avión privado',         i:'bx-plane-alt',   p:5000000, fama:35, moral:3,  mant:700000 },
+  { id:'reloj',       n:'Reloj de colección',    i:'bx-time-five',   p:80000,   fama:5,  moral:1,  mant:1500 },
+  { id:'restaurante', n:'Restaurante propio',    i:'bx-restaurant',  p:400000,  fama:6,  moral:5,  renta:60000, mant:22000 },
+  { id:'escuela',     n:'Escuela de fútbol',     i:'bx-award',       p:250000,  fama:10, moral:12, renta:40000, mant:12000 },
+  { id:'fundacion',   n:'Fundación benéfica',    i:'bxs-donate-heart', p:200000, fama:15, moral:20, mant:35000 }
 ];
 function bienByld(id){ return BIENES.find(b=>b.id===id); }
+
+// ── MOTOR FINANCIERO ──────────────────────────────────────────────────────────
+// Cada temporada: cobrás sueldo + rentas + sponsors, y pagás mantenimiento de tus
+// lujos + tren de vida (escala con tu fama) + impuestos. Si gastás más de lo que
+// entra, te fundís y te obligan a vender. La plata dejó de ser decorativa.
+function trenDeVida(){
+  // Un ídolo mundial no vive como un juvenil: entorno, seguridad, viajes, familia.
+  const f = G.fama || 0;
+  const base = 8000 + (G.sueldo||0) * 0.18;      // vivís acorde a lo que ganás
+  return Math.round(base * (1 + f/90));
+}
+function balanceAnual(){
+  const sueldo = G.sueldo || 0;
+  const rentas = (G.bienes||[]).reduce((s,b)=>{ const B=bienByld(b.id); return s+((B&&B.renta)?B.renta:0); },0);
+  // Sponsors: solo si tenés fama real. Escala fuerte arriba de 60.
+  const sponsors = G.fama >= 25 ? Math.round((G.fama-20) * (G.fama>=60?2600:900)) : 0;
+  const mant = (G.bienes||[]).reduce((s,b)=>{ const B=bienByld(b.id); return s+((B&&B.mant)?B.mant:0); },0);
+  const vida = trenDeVida();
+  const impuestos = Math.round((sueldo + sponsors) * 0.30);
+  const ingresos = sueldo + rentas + sponsors;
+  const egresos = mant + vida + impuestos;
+  return { sueldo, rentas, sponsors, mant, vida, impuestos, ingresos, egresos, neto: ingresos - egresos };
+}
+// Portfolio de inversiones: crece (o se hunde) SOLO, año a año, según el perfil.
+const PERFILES_INV = {
+  conservador: { n:'Plazo fijo', i:'bx-lock-alt',    min:0.01, max:0.06, riesgo:'Bajo',  col:'#4fc3f7' },
+  moderado:    { n:'Fondo mixto', i:'bx-line-chart', min:-0.12, max:0.22, riesgo:'Medio', col:'#facc15' },
+  agresivo:    { n:'Cripto y startups', i:'bx-rocket', min:-0.55, max:0.95, riesgo:'Alto', col:'#ef4444' }
+};
+function rendirInversiones(){
+  if(!G.inversiones || !G.inversiones.monto) return null;
+  const P = PERFILES_INV[G.inversiones.perfil] || PERFILES_INV.moderado;
+  const roi = rnd(P.min, P.max);
+  const antes = G.inversiones.monto;
+  G.inversiones.monto = Math.max(0, Math.round(antes * (1 + roi)));
+  G.inversiones.hist = (G.inversiones.hist||[]).concat([{ edad:G.edad, roi:+(roi*100).toFixed(1) }]).slice(-25);
+  return { roi:+(roi*100).toFixed(1), antes, ahora:G.inversiones.monto, perfil:P.n, col:P.col };
+}
 window._carreraBienes = function(){
   if(!G) G=load(); if(!G) return;
   if(!G.bienes) G.bienes = [];
@@ -2028,7 +2124,49 @@ window._carreraBienes = function(){
         <div><div style="font-size:10px;color:#a89060;font-weight:800;letter-spacing:1px;">CAPITAL</div><div style="font-size:22px;font-weight:900;color:#facc15;">${eur(G.dinero||0)}</div></div>
         ${rentaTotal>0?`<div style="text-align:right;"><div style="font-size:10px;color:#a89060;font-weight:800;letter-spacing:1px;">RENTA/AÑO</div><div style="font-size:16px;font-weight:900;color:#22c55e;">+${eur(rentaTotal)}</div></div>`:''}
       </div>
-      <div style="font-size:11px;color:#9aa0a6;font-weight:800;letter-spacing:1px;margin:6px 0 8px;">TUS PERTENENCIAS (${G.bienes.length})</div>
+      ${(function(){ const b=balanceAnual(); const p=b.neto>=0; return `<div style="background:#0d100d;border:1px solid ${p?'#1c2a1c':'rgba(239,68,68,.35)'};border-radius:14px;padding:13px 15px;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><div style="font-size:10px;color:#8a8f96;font-weight:900;letter-spacing:1px;">FLUJO ANUAL</div><div style="font-size:16px;font-weight:900;color:${p?'#4ade80':'#ff6b6b'};">${p?'+':'−'}${eur(Math.abs(b.neto))}/año</div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;font-size:10.5px;">
+          <div style="display:flex;justify-content:space-between;color:#777;"><span>Sueldo</span><b style="color:#4ade80;">+${eur(b.sueldo)}</b></div>
+          <div style="display:flex;justify-content:space-between;color:#777;"><span>Tren de vida</span><b style="color:#ff6b6b;">−${eur(b.vida)}</b></div>
+          <div style="display:flex;justify-content:space-between;color:#777;"><span>Sponsors</span><b style="color:#4ade80;">+${eur(b.sponsors)}</b></div>
+          <div style="display:flex;justify-content:space-between;color:#777;"><span>Mantenimiento</span><b style="color:#ff6b6b;">−${eur(b.mant)}</b></div>
+          <div style="display:flex;justify-content:space-between;color:#777;"><span>Rentas</span><b style="color:#4ade80;">+${eur(b.rentas)}</b></div>
+          <div style="display:flex;justify-content:space-between;color:#777;"><span>Impuestos</span><b style="color:#ff6b6b;">−${eur(b.impuestos)}</b></div>
+        </div>
+        ${!p?`<div style="margin-top:9px;font-size:11px;color:#f87171;line-height:1.4;"><i class='bx bx-error'></i> Gastás más de lo que ganás. Vendé algún lujo o conseguí un contrato mejor.</div>`:''}
+      </div>`; })()}
+      <div style="font-size:11px;color:#9aa0a6;font-weight:800;letter-spacing:1px;margin:6px 0 8px;">INVERSIONES</div>
+      ${(function(){
+        const I = G.inversiones;
+        if(I && I.monto){
+          const P = PERFILES_INV[I.perfil]||PERFILES_INV.moderado;
+          const h = (I.hist||[]).slice(-6);
+          return `<div style="background:#0d100d;border:1px solid ${P.col}44;border-radius:12px;padding:13px 15px;margin-bottom:7px;">
+            <div style="display:flex;align-items:center;gap:11px;margin-bottom:8px;">
+              <i class='bx ${P.i}' style="font-size:26px;color:${P.col};"></i>
+              <div style="flex:1;"><div style="font-size:13.5px;font-weight:900;color:#fff;">${P.n}</div><div style="font-size:10.5px;color:#666;">Riesgo ${P.riesgo} · rinde solo cada temporada</div></div>
+              <div style="text-align:right;"><div style="font-size:17px;font-weight:900;color:${P.col};">${eur(I.monto)}</div></div>
+            </div>
+            ${h.length?`<div style="display:flex;gap:4px;align-items:flex-end;height:26px;margin-bottom:8px;">${h.map(x=>`<div title="${x.edad} años: ${x.roi}%" style="flex:1;height:${Math.min(100,Math.abs(x.roi)*2+8)}%;background:${x.roi>=0?'#4ade80':'#ff6b6b'};border-radius:2px;opacity:.75;"></div>`).join('')}</div>`:''}
+            <div style="display:flex;gap:7px;">
+              <button onclick="window._carreraInvertirMas()" style="flex:1;background:${P.col}1a;color:${P.col};border:1px solid ${P.col}55;border-radius:10px;padding:8px;font-weight:800;font-size:11px;cursor:pointer;">Poner más</button>
+              <button onclick="window._carreraRetirarInv()" style="flex:1;background:rgba(255,255,255,.05);color:#aaa;border:1px solid #2a2a2a;border-radius:10px;padding:8px;font-weight:800;font-size:11px;cursor:pointer;">Retirar todo</button>
+            </div>
+          </div>`;
+        }
+        return `<div style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:13px 15px;margin-bottom:7px;">
+          <div style="font-size:12px;color:#c4ccc0;line-height:1.5;margin-bottom:10px;">Poné a trabajar tu plata. Rinde (o se hunde) solo cada temporada según el perfil que elijas.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+            ${Object.keys(PERFILES_INV).map(k=>{ const P=PERFILES_INV[k]; return `<button onclick="window._carreraAbrirInv('${k}')" style="background:#111;border:1px solid ${P.col}44;border-radius:10px;padding:11px 6px;cursor:pointer;text-align:center;">
+              <i class='bx ${P.i}' style="font-size:20px;color:${P.col};display:block;margin-bottom:4px;"></i>
+              <div style="font-size:11px;font-weight:900;color:#fff;line-height:1.2;">${P.n}</div>
+              <div style="font-size:9px;color:${P.col};margin-top:3px;font-weight:800;">Riesgo ${P.riesgo}</div>
+            </button>`; }).join('')}
+          </div>
+        </div>`;
+      })()}
+      <div style="font-size:11px;color:#9aa0a6;font-weight:800;letter-spacing:1px;margin:18px 0 8px;">TUS PERTENENCIAS (${G.bienes.length})</div>
       ${G.bienes.length ? G.bienes.map(b => { const B=bienByld(b.id)||{n:b.id,i:'bx-box'}; const reventa=Math.round((b.precio||B.p)*0.65); return `<div style="display:flex;align-items:center;gap:12px;background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:11px 13px;margin-bottom:7px;">
         <i class='bx ${B.i}' style="font-size:26px;color:#facc15;"></i>
         <div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:900;color:#fff;">${esc(B.n)}</div><div style="font-size:10.5px;color:#666;">Comprado a ${eur(b.precio||B.p)}${B.renta?' · Renta '+eur(B.renta)+'/año':''}</div></div>
@@ -2037,10 +2175,42 @@ window._carreraBienes = function(){
       <div style="font-size:11px;color:#9aa0a6;font-weight:800;letter-spacing:1px;margin:18px 0 8px;">TIENDA</div>
       ${BIENES.map(B => { const own = G.bienes.some(b=>b.id===B.id); const puedo = (G.dinero||0) >= B.p; return `<div style="display:flex;align-items:center;gap:12px;background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:11px 13px;margin-bottom:7px;${own?'opacity:.55':''}">
         <i class='bx ${B.i}' style="font-size:26px;color:${A};"></i>
-        <div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:900;color:#fff;">${esc(B.n)}</div><div style="font-size:10.5px;color:#8a8f96;">${B.fama?'+':''}${B.fama} fama · ${B.moral?'+':''}${B.moral} moral${B.renta?' · Renta '+eur(B.renta)+'/año':''}${B.invert?' · Puede rendir o perder':''}</div></div>
+        <div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:900;color:#fff;">${esc(B.n)}</div><div style="font-size:10.5px;color:#8a8f96;">${B.fama?'+':''}${B.fama} fama · ${B.moral?'+':''}${B.moral} moral</div><div style="font-size:10.5px;margin-top:1px;">${B.renta?`<span style="color:#4ade80;font-weight:800;">+${eur(B.renta)}/año</span> `:''}${B.mant?`<span style="color:#ff6b6b;font-weight:800;">−${eur(B.mant)}/año mant.</span>`:''}</div></div>
         <button ${own||!puedo?'disabled':''} onclick="window._carreraComprar('${B.id}')" style="background:${own?'transparent':puedo?A:'rgba(255,255,255,.05)'};color:${own?'#666':puedo?'#000':'#666'};border:${own?'1px solid #2a2a2a':'none'};border-radius:10px;padding:7px 12px;font-weight:900;font-size:11px;cursor:${own||!puedo?'default':'pointer'};white-space:nowrap;">${own?'TENÉS':eur(B.p)}</button>
       </div>`; }).join('')}
     </div>`;
+};
+// ── INVERSIONES: abrir / ampliar / retirar ────────────────────────────────────
+function _invPrompt(titulo, max, cb){
+  const v = prompt(titulo + '\nDisponible: ' + eur(max) + '\n\nMonto a invertir (€):', String(Math.round(max*0.3)));
+  if(v===null) return;
+  const n = Math.round(parseFloat(String(v).replace(/[^\d.]/g,'')) || 0);
+  if(!n || n<1000){ if(window.showToast) showToast('Mínimo €1.000', 'warning'); return; }
+  if(n > max){ if(window.showToast) showToast('No te alcanza.', 'warning'); return; }
+  cb(n);
+}
+window._carreraAbrirInv = function(perfil){
+  if(!G) return;
+  const P = PERFILES_INV[perfil]; if(!P) return;
+  _invPrompt('Abrir posición en ' + P.n + ' (riesgo ' + P.riesgo + ')', G.dinero||0, function(n){
+    G.dinero -= n;
+    G.inversiones = { perfil, monto:n, hist:[] };
+    save(); window._carreraBienes();
+  });
+};
+window._carreraInvertirMas = function(){
+  if(!G || !G.inversiones) return;
+  const P = PERFILES_INV[G.inversiones.perfil] || PERFILES_INV.moderado;
+  _invPrompt('Agregar capital a ' + P.n, G.dinero||0, function(n){
+    G.dinero -= n; G.inversiones.monto += n;
+    save(); window._carreraBienes();
+  });
+};
+window._carreraRetirarInv = function(){
+  if(!G || !G.inversiones || !G.inversiones.monto) return;
+  G.dinero = (G.dinero||0) + G.inversiones.monto;
+  G.inversiones = null;
+  save(); window._carreraBienes();
 };
 window._carreraComprar = function(id){
   const B = bienByld(id); if(!B||!G) return;
@@ -2050,10 +2220,10 @@ window._carreraComprar = function(id){
   G.dinero -= B.p; G.bienes.push({ id, precio:B.p });
   G.fama = clamp((G.fama||0) + (B.fama||0), 0, 100);
   G.moral = clamp((G.moral||0) + (B.moral||0), 0, 100);
-  // Inversión: efecto random ±50% al momento (rendimiento pasivo, no ligado a renta).
-  if (B.invert) {
-    const roi = rnd(-0.4, 0.9); G.dinero += Math.round(B.p * roi);
-    if (window.showToast) showToast(roi>0? 'La inversión rindió +'+eur(Math.round(B.p*roi)) : 'Perdiste '+eur(Math.round(B.p*-roi)) , roi>0?'success':'error');
+  // Aviso si el bien te deja en flujo negativo (los lujos cuestan todos los años).
+  if (B.mant && window.showToast) {
+    const b = balanceAnual();
+    if (b.neto < 0) showToast('Ojo: ahora gastás ' + eur(Math.abs(b.neto)) + ' más de lo que ganás por año.', 'warning');
   }
   save(); window._carreraBienes();
 };
@@ -2164,6 +2334,35 @@ function retiro(){
     ${honores.length?`<div class="cr-fade cr-fade-d2" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;justify-content:center;">
       ${honores.map(h=>`<span style="display:inline-flex;align-items:center;gap:5px;background:${h.c}18;border:1px solid ${h.c}55;color:${h.c};border-radius:20px;padding:5px 11px;font-size:11px;font-weight:800;"><i class='bx ${h.i}'></i>${h.t}</span>`).join('')}
     </div>`:''}
+
+    <!-- PATRIMONIO FINAL -->
+    ${(function(){
+      const inv = (G.inversiones&&G.inversiones.monto)||0;
+      const bienesVal = (G.bienes||[]).reduce((s,b)=>{ const B=bienByld(b.id)||{}; return s+Math.round((b.precio||B.p||0)*0.65); },0);
+      const total = (G.dinero||0) + inv + bienesVal;
+      const F = G.flags||{};
+      const estado = F.embargo ? ['Embargado','#ef4444','Terminaste con el sueldo embargado.']
+        : F.endeudado ? ['Endeudado','#f59e0b','Arrastrás deudas del banco.']
+        : total >= 20000000 ? ['Fortuna asegurada','#facc15','No vas a tener que trabajar nunca más.']
+        : total >= 3000000 ? ['Bien parado','#22c55e','Tu familia queda cubierta de por vida.']
+        : total >= 300000 ? ['Ordenado','#4fc3f7','Ni rico ni pobre. Manejaste bien lo tuyo.']
+        : ['Sin colchón','#94a3b8','Ganaste plata pero no queda mucho.'];
+      return `<div class="cr-fade cr-fade-d2" style="margin-top:20px;">
+        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:#facc15;margin-bottom:10px;padding-left:2px;"><i class='bx bx-wallet'></i> PATRIMONIO AL RETIRO</div>
+        <div style="background:linear-gradient(160deg,rgba(250,204,21,.10),rgba(20,22,18,.6));border:1px solid rgba(250,204,21,.28);border-radius:14px;padding:15px;">
+          <div style="text-align:center;margin-bottom:12px;">
+            <div style="font-family:Outfit,sans-serif;font-size:30px;font-weight:900;color:#facc15;line-height:1;">${eur(total)}</div>
+            <div style="display:inline-flex;align-items:center;gap:5px;margin-top:8px;background:${estado[1]}18;border:1px solid ${estado[1]}55;color:${estado[1]};border-radius:20px;padding:4px 12px;font-size:11px;font-weight:800;">${estado[0]}</div>
+            <div style="font-size:11.5px;color:#9aa0a6;margin-top:6px;">${estado[2]}</div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;">
+            ${cell('EFECTIVO', eur(G.dinero||0), '#4ade80')}
+            ${cell('INVERSIONES', eur(inv), '#4fc3f7')}
+            ${cell('BIENES', eur(bienesVal), '#a78bfa')}
+          </div>
+          ${(G.bienes||[]).length?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;justify-content:center;">${G.bienes.map(b=>{const B=bienByld(b.id)||{n:b.id,i:'bx-box'};return `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.05);border:1px solid #2a2a2a;border-radius:20px;padding:4px 10px;font-size:10.5px;color:#ccc;font-weight:700;"><i class='bx ${B.i}' style="color:#facc15;"></i>${esc(B.n)}</span>`;}).join('')}</div>`:''}
+        </div>
+      </div>`; })()}
 
     <!-- FORMACIÓN EN JUVENILES -->
     ${(G.juvHist&&G.juvHist.length)?`<div class="cr-fade cr-fade-d2" style="margin-top:20px;">
@@ -2480,6 +2679,7 @@ window._carreraCompartir = function(){
     `🥇 ${G.titulos||0} títulos${trofArr.length?': '+trofArr.slice(0,4).join(', ')+(trofArr.length>4?`, +${trofArr.length-4}`:''):''}`,
     `👕 Trayectoria: ${clubes.slice(0,5).join(' → ')}${clubes.length>5?` (+${clubes.length-5})`:''}`,
     ...(G.rival&&(G.rival.ganados+G.rival.perdidos)?[`⚔️ Duelo con ${G.rival.nombre}: ${G.rival.ganados}—${G.rival.perdidos}`]:[]),
+    `💰 Patrimonio: ${eur((G.dinero||0)+((G.inversiones&&G.inversiones.monto)||0)+(G.bienes||[]).reduce((s,b)=>{const B=bienByld(b.id)||{};return s+Math.round((b.precio||B.p||0)*0.65);},0))}`,
     ``,
     `Jugalo en canchero.uy`
   ];
