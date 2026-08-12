@@ -2360,6 +2360,8 @@ function pantallaDecision(cuerpo, etiqueta, color){
 // Tras resolver una decisión: si quedan decisiones, otra. Si no, MERCADO forzado
 // (siempre que haya clubes que te quieran o el actual quiera renovar), y luego hub.
 window._carreraContinuar = function(){
+  // Si acaba de haber una primera convocatoria, elegís número de selección.
+  if(G && G._pedirNumSel){ G._pedirNumSel = false; save(); window._elegirNumero('seleccion'); return; }
   if(G && G._evLeft>0){ mostrarEvento(); return; }
   if(G && !G._mercadoHecho){ window._carreraMercadoForzado(); return; }
   G._mercadoHecho = false;
@@ -2763,6 +2765,8 @@ function eventoSeleccionRandom(){
     t: 'Selección: ' + t.tipo, img:'seleccion', d: desc,
     opts: [
       { txt: `${flagImg(G.pais,18)}&nbsp;Ir con todo — jugar el ${t.tipo}`, ef: g => {
+        // Primera convocatoria: elegís el número de la selección.
+        if (!g.numSeleccion) g._pedirNumSel = true;
         const bien = Math.random() < 0.55 + (g.nivel - req(t))/100; // más chance si estás por arriba del corte
         if (bien) {
           g.fama += 14; g.nivel += 1;
@@ -3024,13 +3028,89 @@ window._carreraElegirOferta = function(kind, i){
   const wrap=document.getElementById('cr-evwrap');
   // Si firmaste en un club nuevo, POSÁS con la camiseta recién estrenada.
   const _fichaje = (kind !== 'quedarme' && kind !== 'rechazar_renov' && kind !== 'renov');
+  // Al firmar en un club nuevo, elegís la camiseta que vas a usar.
+  if (_fichaje){ G._msgFichaje = msg; save(); window._elegirNumero('club'); return; }
   if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:10px 0;">
-    ${_fichaje?`<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:14px;">
-      ${avatarBox(avatarDeG(3.4,'posando'), '12px 18px', 'vestuario')}
-      <div style="display:flex;align-items:center;gap:8px;">${clubBadge(G.club,24)}<span style="font-size:15px;font-weight:900;color:#fff;">${esc(G.club)}</span></div>
-    </div>`:''}
     <div style="font-size:15px;color:#fff;font-weight:700;margin-bottom:16px;line-height:1.5;">${msg}</div>
     <button onclick="window._carreraContinuar()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 28px;font-weight:900;cursor:pointer;">Continuar</button></div>`;
+};
+
+// ── ELEGIR NÚMERO DE CAMISETA ─────────────────────────────────────────────────
+// Al fichar por un club o al ser convocado a la selección. Los números "libres"
+// dependen del club: en los grandes los emblemáticos suelen estar ocupados.
+function numerosDisponibles(ctx){
+  const pos = G.pos || 'DC';
+  // Números típicos por puesto, primero los que más pegan.
+  const porPuesto = {
+    POR:[1,12,25], LI:[3,6,16], DFC:[2,4,5,14], LD:[4,2,13],
+    MCD:[5,8,15], MI:[11,17,7], MC:[8,5,20], MD:[7,11,22], MCO:[10,21,14],
+    EI:[11,7,17], DC:[9,19,29], ED:[7,11,27]
+  }[pos] || [10,8,7];
+  const base = [...new Set([...porPuesto, 10, 9, 7, 8, 11, 6, 5, 4, 3, 2, 1])];
+  // En clubes fuertes, los números bajos suelen estar tomados.
+  const fuerte = (G.clubStr||60) >= 78;
+  let h = 0; const key = (G.club||'') + (G.temporada||0);
+  for(let i=0;i<key.length;i++) h = (h*31 + key.charCodeAt(i)) >>> 0;
+  const ocupados = new Set();
+  if (ctx === 'club' && fuerte){
+    // 3 números emblemáticos ocupados, estables para este club/temporada.
+    [10,9,7].forEach((n,i)=>{ if (((h >>> (i*3)) % 3) !== 0) ocupados.add(n); });
+  }
+  const libres = base.filter(n => !ocupados.has(n)).slice(0, 8);
+  // Siempre ofrecemos algunos altos como alternativa segura.
+  [ (h%9)+20, (h%7)+30, 77, 99 ].forEach(n=>{ if(libres.length<12 && libres.indexOf(n)<0) libres.push(n); });
+  return { libres, ocupados:[...ocupados] };
+}
+window._elegirNumero = function(ctx){
+  if(!G) G=load(); if(!G) return;
+  const { libres, ocupados } = numerosDisponibles(ctx);
+  G._numCtx = ctx;
+  const esSel = ctx === 'seleccion';
+  const kit = esSel ? kitDe(G.pais) : kitClub(G.club, G.clubPais||G.pais);
+  const actual = esSel ? (G.numSeleccion || G.num) : G.num;
+  const titulo = esSel ? `Tu número en la selección` : `Tu número en ${esc(G.club)}`;
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:20px 18px calc(28px + env(safe-area-inset-bottom));text-align:center;">
+    <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:${esSel?'#93c5fd':A};margin-bottom:12px;">${esSel?'CONVOCATORIA':'PRESENTACIÓN'}</div>
+    <div style="display:flex;align-items:flex-end;justify-content:center;gap:14px;margin-bottom:12px;flex-wrap:wrap;">
+      ${avatarBox(avatarDeG(3.2,'posando',{ seleccion:esSel }), '12px 18px', esSel?'estadio':'vestuario')}
+      <div id="num-jersey">${jerseyKit(112, G.apellido, actual, kit)}</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:6px;">
+      ${esSel? flagImg(G.pais,22) : clubBadge(G.club,26)}
+      <span style="font-size:16px;font-weight:900;color:#fff;">${esSel?esc(G.pais):esc(G.club)}</span>
+    </div>
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;color:#fff;margin-bottom:4px;">${titulo}</div>
+    <div style="font-size:12.5px;color:#8a9280;margin-bottom:16px;">Elegí la camiseta con la que te van a conocer.</div>
+    ${ocupados.length?`<div style="font-size:11px;color:#f59e0b;margin-bottom:10px;"><i class='bx bx-lock-alt'></i> Ocupados en el plantel: ${ocupados.join(', ')}</div>`:''}
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:8px;margin-bottom:18px;">
+      ${libres.map(n=>`<button onclick="window._setNumero(${n})" style="background:${n===actual?'rgba(186,255,0,.16)':'rgba(255,255,255,.04)'};border:1.5px solid ${n===actual?A:'#242a20'};border-radius:11px;padding:14px 4px;cursor:pointer;color:${n===actual?A:'#e0e4dc'};font-family:Outfit,sans-serif;font-weight:900;font-size:20px;">${n}</button>`).join('')}
+    </div>
+    <button onclick="window._confirmarNumero()" style="width:100%;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">CONFIRMAR</button>
+  </div>`;
+};
+window._setNumero = function(n){
+  if(!G) return;
+  if (G._numCtx === 'seleccion') G.numSeleccion = n; else G.num = n;
+  save(); window._elegirNumero(G._numCtx);
+};
+window._confirmarNumero = function(){
+  const ctx = G._numCtx; G._numCtx = null;
+  const msg = G._msgFichaje; G._msgFichaje = null; save();
+  if (ctx === 'seleccion'){ window._carreraContinuar(); return; }
+  // Presentación oficial con la camiseta y el número elegidos.
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:34px 20px calc(28px + env(safe-area-inset-bottom));text-align:center;">
+    <div style="display:flex;justify-content:center;margin-bottom:12px;">${avatarBox(avatarDeG(3.6,'posando'), '14px 20px', 'vestuario')}</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:10px;">
+      ${clubBadge(G.club,30)}<span style="font-size:18px;font-weight:900;color:#fff;">${esc(G.club)}</span>
+      <span style="font-size:12px;font-weight:900;color:${A};background:rgba(186,255,0,.14);border-radius:7px;padding:3px 9px;">#${G.num}</span>
+    </div>
+    <div style="font-size:14.5px;color:#c4ccc0;font-weight:700;margin-bottom:20px;line-height:1.55;">${esc(msg||'Nuevo club.')}</div>
+    <button onclick="window._carreraContinuar()" style="width:100%;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">Continuar</button>
+  </div>`;
 };
 // Compat: viejos guardados que quedaron a mitad de camino.
 window._carreraTransfer = function(go,name,str,liga,pais){
@@ -3862,9 +3942,11 @@ function retiro(){
       ${cell('SCORE', scoreN, '#f59e0b')}
     </div>
 
-    ${honores.length?`<div class="cr-fade cr-fade-d2" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;justify-content:center;">
+    ${seccion('honores','bx-award','RECONOCIMIENTOS','#a78bfa', honores.length?`
+      <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
       ${honores.map(h=>`<span style="display:inline-flex;align-items:center;gap:5px;background:${h.c}18;border:1px solid ${h.c}55;color:${h.c};border-radius:20px;padding:5px 11px;font-size:11px;font-weight:800;"><i class='bx ${h.i}'></i>${h.t}</span>`).join('')}
-    </div>`:''}
+    </div>`:'', false, honores.length)}
+    <div style="font-size:10.5px;color:#5f6a58;text-align:center;margin-top:14px;margin-bottom:4px;"><i class='bx bx-chevrons-down'></i> Tocá cada sección para abrirla</div>
 
     <!-- CÓMO CAMBIASTE (evolución del sprite a lo largo de la carrera) -->
     ${(function(){
@@ -3875,16 +3957,14 @@ function retiro(){
       const ult = tl[tl.length-1];
       if(ult && hitos[hitos.length-1].edad !== ult.edad) hitos.push({ edad:ult.edad, lbl:ult.club });
       const k = KITS[G.clubPais||G.pais] || { t:'solid', c:['#1b7a3e'], txt:'#fff' };
-      return `<div class="cr-fade cr-fade-d1" style="margin-top:20px;">
-        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:${A};margin-bottom:10px;padding-left:2px;"><i class='bx bx-git-commit'></i> CÓMO CAMBIASTE</div>
+      return seccion('evolucion','bx-git-commit','CÓMO CAMBIASTE',A,`
         <div style="background:linear-gradient(180deg,#141a10,#0a0d08);border:1px solid #1f2a1a;border-radius:14px;padding:14px 10px;display:flex;gap:10px;overflow-x:auto;align-items:flex-end;">
           ${hitos.map(h=>`<div style="flex-shrink:0;text-align:center;min-width:66px;">
               ${avatarSprite(G.avatar, { edad:h.edad, kitBase:k.c[0], kitAlt:k.c[1]||'#fff', kitTxt:k.txt, kitTipo:k.t, num:G.num, escala:2.2, aura:(ult&&h.edad===ult.edad&&(nivelF>=88||G.titulos>=8)) })}
               <div style="font-size:9px;color:#8a9580;font-weight:900;margin-top:5px;">${h.edad} años</div>
               <div style="font-size:8.5px;color:#5c6655;margin-top:1px;max-width:66px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(h.lbl||'')}</div>
             </div>`).join('')}
-        </div>
-      </div>`; })()}
+        </div>`, false); })()}
 
     <!-- PATRIMONIO FINAL -->
     ${(function(){
@@ -3898,8 +3978,7 @@ function retiro(){
         : total >= 3000000 ? ['Bien parado','#22c55e','Tu familia queda cubierta de por vida.']
         : total >= 300000 ? ['Ordenado','#4fc3f7','Ni rico ni pobre. Manejaste bien lo tuyo.']
         : ['Sin colchón','#94a3b8','Ganaste plata pero no queda mucho.'];
-      return `<div class="cr-fade cr-fade-d2" style="margin-top:20px;">
-        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:#facc15;margin-bottom:10px;padding-left:2px;"><i class='bx bx-wallet'></i> PATRIMONIO AL RETIRO</div>
+      return seccion('patrimonio','bx-wallet','PATRIMONIO AL RETIRO','#facc15',`
         <div style="background:linear-gradient(160deg,rgba(250,204,21,.10),rgba(20,22,18,.6));border:1px solid rgba(250,204,21,.28);border-radius:14px;padding:15px;">
           <div style="text-align:center;margin-bottom:12px;">
             <div style="font-family:Outfit,sans-serif;font-size:30px;font-weight:900;color:#facc15;line-height:1;">${eur(total)}</div>
@@ -3912,8 +3991,7 @@ function retiro(){
             ${cell('BIENES', eur(bienesVal), '#a78bfa')}
           </div>
           ${(G.bienes||[]).length?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;justify-content:center;">${G.bienes.map(b=>{const B=bienByld(b.id)||{n:b.id,i:'bx-box'};return `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.05);border:1px solid #2a2a2a;border-radius:20px;padding:4px 10px;font-size:10.5px;color:#ccc;font-weight:700;"><i class='bx ${B.i}' style="color:#facc15;"></i>${esc(B.n)}</span>`;}).join('')}</div>`:''}
-        </div>
-      </div>`; })()}
+        </div>`, false); })()}
 
     <!-- FORMACIÓN EN JUVENILES (plegable) -->
     ${seccion('juveniles','bx-child','CÓMO TE FORMASTE','#4fc3f7', (G.juvHist&&G.juvHist.length)?`
@@ -3926,8 +4004,7 @@ function retiro(){
     ${(G.rival && (G.rival.ganados+G.rival.perdidos)>0) ? (function(){
       const R=G.rival; const gane=R.ganados>R.perdidos; const col=gane?'#22c55e':'#ef4444';
       const veredicto = gane ? `Le ganaste el pulso de toda una generación.` : R.ganados===R.perdidos ? `Empate técnico: dos carreras que nunca se soltaron.` : `Él terminó arriba. Siempre vas a saber que estuvo ahí.`;
-      return `<div class="cr-fade cr-fade-d2" style="margin-top:20px;">
-      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;color:${col};margin-bottom:10px;padding-left:2px;"><i class='bx bx-target-lock'></i> LA RIVALIDAD DE TU VIDA</div>
+      return seccion('rivalidad','bx-target-lock','LA RIVALIDAD DE TU VIDA',col,`
       <div style="background:linear-gradient(160deg,${col}12,rgba(20,22,18,.6));border:1px solid ${col}44;border-radius:14px;padding:16px;">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
           <div style="flex:1;text-align:center;"><div style="font-size:10px;color:#8a8f96;font-weight:800;">VOS</div><div style="font-size:22px;font-weight:900;color:#fff;">${G.tot.g}</div><div style="font-size:9px;color:#666;">GOLES · Nv ${nivelF} · ${G.titulos} tít.</div></div>
@@ -3936,7 +4013,7 @@ function retiro(){
         </div>
         <div style="font-size:12.5px;color:#c4ccc0;text-align:center;line-height:1.5;font-style:italic;">${veredicto}</div>
       </div>
-    </div>`; })() : ''}
+    </div>`, false); })() : ''}
 
     <!-- MARCAS DE TU HISTORIA (banderas) -->
     ${(function(){ const F=G.flags||{}; const b=[];
@@ -3976,7 +4053,7 @@ function retiro(){
             <div style="font-size:9.5px;color:#eee;font-weight:800;margin-top:6px;line-height:1.2;">${esc(p.n)}</div>
             <div style="font-size:8.5px;color:#777;margin-top:2px;">${p.edades.slice(0,3).join(', ')} años</div>
           </div>`).join('')}
-        </div>`, true, pr.length); })()}
+        </div>`, false, pr.length); })()}
 
     <!-- VITRINA DE TROFEOS (plegable, con el club de cada título) -->
     ${seccion('vitrina','bx-trophy','VITRINA DE TÍTULOS','#facc15', trofArr.length ? `
