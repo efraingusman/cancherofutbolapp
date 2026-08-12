@@ -17,6 +17,9 @@ function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function rnd(a,b){ return a + Math.random()*(b-a); }
 function ri(a,b){ return Math.floor(rnd(a,b+1)); }
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+// Barajado uniforme (Fisher-Yates). sort(()=>Math.random()-0.5) NO es uniforme:
+// medido daba ~35.7% de las veces el primer elemento en su lugar original.
+function shuffle(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
 
 // ── POSICIONES (como Copero) con coords en la cancha (x,y en %) ────────────────
 const POSICIONES = [
@@ -1522,7 +1525,7 @@ const POTRERO_POOL = [
 ];
 // 3 eventos al azar del pool (no repetidos), la carrera se siente distinta cada vez.
 function potreroEventosDeCarrera(){
-  const shuffled = POTRERO_POOL.slice().sort(()=>Math.random()-0.5);
+  const shuffled = POTRERO_POOL.slice();
   return shuffled.slice(0, 3);
 }
 const POTRERO_EVENTOS = [];  // se llena por carrera con potreroEventosDeCarrera()
@@ -1558,9 +1561,9 @@ window._carreraPotrero = function(paso){
 // Opciones con `prueba:true` abren: elegir club → decisión dentro de la prueba →
 // resultado. El club elegido queda como preferido y aparece en la oferta de cantera.
 function clubesPrueba(pais, n){
-  let out = todosClubs().filter(c=>c.pais===pais && c.str>=50 && c.str<=74).sort(()=>Math.random()-0.5).slice(0, n||3);
+  let out = shuffle(todosClubs().filter(c=>c.pais===pais && c.str>=50 && c.str<=74)).slice(0, n||3);
   if(out.length < (n||3)){
-    const ciudades = (CIUDADES[pais]||['Central','Norte','Sur','Unión']).slice().sort(()=>Math.random()-0.5);
+    const ciudades = (CIUDADES[pais]||['Central','Norte','Sur','Unión']).slice();
     const sufijos = ['FC','Atlético','Juventud','Deportivo','Sporting'];
     for(let i=out.length;i<(n||3);i++) out.push({ name: pick(sufijos)+' '+ciudades[i%ciudades.length], str: ri(48,58), liga:'Amateur '+pais, pais });
   }
@@ -1595,7 +1598,7 @@ const PRUEBA_DECS = [
 ];
 window._potPruebaClub = function(paso, idx, clubIdx){
   const d=_draft; const c=d._pruebaClubs[clubIdx]; d._pruebaClub=c;
-  const decs = PRUEBA_DECS.slice().sort(()=>Math.random()-0.5).slice(0,3);
+  const decs = PRUEBA_DECS.slice().slice(0,3);
   d._pruebaDecs = decs;
   const m=document.getElementById('carrera-modal')||overlay();
   m.innerHTML = `
@@ -1662,7 +1665,7 @@ window._carreraOfertas = function(){
   // Clubes de cantera DEL PAÍS del jugador (un brasileño no arranca en Salto). Se prioriza
   // clubes reales de ese país con str bajo/medio; si no alcanzan 3, se generan clubes
   // amateur/barrio de ciudades de ese país. Así el arranque es lógico y local.
-  let cantera = todosClubs().filter(c=>c.pais===d.pais && c.str>=50 && c.str<=72).sort(()=>Math.random()-0.5).slice(0,3);
+  let cantera = shuffle(todosClubs().filter(c=>c.pais===d.pais && c.str>=50 && c.str<=72)).slice(0,3);
   // Si quedaste en una prueba del potrero, ese club encabeza la oferta (efecto real).
   if (d._potClubPref){
     cantera = cantera.filter(c=>c.name !== d._potClubPref.name).slice(0,2);
@@ -1670,7 +1673,7 @@ window._carreraOfertas = function(){
   }
   if (cantera.length < 3){
     const faltan = 3 - cantera.length;
-    const ciudades = (CIUDADES[d.pais] || ['Central','Norte','Sur','Unión','Juventud','Barrio']).slice().sort(()=>Math.random()-0.5);
+    const ciudades = (CIUDADES[d.pais] || ['Central','Norte','Sur','Unión','Juventud','Barrio']).slice();
     const sufijos = ['FC','Atlético','Juventud','Deportivo','United','Sporting'];
     for (let i=0;i<faltan;i++){
       const nom = pick(sufijos)+' '+ciudades[i%ciudades.length];
@@ -1836,7 +1839,7 @@ const JUVENILES_POOL = [
     { txt:'Firmar y agarrar el adelanto', ef:g=>{ g.dinero+=12000; const b=Math.random()<.45; g.flags=g.flags||{}; g.flags.agenteMalo=!b; return b?'Resultó ser serio y te consiguió buenos contactos.':'Te ató 5 años a alguien que solo te quiere vender. Te va a costar zafar.'; } },
     { txt:'Consultarlo con mi familia primero', ef:g=>{ g._juvDisc=(g._juvDisc||0)+1; return 'Tu viejo lo hizo revisar por un abogado del sindicato. Te ahorraste un problema.'; } } ] }
 ];
-function juvenilesDeCarrera(){ return JUVENILES_POOL.slice().sort(()=>Math.random()-0.5).slice(0,3); }
+function juvenilesDeCarrera(){ return JUVENILES_POOL.slice().slice(0,3); }
 // Edad de retiro: la duración elegida se cuenta desde el DEBUT (17 o 18), no desde 16.
 function edadRetiro(){ return ((G&&G.debutEdad)||16) + ((G&&G.years)||10); }
 window._carreraJuveniles = function(paso){
@@ -2385,7 +2388,8 @@ window._carreraMercadoForzado = function(){
     if (c.str > 82 && G.edad > 32 && G.nivel < 88) return false;
     if (c.str > 85 && G.edad < 20 && G.nivel < 70) return false;
     return true;
-  }).sort(()=>Math.random()-0.5);
+  });
+  shuffle(mejores).forEach((v,i)=>{ mejores[i]=v; });
   const picks = []; const seen = {};
   for(const c of mejores){ if(seen[c.name]) continue; seen[c.name]=1; picks.push(c); if(picks.length>=3) break; }
   G._offers = picks.map(ofertaDe);
@@ -2840,7 +2844,7 @@ function mostrarEvento(){
   const ofertaTransfer = mejores.length && Math.random()<0.85 && G.edad<34;
   if(ofertaTransfer){
     // Barajar y tomar hasta 4 clubes únicos.
-    const shuffled = mejores.slice().sort(()=>Math.random()-0.5);
+    const shuffled = mejores.slice();
     const seen={}; const picks=[];
     for(const c of shuffled){ if(seen[c.name])continue; seen[c.name]=1; picks.push(c); if(picks.length>=4)break; }
     G._offers = picks.map(ofertaDe); save();
@@ -2867,7 +2871,7 @@ function mostrarEvento(){
   // Eventos DINÁMICOS (opciones generadas al momento — ej: nacionalidad del abuelo).
   if (ev && ev._dyn && ev.t.indexOf('abuelo')>=0){
     // Elegir hasta 2 nacionalidades DISTINTAS al azar (ojo: opciones concretas, no "cambiar").
-    const candidatas = PAISES.filter(p => p !== G.pais).sort(()=>Math.random()-0.5).slice(0, 2);
+    const candidatas = PAISES.filter(p => p !== shuffle(G.pais)).slice(0, 2);
     const flagOf = p => flagImg(p, 18) + '&nbsp;';
     const dText = `Un periodista descubre que tu abuelo era de <b>${esc(candidatas[0])}</b>` + (candidatas[1]?` y también hay linaje de <b>${esc(candidatas[1])}</b>`:'') + `. Podés elegir para qué selección jugar.`;
     const opts = [
@@ -3612,7 +3616,7 @@ window._carreraPedirSalida = function(){
     return true;
   });
   if(!candidatos.length){ if(window.showToast) showToast('Ningún club te está mirando ahora. Rendí más una temporada.', 'info'); return; }
-  const shuffled = candidatos.slice().sort(()=>Math.random()-0.5);
+  const shuffled = candidatos.slice();
   const seen={}; const picks=[];
   for(const c of shuffled){ if(seen[c.name])continue; seen[c.name]=1; picks.push(c); if(picks.length>=4)break; }
   G._offers = picks.map(ofertaDe);

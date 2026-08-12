@@ -16,6 +16,17 @@ const SB_KEY = 'sb_publishable_gPwLXkMHk3HvFz9nm9hgKA_1D0IJBKA';
 function sb(){ try { return window._sb || (window.supabase && window.supabase.createClient(SB_URL, SB_KEY)); } catch(e){ return null; } }
 function me(){ return window.userData || {}; }
 function esc(s){ return window.escH ? window.escH(s) : String(s==null?'':s); }
+// Barajado Fisher-Yates. OJO: `sort(()=>Math.random()-0.5)` NO es uniforme —
+// medido daba la respuesta correcta en la 1ª posición el 35,7% de las veces
+// (deberían ser 25%), o sea que responder siempre la primera daba ventaja real.
+function shuffle(arr){
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
 
 // ── BANCO DE PREGUNTAS ────────────────────────────────────────────────────────
 // img: {t:'crest', v:'boca'}  → usa img/clubs/boca.png
@@ -63,7 +74,47 @@ const BANK = [
   { q:'¿Cuántos Mundiales ganó Uruguay?', o:['2','1','3','0'], c:0, d:3 },
   { q:'¿De qué club es este escudo?', img:{t:'crest',v:'napoli'}, o:['Napoli','Roma','Lazio','Fiorentina'], c:0, d:3 },
   { q:'¿Qué jugador es apodado "El Fenómeno"?', o:['Ronaldo Nazário','Ronaldinho','Rivaldo','Romário'], c:0, d:3 },
-  { q:'¿En qué club debutó Cristiano Ronaldo como profesional?', o:['Sporting Lisboa','Benfica','Porto','Manchester United'], c:0, d:3 }
+  { q:'¿En qué club debutó Cristiano Ronaldo como profesional?', o:['Sporting Lisboa','Benfica','Porto','Manchester United'], c:0, d:3 },
+
+  // ══ FÚTBOL URUGUAYO ══════════════════════════════════════════════════════
+  { q:'¿Cómo se llama el estadio donde se jugó la final del Mundial 1950?', o:['Maracaná','Centenario','Monumental','Morumbí'], c:0, d:2 },
+  { q:'¿En qué año se jugó el Maracanazo?', o:['1950','1930','1954','1946'], c:0, d:2 },
+  { q:'¿Qué estadio es el más grande de Uruguay?', o:['Centenario','Campeón del Siglo','Gran Parque Central','Luis Franzini'], c:0, d:1 },
+  { q:'¿Cómo se apoda a la selección uruguaya?', o:['La Celeste','La Albiceleste','La Roja','La Verdeamarela'], c:0, d:1 },
+  { q:'¿Qué clásico enfrenta a los dos grandes de Uruguay?', o:['Peñarol vs Nacional','Danubio vs Defensor','Cerro vs Rampla','Wanderers vs Progreso'], c:0, d:1 },
+  { q:'¿Quién es el máximo goleador histórico de la selección uruguaya?', o:['Luis Suárez','Edinson Cavani','Diego Forlán','Óscar Míguez'], c:0, d:2 },
+  { q:'¿En qué Mundial Uruguay salió cuarto con Forlán como mejor jugador?', o:['Sudáfrica 2010','Brasil 2014','Alemania 2006','Rusia 2018'], c:0, d:2 },
+  { q:'¿Qué club uruguayo juega en el Gran Parque Central?', o:['Nacional','Peñarol','Danubio','Liverpool'], c:0, d:2 },
+
+  // ══ REGLAS DEL JUEGO ═════════════════════════════════════════════════════
+  { q:'¿Cuántos jugadores como máximo puede cambiar un equipo en un partido oficial?', o:['5','3','7','4'], c:0, d:2 },
+  { q:'Si el balón sale por la línea de fondo tocado por un defensor, ¿qué se cobra?', o:['Córner','Saque de meta','Lateral','Tiro libre'], c:0, d:1 },
+  { q:'¿Cuántos árbitros asistentes hay en un partido profesional (sin VAR)?', o:['2','1','3','4'], c:0, d:1 },
+  { q:'¿Qué significa VAR?', o:['Videoarbitraje','Verificación Arbitral Rápida','Video Análisis de Reglas','Validación Arbitral'], c:0, d:2 },
+  { q:'¿Puede un jugador estar en offside en un saque de banda?', o:['No','Sí','Solo en el área','Solo si toca el balón'], c:0, d:3 },
+  { q:'¿Cuánto mide de ancho un arco de fútbol 11?', o:['7,32 metros','6 metros','8 metros','5,5 metros'], c:0, d:3 },
+  { q:'¿A qué distancia se ejecuta un penal?', o:['11 metros','9 metros','12 metros','10 metros'], c:0, d:2 },
+  { q:'¿Qué pasa si un arquero toca con las manos un pase de su compañero con el pie?', o:['Tiro libre indirecto','Penal','Tarjeta amarilla','No pasa nada'], c:0, d:3 },
+
+  // ══ HISTORIA Y MUNDIALES ═════════════════════════════════════════════════
+  { q:'¿Qué selección ganó más Copas del Mundo?', o:['Brasil','Alemania','Italia','Argentina'], c:0, d:1 },
+  { q:'¿Dónde se jugó el Mundial 2018?', o:['Rusia','Brasil','Qatar','Sudáfrica'], c:0, d:1 },
+  { q:'¿Qué jugador ganó el Mundial 1998 con Francia y fue su DT campeón en 2018?', o:['Didier Deschamps','Zinedine Zidane','Thierry Henry','Marcel Desailly'], c:0, d:3 },
+  { q:'¿Qué selección africana llegó a semifinales en Qatar 2022?', o:['Marruecos','Senegal','Camerún','Ghana'], c:0, d:2 },
+  { q:'¿Quién es el máximo goleador histórico de los Mundiales?', o:['Miroslav Klose','Ronaldo','Gerd Müller','Just Fontaine'], c:0, d:3 },
+  { q:'¿En qué Mundial debutó Pelé siendo campeón con 17 años?', o:['Suecia 1958','Chile 1962','Brasil 1950','México 1970'], c:0, d:3 },
+
+  // ══ CLUBES Y COPAS ═══════════════════════════════════════════════════════
+  { q:'¿Qué club ganó más Champions League?', o:['Real Madrid','Milan','Bayern','Liverpool'], c:0, d:2 },
+  { q:'¿Qué club ganó más Copas Libertadores?', o:['Independiente','Boca Juniors','Peñarol','River Plate'], c:0, d:3 },
+  { q:'¿En qué país se juega la Bundesliga?', o:['Alemania','Austria','Suiza','Países Bajos'], c:0, d:1 },
+  { q:'¿De qué club es este escudo?', img:{t:'crest',v:'psg'}, o:['PSG','Marsella','Mónaco','Lyon'], c:0, d:2 },
+  { q:'¿De qué club es este escudo?', img:{t:'crest',v:'inter'}, o:['Inter','Milan','Juventus','Napoli'], c:0, d:2 },
+  { q:'¿Cómo se llama el clásico entre Real Madrid y Barcelona?', o:['El Clásico','El Derbi','La Batalla','El Superclásico'], c:0, d:1 },
+  { q:'¿Qué torneo enfrenta a los campeones de Europa y Sudamérica?', o:['Mundial de Clubes','Supercopa','Copa Intercontinental Sub-20','Recopa'], c:0, d:2 },
+  { q:'¿De qué país es esta bandera?', img:{t:'flag',v:'nl'}, o:['Países Bajos','Luxemburgo','Francia','Rusia'], c:0, d:2 },
+  { q:'¿De qué país es esta bandera?', img:{t:'flag',v:'sn'}, o:['Senegal','Malí','Camerún','Ghana'], c:0, d:3 },
+  { q:'¿Qué club es apodado "Los Blancos"?', o:['Real Madrid','Barcelona','Atlético','Sevilla'], c:0, d:2 }
 ];
 
 function imgHtml(img){
@@ -78,16 +129,43 @@ function imgHtml(img){
     </div></div>`;
 }
 
-// Baraja e arma una partida: 10 preguntas ordenadas por dificultad creciente.
+// Variantes de enunciado para las preguntas con imagen: aunque salgan dos escudos
+// en la misma partida, no se leen igual.
+const ENUNCIADOS = {
+  crest: ['¿De qué club es este escudo?', '¿A qué club pertenece este escudo?', '¿Reconocés este escudo?', 'Este escudo es de...'],
+  flag:  ['¿De qué país es esta bandera?', '¿A qué país pertenece esta bandera?', '¿Reconocés esta bandera?', 'Esta bandera es de...']
+};
+// Arma una partida: 10 preguntas de dificultad creciente, con variedad de formato.
 function armarPartida(){
   const byD = { 1:[], 2:[], 3:[] };
   BANK.forEach(q => { (byD[q.d]||byD[1]).push(q); });
-  const pick = (arr, n) => arr.slice().sort(()=>Math.random()-0.5).slice(0, n);
-  const set = [...pick(byD[1],4), ...pick(byD[2],3), ...pick(byD[3],3)];
-  // Barajar opciones de cada pregunta manteniendo la correcta.
+  // Toma n preguntas de un nivel, limitando cuántas del mismo TIPO de imagen entran,
+  // para que una partida no sea "adivina el escudo" cinco veces seguidas.
+  const tomar = (arr, n, cupo) => {
+    const out = [];
+    for (const q of shuffle(arr)){
+      if (out.length >= n) break;
+      const tipo = q.img ? q.img.t : 'texto';
+      const yaHay = out.filter(x => (x.img ? x.img.t : 'texto') === tipo).length;
+      if (tipo !== 'texto' && yaHay >= cupo) continue;
+      out.push(q);
+    }
+    // Si el cupo dejó huecos, se completan con lo que haya.
+    if (out.length < n) for (const q of shuffle(arr)){ if (out.length >= n) break; if (out.indexOf(q) < 0) out.push(q); }
+    return out;
+  };
+  const set = [...tomar(byD[1],4,1), ...tomar(byD[2],3,1), ...tomar(byD[3],3,1)];
+  // Contador para rotar el enunciado de cada tipo dentro de la misma partida.
+  const usos = { crest:0, flag:0 };
   return set.map(q => {
-    const idxs = q.o.map((_,i)=>i).sort(()=>Math.random()-0.5);
-    return { q:q.q, img:q.img, d:q.d, o:idxs.map(i=>q.o[i]), c:idxs.indexOf(q.c) };
+    const idxs = shuffle(q.o.map((_,i)=>i));
+    let texto = q.q;
+    if (q.img && ENUNCIADOS[q.img.t]){
+      const v = ENUNCIADOS[q.img.t];
+      texto = v[usos[q.img.t] % v.length];
+      usos[q.img.t]++;
+    }
+    return { q:texto, img:q.img, d:q.d, o:idxs.map(i=>q.o[i]), c:idxs.indexOf(q.c) };
   });
 }
 
