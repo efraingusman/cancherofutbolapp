@@ -1525,7 +1525,7 @@ const POTRERO_POOL = [
 ];
 // 3 eventos al azar del pool (no repetidos), la carrera se siente distinta cada vez.
 function potreroEventosDeCarrera(){
-  const shuffled = POTRERO_POOL.slice();
+  const shuffled = shuffle(POTRERO_POOL);
   return shuffled.slice(0, 3);
 }
 const POTRERO_EVENTOS = [];  // se llena por carrera con potreroEventosDeCarrera()
@@ -1563,7 +1563,7 @@ window._carreraPotrero = function(paso){
 function clubesPrueba(pais, n){
   let out = shuffle(todosClubs().filter(c=>c.pais===pais && c.str>=50 && c.str<=74)).slice(0, n||3);
   if(out.length < (n||3)){
-    const ciudades = (CIUDADES[pais]||['Central','Norte','Sur','Unión']).slice();
+    const ciudades = shuffle(CIUDADES[pais]||['Central','Norte','Sur','Unión']);
     const sufijos = ['FC','Atlético','Juventud','Deportivo','Sporting'];
     for(let i=out.length;i<(n||3);i++) out.push({ name: pick(sufijos)+' '+ciudades[i%ciudades.length], str: ri(48,58), liga:'Amateur '+pais, pais });
   }
@@ -1598,7 +1598,7 @@ const PRUEBA_DECS = [
 ];
 window._potPruebaClub = function(paso, idx, clubIdx){
   const d=_draft; const c=d._pruebaClubs[clubIdx]; d._pruebaClub=c;
-  const decs = PRUEBA_DECS.slice().slice(0,3);
+  const decs = shuffle(PRUEBA_DECS).slice(0,3);
   d._pruebaDecs = decs;
   const m=document.getElementById('carrera-modal')||overlay();
   m.innerHTML = `
@@ -1673,7 +1673,7 @@ window._carreraOfertas = function(){
   }
   if (cantera.length < 3){
     const faltan = 3 - cantera.length;
-    const ciudades = (CIUDADES[d.pais] || ['Central','Norte','Sur','Unión','Juventud','Barrio']).slice();
+    const ciudades = shuffle(CIUDADES[d.pais] || ['Central','Norte','Sur','Unión','Juventud','Barrio']);
     const sufijos = ['FC','Atlético','Juventud','Deportivo','United','Sporting'];
     for (let i=0;i<faltan;i++){
       const nom = pick(sufijos)+' '+ciudades[i%ciudades.length];
@@ -1839,7 +1839,7 @@ const JUVENILES_POOL = [
     { txt:'Firmar y agarrar el adelanto', ef:g=>{ g.dinero+=12000; const b=Math.random()<.45; g.flags=g.flags||{}; g.flags.agenteMalo=!b; return b?'Resultó ser serio y te consiguió buenos contactos.':'Te ató 5 años a alguien que solo te quiere vender. Te va a costar zafar.'; } },
     { txt:'Consultarlo con mi familia primero', ef:g=>{ g._juvDisc=(g._juvDisc||0)+1; return 'Tu viejo lo hizo revisar por un abogado del sindicato. Te ahorraste un problema.'; } } ] }
 ];
-function juvenilesDeCarrera(){ return JUVENILES_POOL.slice().slice(0,3); }
+function juvenilesDeCarrera(){ return shuffle(JUVENILES_POOL).slice(0,3); }
 // Edad de retiro: la duración elegida se cuenta desde el DEBUT (17 o 18), no desde 16.
 function edadRetiro(){ return ((G&&G.debutEdad)||16) + ((G&&G.years)||10); }
 window._carreraJuveniles = function(paso){
@@ -2088,7 +2088,10 @@ window._momentoSeguir = function(pos){
 };
 // ── FIN DE TEMPORADA (títulos, premios, ascensos, valor, timeline, rival) ─────
 function _finTemporada(ctx){
-  const { pj, g, a, dN, rend, pos, totalEq, momento } = ctx;
+  // `pos` se reasigna más abajo (anti-dinastía puede bajarte del 1º puesto),
+  // por eso va con let y no con const.
+  const { pj, g, a, dN, rend, totalEq, momento } = ctx;
+  let pos = ctx.pos;
   // ── TÍTULOS coherentes con la liga (pueden acumularse en la misma temporada) ──
   const T = trofeosDe(G.liga);
   const titulosGanados = [];
@@ -2389,9 +2392,8 @@ window._carreraMercadoForzado = function(){
     if (c.str > 85 && G.edad < 20 && G.nivel < 70) return false;
     return true;
   });
-  shuffle(mejores).forEach((v,i)=>{ mejores[i]=v; });
   const picks = []; const seen = {};
-  for(const c of mejores){ if(seen[c.name]) continue; seen[c.name]=1; picks.push(c); if(picks.length>=3) break; }
+  for(const c of shuffle(mejores)){ if(seen[c.name]) continue; seen[c.name]=1; picks.push(c); if(picks.length>=3) break; }
   G._offers = picks.map(ofertaDe);
   // Renovación: SOLO si no rompiste el vínculo. Si pediste salida o rechazaste
   // renovar, el club ya no te ofrece nada — tenés que irte o comerte el banco.
@@ -2844,7 +2846,7 @@ function mostrarEvento(){
   const ofertaTransfer = mejores.length && Math.random()<0.85 && G.edad<34;
   if(ofertaTransfer){
     // Barajar y tomar hasta 4 clubes únicos.
-    const shuffled = mejores.slice();
+    const shuffled = shuffle(mejores);
     const seen={}; const picks=[];
     for(const c of shuffled){ if(seen[c.name])continue; seen[c.name]=1; picks.push(c); if(picks.length>=4)break; }
     G._offers = picks.map(ofertaDe); save();
@@ -2871,7 +2873,7 @@ function mostrarEvento(){
   // Eventos DINÁMICOS (opciones generadas al momento — ej: nacionalidad del abuelo).
   if (ev && ev._dyn && ev.t.indexOf('abuelo')>=0){
     // Elegir hasta 2 nacionalidades DISTINTAS al azar (ojo: opciones concretas, no "cambiar").
-    const candidatas = PAISES.filter(p => p !== shuffle(G.pais)).slice(0, 2);
+    const candidatas = shuffle(PAISES.filter(p => p !== G.pais)).slice(0, 2);
     const flagOf = p => flagImg(p, 18) + '&nbsp;';
     const dText = `Un periodista descubre que tu abuelo era de <b>${esc(candidatas[0])}</b>` + (candidatas[1]?` y también hay linaje de <b>${esc(candidatas[1])}</b>`:'') + `. Podés elegir para qué selección jugar.`;
     const opts = [
@@ -3615,8 +3617,8 @@ window._carreraPedirSalida = function(){
     if (c.str > 82 && G.edad > 32 && G.nivel < 88) return false;
     return true;
   });
-  if(!candidatos.length){ if(window.showToast) showToast('Ningún club te está mirando ahora. Rendí más una temporada.', 'info'); return; }
-  const shuffled = candidatos.slice();
+  if(!candidatos.length){ if(window.showToast) window.showToast('Ningún club te está mirando ahora. Rendí más una temporada.', 'info'); return; }
+  const shuffled = shuffle(candidatos);
   const seen={}; const picks=[];
   for(const c of shuffled){ if(seen[c.name])continue; seen[c.name]=1; picks.push(c); if(picks.length>=4)break; }
   G._offers = picks.map(ofertaDe);
@@ -3797,8 +3799,8 @@ function _invPrompt(titulo, max, cb){
   const v = prompt(titulo + '\nDisponible: ' + eur(max) + '\n\nMonto a invertir (€):', String(Math.round(max*0.3)));
   if(v===null) return;
   const n = Math.round(parseFloat(String(v).replace(/[^\d.]/g,'')) || 0);
-  if(!n || n<1000){ if(window.showToast) showToast('Mínimo €1.000', 'warning'); return; }
-  if(n > max){ if(window.showToast) showToast('No te alcanza.', 'warning'); return; }
+  if(!n || n<1000){ if(window.showToast) window.showToast('Mínimo €1.000', 'warning'); return; }
+  if(n > max){ if(window.showToast) window.showToast('No te alcanza.', 'warning'); return; }
   cb(n);
 }
 window._carreraAbrirInv = function(perfil){
@@ -3826,7 +3828,7 @@ window._carreraRetirarInv = function(){
 };
 window._carreraComprar = function(id){
   const B = bienByld(id); if(!B||!G) return;
-  if((G.dinero||0) < B.p){ if(window.showToast) showToast('No te alcanza.', 'warning'); return; }
+  if((G.dinero||0) < B.p){ if(window.showToast) window.showToast('No te alcanza.', 'warning'); return; }
   if(!G.bienes) G.bienes = [];
   if(G.bienes.some(x=>x.id===id)){ return; }
   G.dinero -= B.p; G.bienes.push({ id, precio:B.p });
@@ -4536,7 +4538,7 @@ window._vidaLapso = function(){
         ${vidaEscena(rol, 320, 150)}
         <!-- Avatar parado en la habitación -->
         <div style="position:absolute;left:50%;bottom:11%;transform:translateX(-50%);">
-          ${avatarSprite(G.avatar, { edad:G.vidaEdad, kitBase:kit.base, kitAlt:kit.alt, kitTxt:kit.txt, kitTipo:kit.tipo, num:G.num, apellido:G.apellido, escala:2.1, pose:_poseReaccion(res,{nivel:0,moral:0,fama:0,dinero:0}) })}
+          ${avatarSprite(G.avatar, { edad:G.vidaEdad, kitBase:kit.base, kitAlt:kit.alt, kitTxt:kit.txt, kitTipo:kit.tipo, num:G.num, apellido:G.apellido, escala:2.1, pose:'idle' })}
         </div>
         <!-- Panel de período y objetivos, arriba a la derecha -->
         <div style="position:absolute;top:6px;right:6px;background:rgba(10,14,8,.82);border:1px solid ${R.color}44;border-radius:7px;padding:7px 10px;max-width:52%;">
