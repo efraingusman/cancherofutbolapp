@@ -850,6 +850,15 @@ function avatarSprite(av, o){
     CR(ojoIzq-1, ojoY+3, ojoW+2, 1, '#2a2a2a'); CR(ojoDer-1, ojoY+3, ojoW+2, 1, '#2a2a2a');
     CR(ojoIzq+ojoW, ojoY, ojoDer-ojoIzq-ojoW, 1, '#2a2a2a');
   }
+  // Párpados: rectángulos de piel encima de los ojos que aparecen al parpadear.
+  if (pose.cara !== 'feliz' && pose.cara !== 'dolor'){
+    cab.push(`<g class="${uid}eye" style="opacity:0">
+      <rect x="${(ojoIzq*S).toFixed(1)}" y="${(ojoY*S).toFixed(1)}" width="${(ojoW*S).toFixed(1)}" height="${(2*S).toFixed(1)}" fill="${P.c}"/>
+      <rect x="${(ojoDer*S).toFixed(1)}" y="${(ojoY*S).toFixed(1)}" width="${(ojoW*S).toFixed(1)}" height="${(2*S).toFixed(1)}" fill="${P.c}"/>
+      <rect x="${(ojoIzq*S).toFixed(1)}" y="${((ojoY+1)*S).toFixed(1)}" width="${(ojoW*S).toFixed(1)}" height="${(0.6*S).toFixed(1)}" fill="${P.s}"/>
+      <rect x="${(ojoDer*S).toFixed(1)}" y="${((ojoY+1)*S).toFixed(1)}" width="${(ojoW*S).toFixed(1)}" height="${(0.6*S).toFixed(1)}" fill="${P.s}"/>
+    </g>`);
+  }
   CR(headX+Math.round(cabezaW*0.45), ojoY+2, 1, 2, P.s);
   // Cicatrices de lesiones
   if (av.cicatriz >= 1) CR(ojoIzq-1, ojoY-3, 3, 1, _avShade(P.d,-20));
@@ -904,26 +913,81 @@ function avatarSprite(av, o){
   }
 
   // ── ENSAMBLADO ──
-  const cw = W*S, ch = H*S;
+  // El viewBox se RECORTA al contenido real. Antes usaba el alto completo del
+  // lienzo (72) y, como los personajes chicos arrancan más abajo, quedaba media
+  // caja vacía arriba y las piernas apretadas contra el borde. Ahora el sprite
+  // llena su marco a cualquier edad, con pies y sombra siempre visibles.
+  // El aire de arriba se ajusta al PEINADO real: un mohicano necesita más que un
+  // pelado. Así no queda media caja vacía cuando el corte es bajo.
+  let overTop = pelo === 'mohawk' ? 8 : (pelo === 'afro' || pelo === 'tupe') ? 6 : 3;
+  if (av.acc === 'cinta') overTop = Math.max(overTop, 3);
+  if (o.pose === 'campeon') overTop = 17;              // la copa sube por encima de la cabeza
+  if (pose.salto) overTop += pose.salto;
+  const topContenido = headY - overTop;
+  const botContenido = pisoY + 6;                      // piso + sombra + botines
+  // ANCHO: los brazos muy rotados (festejo, campeón, saludo, posando) se abren
+  // más allá del torso. Calculamos el alcance real para que la MANO nunca quede
+  // cortada contra el borde del lienzo.
+  const alcance = Math.max(
+    Math.abs(Math.sin(pose.brazoL * Math.PI/180)),
+    Math.abs(Math.sin(pose.brazoR * Math.PI/180))
+  ) * (brH + brW);
+  const medioNecesario = (hombroW/2) + brW + alcance + 2;
+  const anchoLogico = Math.max(W, Math.ceil(medioNecesario * 2));
+  const dx = (anchoLogico - W) / 2;                    // desplazamiento para centrar
+  const vbY = topContenido * S;
+  const vbH = (botContenido - topContenido) * S;
+  const vbX = -dx * S;
+  const cw = anchoLogico * S, ch = vbH;
+  const cyBase = botContenido * S;                     // "suelo" en coordenadas del viewBox
   const aura = o.aura
-    ? `<defs><radialGradient id="${uid}a"><stop offset="0%" stop-color="#facc15" stop-opacity=".42"/><stop offset="60%" stop-color="#facc15" stop-opacity=".12"/><stop offset="100%" stop-color="#facc15" stop-opacity="0"/></radialGradient></defs><ellipse cx="${cw/2}" cy="${ch*0.62}" rx="${cw*0.5}" ry="${ch*0.46}" fill="url(#${uid}a)"/>`
+    ? `<defs><radialGradient id="${uid}a"><stop offset="0%" stop-color="#facc15" stop-opacity=".42"/><stop offset="60%" stop-color="#facc15" stop-opacity=".12"/><stop offset="100%" stop-color="#facc15" stop-opacity="0"/></radialGradient></defs><ellipse cx="${(cx*S).toFixed(1)}" cy="${(vbY + vbH*0.6).toFixed(1)}" rx="${(cw*0.5).toFixed(1)}" ry="${(vbH*0.5).toFixed(1)}" fill="url(#${uid}a)"/>`
     : '';
-  // Animación: respiración, caminata o carrera
   let anim = '';
   if (o.anim !== false){
     const dur = pose.piernas === 2 ? '0.42s' : pose.piernas === 1 ? '0.75s' : '3.2s';
     const amp = pose.piernas ? 1.1 : 0.5;
-    anim = `<style>@keyframes ${uid}b{0%,100%{transform:translateY(0)}50%{transform:translateY(${(amp*S).toFixed(1)}px)}}
-      .${uid}body{animation:${uid}b ${dur} ease-in-out infinite;transform-origin:${cw/2}px ${ch}px}
+    // Desfases distintos por instancia para que dos avatares en pantalla no
+    // parpadeen ni se muevan sincronizados (mata la sensación de "muñeco").
+    const dp = (Math.random()*2.4).toFixed(2);
+    const db = (2 + Math.random()*4).toFixed(1);
+    const dh = (1.5 + Math.random()*3).toFixed(1);
+    anim = `<style>
+      @keyframes ${uid}b{0%,100%{transform:translateY(0)}50%{transform:translateY(${(amp*S).toFixed(1)}px)}}
+      .${uid}body{animation:${uid}b ${dur} ease-in-out infinite ${dp}s;transform-origin:${(cx*S).toFixed(1)}px ${cyBase.toFixed(1)}px}
       @keyframes ${uid}p{0%,100%{transform:rotate(0deg)}50%{transform:rotate(${pose.piernas===2?'-16':'-9'}deg)}}
       .${uid}pierna{animation:${uid}p ${dur} ease-in-out infinite;transform-origin:${(cx*S).toFixed(1)}px ${(piernaY*S).toFixed(1)}px}
-      .${uid}pierna2{animation:${uid}p ${dur} ease-in-out infinite reverse;transform-origin:${(cx*S).toFixed(1)}px ${(piernaY*S).toFixed(1)}px}</style>`;
+      .${uid}pierna2{animation:${uid}p ${dur} ease-in-out infinite reverse;transform-origin:${(cx*S).toFixed(1)}px ${(piernaY*S).toFixed(1)}px}
+      /* Cabeza: mira a los costados cada tanto — el gesto que más "da vida" */
+      @keyframes ${uid}h{
+        0%,42%{transform:translateX(0) rotate(0deg)}
+        50%,62%{transform:translateX(${(-0.9*S).toFixed(1)}px) rotate(-3deg)}
+        70%,86%{transform:translateX(${(0.9*S).toFixed(1)}px) rotate(3deg)}
+        94%,100%{transform:translateX(0) rotate(0deg)}}
+      .${uid}head{animation:${uid}h ${dh*3}s ease-in-out infinite ${dp}s;transform-origin:${(cx*S).toFixed(1)}px ${((cuelloY)*S).toFixed(1)}px}
+      /* Parpadeo: los párpados bajan un instante */
+      @keyframes ${uid}e{0%,95.5%{opacity:0}96%,98.5%{opacity:1}99%,100%{opacity:0}}
+      .${uid}eye{animation:${uid}e ${db}s linear infinite ${dp}s}
+      /* Brazos: micro balanceo al respirar */
+      @keyframes ${uid}a{0%,100%{transform:rotate(0deg)}50%{transform:rotate(1.6deg)}}
+      .${uid}arm{animation:${uid}a ${dur} ease-in-out infinite ${dp}s}
+      /* Con "reducir movimiento" activado NO apagamos todo: el personaje tiene que
+         seguir sintiéndose vivo. Se cortan los desplazamientos grandes (caminar,
+         correr, saltar) y se conservan el parpadeo y una respiración muy lenta,
+         que no producen molestia vestibular. */
+      @media (prefers-reduced-motion: reduce){
+        .${uid}pierna,.${uid}pierna2,.${uid}arm{animation:none}
+        .${uid}body{animation-duration:6s}
+        .${uid}head{animation-duration:14s}
+      }
+    </style>`;
   }
   const piernasHTML = pose.piernas
     ? `<g class="${uid}pierna">${piernaSVG[0]}</g><g class="${uid}pierna2">${piernaSVG[1]}</g>`
     : piernaSVG.join('');
-  const mTop = (o.pose === 'campeon' || o.pose === 'posando') ? 14*S : 4*S;
-  return `<svg viewBox="0 ${-mTop} ${cw} ${ch+mTop}" width="${cw}" height="${ch+mTop}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;shape-rendering:crispEdges;">${anim}${aura}<g class="${uid}body">${piernasHTML}${p.join('')}${brazos}${extras}${textos}${cab.join('')}${objeto}</g></svg>`;
+  // La cabeza va en su propio grupo para poder girarla sin mover el cuerpo.
+  const cabezaHTML = `<g class="${uid}head">${cab.join('')}</g>`;
+  return `<svg viewBox="${vbX.toFixed(1)} ${vbY.toFixed(1)} ${cw.toFixed(1)} ${vbH.toFixed(1)}" width="${cw.toFixed(1)}" height="${vbH.toFixed(1)}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;shape-rendering:crispEdges;">${anim}${aura}<g class="${uid}body">${piernasHTML}${p.join('')}${brazos}${extras}${textos}${cabezaHTML}${objeto}</g></svg>`;
 }
 
 function _avPelo(CR, tipo, hx, hy, hw, hh, c, calvicie){
@@ -1159,9 +1223,48 @@ function avatarDeG(escala, pose, opts){
 // Marco reutilizable para mostrar el avatar (fondo de cancha nocturna, como el juego).
 // overflow:visible para que el sprite NUNCA se corte (la copa y la camiseta
 // levantada se dibujan por encima del alto nominal del lienzo).
-function avatarBox(inner, pad){
-  return `<div style="background:linear-gradient(180deg,#16200f 0%,#0c1208 70%,#080b06 100%);border:1px solid #26361c;border-radius:12px;padding:${pad||'10px 14px'};display:inline-flex;align-items:flex-end;justify-content:center;position:relative;">
-    <div style="position:absolute;left:0;right:0;bottom:0;height:34%;background:linear-gradient(180deg,rgba(70,140,50,.13),rgba(70,140,50,.04));border-radius:0 0 11px 11px;"></div>
+// ── ESCENARIOS DEL RECUADRO ───────────────────────────────────────────────────
+// El fondo cambia según el momento: no es lo mismo festejar un título en un
+// estadio lleno que estar preso o entrenando de pibe en el potrero.
+const AV_ESCENARIOS = {
+  cancha:   { cielo:['#16200f','#0c1208'], piso:'rgba(70,140,50,.16)',  borde:'#26361c', luz:null },
+  estadio:  { cielo:['#1a1030','#0a0716'], piso:'rgba(90,70,160,.16)',  borde:'#3a2a5c', luz:'#facc15' },
+  potrero:  { cielo:['#2a1f10','#120d06'], piso:'rgba(150,110,50,.18)', borde:'#3d2c15', luz:null },
+  vestuario:{ cielo:['#101a20','#070c10'], piso:'rgba(60,110,140,.14)', borde:'#1e3038', luz:null },
+  carcel:   { cielo:['#1c1c1e','#0a0a0b'], piso:'rgba(120,120,120,.12)',borde:'#333',    luz:null },
+  hospital: { cielo:['#0e1a1c','#060c0e'], piso:'rgba(80,160,170,.14)', borde:'#1c3236', luz:null },
+  noche:    { cielo:['#0d1424','#05080f'], piso:'rgba(50,80,140,.13)',  borde:'#1a2438', luz:null },
+  oficina:  { cielo:['#1a1710','#0b0a07'], piso:'rgba(160,130,60,.13)', borde:'#332c1a', luz:null },
+  casa:     { cielo:['#1e1628','#0c0912'], piso:'rgba(140,100,180,.13)',borde:'#2e2440', luz:null }
+};
+// Elige el escenario que corresponde a la pose y al estado del jugador.
+function escenaDePose(pose, av, edad){
+  if (av && av.preso) return 'carcel';
+  if (av && (av.muletas || av.vendaje)) return 'hospital';
+  if (pose === 'campeon' || pose === 'festejo') return 'estadio';
+  if (pose === 'esposado') return 'carcel';
+  if (pose === 'lesion') return 'hospital';
+  if (pose === 'rico') return 'oficina';
+  if (pose === 'bajon' || pose === 'pensativo') return 'noche';
+  if (pose === 'posando') return 'vestuario';
+  if (edad != null && edad <= 15) return 'potrero';
+  if (av && av.traje) return 'oficina';
+  return 'cancha';
+}
+function avatarBox(inner, pad, escena){
+  const E = AV_ESCENARIOS[escena] || AV_ESCENARIOS.cancha;
+  const luz = E.luz
+    ? `<div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 8%, ${E.luz}22, transparent 62%);border-radius:11px;pointer-events:none;"></div>`
+    : '';
+  const focos = escena === 'estadio'
+    ? `<div style="position:absolute;top:5px;left:0;right:0;display:flex;justify-content:space-around;pointer-events:none;">${[0,1,2,3].map(()=>`<div style="width:5px;height:3px;background:#fff8dc;border-radius:1px;box-shadow:0 0 7px #fff8dc;"></div>`).join('')}</div>`
+    : '';
+  const rejas = escena === 'carcel'
+    ? `<div style="position:absolute;inset:0;background:repeating-linear-gradient(90deg, rgba(0,0,0,.55) 0 3px, transparent 3px 17px);border-radius:11px;pointer-events:none;"></div>`
+    : '';
+  return `<div style="background:linear-gradient(180deg,${E.cielo[0]} 0%,${E.cielo[1]} 100%);border:1px solid ${E.borde};border-radius:12px;padding:${pad||'10px 14px'};display:inline-flex;align-items:flex-end;justify-content:center;position:relative;transition:background .35s;">
+    <div style="position:absolute;left:0;right:0;bottom:0;height:34%;background:linear-gradient(180deg,${E.piso},transparent);border-radius:0 0 11px 11px;pointer-events:none;"></div>
+    ${luz}${focos}${rejas}
     <div style="position:relative;line-height:0;">${inner}</div>
   </div>`;
 }
@@ -1773,7 +1876,7 @@ window._juvElegir = function(paso, idx){
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
     <div style="max-width:520px;margin:0 auto;padding:40px 20px 40px;text-align:center;">
-      <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(avatarDeG(2.8, pose, { edad:15+paso }), '10px 16px')}</div>
+      <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(avatarDeG(2.8, pose, { edad:15+paso }), '10px 16px', escenaDePose(pose, G.avatar, 15+paso))}</div>
       <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:#4fc3f7;margin-bottom:12px;">${esc(ev.t)}</div>
       <div style="font-size:16px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:16px;">${esc(res)}</div>
       ${dNiv?`<div style="margin-bottom:22px;">${deltaChip('Nivel', dNiv)}</div>`:'<div style="margin-bottom:22px;"></div>'}
@@ -1796,7 +1899,7 @@ window._carreraDebut = function(){
   m.innerHTML = `
   <div style="max-width:520px;margin:0 auto;padding:50px 20px 40px;text-align:center;">
     <div style="display:flex;align-items:flex-end;justify-content:center;gap:14px;margin-bottom:16px;flex-wrap:wrap;">
-      ${avatarBox(avatarDeG(3.4, 'posando', { edad:G.edad }), '12px 18px')}
+      ${avatarBox(avatarDeG(3.4, 'posando', { edad:G.edad }), '12px 18px', 'vestuario')}
       ${jerseyKit(120, G.apellido, G.num, kitClub(G.club, G.clubPais||G.pais))}
     </div>
     <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:${A};margin-bottom:8px;">${temprano?'DEBUT PRECOZ':'DEBUT EN PRIMERA'}</div>
@@ -1873,7 +1976,7 @@ window._carreraHub = function(){
       </div>
       ${(G.vitrina&&G.vitrina.length)?`<div style="background:rgba(255,255,255,.03);border:1px solid #1c1c1c;border-radius:16px;padding:14px;">
         <div style="font-size:11px;font-weight:900;color:#9aa0a6;letter-spacing:.5px;margin-bottom:10px;"><i class='bx bxs-trophy' style="color:${A};"></i> VITRINA · ${G.vitrina.length} título${G.vitrina.length!==1?'s':''}</div>
-        <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;">${G.vitrina.map(v=>`<div style="flex-shrink:0;width:78px;text-align:center;"><div style="height:54px;display:flex;align-items:center;justify-content:center;">${trofeoRender(v.nombre, 54)}</div><div style="font-size:9px;color:#ccc;font-weight:700;margin-top:4px;line-height:1.2;">${esc(v.nombre)}</div><div style="font-size:8px;color:#666;">${v.edad} años</div></div>`).join('')}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:10px;">${G.vitrina.map(v=>`<div style="text-align:center;background:rgba(250,204,21,.05);border:1px solid rgba(250,204,21,.18);border-radius:11px;padding:8px 4px;"><div style="height:50px;display:flex;align-items:center;justify-content:center;">${trofeoRender(v.nombre, 46)}</div><div style="font-size:9px;color:#e4e4d8;font-weight:800;margin-top:5px;line-height:1.25;">${esc(v.nombre)}</div><div style="font-size:8px;color:#7a8070;margin-top:2px;">${esc(v.club||'')} · ${v.edad}a</div></div>`).join('')}</div>
       </div>`:''}
     </div>
   </div>`;
@@ -2141,6 +2244,13 @@ function _finTemporada(ctx){
   save();
   // Nota del diario local sobre tu temporada.
   const prensa = notaPrensa({ pj, g, a, pos, totalEq, titulo, rend });
+  // Tablas de la temporada (posiciones, goleadores, asistencias) — deterministas.
+  G._tablasData = {
+    liga: G.liga, club: G.club, anio: (G.anio||2026)-1,
+    tabla: generarTabla(G.liga, G.club, pos, (G.temporada||1)*7 + (G.anio||2026)),
+    gol: generarIndividuales(G.liga, (G.temporada||1)*13 + (G.anio||2026), g, a).gol,
+    asi: generarIndividuales(G.liga, (G.temporada||1)*13 + (G.anio||2026), g, a).asi
+  };
   resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,titulos:titulosGanados,premios:premiosAnio,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa,duelo,momento,bal,inv,prensa});
 }
 
@@ -2150,7 +2260,7 @@ function resumenTemporada(r){
   <div style="max-width:520px;margin:0 auto;padding:30px 22px calc(30px + env(safe-area-inset-bottom));min-height:100%;display:flex;flex-direction:column;">
     <div style="text-align:center;margin-bottom:18px;">
       <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};">TEMPORADA ${G.temporada-1} · ${G.edad-1} AÑOS</div>
-      <div style="display:flex;justify-content:center;margin:8px 0 4px;">${avatarBox(avatarDeG(3.2, _poseTemporada(r), { edad:G.edad-1 }), '10px 16px')}</div>
+      <div style="display:flex;justify-content:center;margin:8px 0 4px;">${avatarBox(avatarDeG(3.2, _poseTemporada(r), { edad:G.edad-1 }), '10px 16px', escenaDePose(_poseTemporada(r), G.avatar, G.edad-1))}</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px;">${clubBadge(G.club,26)}<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:20px;color:#fff;">${esc(G.club)}</div></div>
       <div style="font-size:12px;color:#9aa0a6;margin-top:2px;">${esc(G.liga)} · ${posLabel(r.pos)} de ${r.totalEq}</div>
       ${r.titulo?`<div style="margin-top:14px;display:flex;flex-direction:column;align-items:center;">
@@ -2219,20 +2329,13 @@ function resumenTemporada(r){
         <div style="font-size:10px;color:#555;font-style:italic;">por ${esc(p.firma)}</div>
       </div>
     </div>`; })():''}
-    <div id="cr-evwrap"></div>
+    <button onclick="window._verTablas('pos')" style="width:100%;background:rgba(255,255,255,.04);border:1px solid #242a20;border-radius:12px;padding:11px;color:#c4ccc0;font-weight:800;font-size:12.5px;cursor:pointer;margin-bottom:10px;"><i class='bx bx-list-ol' style="color:${A};"></i> Ver tabla de posiciones y goleadores</button>
+    <div id="cr-evwrap">${contBtn()}</div>
   </div>`;
-  // Decisiones de esta temporada según dificultad. Si hay título ganado, NO
-  // encimamos una decisión random — el momento del trofeo tiene que respirar.
-  // Las decisiones se muestran cuando el usuario aprieta "Continuar".
+  // Las decisiones YA NO se cuelgan debajo del resumen (eso hacía que quedara la
+  // temporada anterior arriba y lo nuevo abajo, desfasado). Ahora cada decisión
+  // ocupa su propia pantalla, que se abre al tocar Continuar.
   G._evLeft = decisionsForSeason();
-  const w = document.getElementById('cr-evwrap');
-  if (r.titulo) {
-    if (w) w.innerHTML = contBtn();
-  } else if (G._evLeft > 0) {
-    setTimeout(()=>mostrarEvento(), 50);
-  } else {
-    if (w) w.innerHTML = contBtn();
-  }
 }
 function decisionsForSeason(){
   const d=(G&&G.dif)||'normal';
@@ -2240,7 +2343,20 @@ function decisionsForSeason(){
   if(d==='leve') return (G.temporada%2===0)?1:0;
   return 1;
 }
-function contBtn(){ return `<div style="text-align:center;padding:6px 0;"><button onclick="window._carreraHub()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 30px;font-weight:900;cursor:pointer;">Continuar <i class='bx bx-right-arrow-alt'></i></button></div>`; }
+function contBtn(){ return `<div style="text-align:center;padding:6px 0;"><button onclick="window._carreraContinuar()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 30px;font-weight:900;cursor:pointer;">Continuar <i class='bx bx-right-arrow-alt'></i></button></div>`; }
+// Marco de pantalla completa para decisiones. Reemplaza TODO el modal, así nunca
+// convive lo nuevo con lo viejo.
+function pantallaDecision(cuerpo, etiqueta, color){
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:560px;margin:0 auto;padding:18px 16px calc(28px + env(safe-area-inset-bottom));min-height:100%;display:flex;flex-direction:column;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:${color||A};">${esc(etiqueta||'DECISIÓN')}</div>
+      <div style="font-size:10px;color:#5f6a58;font-weight:800;">${G?G.edad+' años · '+esc(G.club):''}</div>
+    </div>
+    <div id="cr-evwrap" style="flex:1;">${cuerpo}</div>
+  </div>`;
+}
 // Tras resolver una decisión: si quedan decisiones, otra. Si no, MERCADO forzado
 // (siempre que haya clubes que te quieran o el actual quiera renovar), y luego hub.
 window._carreraContinuar = function(){
@@ -2306,6 +2422,116 @@ window._carreraMercadoForzado = function(){
   w.innerHTML = html;
 };
 // La pose del avatar en el resumen refleja CÓMO te fue la temporada.
+// ── TABLA DE POSICIONES Y TABLAS INDIVIDUALES ────────────────────────────────
+// Se genera a partir de la fuerza real de los clubes de la liga, con tu equipo en
+// la posición que sacaste. Determinista por temporada (misma tabla si volvés a mirar).
+function generarTabla(liga, miClub, miPos, semilla){
+  const L = LIGAS.find(x=>x.liga===liga);
+  let clubs = L ? L.clubs.map(c=>({name:c[0], str:c[1]})) : [];
+  if (!clubs.length) clubs = [{name:miClub, str:G.clubStr||60}];
+  if (!clubs.some(c=>c.name===miClub)) clubs.push({ name:miClub, str:G.clubStr||60 });
+  let rnd = (semilla*9301 + 49297) % 233280;
+  const rr = ()=>{ rnd = (rnd*9301 + 49297) % 233280; return rnd/233280; };
+  // Puntos coherentes con la fuerza + ruido estable
+  const filas = clubs.map(c=>{
+    const pj = 34;
+    const fuerza = (c.str - 45) / 45;
+    const gan = clamp(Math.round(pj*(0.18 + fuerza*0.45) + (rr()-0.5)*7), 2, pj-4);
+    const emp = clamp(Math.round(pj*0.24 + (rr()-0.5)*5), 2, pj-gan);
+    const per = pj - gan - emp;
+    const gf = Math.round(gan*2.0 + emp*0.9 + per*0.5 + (rr()-0.5)*8);
+    const gc = Math.round(per*2.0 + emp*0.9 + gan*0.5 + (rr()-0.5)*8);
+    return { name:c.name, pj, gan, emp, per, gf, gc, dif:gf-gc, pts:gan*3+emp };
+  });
+  filas.sort((a,b)=> b.pts-a.pts || b.dif-a.dif || b.gf-a.gf);
+  // Forzamos que TU club quede en la posición que sacaste realmente.
+  const iMio = filas.findIndex(f=>f.name===miClub);
+  const destino = clamp((miPos||1)-1, 0, filas.length-1);
+  if (iMio >= 0 && iMio !== destino){
+    const [mio] = filas.splice(iMio,1);
+    filas.splice(destino,0,mio);
+    // Reordenamos los puntos para que la tabla se lea coherente de arriba a abajo.
+    const pts = filas.map(f=>f.pts).sort((a,b)=>b-a);
+    filas.forEach((f,i)=>{ f.pts = pts[i]; });
+  }
+  return filas;
+}
+// Goleadores y asistidores de la liga, con vos incluido en tu lugar real.
+function generarIndividuales(liga, semilla, misG, misA){
+  const L = LIGAS.find(x=>x.liga===liga);
+  const clubs = L ? L.clubs : [[G.club, G.clubStr||60]];
+  let rnd = (semilla*4177 + 7919) % 233280;
+  const rr = ()=>{ rnd = (rnd*4177 + 7919) % 233280; return rnd/233280; };
+  const mk = (max)=>{
+    const out = [];
+    for (let i=0;i<9;i++){
+      const c = clubs[Math.floor(rr()*clubs.length)];
+      out.push({ nombre: pick(RIVAL_NOMBRES), club: c[0], n: Math.max(1, Math.round(max*(0.95 - i*0.07) - rr()*3)) });
+    }
+    return out;
+  };
+  const gol = mk(Math.max(18, (misG||0)+6));
+  const asi = mk(Math.max(12, (misA||0)+5));
+  gol.push({ nombre:(G.apellido||'VOS'), club:G.club, n:misG||0, yo:true });
+  asi.push({ nombre:(G.apellido||'VOS'), club:G.club, n:misA||0, yo:true });
+  gol.sort((a,b)=>b.n-a.n); asi.sort((a,b)=>b.n-a.n);
+  return { gol:gol.slice(0,10), asi:asi.slice(0,10) };
+}
+// Pantalla de tablas de la temporada (posiciones / goleadores / asistencias).
+window._verTablas = function(tab){
+  if(!G) G=load(); if(!G) return;
+  const t = G._tablasData; if(!t){ window._carreraHub(); return; }
+  tab = tab || 'pos';
+  const m = document.getElementById('carrera-modal') || overlay();
+  const tabBtn = (id,txt,ic)=>`<button onclick="window._verTablas('${id}')" style="flex:1;background:${tab===id?'rgba(186,255,0,.14)':'rgba(255,255,255,.03)'};border:1.5px solid ${tab===id?A:'#242a20'};border-radius:10px;padding:9px 4px;cursor:pointer;color:${tab===id?A:'#8a9280'};font-weight:900;font-size:11.5px;"><i class='bx ${ic}'></i> ${txt}</button>`;
+  let cuerpo = '';
+  if (tab === 'pos'){
+    cuerpo = `<div style="background:#0d100d;border:1px solid #1c211a;border-radius:13px;overflow:hidden;">
+      <div style="display:flex;font-size:9px;font-weight:900;color:#5f6a58;padding:8px 10px;border-bottom:1px solid #1c211a;">
+        <span style="width:20px;">#</span><span style="flex:1;">CLUB</span>
+        <span style="width:24px;text-align:center;">PJ</span><span style="width:22px;text-align:center;">G</span>
+        <span style="width:22px;text-align:center;">E</span><span style="width:22px;text-align:center;">P</span>
+        <span style="width:30px;text-align:center;">DIF</span><span style="width:28px;text-align:center;">PTS</span>
+      </div>
+      ${t.tabla.map((f,i)=>{
+        const mio = f.name===t.club;
+        const zona = i===0 ? '#facc15' : i<=3 ? '#22c55e' : i>=t.tabla.length-2 ? '#ef4444' : 'transparent';
+        return `<div style="display:flex;align-items:center;font-size:11.5px;padding:7px 10px;border-bottom:1px solid #141814;background:${mio?'rgba(186,255,0,.09)':'transparent'};color:${mio?'#fff':'#c4ccc0'};font-weight:${mio?'900':'600'};">
+          <span style="width:20px;display:flex;align-items:center;gap:3px;"><span style="width:2px;height:12px;background:${zona};border-radius:1px;"></span>${i+1}</span>
+          <span style="flex:1;display:flex;align-items:center;gap:6px;min-width:0;">${clubBadge(f.name,15)}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(f.name)}</span></span>
+          <span style="width:24px;text-align:center;">${f.pj}</span><span style="width:22px;text-align:center;">${f.gan}</span>
+          <span style="width:22px;text-align:center;">${f.emp}</span><span style="width:22px;text-align:center;">${f.per}</span>
+          <span style="width:30px;text-align:center;color:${f.dif>0?'#4ade80':f.dif<0?'#ff6b6b':'#888'};">${f.dif>0?'+':''}${f.dif}</span>
+          <span style="width:28px;text-align:center;font-weight:900;color:${mio?A:'#fff'};">${f.pts}</span>
+        </div>`; }).join('')}
+    </div>`;
+  } else {
+    const lista = tab === 'gol' ? t.gol : t.asi;
+    const et = tab === 'gol' ? 'GOLES' : 'ASIST';
+    cuerpo = `<div style="background:#0d100d;border:1px solid #1c211a;border-radius:13px;overflow:hidden;">
+      <div style="display:flex;font-size:9px;font-weight:900;color:#5f6a58;padding:8px 10px;border-bottom:1px solid #1c211a;">
+        <span style="width:20px;">#</span><span style="flex:1;">JUGADOR</span><span style="width:40px;text-align:center;">${et}</span>
+      </div>
+      ${lista.map((f,i)=>`<div style="display:flex;align-items:center;font-size:11.5px;padding:8px 10px;border-bottom:1px solid #141814;background:${f.yo?'rgba(186,255,0,.09)':'transparent'};color:${f.yo?'#fff':'#c4ccc0'};font-weight:${f.yo?'900':'600'};">
+        <span style="width:20px;color:${i===0?'#facc15':'#5f6a58'};font-weight:900;">${i+1}</span>
+        <span style="flex:1;display:flex;align-items:center;gap:6px;min-width:0;">${clubBadge(f.club,15)}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(f.nombre)}${f.yo?' <span style="color:'+A+';font-size:9px;">(VOS)</span>':''}</span></span>
+        <span style="width:40px;text-align:center;font-weight:900;color:${f.yo?A:'#fff'};">${f.n}</span>
+      </div>`).join('')}
+    </div>`;
+  }
+  m.innerHTML = `
+  <div style="max-width:560px;margin:0 auto;padding:18px 16px calc(28px + env(safe-area-inset-bottom));">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <button onclick="window._carreraContinuar()" style="background:rgba(255,255,255,.06);border:none;color:#aaa;width:32px;height:32px;border-radius:50%;font-size:17px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button>
+      <div><div style="font-family:Outfit,sans-serif;font-weight:900;font-size:17px;color:#fff;">${esc(t.liga)}</div>
+      <div style="font-size:10.5px;color:#5f6a58;">Temporada ${t.anio}</div></div>
+    </div>
+    <div style="display:flex;gap:6px;margin:12px 0;">
+      ${tabBtn('pos','Posiciones','bx-list-ol')}${tabBtn('gol','Goleadores','bx-football')}${tabBtn('asi','Asistencias','bx-target-lock')}
+    </div>
+    ${cuerpo}
+  </div>`;
+};
 function _poseTemporada(r){
   if (!r) return 'idle';
   if (r.titulo) return 'campeon';                       // levanta la copa
@@ -2352,7 +2578,12 @@ function prensaDe(pais){
 function notaPrensa(ctx){
   const { pj, g, a, pos, totalEq, titulo, rend } = ctx;
   const P = prensaDe(G.clubPais || G.pais);
-  const diario = pick(P.diarios), firma = pick(P.firmas);
+  // No repetir diario/firma respecto de la temporada anterior.
+  if(!G._prensaUsada) G._prensaUsada = {};
+  const distinto = (arr, ult) => { const l = arr.filter(x=>x!==ult); return l.length ? pick(l) : pick(arr); };
+  const diario = distinto(P.diarios, G._prensaUsada.diario);
+  const firma  = distinto(P.firmas,  G._prensaUsada.firma);
+  G._prensaUsada = { diario, firma };
   const F = G.flags || {};
   const gaTot = g + a;
   let tono, titular, cuerpo;
@@ -2373,9 +2604,18 @@ function notaPrensa(ctx){
     titular = pick([
       `¡${G.club} campeón! Y ${G.apellido} fue protagonista`,
       `${G.apellido} levantó la copa que ${G.club} esperaba`,
-      `La temporada perfecta de ${G.apellido}`
+      `La temporada perfecta de ${G.apellido}`,
+      `${G.apellido}, el nombre de esta vuelta olímpica`,
+      `El año en que ${G.club} volvió a gritar campeón`,
+      `${G.apellido} entró en la historia grande de ${G.club}`,
+      `El ${titulo} se quedó en casa`
     ]);
-    cuerpo = `${g} goles y ${a} asistencias en ${pj} partidos. El ${titulo} tiene su firma. ${gaTot>=25?'Números de los que se recuerdan una década.':'Cuando el equipo lo necesitó, apareció.'}`;
+    cuerpo = pick([
+      `${g} goles y ${a} asistencias en ${pj} partidos. El ${titulo} tiene su firma. ${gaTot>=25?'Números de los que se recuerdan una década.':'Cuando el equipo lo necesitó, apareció.'}`,
+      `Terminó con ${g} goles y ${a} asistencias. En el vestuario dicen que fue el que más empujó cuando la cosa se puso fea.`,
+      `${pj} partidos, ${gaTot} participaciones en gol y un ${titulo} que ya está en la vitrina. Poco más se le puede pedir.`,
+      `La estadística dice ${g} goles. El hincha dice bastante más que eso.`
+    ]);
   } else if (rend > 0.55) {
     tono = 'bueno';
     titular = pick([
@@ -2551,22 +2791,29 @@ function eventoSeleccionRandom(){
 }
 // Eventos de decisión (reusa impronta anterior + transferencias reales con VARIAS ofertas).
 function mostrarEvento(){
-  const wrap=document.getElementById('cr-evwrap'); if(!wrap) return;
   if(G) G._evLeft = Math.max(0, (G._evLeft||1) - 1);   // consume una decisión de la temporada
-  // PRIORIDAD ALTA: si hay convocatoria a selección este año, mostrarla (a veces).
+  // PRIORIDAD ALTA: convocatoria a la selección — pantalla propia y con protagonismo.
   if (Math.random() < 0.35) {
     const evSel = eventoSeleccionRandom();
     if (evSel) {
       G._ev = evSel;
-      wrap.innerHTML = `
-        <div style="background:linear-gradient(160deg,rgba(59,130,246,.08),rgba(20,22,18,.5));border:1px solid rgba(59,130,246,.3);border-radius:16px;padding:16px;">
-          ${decoImg(evSel.img)}
-          <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:17px;color:#fff;margin-bottom:6px;">${esc(evSel.t)}</div>
+      const kSel = kitDe(G.pais);
+      pantallaDecision(`
+        <div style="text-align:center;margin-bottom:14px;">
+          <div style="display:flex;justify-content:center;margin-bottom:10px;">
+            ${avatarBox(avatarDeG(3.2,'orgullo',{seleccion:true}), '12px 18px', 'estadio')}
+          </div>
+          <div style="display:inline-flex;align-items:center;gap:7px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.4);border-radius:20px;padding:5px 13px;">
+            ${flagImg(G.pais,20)}<span style="font-size:12.5px;font-weight:900;color:#93c5fd;">SELECCIÓN DE ${esc(G.pais).toUpperCase()}</span>
+          </div>
+        </div>
+        <div style="background:linear-gradient(160deg,rgba(59,130,246,.10),rgba(20,22,18,.5));border:1.5px solid rgba(59,130,246,.35);border-radius:16px;padding:16px;">
+          <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;color:#fff;margin-bottom:7px;line-height:1.2;">${esc(evSel.t)}</div>
           <div style="font-size:13.5px;color:#c4ccc0;line-height:1.55;margin-bottom:14px;">${evSel.d}</div>
           <div style="display:flex;flex-direction:column;gap:10px;">
             ${evSel.opts.map((o,i)=>`<button onclick="window._carreraElegir(${i})" style="${btn(i===0)}">${o.txt}</button>`).join('')}
           </div>
-        </div>`;
+        </div>`, 'CONVOCATORIA', '#93c5fd');
       return;
     }
   }
@@ -2627,15 +2874,15 @@ function mostrarEvento(){
     ev = { t: ev.t, img: ev.img, d: dText, opts };
   }
   G._ev=ev;
-  wrap.innerHTML=`
+  pantallaDecision(`
     <div style="background:linear-gradient(160deg,rgba(186,255,0,.05),rgba(20,22,18,.5));border:1px solid #242424;border-radius:16px;padding:16px;">
       ${decoImg(ev.img)}
-      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:17px;color:#fff;margin-bottom:6px;">${esc(ev.t)}</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:18px;color:#fff;margin-bottom:6px;line-height:1.2;">${esc(ev.t)}</div>
       <div style="font-size:13.5px;color:#c4ccc0;line-height:1.5;margin-bottom:14px;">${ev.d}</div>
       <div style="display:flex;flex-direction:column;gap:10px;">
         ${ev.opts.map((o,i)=>`<button onclick="window._carreraElegir(${i})" style="${btn(i===0)}">${o.txt}</button>`).join('')}
       </div>
-    </div>`;
+    </div>`, 'DECISIÓN', A);
 }
 function btn(prim){ return prim?`background:rgba(186,255,0,.1);border:1.5px solid rgba(186,255,0,.4);color:${A};border-radius:13px;padding:14px 15px;font-weight:800;font-size:14px;text-align:left;cursor:pointer;`:'background:rgba(255,255,255,.04);border:1.5px solid #262626;color:#fff;border-radius:13px;padding:14px 15px;font-weight:800;font-size:14px;text-align:left;cursor:pointer;'; }
 // Fotos reales disponibles en img/carrera/decisiones/<tipo>.webp
@@ -2697,7 +2944,9 @@ function ofertaCard(o, i, kind){
   </button>`;
 }
 function mostrarOfertas(kind){
-  const wrap=document.getElementById('cr-evwrap'); if(!wrap) return;
+  let wrap=document.getElementById('cr-evwrap');
+  if(!wrap){ pantallaDecision('', 'MERCADO DE PASES', '#a78bfa'); wrap=document.getElementById('cr-evwrap'); }
+  if(!wrap) return;
   const list = kind==='renov' ? (G._renov||[]) : (G._offers||[]);
   const titulo = kind==='renov' ? 'Tu club te quiere renovar' : 'Tenés ofertas sobre la mesa';
   const sub = kind==='renov' ? `Elegí cómo negociar tu continuidad en ${esc(G.club)}.` : 'Varios clubes te quieren. Elegí tu próximo destino... o quedate.';
@@ -2777,7 +3026,7 @@ window._carreraElegirOferta = function(kind, i){
   const _fichaje = (kind !== 'quedarme' && kind !== 'rechazar_renov' && kind !== 'renov');
   if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:10px 0;">
     ${_fichaje?`<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:14px;">
-      ${avatarBox(avatarDeG(3.4,'posando'), '12px 18px')}
+      ${avatarBox(avatarDeG(3.4,'posando'), '12px 18px', 'vestuario')}
       <div style="display:flex;align-items:center;gap:8px;">${clubBadge(G.club,24)}<span style="font-size:15px;font-weight:900;color:#fff;">${esc(G.club)}</span></div>
     </div>`:''}
     <div style="font-size:15px;color:#fff;font-weight:700;margin-bottom:16px;line-height:1.5;">${msg}</div>
@@ -3087,14 +3336,79 @@ function deltaChip(lbl, d, money){
 }
 // Elige la POSE con la que el avatar reacciona al resultado de una decisión.
 // Lee el texto del resultado y los deltas: si mejoró festeja, si empeoró se hunde.
+// ── VARIACIÓN DE TEXTOS ───────────────────────────────────────────────────────
+// Los resultados de las decisiones venían con una frase fija. Ahora se le suma un
+// COLETILLA contextual que cambia según el club, la edad, la idolatría y el humor
+// de la partida, de modo que la misma decisión nunca se lee igual dos veces.
+const COLETILLAS = {
+  bueno: [
+    ()=>`En ${G.club} lo tomaron como una señal.`,
+    ()=>`El vestuario se enteró antes que la prensa.`,
+    ()=>`A los ${G.edad} ya no te sorprende nada, pero esta vez sonreíste.`,
+    ()=>`Tu vieja lo contó en el barrio como si hubieras ganado un mundial.`,
+    ()=>`El técnico no dijo nada, pero te miró distinto.`,
+    ()=>`Esa noche dormiste tranquilo por primera vez en meses.`,
+    ()=>`Los del grupo del plantel te llenaron el teléfono.`,
+    ()=>`Alguien lo filmó y para la tarde ya estaba en todos lados.`
+  ],
+  malo: [
+    ()=>`En ${G.club} nadie te lo dijo en la cara, pero se notó.`,
+    ()=>`Volviste a tu casa sin ganas de hablar con nadie.`,
+    ()=>`A los ${G.edad} estas cosas pegan distinto que a los veinte.`,
+    ()=>`Tu representante te llamó tres veces y no atendiste.`,
+    ()=>`Al otro día en el entrenamiento se hizo un silencio raro.`,
+    ()=>`La radio del barrio lo comentó toda la semana.`,
+    ()=>`Te quedaste pensando si no había otra manera.`,
+    ()=>`Esa fue de las que te acordás veinte años después.`
+  ],
+  neutro: [
+    ()=>`La vida siguió como si nada.`,
+    ()=>`Al final, una más de las tantas que se toman sin pensarlas mucho.`,
+    ()=>`En ${G.club} la temporada siguió su curso.`,
+    ()=>`Ni tragedia ni fiesta: apenas un martes más.`,
+    ()=>`Con los años vas a recordar esto de otra manera.`,
+    ()=>`Nadie escribió una nota sobre esto, y estuvo bien así.`
+  ]
+};
+// Une el texto base del evento con una coletilla, sin repetir la última usada.
+function variarTexto(res, d){
+  if (!res || typeof res !== 'string') return res;
+  if (!G) return res;
+  const suma = (d.moral||0) + (d.fama||0) + (d.nivel||0)*2;
+  const tono = suma >= 6 ? 'bueno' : suma <= -6 ? 'malo' : 'neutro';
+  const pool = COLETILLAS[tono];
+  if (!G._coletillas) G._coletillas = {};
+  const usadas = G._coletillas[tono] || [];
+  let libres = pool.map((_,i)=>i).filter(i=>usadas.indexOf(i)<0);
+  if (!libres.length){ G._coletillas[tono] = []; libres = pool.map((_,i)=>i); }
+  const idx = libres[Math.floor(Math.random()*libres.length)];
+  (G._coletillas[tono] = G._coletillas[tono]||[]).push(idx);
+  let extra = '';
+  try { extra = pool[idx](); } catch(e){ extra = ''; }
+  // 30% de las veces no agrega nada, para que no se vuelva un tic.
+  if (Math.random() < 0.30 || !extra) return res;
+  return res.trim() + ' ' + extra;
+}
 function _poseReaccion(res, d){
   const t = (res||'').toLowerCase();
-  if (/preso|cárcel|carcel|detenid|policía|policia/.test(t)) return 'esposado';
-  if (/lesion|lesión|rompi|desgarr|ligament|operar|quirófano|quirofano|muleta/.test(t)) return 'lesion';
-  if (/campeón|campeon|copa|título|titulo|ganaste|levant/.test(t)) return 'campeon';
-  if (/injerto|estambul|turquía|turquia|rapaste|tatua/.test(t)) return 'posando';
-  if (/fortuna|millon|cadena|reloj|oro|fichaste|firmaste/.test(t)) return 'rico';
-  if (/escándalo|escandalo|papelón|papelon|suspensión|suspension|echaron|silbid|traidor/.test(t)) return 'bronca';
+  // 1) Estados físicos/legales — mandan sobre todo lo demás.
+  if (/preso|cárcel|carcel|detenid|polic[ií]a|esposad/.test(t)) return 'esposado';
+  if (/lesi[oó]n|rompi|desgarr|ligament|operar|quir[oó]fano|muleta|infiltr/.test(t)) return 'lesion';
+  // 2) LA COPA sólo si es un título DEPORTIVO de verdad. Antes cualquier texto con
+  //    "título" (por ejemplo el título del liceo) sacaba el trofeo, que no pegaba.
+  const tituloDeportivo = /camp(e[oó]n|eonato)|copa |la copa|torneo|vuelta ol[ií]mpica|levant[aá]|ascenso a/.test(t)
+                       && !/t[ií]tulo del liceo|secundari|bachiller|gradu|diploma|universi|doctorado/.test(t);
+  if (tituloDeportivo) return 'campeon';
+  // 3) Estudios / reconocimientos que NO son copas
+  if (/gradu|diploma|t[ií]tulo del liceo|bachiller|universi|doctorado|honoris/.test(t)) return 'orgullo';
+  // 4) Cambios de aspecto → posa
+  if (/injerto|estambul|turqu[ií]a|rapaste|tatua|te cortaste/.test(t)) return 'posando';
+  // 5) Plata
+  if (/fortuna|mill[oó]n|millones|cadena de oro|reloj car|te llenaste de plata/.test(t)) return 'rico';
+  // 6) Problemas
+  if (/esc[aá]ndalo|papel[oó]n|suspensi[oó]n|te echaron|silbid|traidor|positivo|dopaje/.test(t)) return 'bronca';
+  if (/perdiste|derrota|se te escap[oó]|no pudiste|fracas/.test(t)) return 'bajon';
+  // 7) Por deltas
   if (d.moral <= -8 || d.fama <= -10) return 'bajon';
   if (d.nivel <= -3) return 'agotado';
   if (d.moral >= 8 || d.fama >= 8) return 'festejo';
@@ -3116,7 +3430,8 @@ window._carreraElegir = function(i){
   ].filter(Boolean).join('');
   // ¿La decisión cambió el ASPECTO del avatar? Se avisa para que se note.
   const cambioAspecto = JSON.stringify(G.avatar||{}) !== avAntes;
-  G.hist.push({t:ev.t,res}); save();
+  const resVar = variarTexto(res, d);
+  G.hist.push({t:ev.t,res:resVar}); save();
   if (G._irCarcel) {
     const motivo = G._irCarcel; G._irCarcel = null; save();
     setTimeout(()=>_carreraCarcel(motivo), 500);
@@ -3125,10 +3440,10 @@ window._carreraElegir = function(i){
   const wrap=document.getElementById('cr-evwrap');
   if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:6px 0;">
     <div style="display:flex;justify-content:center;margin-bottom:10px;">
-      ${avatarBox(avatarDeG(2.6, pose), '10px 16px')}
+      ${avatarBox(avatarDeG(2.6, pose), '10px 16px', escenaDePose(pose, G.avatar, G.edad))}
     </div>
     ${cambioAspecto?`<div style="display:inline-flex;align-items:center;gap:5px;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.35);color:#c4b5fd;border-radius:20px;padding:3px 11px;font-size:10.5px;font-weight:800;margin-bottom:9px;"><i class='bx bx-body'></i> Esto te cambió por dentro y por fuera</div>`:''}
-    <div style="font-size:15px;color:#fff;font-weight:700;line-height:1.55;margin-bottom:12px;">${esc(res)}</div>
+    <div style="font-size:15px;color:#fff;font-weight:700;line-height:1.55;margin-bottom:12px;">${esc(resVar)}</div>
     ${chips?`<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:16px;">${chips}</div>`:'<div style="height:6px;"></div>'}
     <button onclick="window._carreraContinuar()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 28px;font-weight:900;cursor:pointer;">Continuar</button>
   </div>`;
@@ -3353,6 +3668,29 @@ window._carreraBienes = function(){
               <div style="font-size:11px;font-weight:900;color:#fff;line-height:1.2;">${P.n}</div>
               <div style="font-size:9px;color:${P.col};margin-top:3px;font-weight:800;">Riesgo ${P.riesgo}</div>
             </button>`; }).join('')}
+          </div>
+        </div>`;
+      })()}
+      ${(function(){
+        // El avatar posando en su patrimonio: la escena cambia según lo que tenga.
+        const tiene = id => (G.bienes||[]).some(b=>b.id===id);
+        const escena = tiene('avion') ? 'oficina' : tiene('casa') ? 'casa' : tiene('yate') ? 'noche' : tiene('escuela') ? 'potrero' : 'cancha';
+        const pose = (G.bienes||[]).length >= 3 ? 'rico' : (G.bienes||[]).length ? 'orgullo' : 'pensando';
+        const props = [];
+        if (tiene('casa'))        props.push(['bx-home','Su casa','#f59e0b']);
+        if (tiene('auto'))        props.push(['bx-car','Su auto','#60a5fa']);
+        if (tiene('yate'))        props.push(['bxs-ship','Su yate','#22d3ee']);
+        if (tiene('avion'))       props.push(['bx-plane-alt','Su avión','#a78bfa']);
+        if (tiene('reloj'))       props.push(['bx-time-five','Su reloj','#facc15']);
+        if (tiene('restaurante')) props.push(['bx-restaurant','Su restaurante','#f97316']);
+        if (tiene('escuela'))     props.push(['bx-award','Su escuela','#22c55e']);
+        if (tiene('fundacion'))   props.push(['bxs-donate-heart','Su fundación','#f472b6']);
+        return `<div style="display:flex;align-items:center;gap:14px;background:#0d100d;border:1px solid #1c211a;border-radius:14px;padding:12px;margin-bottom:14px;">
+          ${avatarBox(avatarDeG(2.4, pose), '8px 12px', escena)}
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12.5px;font-weight:900;color:#fff;">${props.length?'Tu patrimonio':'Todavía sin nada propio'}</div>
+            <div style="font-size:11px;color:#7a8070;margin-top:2px;line-height:1.4;">${props.length?'Esto es lo que construiste con el fútbol.':'Comprá tu primera propiedad y vas a verte distinto acá.'}</div>
+            ${props.length?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;">${props.map(p=>`<span style="display:inline-flex;align-items:center;gap:4px;background:${p[2]}14;border:1px solid ${p[2]}44;color:${p[2]};border-radius:20px;padding:3px 9px;font-size:10px;font-weight:800;"><i class='bx ${p[0]}'></i>${p[1]}</span>`).join('')}</div>`:''}
           </div>
         </div>`;
       })()}
