@@ -29,6 +29,10 @@
   ],
   "rewrites": [
     {
+      "source": "/leyenda",
+      "destination": "/leyenda.html"
+    },
+    {
       "source": "/admin-crm.html",
       "destination": "/admin-crm.html"
     },

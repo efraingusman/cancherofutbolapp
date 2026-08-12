@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Canchero Leyenda — del potrero a la gloria</title>
+<meta name="description" content="Creá tu jugador, empezá en el potrero y escribí tu carrera hasta ser leyenda. Gratis y sin registrarse.">
+<meta name="theme-color" content="#0a0c0a">
+
+<!-- Compartir en WhatsApp / redes -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Canchero Leyenda">
+<meta property="og:description" content="Del potrero a la gloria. Tus decisiones escriben tu carrera. Jugá gratis, sin registrarte.">
+<!-- WhatsApp y Facebook exigen URL ABSOLUTA en og:image: con una ruta relativa
+     el link se comparte sin miniatura. -->
+<meta property="og:url" content="https://cancherofutbolapp.vercel.app/leyenda">
+<meta property="og:image" content="https://cancherofutbolapp.vercel.app/og-black.jpg?v=4">
+<meta property="og:image:secure_url" content="https://cancherofutbolapp.vercel.app/og-black.jpg?v=4">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cancherofutbolapp.vercel.app/og-black.jpg?v=4">
+
+<link rel="icon" href="icon-black-192.png">
+<link rel="apple-touch-icon" href="apple-touch-black.png">
+<link rel="stylesheet" href="style.css?v=20260807a">
+<link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+
+<style>
+  html,body{ margin:0; padding:0; background:#0a0c0a; color:#fff;
+    font-family:'Outfit',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    min-height:100%; overscroll-behavior:none; }
+  /* El juego se monta en un overlay fijo propio; esto es sólo el telón de fondo
+     y lo que se ve mientras carga. */
+  #ly-carga{ position:fixed; inset:0; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:14px; background:#0a0c0a; z-index:10; text-align:center; padding:24px; }
+  #ly-carga .marca{ font-weight:900; font-size:13px; letter-spacing:5px; color:#baff00; }
+  #ly-carga .tit{ font-weight:900; font-size:34px; line-height:1; }
+  #ly-carga .tit span{ color:#baff00; }
+  #ly-carga .spin{ font-size:30px; color:#baff00; }
+  #ly-error{ display:none; max-width:340px; font-size:13px; color:#c4ccc0; line-height:1.6; }
+  #ly-error a{ color:#baff00; }
+</style>
+</head>
+<body>
+
+<div id="ly-carga">
+  <div class="marca">MODO CARRERA</div>
+  <div class="tit">CANCHERO<br><span>LEYENDA</span></div>
+  <i class="bx bx-loader-alt bx-spin spin" id="ly-spin"></i>
+  <div id="ly-error">
+    No se pudo cargar el juego. Probá recargar la página.<br>
+    <a href="index.html">Ir a Canchero</a>
+  </div>
+</div>
+
+<script>
+  // Marca de PÁGINA INDEPENDIENTE. canchero-carrera.js la lee para saber que no
+  // hay una app alrededor: el botón de salir vuelve a la portada del juego en vez
+  // de buscar la pestaña de Juegos, y desde la portada se ofrece ir a Canchero.
+  window.CANCHERO_LEYENDA_STANDALONE = true;
+
+  // El juego usa estos tres globales de la app grande. Sin app, valores neutros:
+  // se juega igual, como invitado.
+  window.escH = window.escH || function(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  };
+  window.userData = window.userData || {};
+</script>
+
+<!-- Supabase es OPCIONAL: sólo se usa para el ranking de leyendas. Si no carga
+     (sin red, CDN bloqueado), el juego funciona igual y el ranking sale vacío. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="window._lySbFallo=1"></script>
+<script>
+  (function(){
+    try {
+      if (window.supabase && window.supabase.createClient) {
+        window._sb = window.supabase.createClient(
+          'https://dofbxgqzcvfjpnvcvdjb.supabase.co',
+          'sb_publishable_gPwLXkMHk3HvFz9nm9hgKA_1D0IJBKA'
+        );
+      }
+    } catch(e) { /* el ranking simplemente no estará disponible */ }
+  })();
+</script>
+
+<script src="canchero-carrera.js?v=20260813c" charset="utf-8"></script>
+<script>
+  (function(){
+    var spin = document.getElementById('ly-spin');
+    var err  = document.getElementById('ly-error');
+    function arrancar(){
+      if (typeof window._carreraStart !== 'function') return false;
+      document.getElementById('ly-carga').style.display = 'none';
+      window._carreraStart();
+      return true;
+    }
+    if (!arrancar()) {
+      // El script todavía no terminó de evaluarse (o falló). Se reintenta un rato
+      // antes de mostrar el error, para no asustar en redes lentas.
+      var intentos = 0;
+      var t = setInterval(function(){
+        intentos++;
+        if (arrancar() || intentos > 40) {
+          clearInterval(t);
+          if (typeof window._carreraStart !== 'function') {
+            if (spin) spin.style.display = 'none';
+            if (err) err.style.display = 'block';
+          }
+        }
+      }, 150);
+    }
+  })();
+</script>
+</body>
+</html>
