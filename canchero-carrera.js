@@ -5687,7 +5687,51 @@ function vjSucesoDisponible(catPreferida){
 }
 
 // ── HOTSPOTS: lo que hay para hacer en cada escenario ────────────────────────
+// LA ACCION QUE HACE AVANZAR LA VIDA. Va SIEMPRE primera y en TODOS los
+// escenarios de la etapa: antes estaba escondida en un escenario puntual y se
+// podia dar vueltas para siempre sin encontrar como seguir.
+function vjPrincipal(){
+  const W = vjEscena().ancho, mid = Math.round(W*0.5);
+  if (VJ.mundo === 'potrero'){
+    const d = _draft; if(!d) return null;
+    const ev = (d._potSet||[])[d._potPaso||0]; if(!ev) return null;
+    return { x:330, tipo:'npc', semilla:'pibes'+(d.pais||''), ropa:'calle', edad:d._potEdad||12,
+      lbl:esc(ev.t), accion:'potrero', icono:'bx-football', destacado:true };
+  }
+  if (VJ.mundo === 'juveniles'){
+    if(!G) return null;
+    const ev = (G._juvSet||[])[G._juvPaso||0]; if(!ev) return null;
+    return { x:380, tipo:'npc', semilla:'dtjuv'+G.club, ropa:'dt', edad:52,
+      lbl:esc(ev.t), accion:'juvenil', icono:'bx-clipboard', destacado:true };
+  }
+  if (VJ.mundo === 'club'){
+    if(!G) return null;
+    return ((G._evLeft||0) > 0)
+      ? { x:mid, tipo:'npc', semilla:'dt'+G.club, ropa:'dt', edad:55, lbl:'El técnico te quiere hablar', accion:'decision', icono:'bx-clipboard', destacado:true }
+      : { x:mid, tipo:'obj', obj:'pelota', escala:2, lbl:'JUGAR LA TEMPORADA ' + (G.anio||''), accion:'jugar', icono:'bx-play-circle', destacado:true };
+  }
+  if (VJ.mundo === 'vida'){
+    if(!G || !G.vidaRol) return null;
+    const hechos = G._vjHechos || {};
+    if (!hechos.lapso && !(G.vidaPausa > 0))
+      return { x:mid, tipo:'npc', semilla:'jefe'+G.vidaRol, ropa:'traje', edad:58, lbl:vjNombreJefe(), accion:'rol', icono:'bx-briefcase', destacado:true };
+    return { x:mid, tipo:'obj', obj:'cama', lbl:'Dormir y pasar 5 años', accion:'dormir', icono:'bx-moon', destacado:true };
+  }
+  return null;
+}
 function vjHotspots(){
+  let lista = vjHotspotsBase();
+  const pr = vjPrincipal();
+  if (pr){
+    // Se quita el duplicado y la accion que avanza queda SIEMPRE primera. Antes,
+    // si el escenario ya la tenia mas abajo, arriba quedaba algo que no avanzaba
+    // (la tele, por ejemplo) y se podia clickear para siempre sin pasar el tiempo.
+    const otras = lista.filter(h => h.accion !== pr.accion);
+    lista = [pr].concat(otras);
+  }
+  return lista;
+}
+function vjHotspotsBase(){
   if (VJ.mundo === 'potrero')   return vjHotspotsPotrero();
   if (VJ.mundo === 'juveniles') return vjHotspotsJuveniles();
   if (VJ.mundo === 'club')      return vjHotspotsClub();
@@ -5734,15 +5778,16 @@ function vjHotspotsPotrero(){
   const ev = (d._potSet || [])[paso];
   const out = [];
   if (VJ.escena === 'baldio'){
-    if (ev) out.push({ x:300, tipo:'npc', semilla:'pibes'+(d.pais||''), ropa:null, edad:12,
-      lbl:'Los pibes del baldío', accion:'potrero', icono:'bx-football' });
-    out.push({ x:560, tipo:'obj', obj:'pelota', lbl:'Pegarle un rato al arco', accion:'patear', icono:'bx-run' });
-    if (ev && ev.opts.some(o=>o.prueba)) out.push({ x:790, tipo:'npc', semilla:'ojeador', ropa:'tv', edad:50,
-      lbl:'Un ojeador mirando', accion:'potrero', icono:'bx-search-alt' });
+    const edadPibe = d._potEdad || 12;
+    if (ev) out.push({ x:330, tipo:'npc', semilla:'pibes'+(d.pais||''), ropa:'calle', edad:edadPibe,
+      lbl:esc(ev.t), accion:'potrero', icono:'bx-football', destacado:true });
+    if ((d._pateos||0) < 3) out.push({ x:560, tipo:'obj', obj:'pelota', lbl:'Pegarle un rato al arco', accion:'patear', icono:'bx-run' });
+    if (ev && ev.opts.some(o=>o.prueba)) out.push({ x:800, tipo:'npc', semilla:'ojeador', ropa:'tv', edad:50,
+      lbl:'Hablar con el ojeador', accion:'potrero', icono:'bx-search-alt' });
   } else {
     out.push({ x:250, tipo:'npc', semilla:'viejo'+(d.apellido||''), ropa:'calle', edad:44,
-      lbl:'Tu viejo', accion:'charlaPotrero', icono:'bx-conversation' });
-    out.push({ x:520, tipo:'obj', obj:'kiosco', lbl:'El kiosco de la esquina', accion:'charlaPotrero', icono:'bx-store' });
+      lbl:'Charlar con tu viejo', accion:'charlaPotrero', icono:'bx-conversation' });
+    out.push({ x:560, tipo:'obj', obj:'kiosco', escala:1.6, lbl:'Pasar por el kiosco', accion:'charlaPotrero', icono:'bx-store' });
   }
   return out;
 }
@@ -5812,9 +5857,10 @@ function vjNombreJefe(){
     empresario:'Tu socio', escuela:'El profe de la escuelita', disfrutar:'Un viejo compañero' }[G.vidaRol] || 'Alguien';
 }
 // Dibujo de los objetos del mundo (sin imágenes, mismo pixel-art).
-function vjObjSVG(tipo){
+function vjObjSVG(tipo, escala){
+  const k = escala || 1.25;   // los objetos se veian diminutos al lado de la gente
   const R=(x,y,w,h,c)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`;
-  const wrap = (w,h,inner)=>`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;shape-rendering:crispEdges;">${inner}</svg>`;
+  const wrap = (w,h,inner)=>`<svg width="${(w*k).toFixed(0)}" height="${(h*k).toFixed(0)}" viewBox="0 0 ${w} ${h}" style="display:block;shape-rendering:crispEdges;">${inner}</svg>`;
   switch(tipo){
     case 'cama':   return wrap(76,44, R(0,18,76,26,'#3d2a3a')+R(0,10,26,34,'#57405a')+R(4,22,64,10,'#c9c2d8')+R(8,14,22,10,'#efeaf5')+R(0,40,76,4,'#241a2e'));
     case 'tele':   return wrap(60,46, R(6,0,48,34,'#0a0d12')+R(10,4,40,26,'#1d5c8a')+R(14,10,18,4,'#5fa8d8')+R(26,34,8,8,'#2a2a2a')+R(14,42,32,4,'#3a3a3a'));
@@ -5949,29 +5995,34 @@ function mundoRender(){
         </div>
       </div>
     </div>
-    <div id="vj-view" style="position:relative;flex:1;min-height:250px;overflow:hidden;background:#05070a;cursor:pointer;">
+    <div id="vj-view" style="position:relative;flex:0 0 auto;height:38vh;min-height:190px;max-height:340px;overflow:hidden;background:#05070a;">
+      <!-- vj-escala estira la escena para llenar el ancho: antes se dibujaba a
+           tamano fijo pegada a la izquierda y quedaba media pantalla en negro. -->
+      <div id="vj-escala" style="position:absolute;left:0;bottom:0;width:${W}px;height:${H}px;transform-origin:0 100%;">
       <div id="vj-world" style="position:absolute;left:0;top:0;width:${W}px;height:${H}px;will-change:transform;">
         <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="position:absolute;inset:0;shape-rendering:crispEdges;">${fondo}</svg>
         ${VJ.hotspots.map((h,i)=>`
-          <div id="vj-hs-${i}" style="position:absolute;left:${h.x}px;bottom:${Math.round(H*(1-pisoPct))-6}px;transform:translateX(-50%);line-height:0;${h.bloqueado?'opacity:.45;':''}">
-            ${h.tipo==='npc' ? vjSpriteNPC(h.semilla, h.ropa, h.edad, 'idle') : vjObjSVG(h.obj)}
-            <div style="position:absolute;left:50%;top:-20px;transform:translateX(-50%);white-space:nowrap;font-size:9px;font-weight:900;color:${h.destacado?'#0a0d08':'#cbd5e1'};background:${h.destacado?A:'rgba(5,7,10,.78)'};border:1px solid ${h.destacado?A:'#253044'};border-radius:10px;padding:2px 7px;line-height:1.4;"><i class='bx ${h.icono}'></i> ${h.lbl}</div>
+          <div id="vj-hs-${i}" style="position:absolute;left:${h.x}px;bottom:${Math.round(H*(1-pisoPct)) - (h.tipo==='npc'?14:2)}px;transform:translateX(-50%);line-height:0;${h.bloqueado?'opacity:.45;':''}">
+            ${h.tipo==='npc' ? vjSpriteNPC(h.semilla, h.ropa, h.edad, 'idle') : vjObjSVG(h.obj, h.escala)}
           </div>`).join('')}
-        <div id="vj-player" style="position:absolute;left:0;bottom:${Math.round(H*(1-pisoPct))-6}px;line-height:0;will-change:transform;">${vjSpriteJugador('idle')}</div>
+        <div id="vj-player" style="position:absolute;left:0;bottom:${Math.round(H*(1-pisoPct))-15}px;line-height:0;will-change:transform;">${vjSpriteJugador('idle')}</div>
         ${E.sale.izq?`<div style="position:absolute;left:6px;bottom:${Math.round(H*(1-pisoPct))}px;font-size:9px;font-weight:900;color:${_avisoEn(E.sale.izq)?'#0a0d08':'#7dd3fc'};background:${_avisoEn(E.sale.izq)?A:'rgba(5,7,10,.7)'};border:1px solid ${_avisoEn(E.sale.izq)?A:'#1e3a5c'};border-radius:8px;padding:3px 6px;">◀ ${esc(escenas[E.sale.izq].n)}${_avisoEn(E.sale.izq)?' •':''}</div>`:''}
         ${E.sale.der?`<div style="position:absolute;right:6px;bottom:${Math.round(H*(1-pisoPct))}px;font-size:9px;font-weight:900;color:#7dd3fc;background:rgba(5,7,10,.7);border:1px solid #1e3a5c;border-radius:8px;padding:3px 6px;">${esc(escenas[E.sale.der].n)} ▶</div>`:''}
       </div>
       <div id="vj-prompt" style="position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:none;background:rgba(186,255,0,.14);border:1.5px solid ${A};color:${A};border-radius:22px;padding:7px 16px;font-size:12.5px;font-weight:900;pointer-events:none;white-space:nowrap;"></div>
     </div>
-    <div style="background:#080b0f;border-top:1px solid #161d28;padding:10px 12px calc(12px + env(safe-area-inset-bottom));">
-      <div style="max-width:720px;margin:0 auto;display:flex;align-items:center;gap:10px;">
-        <button id="vj-izq" style="flex:0 0 62px;height:52px;background:rgba(255,255,255,.06);border:1.5px solid #253044;border-radius:14px;color:#dbe3ee;font-size:24px;cursor:pointer;touch-action:none;user-select:none;"><i class='bx bx-chevron-left'></i></button>
-        <button id="vj-der" style="flex:0 0 62px;height:52px;background:rgba(255,255,255,.06);border:1.5px solid #253044;border-radius:14px;color:#dbe3ee;font-size:24px;cursor:pointer;touch-action:none;user-select:none;"><i class='bx bx-chevron-right'></i></button>
-        <button id="vj-accion" style="flex:1;height:52px;background:linear-gradient(135deg,#16a34a,${A});border:none;border-radius:14px;color:#000;font-weight:900;font-size:14px;cursor:pointer;">INTERACTUAR</button>
-        <button onclick="window._vidaMapa()" title="Dónde estoy" style="flex:0 0 52px;height:52px;background:rgba(255,255,255,.06);border:1.5px solid #253044;border-radius:14px;color:#dbe3ee;font-size:20px;cursor:pointer;"><i class='bx bx-map'></i></button>
-      </div>
-      <div style="max-width:720px;margin:7px auto 0;text-align:center;font-size:10px;color:#5d6879;">
-        PC: ← → o A/D para caminar · Espacio o E para interactuar · Esc para salir &nbsp;·&nbsp; Celular: tocá el piso para caminar hasta ahí
+    <!-- LAS OPCIONES, COMO SIEMPRE. El personaje se mueve solo por la escena;
+         vos elegis de esta lista. Nunca hace falta caminar hasta nada. -->
+    <div style="flex:1;background:linear-gradient(180deg,#080b0f,#05070a);border-top:1px solid #161d28;padding:14px 14px calc(20px + env(safe-area-inset-bottom));overflow-y:auto;">
+      <div style="max-width:560px;margin:0 auto;">
+        <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#5d6879;margin-bottom:9px;">¿QUÉ HACÉS?</div>
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          ${VJ.hotspots.map((h,i)=>`<button onclick="window._vjAccion(${i})" ${h.bloqueado?'disabled':''} style="display:flex;align-items:center;gap:11px;background:${h.destacado?'rgba(186,255,0,.13)':'rgba(255,255,255,.04)'};border:1.5px solid ${h.destacado?A:'#242a20'};color:${h.bloqueado?'#5d6879':(h.destacado?A:'#e0e4dc')};border-radius:13px;padding:13px 14px;font-weight:800;font-size:13.5px;text-align:left;cursor:${h.bloqueado?'default':'pointer'};opacity:${h.bloqueado?.55:1};line-height:1.3;"><i class='bx ${h.icono}' style="font-size:20px;flex-shrink:0;"></i><span>${h.lbl}</span></button>`).join('')}
+        </div>
+        <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#5d6879;margin:16px 0 9px;">IR A OTRO LADO</div>
+        <div style="display:flex;gap:9px;flex-wrap:wrap;">
+          ${['izq','der'].filter(k=>E.sale[k]).map(k=>`<button onclick="window._vjIr('${E.sale[k]}')" style="flex:1;min-width:140px;background:rgba(125,211,252,.10);border:1.5px solid rgba(125,211,252,.4);color:#7dd3fc;border-radius:13px;padding:13px 14px;font-weight:900;font-size:13px;cursor:pointer;">${k==='izq'?'◀ ':''}${esc(escenas[E.sale[k]].n)}${k==='der'?' ▶':''}</button>`).join('')}
+        </div>
       </div>
     </div>
   </div>`;
@@ -5979,6 +6030,18 @@ function mundoRender(){
   vjChequearMudanza();
 }
 
+// Elegir una accion de la lista: el personaje se acerca solo y pasa lo que tenga
+// que pasar. No hace falta caminar ni apuntarle a nada.
+window._vjAccion = function(i){
+  const h = (VJ.hotspots || [])[i]; if(!h) return;
+  VJ.hot = h;
+  VJ.meta = null; VJ.destino = null;
+  vjInteractuar();
+};
+window._vjIr = function(escena){
+  if(!escena || !vjEscenas()[escena]) return;
+  vjCambiarEscena(escena, 'izq');
+};
 window._vidaMapa = function(){
   const E = vjEscena(); const escenas = vjEscenas();
   alert('Estás en: ' + E.n + '\n\n' + (E.sale.izq ? '◀ A la izquierda: ' + escenas[E.sale.izq].n + '\n' : '') + (E.sale.der ? '▶ A la derecha: ' + escenas[E.sale.der].n : ''));
@@ -5991,7 +6054,8 @@ function vjDetener(){
   VJ.raf = 0; VJ.timer = 0; VJ.modo = null;
   if (VJ.onKeyDown) window.removeEventListener('keydown', VJ.onKeyDown);
   if (VJ.onKeyUp) window.removeEventListener('keyup', VJ.onKeyUp);
-  VJ.onKeyDown = VJ.onKeyUp = null;
+  if (VJ.onResize){ window.removeEventListener('resize', VJ.onResize); window.removeEventListener('orientationchange', VJ.onResize); }
+  VJ.onKeyDown = VJ.onKeyUp = VJ.onResize = null;
   VJ.keys = {}; VJ.destino = null; VJ.mov = 0;
 }
 function vjArrancarLoop(){
@@ -6035,9 +6099,14 @@ function vjArrancarLoop(){
   view.addEventListener('click', (ev)=>{
     if (ev.target.closest('button')) return;
     const r = view.getBoundingClientRect();
-    const camX = vjCamara();
-    VJ.destino = clamp(ev.clientX - r.left + camX, 40, E.ancho - 40);
+    const capa = document.getElementById('vj-escala');
+    const offX = capa ? (parseFloat(capa.style.left) || 0) : 0;
+    const sc = VJ.escala || 1;
+    VJ.destino = clamp((ev.clientX - r.left - offX) / sc + vjCamara(), 40, E.ancho - 40);
   });
+  VJ.onResize = ()=>{ if(VJ.activo) vjAjustarEscala(); };
+  window.addEventListener('resize', VJ.onResize);
+  window.addEventListener('orientationchange', VJ.onResize);
 
   VJ.ultT = 0;
   const paso = (t)=>{
@@ -6067,7 +6136,7 @@ function vjArrancarLoop(){
     // recortado y el personaje tardaría minutos en "aburrirse".
     if (!dx && VJ.destino == null){
       if (!VJ.ultInput) VJ.ultInput = t;
-      if ((t - VJ.ultInput) / 1000 > 3.5){
+      if ((t - VJ.ultInput) / 1000 > 1.2){
         if (!VJ.proxDecision || t >= VJ.proxDecision) vjDecidirSolo(t);
         if (VJ.meta != null){
           const dif = VJ.meta - VJ.x;
@@ -6104,6 +6173,7 @@ function vjArrancarLoop(){
     }
     if (VJ.modo === 'raf') VJ.raf = requestAnimationFrame(paso);
   };
+  vjAjustarEscala();
   VJ.paso = paso;
   VJ.modo = 'raf';
   VJ.latido = performance.now();
@@ -6184,7 +6254,8 @@ function vjDecidirSolo(ahora){
   if (r < 0.45 && VJ.hotspots.length){
     // Se acerca a alguien o a algo de la escena: la curiosidad primero.
     const h = pick(VJ.hotspots);
-    VJ.meta = clamp(h.x + ri(-40, 40), 50, E.ancho - 50);
+    const lado = Math.random() < 0.5 ? -1 : 1;
+    VJ.meta = clamp(h.x + lado * ri(52, 88), 50, E.ancho - 50);
   } else if (r < 0.80){
     VJ.meta = clamp(VJ.x + ri(-220, 220), 50, E.ancho - 50);   // paseo sin rumbo
   } else {
@@ -6207,8 +6278,22 @@ function vjPoseQuieto(){
 function vjCamara(){
   const view = document.getElementById('vj-view');
   const E = vjEscena();
-  const vw = view ? view.clientWidth : 360;
+  const s = VJ.escala || 1;
+  const vw = (view ? view.clientWidth : 360) / s;   // ancho visible EN unidades del mundo
   return clamp(VJ.x - vw/2, 0, Math.max(0, E.ancho - vw));
+}
+// Zoom para que la escena llene el ancho de la pantalla (y se centre si sobra).
+function vjAjustarEscala(){
+  const view = document.getElementById('vj-view');
+  const capa = document.getElementById('vj-escala');
+  if(!view || !capa) return;
+  const VW = view.clientWidth, VH = view.clientHeight;
+  const W = vjEscena().ancho, H = 250;
+  // Se agranda hasta llenar el alto, pero sin achicar nunca por debajo de 1.
+  const s = clamp(Math.min(VH / H, VW / 420), 1, 3.2);
+  capa.style.transform = 'scale(' + s.toFixed(3) + ')';
+  capa.style.left = (W * s < VW) ? Math.round((VW - W * s) / 2) + 'px' : '0px';
+  VJ.escala = s;
 }
 function vjCambiarEscena(nueva, entrarPor){
   VJ.escena = nueva;
