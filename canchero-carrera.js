@@ -448,7 +448,7 @@ function montarSalida(){
   b.type = 'button';
   b.title = 'Salir del juego';
   b.setAttribute('aria-label', 'Salir de Canchero Leyenda');
-  b.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + ' + (esStandalone() ? 10 : 64) + 'px);left:12px;width:38px;height:38px;border-radius:50%;background:rgba(10,12,10,.82);backdrop-filter:blur(6px);border:1px solid #2a3222;color:#c4ccc0;font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.5);';
+  b.style.cssText = 'position:fixed;z-index:100070;bottom:calc(env(safe-area-inset-bottom, 0px) + 14px);left:14px;width:38px;height:38px;border-radius:50%;background:rgba(10,12,10,.82);backdrop-filter:blur(6px);border:1px solid #2a3222;color:#c4ccc0;font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.5);';
   b.innerHTML = "<i class='bx bx-x'></i>";
   b.onclick = function(){ window._carreraSalir(); };
   document.body.appendChild(b);
@@ -776,9 +776,11 @@ const AV_GESTOS = {
 // nadie anda en short), `sinNumero` saca el dorsal de la ropa de calle.
 const AV_ROPAS = {
   dt:        { n:'Buzo de técnico', base:'#1d2a35', alt:'#33475a', pantalon:'#16202a', sinNumero:true },
-  tv:        { n:'Saco de panelista', base:'#1b2330', alt:'#e8e8e0', tipo:'sash', pantalon:'#141a24', sinNumero:true },
-  traje:     { n:'Traje', base:'#14181f', alt:'#c9ccd4', tipo:'sash', pantalon:'#0e1116', sinNumero:true },
-  empresario:{ n:'Camisa y saco', base:'#1a2b22', alt:'#dfe6e0', tipo:'sash', pantalon:'#121d17', sinNumero:true },
+  // 'sash' dibujaba una banda diagonal y parecia una camiseta de futbol. El traje
+  // se arma con el saco (av.traje) y una camisa clara al medio.
+  tv:        { n:'Saco de panelista', base:'#1b2330', alt:'#e8e8e0', tipo:'camisa', pantalon:'#141a24', sinNumero:true, saco:true },
+  traje:     { n:'Traje', base:'#14181f', alt:'#dfe3ea', tipo:'camisa', pantalon:'#0e1116', sinNumero:true, saco:true },
+  empresario:{ n:'Camisa y saco', base:'#1a2b22', alt:'#eef3ee', tipo:'camisa', pantalon:'#121d17', sinNumero:true, saco:true },
   escuela:   { n:'Buzo de la escuela', base:'#b8551a', alt:'#f5a05a', pantalon:'#2a2016', sinNumero:true },
   calle:     { n:'Ropa de calle', base:'#3a4550', alt:'#8894a0', pantalon:'#1e2730', sinNumero:true },
   jubilado:  { n:'Cárdigan', base:'#5a4a38', alt:'#8a7358', pantalon:'#2e2a24', sinNumero:true },
@@ -901,6 +903,13 @@ function avatarSprite(av, o){
     }
   } else if (tipo === 'banda'){
     R(torsoX, torsoY + Math.round(torsoH*0.36), hombroW, Math.max(2, Math.round(torsoH*0.24)), alt);
+  } else if (tipo === 'camisa'){
+    // Camisa clara al medio, saco a los costados: eso es un traje.
+    const cW = Math.max(3, Math.round(hombroW*0.40));
+    R(Math.round(cx - cW/2), torsoY, cW, torsoH, alt);
+    R(Math.round(cx)-1, torsoY+2, 2, Math.round(torsoH*0.55), '#8a1f2a');   // corbata
+    R(Math.round(cx - cW/2), torsoY, 1, torsoH, _avShade(alt,-30));
+    R(Math.round(cx + cW/2)-1, torsoY, 1, torsoH, _avShade(alt,-30));
   }
   R(torsoX, torsoY, 2, torsoH, baseS);
   R(torsoX+hombroW-2, torsoY, 2, torsoH, baseS);
@@ -1058,8 +1067,14 @@ function avatarSprite(av, o){
   if (o.pose === 'campeon'){
     const cxo = cx, cyo = headY - 11;
     const CO = (x,y,w,h,c)=>{ objeto += `<rect x="${(x*S).toFixed(1)}" y="${(y*S).toFixed(1)}" width="${(w*S).toFixed(1)}" height="${(h*S).toFixed(1)}" fill="${c}"/>`; };
-    CO(cxo-5, cyo, 10, 6, '#f5d14e'); CO(cxo-6, cyo, 1, 4, '#c9a227'); CO(cxo+5, cyo, 1, 4, '#c9a227');
-    CO(cxo-4, cyo+1, 8, 2, '#fff3b0'); CO(cxo-2, cyo+6, 4, 3, '#c9a227'); CO(cxo-4, cyo+9, 8, 2, '#b8901f');
+    if (o.medalla){
+      // En los Juegos Olimpicos se levanta una MEDALLA, no una copa.
+      CO(cxo-1, cyo, 2, 7, '#3b6ea8'); CO(cxo-4, cyo, 3, 5, '#2a5488'); CO(cxo+1, cyo, 3, 5, '#2a5488');
+      CO(cxo-4, cyo+7, 8, 8, '#f5d14e'); CO(cxo-3, cyo+8, 6, 6, '#fff3b0'); CO(cxo-2, cyo+10, 4, 3, '#c9a227');
+    } else {
+      CO(cxo-5, cyo, 10, 6, '#f5d14e'); CO(cxo-6, cyo, 1, 4, '#c9a227'); CO(cxo+5, cyo, 1, 4, '#c9a227');
+      CO(cxo-4, cyo+1, 8, 2, '#fff3b0'); CO(cxo-2, cyo+6, 4, 3, '#c9a227'); CO(cxo-4, cyo+9, 8, 2, '#b8901f');
+    }
   } else if (o.pose === 'posando'){
     // PRESENTACIÓN: el jugador SOSTIENE la camiseta con las dos manos, a la altura
     // de las manos levantadas. Antes la camiseta se dibujaba pegada al torso y los
@@ -1238,7 +1253,10 @@ function _avPelo(CR, tipo, hx, hy, hw, hh, c, calvicie){
       CR(hx+Math.round(hw*0.38), hy-Math.round(hh*0.44), Math.round(hw*0.16), Math.round(hh*0.20), cL); break;
     case 'rastas':
       CR(hx-1, hy-2, hw+2, Math.round(hh*0.26), c);
-      for (let i = -1; i < hw+1; i += 3) CR(hx+i, hy+Math.round(hh*0.14), 2, Math.round(hh*(0.75 + (i%2?0.22:0))), c);
+      // Mechas SOLO a los lados: por delante tapaban los ojos y la boca.
+      [-2, -1, hw, hw+1].forEach((i,k)=> CR(hx+i, hy+Math.round(hh*0.10), 2, Math.round(hh*(0.85 + (k%2?0.25:0))), c));
+      CR(hx+1, hy+Math.round(hh*0.20), 2, Math.round(hh*0.30), c);
+      CR(hx+hw-3, hy+Math.round(hh*0.20), 2, Math.round(hh*0.30), c);
       break;
     case 'colita':
       CR(hx-1+ent, hy-1, hw+2-ent*2, Math.round(hh*0.26), c);
@@ -1421,6 +1439,7 @@ function avatarDeG(escala, pose, opts){
     dorso: !!opts.dorso,
     pose: pose || 'idle',
     trofeo: opts.trofeo || null,
+    medalla: !!opts.medalla,
     aura: opts.aura != null ? opts.aura : ((G.nivel||0) >= 88 || (G.titulos||0) >= 8),
     capitan: !!(G.idolatria && G.idolatria[G.club] >= 55),
     escala: escala || 4,
@@ -1989,6 +2008,36 @@ window._carreraOfertas = function(){
 // Se genera al fichar: un jugador de tu misma camada y país que compite con vos
 // TODA la carrera. Cada temporada simula sus números y se compara con los tuyos.
 // Su relación con vos evoluciona (respeto / rivalidad / odio) según quién gane.
+// ── REPRESENTANTES ───────────────────────────────────────────────────────────
+// Se elige uno al firmar el primer contrato y se puede cambiar despues. Cada uno
+// tiene su estilo y te sugiere cosas distintas.
+const REPRES = [
+  { id:'viejo',  n:'Don Aníbal',        edad:64, rasgo:'El de toda la vida',
+    desc:'Representó a tu viejo club treinta años. No consigue Europa, pero jamás te va a vender.',
+    comision:5,  contactos:35, honestidad:95,
+    consejos:['No te apures con Europa: acá adentro todavía tenés cosas para ganar.',
+              'Guardá la mitad de cada prima. La carrera dura menos de lo que parece.',
+              'Renová ahora que estás bien; después te lo van a querer bajar.'] },
+  { id:'tiburon',n:'Marcelo Brienza',   edad:47, rasgo:'El tiburón',
+    desc:'Mueve jugadores a Europa como nadie. Se lleva su tajada y te suelta la mano si bajás.',
+    comision:18, contactos:92, honestidad:35,
+    consejos:['Hay una oferta afuera. Si no saltás ahora, a los 26 ya no te llama nadie.',
+              'Pedí cláusula de salida. Sin eso quedás preso de un contrato largo.',
+              'Rechazá la renovación: valés más de lo que te están ofreciendo.'] },
+  { id:'joven',  n:'Sofía Aranda',      edad:34, rasgo:'La que arma marca',
+    desc:'Menos contactos, pero te construye una marca: sponsors, medios, imagen.',
+    comision:10, contactos:62, honestidad:78,
+    consejos:['Firmá el sponsor: esa plata es la que te queda cuando dejás de jugar.',
+              'Cuidá lo que decís en redes; hoy un video te cambia el precio.',
+              'Invertí en algo tuyo antes de los 30, no después.'] },
+  { id:'abogado',n:'Estudio Pereira',   edad:52, rasgo:'Los abogados',
+    desc:'Un estudio serio: contratos blindados, cero sorpresas, cero calor humano.',
+    comision:12, contactos:70, honestidad:90,
+    consejos:['Que el contrato tenga los bonos por partido jugado, no por título.',
+              'Pagá los impuestos ahora. Una inspección a los 35 es un desastre.',
+              'No firmes nada de imagen a más de cinco años.'] }
+];
+function repreDeG(){ return REPRES.find(r=>r.id === (G && G.repre)) || null; }
 const RIVAL_NOMBRES = ['Ferreyra','Cardozo','Almeida','Sosa','Benítez','Núñez','Vargas','Ibáñez','Quintana','Bermúdez','Olivera','Rojas','Silveira','Acuña','Zambrano','Da Silva','Moretti','Kovač','Bakayoko','Lindqvist','Van Dijk','Okafor','Petrov','Haaland','Mbeki'];
 function crearRival(pais, pos, nivel){
   // Arranca en un club real del mismo país (no en "cantera rival" genérica).
@@ -2089,7 +2138,8 @@ window._carreraFichar = function(i){
     avatar: d.avatar || avatarDefault(),
     dif:(d.dif||'normal'), creado:Date.now()
   };
-  save(); window._juvenilesMundo();
+  save();
+  window._elegirRepre('primero');       // de pibe ya elegís quién te maneja
 };
 
 // ── JUVENILES / FORMACIÓN (15-18 años) ────────────────────────────────────────
@@ -2121,7 +2171,7 @@ const JUVENILES_POOL = [
     { txt:'Cruzar el charco solo', ef:g=>{ const b=Math.random()<.5; if(b){ g.nivel+=5; g.fama+=6; g.flags=g.flags||{}; g.flags.emigroPibe=true; return 'Te adaptaste. Otra cultura de trabajo, otro nivel de exigencia. Volaste.'; } g.nivel-=2; g.moral-=12; return 'No aguantaste la soledad. Volviste a los 8 meses con la autoestima rota.'; } },
     { txt:'Quedarme y crecer en casa', ef:g=>{ g.nivel+=2; g.moral+=6; return 'Elegiste tus raíces. Progreso más lento pero con los tuyos al lado.'; } } ] },
   { t:'Te ponen de capitán de la categoría', d:'El cuerpo técnico te da la cinta de la juvenil. Implica hablar, poner la cara cuando se pierde y mediar en los quilombos.', opts:[
-    { txt:'Aceptar y liderar de verdad', ef:g=>{ g.nivel+=2; g.moral+=6; g._juvDisc=(g._juvDisc||0)+2; g.flags=g.flags||{}; g.flags.lider=true; return 'Te bancaste todas. Cuando subís a primera ya sabés hablar en un vestuario.'; } },
+    { txt:'Aceptar y liderar de verdad', ef:g=>{ g.nivel+=2; g.moral+=6; g._juvDisc=(g._juvDisc||0)+2; g.flags=g.flags||{}; g.flags.lider=true; avMutar({capitanPerm:true}); return 'Te bancaste todas. Cuando subís a primera ya sabés hablar en un vestuario. Desde hoy llevás la cinta.'; } },
     { txt:'Rechazar, prefiero solo jugar', ef:g=>{ g.nivel+=1; return 'Sin cinta, sin presión extra. Concentrado en lo tuyo.'; } } ] },
   { t:'Un representante te busca a la salida', d:'Un agente te espera afuera del entrenamiento con un contrato de representación por 5 años y un adelanto en efectivo.', opts:[
     { txt:'Firmar y agarrar el adelanto', ef:g=>{ g.dinero+=12000; const b=Math.random()<.45; g.flags=g.flags||{}; g.flags.agenteMalo=!b; return b?'Resultó ser serio y te consiguió buenos contactos.':'Te ató 5 años a alguien que solo te quiere vender. Te va a costar zafar.'; } },
@@ -2231,6 +2281,55 @@ function _poseHub(){
   return pick(['idle','pensando','caminar','entrenar','alivio']);
 }
 
+// ── ELEGIR REPRESENTANTE ─────────────────────────────────────────────────────
+window._elegirRepre = function(motivo){
+  if(!G){ G=load(); if(!G) return; }
+  const actual = repreDeG();
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:560px;margin:0 auto;padding:22px 18px calc(30px + env(safe-area-inset-bottom));">
+    <div style="text-align:center;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};">TU REPRESENTANTE</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;color:#fff;margin-top:5px;line-height:1.15;">${motivo==='cambio'?'¿Con quién seguís?':'¿Quién te va a manejar la carrera?'}</div>
+      <div style="font-size:12.5px;color:#9aa0a6;margin-top:6px;">Cada uno cobra distinto y te va a aconsejar distinto. Se puede cambiar más adelante.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      ${REPRES.map((r,i)=>`<button onclick="window._fijarRepre('${r.id}')" style="display:flex;align-items:flex-start;gap:12px;background:${actual&&actual.id===r.id?'rgba(186,255,0,.10)':'rgba(255,255,255,.04)'};border:1.5px solid ${actual&&actual.id===r.id?A:'#242424'};border-radius:15px;padding:14px;cursor:pointer;text-align:left;">
+        <div style="flex-shrink:0;line-height:0;">${vjSpriteNPC('repre'+r.id, r.id==='joven'?'tv':'traje', r.edad, 'idle')}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:15px;font-weight:900;color:#fff;">${esc(r.n)}</div>
+          <div style="font-size:10.5px;color:${A};font-weight:800;margin-bottom:4px;">${esc(r.rasgo)}</div>
+          <div style="font-size:11.5px;color:#9aa294;line-height:1.45;margin-bottom:7px;">${esc(r.desc)}</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;">
+            <span style="font-size:9.5px;font-weight:800;color:#ff9b6b;background:rgba(255,155,107,.12);border-radius:6px;padding:2px 7px;">Comisión ${r.comision}%</span>
+            <span style="font-size:9.5px;font-weight:800;color:#7dd3fc;background:rgba(125,211,252,.12);border-radius:6px;padding:2px 7px;">Contactos ${r.contactos}</span>
+            <span style="font-size:9.5px;font-weight:800;color:#4ade80;background:rgba(74,222,128,.12);border-radius:6px;padding:2px 7px;">Honestidad ${r.honestidad}</span>
+          </div>
+        </div>
+      </button>`).join('')}
+    </div>
+  </div>`;
+};
+window._fijarRepre = function(id){
+  if(!G) return;
+  const previo = G.repre;
+  G.repre = id;
+  const r = repreDeG();
+  if (previo && previo !== id){ G.moral = clamp((G.moral||60) - 3, 0, 100); }
+  save();
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:44px 20px 40px;text-align:center;">
+    <div style="display:flex;justify-content:center;align-items:flex-end;gap:6px;margin-bottom:14px;">
+      <div style="line-height:0;">${vjSpriteNPC('repre'+r.id, r.id==='joven'?'tv':'traje', r.edad, 'saludo')}</div>
+      <div style="line-height:0;">${avatarDeG(2.4,'firmar')}</div>
+    </div>
+    <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};margin-bottom:8px;">${esc(r.n).toUpperCase()}</div>
+    <div style="font-size:15px;color:#fff;font-weight:700;line-height:1.55;margin-bottom:8px;">"${esc(pick(r.consejos))}"</div>
+    <div style="font-size:12px;color:#8a9280;margin-bottom:20px;">Se queda con el ${r.comision}% de lo que firmes.</div>
+    <button onclick="${G.debutEdad ? "window._clubMundo()" : "window._juvenilesMundo()"}" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px 30px;font-weight:900;cursor:pointer;">Seguir <i class='bx bx-right-arrow-alt'></i></button>
+  </div>`;
+};
 // ── ENTRADAS A LOS MUNDOS CAMINABLES DE LA CARRERA ───────────────────────────
 // El potrero, las juveniles y el club dejaron de ser una fila de tarjetas: son
 // lugares por los que se camina. Las pantallas de decisión siguen existiendo,
@@ -2366,7 +2465,9 @@ window._carreraTemporada = function(){
   else if(G.edad<=31) dN=ri(-1,1); else if(G.edad<=34) dN=ri(-3,0); else dN=ri(-5,-1);
   if(rend>0.6) dN+=2; else if(rend>0.35) dN+=1; else if(rend<0.15) dN-=1;   // el bajo rendimiento penaliza
   if(_marcado) dN -= 3;   // sin minutos no se crece: la decisión te cuesta nivel
-  G.nivel=clamp(G.nivel+dN,30,99);
+  // El salto de la temporada pasa por el mismo freno: de 88 para arriba cuesta
+  // cada vez mas y a 99 llegan cuatro en la historia del futbol.
+  subirNivel(dN);
   // ── POSICIÓN en la liga: depende de fuerza del club + tu aporte + azar ──
   const clubs = (LIGAS.find(L=>L.liga===G.liga)||{}).clubs || [];
   const totalEq = Math.max(6, clubs.length);
@@ -2530,7 +2631,9 @@ function _finTemporada(ctx){
     _darPremio('The Best');
   }
   if (G.pos === 'POR' && G.nivel >= 80 && Math.random() < 0.30 * _pPen('Guante de Oro')) _darPremio('Guante de Oro');
-  if (G.edad <= 21 && G.nivel >= 78 && Math.random() < 0.30) _darPremio('Mejor Jugador Joven');
+  // El mejor joven se gana UNA vez: despues ya no sos promesa.
+  if (G.edad <= 21 && G.nivel >= 78 && !(G.premios||[]).some(x=>x.nombre==='Mejor Jugador Joven')
+      && Math.random() < 0.30) _darPremio('Mejor Jugador Joven');
   // Rachas de premios
   ['Bota de Oro','Balón de Oro','The Best','Guante de Oro'].forEach(n=>{
     const k = '_p_'+n;
@@ -3372,6 +3475,21 @@ function mostrarEvento(){
   // Si no hay transferencia, evento de decisión clásico.
   let ev=eventoRandom();
   // Eventos DINÁMICOS (opciones generadas al momento — ej: nacionalidad del abuelo).
+  // EL IDOLO: se sabe quién es (el que elegiste de chico), se lo ve y te aconseja.
+  if (ev && ev._dyn && ev.t.indexOf('ídolo')>=0){
+    const porEstilo = { crack:['Riquelme','Zidane','Iniesta'], killer:['Suárez','Ronaldo','Batistuta'],
+      guerrero:['Vidal','Gattuso','Simeone'] }[G.estilo] || ['Recoba','Francescoli','Forlán'];
+    const nombre = pick(porEstilo);
+    G._idoloNombre = nombre;
+    const consejos = [
+      { txt:'"No te creas nada de lo que digan de vos, ni lo bueno ni lo malo."', ef:g=>{ g.moral+=10; g.flags=g.flags||{}; g.flags.consejoIdolo=true; return nombre+' te miró a los ojos y te lo dijo despacio. Te lo vas a repetir toda la carrera.'; } },
+      { txt:'"Cuidá el cuerpo. Yo me retiré tres años antes por no hacerlo."', ef:g=>{ g.nivel=subirNivel(1); g.flags=g.flags||{}; g.flags.cuidaCuerpo=true; return 'Le hiciste caso. Empezaste a entrenar distinto y el cuerpo te lo devolvió.'; } },
+      { txt:'"Ganá algo con tu país. Lo demás se olvida."', ef:g=>{ g.fama+=6; g.moral+=6; return nombre+' te habló de la selección con los ojos brillosos. Te quedó grabado.'; } }
+    ];
+    ev = { t:'Conocés a tu ídolo: '+nombre, img:'seleccion', idolo:nombre,
+      d:'Aparece <b>'+esc(nombre)+'</b>, el que mirabas de pibe. Te da diez minutos. ¿Qué te llevás de la charla?',
+      opts: shuffle(consejos).slice(0,3) };
+  }
   if (ev && ev._dyn && ev.t.indexOf('abuelo')>=0){
     // Elegir hasta 2 nacionalidades DISTINTAS al azar (ojo: opciones concretas, no "cambiar").
     const candidatas = shuffle(PAISES.filter(p => p !== G.pais)).slice(0, 2);
@@ -3496,6 +3614,7 @@ window._carreraElegirOferta = function(kind, i){
       msg = 'Rechazaste todas las ofertas y te quedás. La hinchada te lo reconoce: sos de los que no se van.';
     }
   } else if(kind==='rechazar_renov'){
+    G._verOfertasYa = true;
     // Rechazar la renovación tiene consecuencia arrastrada: quedás en la lista de
     // transferibles y con el vínculo roto.
     G.flags.rechazoRenov = true;
@@ -3544,13 +3663,26 @@ window._carreraElegirOferta = function(kind, i){
       if (esTraicion) { G.flags.traidor = true; G.flags.exClub = G.club; }
       else if (_cumplioCiclo && idClub > 40) { G.flags.leyendaDe = G.club; }   // ídolo eterno igual
       G.idolatria[o.name] = 8; // nuevo club te recibe con expectativa
+      const _idioma = chequearIdioma(G, o.pais);
       G.club=o.name; G.clubStr=o.str; G.liga=o.liga; G.clubPais=o.pais; G.clubDesde=G.edad;
       G.sueldo=o.sueldo; G.contratoAnios=o.anios;
       // Club nuevo = borrón y cuenta nueva con la dirigencia y el técnico.
       G.flags.pidioSalida = false; G.flags.rechazoRenov = false; G.flags.marcado = false;
       G.fama+=8; G.moral+=4; G.dinero+=o.prima;
       G.valor=Math.round((G.valor||o.str*90000)*1.1);
-      msg='¡Nuevo club: '+esc(o.name)+'! Firmaste por '+o.anios+' años ('+eur(o.sueldo)+'/año).'
+      // ¿Ya habías jugado acá? La gente se acuerda de cómo te fuiste.
+      const _volves = (G.timeline||[]).some(t=>t.club===o.name);
+      const _idolAnterior = (G.idolatria && G.idolatria[o.name]) || 0;
+      let _bienvenida = '';
+      if (_volves){
+        if (G.flags.exClub === o.name && G.flags.traidor) _bienvenida = ' Volvés al club que dejaste de mala manera: te esperan con silbidos y una parte de la hinchada no te perdona.';
+        else if (_idolAnterior >= 40) _bienvenida = ' ¡Vuelve el hijo pródigo! Te esperaron en el aeropuerto con bombos: acá nunca te olvidaron.';
+        else if (_idolAnterior <= -20) _bienvenida = ' Volvés a un club donde no dejaste buen recuerdo. Vas a tener que ganártelos de nuevo.';
+        else _bienvenida = ' Volvés a una casa conocida. Los que quedaron del plantel anterior te abrazaron en la puerta.';
+        G.moral = clamp(G.moral + (_idolAnterior >= 40 ? 12 : _idolAnterior <= -20 ? -6 : 5), 0, 100);
+      }
+      msg='¡Nuevo club: '+esc(o.name)+'! Firmaste por '+o.anios+' años ('+eur(o.sueldo)+'/año).' + _bienvenida
+        + (_idioma ? ' Ojo: allá se habla ' + _idioma + ' y vos no lo hablás.' : '')
         + (esTraicion
             ? (_aRival ? ' Te fuiste al clásico rival. Esa hinchada no te lo va a perdonar nunca.'
                        : ' La hinchada de tu ex club se siente traicionada.')
@@ -3571,6 +3703,12 @@ window._carreraElegirOferta = function(kind, i){
   // de las ofertas: el botón "Seguir un año más en <club>" vivía fuera de ese
   // bloque y quedaba vivo debajo del resultado, así que se podía volver a elegir
   // una y otra vez sin que la temporada avanzara nunca. Era una trampa sin salida.
+  // Si rechazaste renovar, lo logico es escuchar YA lo que hay en el mercado.
+  if (G._verOfertasYa){
+    G._verOfertasYa = false; G._mercadoHecho = false; save();
+    window._carreraMercadoForzado();
+    return;
+  }
   const pose = (kind === 'quedarme' && !(G.flags.pidioSalida || G.flags.rechazoRenov)) ? 'aplaudir'
              : (kind === 'renov') ? 'firmar' : 'pensativo';
   const m = document.getElementById('carrera-modal') || overlay();
@@ -3791,6 +3929,16 @@ const EVENTOS=[
   { t:'Rumor de prensa sobre tu futuro', img:'prensa', d:'Sale una nota diciendo que te querés ir. No es verdad.', opts:[
     { txt:'Desmentir con un comunicado', ef:g=>{ g.moral+=4; g.fama+=2; return 'Aclaraste todo. El vestuario tranquilo.'; } },
     { txt:'No decir nada', ef:g=>{ const mal=Math.random()<.5; g.moral+=mal?-5:2; return mal?'El silencio alimentó el rumor.':'Se desinfló solo.'; } } ] },
+  { t:'No entendés nada en el vestuario', img:'fichaje', reqFlag:'barreraIdioma',
+    d:'Cambiaste de país y no hablás el idioma. En los entrenamientos te perdés la mitad de lo que dice el técnico.', opts:[
+    { txt:'Meterle clases todos los días', ef:g=>{
+        g.dinero=Math.max(0,(g.dinero||0)-ri(3000,15000));
+        const l = g.flags.barreraIdioma; (g.idiomas = g.idiomas || []).push(l); g.flags.barreraIdioma = null;
+        g.nivel = subirNivel(2); g.moral += 8;
+        return 'Seis meses de clases después del entrenamiento. Ahora entendés todo y el vestuario te adoptó. Hablás ' + ((IDIOMA_NOMBRE[l]||'el idioma')) + '.'; } },
+    { txt:'Arreglarme con señas y un traductor', ef:g=>{
+        g.nivel = subirNivel(-3); g.moral -= 6;
+        return 'Seguís sin entender las charlas técnicas. Te perdiste dos jugadas ensayadas y el técnico lo notó.'; } } ] },
   { t:'Video viral tuyo', img:'redes', maxStr:80, d:'Un jueguito tuyo en el entrenamiento se hace viral en redes.', opts:[
     { txt:'Subirlo a mis redes', ef:g=>{ g.fama+=10; return 'Millones de views. Sos tendencia.'; } },
     { txt:'Mantener perfil bajo', ef:g=>{ g.moral+=3; g.nivel+=1; return 'Preferís que hablen tus partidos.'; } } ] },
@@ -3852,7 +4000,8 @@ const EVENTOS=[
   { t:'Pelea en un boliche', img:'joda', d:'Salís de joda y un desconocido te busca pelea de la nada, filmando con el celular.', opts:[
     { txt:'Irme sin dar bola', ef:g=>{ g.moral+=3; g.fama+=2; return 'Te fuiste digno. Al otro día nadie habla de vos, y eso está perfecto.'; } },
     { txt:'Encararlo', ef:g=>{ const escandalo=Math.random()<.65; g.fama+=escandalo?-14:1; g.moral-=escandalo?8:0; g.dinero-=escandalo?15000:0; return escandalo?'El video se hizo viral. El club te multa y sale en todos lados. Papelón.':'No pasó a mayores, pero fue una imprudencia.'; } } ] },
-  { t:'Conocés a tu ídolo', img:'seleccion', d:'En un evento aparece tu ídolo de la infancia y te da unos minutos de charla.', opts:[
+  { t:'Conocés a tu ídolo', img:'seleccion', _dyn:true, d:'', opts:[] },
+  { t:'Conocés a alguien del ambiente', img:'seleccion', d:'En un evento aparece un histórico y te da unos minutos de charla.', opts:[
     { txt:'Pedirle consejos y escuchar', ef:g=>{ g.moral+=10; g.nivel+=1; return 'Sus palabras te marcan. Entrenás con otra mentalidad, más profesional.'; } },
     { txt:'Solo la foto para redes', ef:g=>{ g.fama+=5; return 'Buena foto, muchos likes. Pero sentís que desaprovechaste el momento.'; } } ] },
   { t:'Oferta turbia de un apostador', img:'dinero', d:'Un apostador te ofrece una fortuna por "aflojar" en un partido puntual. Si te descubren, es escándalo penal.', opts:[
@@ -3978,10 +4127,36 @@ const EVENTOS=[
 // ── CAMBIAR DE CLUB DESDE UNA DECISION ───────────────────────────────────────
 // Hasta ahora los eventos que hablaban de irse a otro lado solo movian moral y
 // fama: seguias jugando en el mismo club, lo que no tenia ningun sentido.
+// Idioma de cada pais: mudarte a donde no se habla lo tuyo tiene su costo.
+const IDIOMAS = {
+  'Uruguay':'es','Argentina':'es','España':'es','México':'es','Colombia':'es','Chile':'es','Perú':'es',
+  'Paraguay':'es','Bolivia':'es','Ecuador':'es','Venezuela':'es','Costa Rica':'es','Panamá':'es',
+  'Guatemala':'es','Honduras':'es','El Salvador':'es',
+  'Brasil':'pt','Portugal':'pt',
+  'Inglaterra':'en','Estados Unidos':'en','Escocia':'en','Gales':'en','Irlanda':'en','Australia':'en',
+  'Italia':'it','Francia':'fr','Bélgica':'fr','Alemania':'de','Austria':'de','Suiza':'de',
+  'Países Bajos':'nl','Turquía':'tr','Japón':'ja','China':'zh','Corea del Sur':'ko','Rusia':'ru',
+  'Grecia':'el','Croacia':'hr','Serbia':'sr','Polonia':'pl','Ucrania':'uk','Suecia':'sv','Noruega':'no',
+  'Dinamarca':'da','Arabia Saudita':'ar','Egipto':'ar','Marruecos':'ar'
+};
+const IDIOMA_NOMBRE = { es:'español', pt:'portugués', en:'inglés', it:'italiano', fr:'francés', de:'alemán',
+  nl:'neerlandés', tr:'turco', ja:'japonés', zh:'chino', ko:'coreano', ru:'ruso', el:'griego', hr:'croata',
+  sr:'serbio', pl:'polaco', uk:'ucraniano', sv:'sueco', no:'noruego', da:'danés', ar:'árabe' };
+function idiomaDe(pais){ return IDIOMAS[pais] || 'es'; }
+// ¿Te entendés con el vestuario del club nuevo?
+function chequearIdioma(g, paisNuevo){
+  const mio = idiomaDe(g.pais), alla = idiomaDe(paisNuevo);
+  g.idiomas = g.idiomas || [mio];
+  if (g.idiomas.indexOf(alla) >= 0) return null;
+  g.flags = g.flags || {};
+  g.flags.barreraIdioma = alla;                 // hasta que lo aprendas, cuesta
+  return IDIOMA_NOMBRE[alla] || 'otro idioma';
+}
 function mudarseA(g, c){
   if(!g || !c) return;
   g.idolatria = g.idolatria || {};
   g.idolatria[c.name] = Math.max(g.idolatria[c.name] || 0, 12);
+  chequearIdioma(g, c.pais);
   g.club = c.name; g.clubStr = c.str; g.liga = c.liga; g.clubPais = c.pais;
   g.clubDesde = g.edad;
   g.sueldo = ofertaDe(c).sueldo;
@@ -4115,8 +4290,10 @@ function _poseReaccion(res, d){
   // la final' o 'te eliminaron' contienen las mismas palabras que un titulo y
   // sacaban al muneco levantando el trofeo, justo cuando le habia ido mal.
   const malaNoticia = /decepcion|decepcionante|fracas|elimina|qued[oó] afuera|no pudiste|perdi(ste|mos|eron)|derrota|sin gloria|flojo|jugar poco|jugaste poco|no anduvo|te toc[oó] jugar poco|frustrac|amarg/.test(t);
-  const tituloDeportivo = !malaNoticia
-                       && /camp(e[oó]n|eonato)|copa |la copa|torneo|vuelta ol[ií]mpica|levant[aá]|ascenso a/.test(t)
+  // Hace falta una senal EXPLICITA de haber ganado. Antes alcanzaba con que el
+  // texto dijera 'torneo' o 'levantá' para sacar la copa.
+  const gano = /sali(ó|o|eron) camp|es camp|fuiste camp|se consagr|dieron la vuelta|vuelta ol[ií]mpica|levantaste (la|el)|ganaste (la|el|el torneo)|campe[oó]n del|campe[oó]n de la|se qued[oó] con (la|el)|logr(aste|amos) el t[ií]tulo|ascendiste|ascenso a/.test(t);
+  const tituloDeportivo = !malaNoticia && gano
                        && !/t[ií]tulo del liceo|secundari|bachiller|gradu|diploma|universi|doctorado/.test(t);
   if (tituloDeportivo) return 'campeon';
   // 3) Estudios / reconocimientos que NO son copas
@@ -4250,6 +4427,8 @@ window._carreraElegir = function(i){
     G.fama   = b.fama   + (G.fama   - b.fama)   * factor;
     G.dinero = Math.round(b.dinero + (G.dinero - b.dinero) * factor);
   }
+  // Lo que el evento sumo de nivel pasa por el freno; lo que resto, no.
+  if (G.nivel > b.nivel){ const sube = G.nivel - b.nivel; G.nivel = b.nivel; subirNivel(sube); }
   G.nivel=clamp(G.nivel,30,99); G.fama=clamp(G.fama,0,100); G.moral=clamp(G.moral,0,100); G.dinero=Math.max(0,G.dinero);
   const d = { nivel:Math.round(G.nivel-b.nivel), moral:Math.round(G.moral-b.moral), fama:Math.round(G.fama-b.fama), dinero:Math.round(G.dinero-b.dinero) };
   const chips = [
@@ -4276,6 +4455,7 @@ window._carreraElegir = function(i){
   // el evento de convocatoria, los amistosos, las eliminatorias, el Mundial. Antes
   // ganabas el Mundial con la camiseta del club, que era lo que más chirriaba.
   const esSeleccion = !!(ev && (ev.img === 'seleccion' || /selecci[oó]n|mundial|copa am[eé]rica|eurocopa|eliminatorias|juegos ol[ií]mpicos/i.test(ev.t||'')));
+  const esOlimpico = /juegos ol[ií]mpicos|ol[ií]mpic/i.test((ev && ev.t) || '') || /juegos ol[ií]mpicos/i.test(res||'');
   const escenaRes = esSeleccion && (pose==='campeon'||pose==='festejo'||pose==='gol'||pose==='orgullo')
     ? 'estadio' : escenaDePose(pose, G.avatar, G.edad);
   // ¿Esta decisión terminó en un título? Se muestra el trofeo REAL al lado del
@@ -4286,7 +4466,7 @@ window._carreraElegir = function(i){
   const wrap=document.getElementById('cr-evwrap');
   if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:6px 0;">
     <div style="display:flex;justify-content:center;align-items:flex-end;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
-      ${avatarBox(avatarDeG(2.6, pose, { seleccion:esSeleccion }), '10px 16px', escenaRes)}
+      ${avatarBox(avatarDeG(2.6, pose, { seleccion:esSeleccion, medalla:esOlimpico }), '10px 16px', escenaRes)}
       ${trofeoNuevo?`<div style="text-align:center;animation:crTrophy .7s cubic-bezier(.2,1.4,.4,1) both;"><div style="height:88px;display:flex;align-items:flex-end;justify-content:center;">${trofeoRender(trofeoNuevo.nombre,80)}</div><div style="font-size:12px;font-weight:900;color:#facc15;margin-top:6px;max-width:130px;line-height:1.2;">${esc(trofeoNuevo.nombre)}</div></div><style>@keyframes crTrophy{0%{transform:scale(.3) rotate(-12deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}</style>`:''}
     </div>
     ${esSeleccion?`<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.4);border-radius:20px;padding:3px 11px;font-size:10.5px;font-weight:900;color:#93c5fd;margin-bottom:9px;">${flagImg(G.pais,14)} SELECCIÓN DE ${esc(G.pais).toUpperCase()}</div>`:''}
@@ -5081,6 +5261,19 @@ function personalAsegurar(){
   return G.vidaStats;
 }
 // Lo personal se contagia a lo deportivo: nadie rinde igual con la casa en llamas.
+// Subir de nivel cuesta cada vez mas: de 90 para arriba casi no se mueve, y a
+// 99 llegan cuatro en la historia. Bajar, en cambio, baja igual de rapido.
+function subirNivel(delta){
+  if(!G) return 0;
+  const n = G.nivel || 60;
+  if (delta > 0){
+    const freno = n >= 95 ? 0.12 : n >= 92 ? 0.25 : n >= 88 ? 0.45 : n >= 84 ? 0.7 : 1;
+    G.nivel = clamp(n + delta * freno, 30, 99);
+  } else {
+    G.nivel = clamp(n + delta, 30, 99);
+  }
+  return G.nivel;
+}
 function personalPuente(antes){
   if(!G || !G.vidaStats) return { moral:0, nivel:0 };
   const s = G.vidaStats;
@@ -5090,7 +5283,7 @@ function personalPuente(antes){
   const dMoral = Math.round(dFel * 0.5 - dSol * 0.25);
   const dNivel = Math.round(dSal * 0.10);
   if (dMoral) G.moral = clamp(G.moral + dMoral, 0, 100);
-  if (dNivel) G.nivel = clamp(G.nivel + dNivel, 30, 99);
+  if (dNivel) G.nivel = subirNivel(dNivel);
   return { moral:dMoral, nivel:dNivel };
 }
 function vidaInit(rol){
@@ -6023,16 +6216,54 @@ function vjPrincipal(){
     if(!G) return null;
     return ((G._evLeft||0) > 0)
       ? { x:mid, tipo:'npc', semilla:'dt'+G.club, ropa:'dt', edad:55, lbl:'El técnico te quiere hablar', accion:'decision', icono:'bx-clipboard', destacado:true, rol:'DT' }
-      : { x:mid, tipo:'obj', obj:'pelota', escala:2, lbl:'JUGAR LA TEMPORADA ' + (G.anio||''), accion:'jugar', icono:'bx-play-circle', destacado:true };
+      : { x:mid, tipo:'obj', obj:'pelota', escala:0.9, lbl:'JUGAR LA TEMPORADA ' + (G.anio||''), accion:'jugar', icono:'bx-play-circle', destacado:true };
   }
   if (VJ.mundo === 'vida'){
     if(!G || !G.vidaRol) return null;
     const hechos = G._vjHechos || {};
+    // Primero lo del oficio: conseguir club, salvar el puesto, fichar, etc.
+    const ar = asuntoDeRol();
+    if (ar && !(G.vidaPausa > 0))
+      return { x:mid, tipo:'obj', obj:'cartel', lbl:ar.txt, accion:'gestion', icono:ar.icono, destacado:true };
     if (!hechos.lapso && !(G.vidaPausa > 0))
       return { x:mid, tipo:'npc', semilla:'jefe'+G.vidaRol, ropa:'traje', edad:58,
         lbl:'Hablar con ' + vjNombreJefe().toLowerCase() + ' (decisión del tramo)', accion:'rol', icono:'bx-briefcase', destacado:true, rol:vjNombreJefe() };
     return vjDormirHotspot(mid);
   }
+  return null;
+}
+// ── GESTIÓN PROPIA DE CADA ROL ───────────────────────────────────────────────
+// El estado de tu carrera como DT / dirigente / etc. Se guarda en G.gestion.
+function gestionAsegurar(){
+  if(!G || !G.vidaRol) return null;
+  if(!G.gestion){
+    const pais = G.pais || 'Uruguay';
+    const locales = todosClubs().filter(c=>c.pais===pais && c.str>=52 && c.str<=72);
+    const c0 = locales.length ? pick(locales) : { name:'Club '+pais, str:58, liga:'Amateur '+pais, pais };
+    G.gestion = { club:c0.name, str:c0.str, liga:c0.liga, pais:c0.pais, anios:0, titulos:0, sinTrabajo:false, plantel:[] };
+  }
+  return G.gestion;
+}
+// Los clubes a los que podés ir según cómo te fue.
+function clubesParaDirigir(){
+  const g = gestionAsegurar(); if(!g) return [];
+  const techo = 55 + (g.titulos||0)*8 + Math.min(20, (G.fama||40)/4);
+  return shuffle(todosClubs().filter(c => c.name !== g.club && c.str <= techo && c.str >= techo - 26)).slice(0,3);
+}
+// Lo que tenés que resolver ESTE tramo según tu rol.
+function asuntoDeRol(){
+  const rol = G.vidaRol, g = gestionAsegurar();
+  if(!g) return null;
+  const s = G.vidaStats || {};
+  if (rol === 'dt' || rol === 'escuela' || rol === 'dirigente'){
+    if (g.sinTrabajo) return { id:'club', txt: rol==='dt' ? 'Conseguir club para dirigir' : 'Conseguir un lugar donde trabajar', icono:'bx-briefcase' };
+    if ((s.presion||0) >= 72 || (s.resultados||50) <= 22) return { id:'crisis', txt:'Salvar tu puesto: te quieren echar', icono:'bx-error' };
+    if (!(G._vjHechos||{}).fichaje && rol === 'dt') return { id:'fichaje', txt:'Reforzar el plantel', icono:'bx-user-plus' };
+    if (!(G._vjHechos||{}).fichaje && rol === 'dirigente') return { id:'fichaje', txt:'Decidir la inversión del año', icono:'bx-wallet' };
+    if (!(G._vjHechos||{}).fichaje && rol === 'escuela') return { id:'fichaje', txt:'Sumar pibes a la escuelita', icono:'bx-user-plus' };
+  }
+  if (rol === 'empresario' && !(G._vjHechos||{}).fichaje) return { id:'fichaje', txt:'Mover un negocio nuevo', icono:'bx-store' };
+  if (rol === 'comentarista' && !(G._vjHechos||{}).fichaje) return { id:'fichaje', txt:'Elegir de qué hablar esta temporada', icono:'bx-microphone' };
   return null;
 }
 // ── LOS ASUNTOS DE CADA TRAMO ────────────────────────────────────────────────
@@ -6050,6 +6281,8 @@ function vjPendientesTramo(){
     { id:'sucesos', obliga:false, hecho: (h.sucesos || 0) >= 1, txt:'Ocuparte de algo tuyo (familia, plata, salud)' },
     { id:'descanso', obliga:false, hecho: !!h.descanso, txt:'Descansar un poco' }
   ];
+  const ar = asuntoDeRol();
+  if (ar) lista.splice(1, 0, { id:'gestion', obliga:true, hecho:false, txt:ar.txt });
   if ((s.salud || 100) < 55) lista.push({ id:'salud', obliga:false, hecho: !!h.cuidoSalud, txt:'Cuidarte: la salud viene mal' });
   if ((s.soledad || 0) > 60) lista.push({ id:'gente', obliga:false, hecho: (h.sucesos || 0) >= 2, txt:'Ver gente: estás muy solo' });
   return lista;
@@ -6090,6 +6323,9 @@ function vjPuede(h){
     case 'tablas':        return !!(G && G._tablasData);
     case 'licencia':      return !(G && G.vidaPausa > 0);
     case 'ropero':        return true;
+    case 'consejo':       return true;
+    case 'gestion':       return !!asuntoDeRol();
+    case 'cambiarRepre':  return true;
     default:              return true;
   }
 }
@@ -6245,13 +6481,17 @@ function vjHotspotsClub(){
     out.push({ x:720, tipo:'obj', obj:'trabajo', lbl:'Tu casillero — ver tu ficha', accion:'ficha', icono:'bx-id-card' });
   } else if (VJ.escena === 'cancha'){
     out.push({ x:260, tipo:'obj', obj:'gimnasio', escala:1.7, lbl:'Levantar pesas en el gimnasio', accion:'entrenarClub', icono:'bx-dumbbell' });
-    out.push({ x:560, tipo:'obj', obj:'pelota', lbl: pend ? 'Primero hablá con el técnico' : 'JUGAR LA TEMPORADA',
+    out.push({ x:560, tipo:'obj', obj:'pelota', escala:0.9, lbl: pend ? 'Primero hablá con el técnico' : 'JUGAR LA TEMPORADA',
       accion:'jugar', icono:'bx-play-circle', destacado: !pend, bloqueado: pend });
     out.push({ x:860, tipo:'npc', semilla:'hincha'+G.club, ropa:'calle', edad:38,
       lbl:'Hablar con un hincha', accion:'charlaClub', icono:'bx-group', rol:'hincha' });
   } else {
-    out.push({ x:230, tipo:'npc', semilla:'repre'+(G.apellido||''), ropa:'traje', edad:47,
-      lbl:'Ver qué te ofrece tu representante', accion:'mercado', icono:'bx-briefcase', rol:'representante' });
+    const _rp = repreDeG();
+    out.push({ x:230, tipo:'npc', semilla:'repre'+(_rp?_rp.id:'x'), ropa:(_rp&&_rp.id==='joven')?'tv':'traje', edad:(_rp?_rp.edad:47),
+      lbl:'Ver qué te ofrece ' + (_rp?_rp.n:'tu representante'), accion:'mercado', icono:'bx-briefcase',
+      nombre:(_rp?_rp.n:'Tu representante'), rol:'representante' });
+    out.push({ x:400, tipo:'obj', obj:'cartel', lbl:'Pedir consejo', accion:'consejo', icono:'bx-message-rounded-dots' });
+    out.push({ x:640, tipo:'obj', obj:'trabajo', lbl:'Cambiar de representante', accion:'cambiarRepre', icono:'bx-transfer' });
     out.push({ x:520, tipo:'obj', obj:'trabajo', lbl:'Tu contador — plata y bienes', accion:'bienes', icono:'bx-wallet' });
     out.push({ x:700, tipo:'obj', obj:'cartel', lbl:'Tabla y goleadores', accion:'tablas', icono:'bx-list-ol' });
   }
@@ -6337,7 +6577,7 @@ function vjHud(){
     const L = VIDA_LAPSOS[G.vidaLapso] || VIDA_LAPSOS[VIDA_LAPSOS.length-1];
     const s = G.vidaStats || {};
     return { titulo:`${esc(G.apellido||'')} · ${G.vidaEdad} años`,
-      sub:`${esc(R.n)}${G.vidaPausa>0?' · DE LICENCIA':''} · ${esc(L.lbl)}`, color:R.color,
+      sub:`${esc(R.n)}${(G.gestion&&G.gestion.club&&!G.gestion.sinTrabajo)?(' · '+esc(G.gestion.club)):(G.gestion&&G.gestion.sinTrabajo?' · SIN CLUB':'')}${G.vidaPausa>0?' · DE LICENCIA':''} · ${esc(L.lbl)}`, color:R.color,
       datos:R.barras.map(b=>[b[0], Math.round(s[b[1]]||0), b[2]]) };
   }
   if (VJ.mundo === 'potrero'){
@@ -6452,7 +6692,7 @@ function mundoRender(){
   m.innerHTML = `
   <div style="min-height:100%;background:#05070a;display:flex;flex-direction:column;">
     <div style="position:sticky;top:0;z-index:6;background:linear-gradient(180deg,rgba(5,7,10,.97),rgba(5,7,10,.86));backdrop-filter:blur(8px);border-bottom:1px solid #1a2230;padding:8px 12px;">
-      <div style="max-width:720px;margin:0 auto;display:flex;align-items:center;gap:10px;padding-left:46px;">
+      <div style="max-width:720px;margin:0 auto;display:flex;align-items:center;gap:10px;">
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${hud.titulo}</div>
           <div style="font-size:10px;color:${hud.color};font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${hud.sub}</div>
@@ -6837,6 +7077,9 @@ function vjInteractuar(){
     case 'decision':     vjDetener(); window._carreraContinuar(); return;
     case 'jugar':        vjDetener(); window._carreraTemporada(); return;
     case 'mercado':      vjDetener(); window._carreraMercadoForzado(); return;
+    case 'consejo':      vjConsejoRepre(); return;
+    case 'gestion':      vjDetener(); window._vjGestion(); return;
+    case 'cambiarRepre': vjDetener(); window._elegirRepre('cambio'); return;
     case 'bienes':       vjDetener(); window._carreraBienes(); return;
     case 'tablas':       vjDetener(); if(G._tablasData) window._verTablas('pos'); else vjFlash('Todavía no jugaste una temporada completa.'); return;
     case 'ficha':        vjDetener(); window._carreraHub(); return;
@@ -6856,8 +7099,8 @@ function vjInteractuar(){
     if (s.felicidad != null) s.felicidad = clamp(s.felicidad + ri(1,4), 0, 100);
     (G._vjHechos = G._vjHechos || {}).descanso = true;
     if ((s.salud||100) >= 55) G._vjHechos.cuidoSalud = true;
-    save(); vjFlash('Un rato de fútbol en la tele. Nada del otro mundo, pero descansaste.');
-    mundoRender();
+    save(); mundoRender();
+    vjFlash('Un rato de fútbol en la tele. Nada del otro mundo, pero descansaste.');
     return;
   }
   if (h.accion === 'trabajar'){
@@ -6865,7 +7108,8 @@ function vjInteractuar(){
     const barra = R.barras.find(b=>!b[3] && b[1] !== 'salud');
     if (barra) s[barra[1]] = clamp((s[barra[1]]||50) + ri(2,6), 0, 100);
     s.salud = clamp((s.salud||70) - ri(1,3), 0, 100);
-    save(); vjFlash('Le metiste horas. Se nota en ' + (barra ? barra[0].toLowerCase() : 'el laburo') + '.');
+    save(); mundoRender();
+    vjFlash('Le metiste horas. Se nota en ' + (barra ? barra[0].toLowerCase() : 'el laburo') + '.');
     return;
   }
   if (h.accion === 'licencia'){ vjLicencia(); return; }
@@ -6918,11 +7162,11 @@ function vjEntrenar(cuanto, txt){
   if(!G) return;
   G._entrenos = (G._entrenos || 0) + 1;
   if (G._entrenos > 3){ vjFlash('Ya entrenaste de más. Un cuerpo también necesita parar.'); return; }
-  G.nivel = clamp(G.nivel + cuanto, 30, 99);
+  G.nivel = subirNivel(cuanto);
   G.moral = clamp(G.moral - 2, 0, 100);
   save();
-  vjFlash(txt + ' (+' + cuanto + ' nivel, −2 moral)');
   mundoRender();
+  vjFlash(txt + ' (+' + cuanto + ' nivel, −2 moral)');
 }
 // Un rato en casa: recupera salud y felicidad, y baja la soledad.
 function vjDescansarCasa(){
@@ -6932,16 +7176,16 @@ function vjDescansarCasa(){
   s.felicidad = clamp((s.felicidad||55) + ri(2,5), 0, 100);
   s.soledad = clamp((s.soledad||30) - ri(1,4), 0, 100);
   save();
-  vjFlash('Una tarde en casa mirando la fecha. De esas que no cuenta nadie pero hacen falta.');
   mundoRender();
+  vjFlash('Una tarde en casa mirando la fecha. De esas que no cuenta nadie pero hacen falta.');
 }
 function vjDescansarJuv(){
   if(!G) return;
   G.moral = clamp(G.moral + ri(3,7), 0, 100);
   G._entrenos = Math.max(0, (G._entrenos||0) - 1);
   save();
-  vjFlash('Dormiste ocho horas de verdad. A esta edad eso también es entrenar.');
   mundoRender();
+  vjFlash('Dormiste ocho horas de verdad. A esta edad eso también es entrenar.');
 }
 // Charlas ambientales: no cambian el rumbo, pero el mundo tiene que tener voz.
 const VJ_CHARLAS = {
@@ -7020,6 +7264,18 @@ function vjEscenaEspecial(){
     </div>`;
   }
   return '';
+}
+// El consejo de tu representante, según quién sea y cómo venís.
+function vjConsejoRepre(){
+  const r = repreDeG();
+  if(!r){ vjDetener(); window._elegirRepre('primero'); return; }
+  const propios = [];
+  if ((G.dinero||0) > 300000) propios.push('Tenés plata parada. Comprate algo que rinda, no un auto más.');
+  if ((G.edad||20) >= 30) propios.push('Empezá a pensar en el después: a los 34 el teléfono suena menos.');
+  if ((G.moral||60) < 40) propios.push('Te veo mal. Arreglá lo de afuera y lo de adentro se acomoda solo.');
+  if (G.flags && G.flags.barreraIdioma) propios.push('Aprendé el idioma ya. Sin eso no vas a jugar, por más que corras.');
+  if ((G.nivel||0) >= 85 && ligaNivel(G.liga||'') < 14) propios.push('Estás para una liga grande. No te duermas.');
+  vjFlash(r.n + ': "' + pick(propios.length ? propios.concat(r.consejos) : r.consejos) + '"');
 }
 // Aviso breve sin sacarte del mundo.
 function vjFlash(txt){
@@ -7175,6 +7431,116 @@ window._nombrarHijo = function(nombre){
   if (VJ.mundo === 'vida') window._vidaJugable();
   else window._clubMundo(VJ.escena === 'pension' ? 'casa' : VJ.escena);
 };
+// ── GESTIÓN DEL ROL: lo que de verdad hacés en tu segunda vida ───────────────
+window._vjGestion = function(){
+  if(!G) return;
+  const ar = asuntoDeRol(); if(!ar){ window._vidaJugable(); return; }
+  const g = gestionAsegurar(), rol = G.vidaRol;
+  const R = VIDA_ROLES[rol] || VIDA_ROLES.disfrutar;
+  let titulo = ar.txt, texto = '', ops = [];
+  if (ar.id === 'club'){
+    const cand = clubesParaDirigir();
+    texto = rol === 'dt' ? 'Estás sin equipo. Tres proyectos te llamaron.' : 'Estás sin lugar. Tres puertas abiertas.';
+    ops = cand.map((c,i)=>({ txt: c.name + ' — ' + c.liga + ' (nivel ' + c.str + ')', dato:i }));
+    ops.push({ txt:'Esperar algo mejor', dato:-1 });
+  } else if (ar.id === 'crisis'){
+    texto = 'La dirigencia de ' + esc(g.club) + ' se juntó a hablar de vos. Los resultados no acompañan y la presión está al límite.';
+    ops = [{ txt:'Pararme firme y pedir refuerzos', dato:'firme' },
+           { txt:'Bajar el perfil y aguantar', dato:'aguantar' },
+           { txt:'Renunciar antes de que me echen', dato:'renuncio' }];
+  } else {
+    const porRol = {
+      dt:          ['Traer un 9 caro', 'Apostar a los pibes de la cantera', 'No tocar nada, este grupo funciona'],
+      dirigente:   ['Invertir todo en refuerzos', 'Arreglar el estadio', 'Guardar la plata para el año que viene'],
+      escuela:     ['Salir a buscar pibes al interior', 'Bajar la cuota para que entren todos', 'Quedarme con los que ya están'],
+      empresario:  ['Abrir un local nuevo', 'Comprar la parte de un socio', 'Frenar y consolidar lo que hay'],
+      comentarista:['Ir al hueso con los dirigentes', 'Hablar de fútbol y nada más', 'Buscar la nota que nadie tiene']
+    }[rol] || ['Meterle para adelante', 'Ir con calma', 'No cambiar nada'];
+    texto = { dt:'Se abre el mercado y hay que decidir qué hacer con el plantel de ' + esc(g.club) + '.',
+      dirigente:'Hay caja para una sola cosa este año.',
+      escuela:'La escuelita necesita definir el rumbo.',
+      empresario:'Tenés una decisión de negocio sobre la mesa.',
+      comentarista:'Arranca la temporada y hay que definir el tono del programa.' }[rol] || 'Hay que decidir.';
+    ops = porRol.map((t,i)=>({ txt:t, dato:i }));
+  }
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="min-height:100%;background:#05070a;display:flex;flex-direction:column;justify-content:flex-end;position:relative;">
+    ${fondoEscenaHTML()}
+    <div style="position:relative;max-width:640px;margin:0 auto;width:100%;padding:20px 18px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;">
+      <div style="display:flex;align-items:flex-end;justify-content:center;gap:4px;margin-bottom:14px;">
+        <div style="line-height:0;">${vjSpriteNPC('jefe'+rol,'traje',58,'pensando')}</div>
+        <div style="line-height:0;transform:scaleX(-1);">${vjSpriteJugador('pensando')}</div>
+      </div>
+      <div style="background:linear-gradient(160deg,${R.color}14,rgba(10,13,8,.75));border:1.5px solid ${R.color}55;border-radius:18px;padding:16px;">
+        <div style="font-size:10px;font-weight:900;letter-spacing:1.5px;color:${R.color};margin-bottom:6px;">${esc(R.n.toUpperCase())}${g.club?(' · '+esc(g.club)):''}</div>
+        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;color:#fff;margin-bottom:7px;line-height:1.2;">${esc(titulo)}</div>
+        <div style="font-size:13.5px;color:#c4ccc0;line-height:1.6;margin-bottom:14px;">${texto}</div>
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          ${ops.map((o,i)=>`<button onclick="window._vjGestionElegir('${ar.id}',${JSON.stringify(o.dato).replace(/"/g,'&quot;')},${i})" style="background:${i===0?R.color+'18':'rgba(255,255,255,.04)'};border:1.5px solid ${i===0?R.color+'66':'#242a20'};color:${i===0?R.color:'#e0e4dc'};border-radius:12px;padding:13px 14px;font-weight:800;font-size:13.5px;text-align:left;cursor:pointer;line-height:1.35;">${esc(o.txt)}</button>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+  G._gestCand = (ar.id === 'club') ? clubesParaDirigir.__ultima : null;
+};
+window._vjGestionElegir = function(tipo, dato, idx){
+  const g = gestionAsegurar(), s = G.vidaStats || {}, rol = G.vidaRol;
+  let res = '';
+  if (tipo === 'club'){
+    if (dato === -1){
+      g.sinTrabajo = true; s.felicidad = clamp((s.felicidad||50) - 6, 0, 100);
+      res = 'Dijiste que no a los tres. El teléfono puede tardar en volver a sonar.';
+      (G._vjHechos = G._vjHechos||{}).lapso = true;
+    } else {
+      const cand = clubesParaDirigir();
+      const c = cand[idx] || cand[0];
+      if (c){ g.club=c.name; g.str=c.str; g.liga=c.liga; g.pais=c.pais; g.anios=0; g.sinTrabajo=false; }
+      s.presion = clamp((s.presion||45) + 10, 0, 100);
+      s.resultados = clamp((s.resultados||45), 0, 100);
+      res = 'Firmaste en ' + esc(g.club) + '. Presentación, foto con la camiseta y a laburar.';
+    }
+  } else if (tipo === 'crisis'){
+    if (dato === 'firme'){
+      const ok = Math.random() < 0.45;
+      if (ok){ s.presion = clamp((s.presion||70) - 22, 0, 100); s.resultados = clamp((s.resultados||30) + 14, 0, 100); res = 'Te bancaron. Llegaron dos refuerzos y el equipo reaccionó.'; }
+      else { g.sinTrabajo = true; s.presion = clamp((s.presion||70) - 30, 0, 100); res = 'Te echaron esa misma semana. Así es esto.'; }
+    } else if (dato === 'aguantar'){
+      const ok = Math.random() < 0.55;
+      if (ok){ s.presion = clamp((s.presion||70) - 12, 0, 100); res = 'Bajaste el perfil, ganaste dos seguidos y se calmó todo.'; }
+      else { g.sinTrabajo = true; res = 'No alcanzó. Te agradecieron los servicios el lunes.'; }
+    } else {
+      g.sinTrabajo = true; s.presion = clamp((s.presion||70) - 35, 0, 100); s.felicidad = clamp((s.felicidad||50) + 6, 0, 100);
+      res = 'Renunciaste vos. Te fuiste con la frente alta y sin indemnización.';
+    }
+    (G._vjHechos = G._vjHechos||{}).lapso = true;
+  } else {
+    const buena = Math.random() < (idx === 0 ? 0.5 : idx === 1 ? 0.6 : 0.7);
+    const barra = (VIDA_ROLES[rol]||VIDA_ROLES.disfrutar).barras.find(b=>!b[3] && b[1] !== 'salud');
+    if (barra) s[barra[1]] = clamp((s[barra[1]]||50) + (buena ? ri(8,18) : -ri(4,12)), 0, 100);
+    if (rol === 'dt' || rol === 'dirigente') s.presion = clamp((s.presion||45) + (buena ? -8 : 12), 0, 100);
+    if (buena && Math.random() < 0.35){ g.titulos = (g.titulos||0) + 1; res = '¡Salió bárbaro! Terminaste levantando algo con ' + esc(g.club) + '.'; }
+    else res = buena ? 'Salió bien. El año cerró mucho mejor de lo que empezó.' : 'No funcionó. Vas a tener que rehacer cosas.';
+    (G._vjHechos = G._vjHechos||{}).fichaje = true;
+  }
+  g.anios = (g.anios||0) + 5;
+  Object.keys(s).forEach(k=>{ s[k] = clamp(s[k], 0, 100); });
+  if(!G.vidaHist) G.vidaHist = [];
+  G.vidaHist.push({ lapso:(VIDA_LAPSOS[G.vidaLapso]||{}).lbl, t:'Gestión', res, rol });
+  save();
+  const R = VIDA_ROLES[rol] || VIDA_ROLES.disfrutar;
+  const pose = /echaron|renunci|no funcion|no alcanz/i.test(res) ? 'bajon' : /levantando|barbaro|bárbaro/i.test(res) ? 'festejo' : 'orgullo';
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="min-height:100%;background:#05070a;display:flex;flex-direction:column;justify-content:center;position:relative;">
+    ${fondoEscenaHTML()}
+    <div style="position:relative;max-width:560px;margin:0 auto;width:100%;padding:24px 20px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;text-align:center;">
+      <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(avatarSprite(G.avatar,{ edad:G.vidaEdad||40, escala:2.8, pose, ropa:vjRopa()||undefined, num:'', apellido:'' }), '12px 18px', escenaDePose(pose, G.avatar, G.vidaEdad||40))}</div>
+      <div style="font-size:15px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:18px;">${esc(res)}</div>
+      <button onclick="window._vidaJugable()" style="background:linear-gradient(135deg,${_avShade(R.color,-70)},${R.color});color:#05070a;border:none;border-radius:13px;padding:14px 30px;font-weight:900;font-size:14.5px;cursor:pointer;">VOLVER <i class='bx bx-right-arrow-alt'></i></button>
+    </div>
+  </div>`;
+};
 // ── ROPERO ───────────────────────────────────────────────────────────────────
 // Vestirte como quieras, porque sí. En la cancha manda el kit del club.
 window._vjRopero = function(){
@@ -7189,7 +7555,7 @@ window._vjRopero = function(){
       <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:${A};margin-bottom:10px;">TU ROPERO</div>
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;color:#fff;margin-bottom:14px;">¿Cómo te vestís hoy?</div>
       <div style="display:flex;justify-content:center;margin-bottom:16px;">
-        ${avatarBox(avatarSprite(G.avatar,{ edad, escala:3, pose:'posando', ropa:(G.ropaElegida||'calle'), num:'', apellido:'' }), '12px 18px', 'casa')}
+        ${avatarBox(avatarSprite(G.avatar,{ edad, escala:3, pose:'orgullo', ropa:(G.ropaElegida||'calle'), num:'', apellido:'' }), '12px 18px', 'casa')}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
         ${opciones.map(id=>{ const R=AV_ROPAS[id]; const on = (G.ropaElegida||'calle')===id;
