@@ -445,7 +445,7 @@ function montarSalida(){
   b.type = 'button';
   b.title = 'Salir del juego';
   b.setAttribute('aria-label', 'Salir de Canchero Leyenda');
-  b.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + 10px);right:12px;width:38px;height:38px;border-radius:50%;background:rgba(10,12,10,.82);backdrop-filter:blur(6px);border:1px solid #2a3222;color:#c4ccc0;font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.5);';
+  b.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + ' + (esStandalone() ? 10 : 64) + 'px);right:12px;width:38px;height:38px;border-radius:50%;background:rgba(10,12,10,.82);backdrop-filter:blur(6px);border:1px solid #2a3222;color:#c4ccc0;font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.5);';
   b.innerHTML = "<i class='bx bx-x'></i>";
   b.onclick = function(){ window._carreraSalir(); };
   document.body.appendChild(b);
@@ -5781,7 +5781,6 @@ function vjHotspotsPotrero(){
     const edadPibe = d._potEdad || 12;
     if (ev) out.push({ x:330, tipo:'npc', semilla:'pibes'+(d.pais||''), ropa:'calle', edad:edadPibe,
       lbl:esc(ev.t), accion:'potrero', icono:'bx-football', destacado:true });
-    if ((d._pateos||0) < 3) out.push({ x:560, tipo:'obj', obj:'pelota', lbl:'Pegarle un rato al arco', accion:'patear', icono:'bx-run' });
     if (ev && ev.opts.some(o=>o.prueba)) out.push({ x:800, tipo:'npc', semilla:'ojeador', ropa:'tv', edad:50,
       lbl:'Hablar con el ojeador', accion:'potrero', icono:'bx-search-alt' });
   } else {
@@ -6008,6 +6007,7 @@ function mundoRender(){
         <div id="vj-player" style="position:absolute;left:0;bottom:${Math.round(H*(1-pisoPct))-15}px;line-height:0;will-change:transform;">${vjSpriteJugador('idle')}</div>
         ${E.sale.izq?`<div style="position:absolute;left:6px;bottom:${Math.round(H*(1-pisoPct))}px;font-size:9px;font-weight:900;color:${_avisoEn(E.sale.izq)?'#0a0d08':'#7dd3fc'};background:${_avisoEn(E.sale.izq)?A:'rgba(5,7,10,.7)'};border:1px solid ${_avisoEn(E.sale.izq)?A:'#1e3a5c'};border-radius:8px;padding:3px 6px;">◀ ${esc(escenas[E.sale.izq].n)}${_avisoEn(E.sale.izq)?' •':''}</div>`:''}
         ${E.sale.der?`<div style="position:absolute;right:6px;bottom:${Math.round(H*(1-pisoPct))}px;font-size:9px;font-weight:900;color:#7dd3fc;background:rgba(5,7,10,.7);border:1px solid #1e3a5c;border-radius:8px;padding:3px 6px;">${esc(escenas[E.sale.der].n)} ▶</div>`:''}
+      </div>
       </div>
       <div id="vj-prompt" style="position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:none;background:rgba(186,255,0,.14);border:1.5px solid ${A};color:${A};border-radius:22px;padding:7px 16px;font-size:12.5px;font-weight:900;pointer-events:none;white-space:nowrap;"></div>
     </div>
