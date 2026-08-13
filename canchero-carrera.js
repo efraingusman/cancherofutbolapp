@@ -3705,9 +3705,19 @@ const EVENTOS=[
   { t:'Nace tu hijo', img:'familia', minAge:23, d:'Vas a ser padre. Las noches de poco sueño se vienen.', opts:[
     { txt:'Vivirlo a pleno', ef:g=>{ g.moral+=14; return 'La motivación más grande. Jugás con el alma.'; } },
     { txt:'Contratar ayuda y descansar', ef:g=>{ g.dinero-=15000; g.nivel+=1; return 'Descansás bien y rendís. Cuesta plata.'; } } ] },
-  { t:'La familia quiere que vuelvas', img:'potrero', d:'Tus viejos te piden que juegues cerca de casa. Hay una oferta del club del barrio.', opts:[
-    { txt:'Volver a mis raíces', ef:g=>{ g.moral+=10; g.fama-=4; g.valor=Math.round(g.valor*0.9); return 'Feliz en casa, aunque resignás vidriera.'; } },
-    { txt:'Seguir mi camino afuera', ef:g=>{ g.moral-=4; g.fama+=3; return 'Duro, pero tu carrera sigue en alza.'; } } ] },
+  // Solo aparece si estas jugando FUERA de tu pais: si no, no hay a donde volver.
+  { t:'La familia quiere que vuelvas', img:'potrero', req:g=>!!(g.clubPais && g.pais && g.clubPais !== g.pais),
+    d:'Tus viejos te piden que vuelvas a jugar a tu país. Están grandes y te ven una vez por año.', opts:[
+    { txt:'Volver a mi país', ef:g=>{
+        const destino = clubDeMiPais(g);
+        if(!destino){ g.moral+=6; return 'Buscaste club en tu país y no apareció nada serio. Te quedás, pero con la cabeza allá.'; }
+        const antes = g.club, afuera = g.clubPais;
+        mudarseA(g, destino);
+        g.moral += 14; g.fama -= 5; g.valor = Math.round((g.valor||100000) * 0.82);
+        return 'Dejaste ' + esc(antes) + ' y volviste a ' + esc(g.pais) + ': firmaste en ' + esc(destino.name) +
+               '. Resignás vidriera, pero almorzás con los tuyos los domingos.' + (afuera ? '' : '');
+      } },
+    { txt:'Seguir mi camino afuera', ef:g=>{ g.moral-=8; g.fama+=3; return 'Les dijiste que todavía no. Cortaste el teléfono con un nudo en la garganta.'; } } ] },
 
   // ── HINCHADA / CONFLICTOS ─────────────────────────────────────────────────
   { t:'Un hincha te invita a pelear', img:'pelea', d:'Tras una derrota, un hincha te encara en la calle y te provoca.', opts:[
@@ -3843,7 +3853,16 @@ const EVENTOS=[
     { txt:'Meter el gol y no festejarlo', ef:g=>{ const gol=Math.random()<.5; if(gol){ g.fama+=10; g.moral+=6; return 'Marcaste y te quedaste quieto, pidiendo perdón con la mano. Hasta ellos lo respetaron.'; } g.moral-=3; return 'No pudiste marcar. Te fuiste silbado los 90 minutos.'; } },
     { txt:'Meterlo y festejarlo en su cara', ef:g=>{ const gol=Math.random()<.45; if(gol){ g.fama+=6; g.moral-=8; g.flags.villano=true; return 'Gol y festejo provocador. Sos oficialmente el villano de esa hinchada. Para siempre.'; } g.fama-=6; return 'No metiste y encima habías avisado que ibas a festejar. Quedaste en offside.'; } } ] },
   { t:'Ofertas del club que traicionaste', img:'fichaje', reqFlag:'traidor', minAge:31, d:'Increíblemente, el club del que te fuiste quiere que vuelvas para el final de tu carrera. La dirigencia cambió; los hinchas no.', opts:[
-    { txt:'Volver a casa y bancar los silbidos', ef:g=>{ g.flags.traidor=false; g.flags.redimido=true; g.moral+=15; if(g.flags.exClub){ g.idolatria=g.idolatria||{}; g.idolatria[g.flags.exClub]=30; } return 'Volviste. Los primeros meses fueron durísimos, pero terminaste reconciliado con la gente.'; } },
+    { txt:'Volver a casa y bancar los silbidos', ef:g=>{
+        g.flags.traidor=false; g.flags.redimido=true; g.moral+=15;
+        const ex = g.flags.exClub;
+        if(ex){
+          g.idolatria = g.idolatria || {}; g.idolatria[ex] = 30;
+          const c = todosClubs().find(x=>x.name===ex);
+          if(c) mudarseA(g, c);   // volver de verdad, no solo de palabra
+        }
+        return 'Volviste a ' + esc(ex || 'tu club') + '. Los primeros meses fueron durísimos, pero terminaste reconciliado con la gente.';
+      } },
     { txt:'Ya no es mi casa', ef:g=>{ g.moral-=5; return 'Cerraste la puerta definitivamente. Algunos capítulos no se reescriben.'; } } ] },
 
   // ══ FILANTROPÍA / LEGADO ══════════════════════════════════════════════════
@@ -3888,6 +3907,31 @@ const EVENTOS=[
     { txt:'Arrepentirme y volver a mis raíces', ef:g=>{ g.flags.doblenac=false; g.moral+=10; g.fama-=4; return 'Pediste volver. Burocracia FIFA de por medio, pero el corazón mandó.'; } } ] }
 ];
 // No repetir: mezcla los eventos aún NO vistos en esta carrera; cuando se agotan, resetea.
+// ── CAMBIAR DE CLUB DESDE UNA DECISION ───────────────────────────────────────
+// Hasta ahora los eventos que hablaban de irse a otro lado solo movian moral y
+// fama: seguias jugando en el mismo club, lo que no tenia ningun sentido.
+function mudarseA(g, c){
+  if(!g || !c) return;
+  g.idolatria = g.idolatria || {};
+  g.idolatria[c.name] = Math.max(g.idolatria[c.name] || 0, 12);
+  g.club = c.name; g.clubStr = c.str; g.liga = c.liga; g.clubPais = c.pais;
+  g.clubDesde = g.edad;
+  g.sueldo = ofertaDe(c).sueldo;
+  g.contratoAnios = 3;
+  g.flags = g.flags || {};
+  g.flags.pidioSalida = false; g.flags.rechazoRenov = false; g.flags.marcado = false;
+  g._msgFichaje = null;
+}
+// El mejor club razonable DE TU PAIS para volver: ni un grande que no te compraria
+// ni el ultimo del interior. Se prioriza el que mas se acerca a tu nivel.
+function clubDeMiPais(g){
+  const locales = todosClubs().filter(c => c.pais === g.pais && c.name !== g.club);
+  if(!locales.length) return null;
+  const nivel = g.nivel || 60;
+  const posibles = locales.filter(c => c.str <= nivel + 6);
+  const lista = posibles.length ? posibles : locales;
+  return lista.sort((a,b)=> Math.abs(a.str - nivel) - Math.abs(b.str - nivel))[0];
+}
 function eventoRandom(){
   try{
     if(!G) return pick(EVENTOS);
@@ -3905,6 +3949,9 @@ function eventoRandom(){
       // BANDERAS: reqFlag = solo si ya pasó eso; noFlag = nunca si ya pasó eso.
       if (ev.reqFlag && !F[ev.reqFlag]) return false;
       if (ev.noFlag && F[ev.noFlag]) return false;
+      // Condicion libre: algunos eventos solo tienen sentido en cierta situacion
+      // (volver al pais no se le puede ofrecer a alguien que ya juega en su pais).
+      if (typeof ev.req === 'function' && !ev.req(G)) return false;
       return true;
     };
     var pool = EVENTOS.map(function(_,i){return i;}).filter(function(i){ return ok(EVENTOS[i]); });
