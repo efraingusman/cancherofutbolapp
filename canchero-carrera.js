@@ -448,7 +448,7 @@ function montarSalida(){
   b.type = 'button';
   b.title = 'Salir del juego';
   b.setAttribute('aria-label', 'Salir de Canchero Leyenda');
-  b.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + ' + (esStandalone() ? 10 : 64) + 'px);right:12px;width:38px;height:38px;border-radius:50%;background:rgba(10,12,10,.82);backdrop-filter:blur(6px);border:1px solid #2a3222;color:#c4ccc0;font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.5);';
+  b.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + ' + (esStandalone() ? 10 : 64) + 'px);left:12px;width:38px;height:38px;border-radius:50%;background:rgba(10,12,10,.82);backdrop-filter:blur(6px);border:1px solid #2a3222;color:#c4ccc0;font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.5);';
   b.innerHTML = "<i class='bx bx-x'></i>";
   b.onclick = function(){ window._carreraSalir(); };
   document.body.appendChild(b);
@@ -5800,14 +5800,35 @@ function vjPrincipal(){
     if(!G || !G.vidaRol) return null;
     const hechos = G._vjHechos || {};
     if (!hechos.lapso && !(G.vidaPausa > 0))
-      return { x:mid, tipo:'npc', semilla:'jefe'+G.vidaRol, ropa:'traje', edad:58, lbl:vjNombreJefe(), accion:'rol', icono:'bx-briefcase', destacado:true };
-    return { x:mid, tipo:'obj', obj:'cama', lbl:'Dormir y pasar 5 años', accion:'dormir', icono:'bx-moon', destacado:true };
+      return { x:mid, tipo:'npc', semilla:'jefe'+G.vidaRol, ropa:'traje', edad:58,
+        lbl:'Hablar con ' + vjNombreJefe().toLowerCase() + ' (decisión del tramo)', accion:'rol', icono:'bx-briefcase', destacado:true };
+    return vjDormirHotspot(mid);
   }
   return null;
+}
+// La opcion de pasar el tiempo, con la edad de ahora y la que viene, para que se
+// entienda de una que es asi como avanzan los anos.
+function vjDormirHotspot(x){
+  const hechos = G._vjHechos || {};
+  const listo = !!hechos.lapso || (G.vidaPausa > 0);
+  const hoy = G.vidaEdad || 36;
+  const prox = (VIDA_LAPSOS[(G.vidaLapso||0) + 1] || {}).de;
+  return { x:x || 400, tipo:'obj', obj:'cama', icono:'bx-moon', accion:'dormir', destacado:listo, bloqueado:!listo,
+    lbl: listo
+      ? ('DORMIR Y PASAR 5 AÑOS' + (prox ? ' (' + hoy + ' → ' + prox + ')' : ' — el último tramo'))
+      : 'Para que pasen los años, primero resolvé lo de arriba' };
 }
 function vjHotspots(){
   let lista = vjHotspotsBase();
   const pr = vjPrincipal();
+  // En la segunda vida el tiempo se mueve durmiendo: esa opcion no puede faltar
+  // nunca de la lista, y siempre con el MISMO texto claro (antes la cama de la
+  // casa decia "Todavia no hiciste nada este tramo", que no explicaba nada).
+  if (VJ.mundo === 'vida' && G && G.vidaRol){
+    lista = lista.map(h => h.accion === 'dormir' ? vjDormirHotspot(h.x) : h);
+    if (!lista.some(h => h.accion === 'dormir') && !(pr && pr.accion === 'dormir'))
+      lista.push(vjDormirHotspot(Math.round(vjEscena().ancho * 0.72)));
+  }
   if (pr){
     // Se quita el duplicado y la accion que avanza queda SIEMPRE primera. Antes,
     // si el escenario ya la tenia mas abajo, arriba quedaba algo que no avanzaba
@@ -6068,7 +6089,7 @@ function mundoRender(){
   m.innerHTML = `
   <div style="min-height:100%;background:#05070a;display:flex;flex-direction:column;">
     <div style="position:sticky;top:0;z-index:6;background:linear-gradient(180deg,rgba(5,7,10,.97),rgba(5,7,10,.86));backdrop-filter:blur(8px);border-bottom:1px solid #1a2230;padding:8px 12px;">
-      <div style="max-width:720px;margin:0 auto;display:flex;align-items:center;gap:10px;">
+      <div style="max-width:720px;margin:0 auto;display:flex;align-items:center;gap:10px;padding-left:46px;">
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${hud.titulo}</div>
           <div style="font-size:10px;color:${hud.color};font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${hud.sub}</div>
