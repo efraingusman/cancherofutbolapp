@@ -728,28 +728,28 @@ const AV_POSES = {
   bajon:     { brazoL:8,    brazoR:-8,   cabeza:7,  salto:0, cara:'triste', piernas:0, gesto:'hundirse', ritmo:2.2 },
   lesion:    { brazoL:34,   brazoR:-16,  cabeza:9,  salto:0, cara:'dolor',  piernas:3, gesto:'dolor',    ritmo:1.6 },
   pensando:  { brazoL:4,    brazoR:-44,  cabeza:3,  salto:0, cara:'normal', piernas:0, gesto:'meditar',  ritmo:2 },
-  saludo:    { brazoL:2,    brazoR:-96,  cabeza:0,  salto:0, cara:'feliz',  piernas:0, gesto:'saludar',  ritmo:1 },
+  saludo:    { brazoL:4,    brazoR:-74,  cabeza:0,  salto:0, cara:'feliz',  piernas:0, gesto:'saludar',  ritmo:1 },
   posando:   { brazoL:-118, brazoR:118,  cabeza:0,  salto:0, cara:'feliz',  piernas:0, gesto:'mostrar',  ritmo:1.4 },
   bronca:    { brazoL:26,   brazoR:-26,  cabeza:-2, salto:0, cara:'dolor',  piernas:0, gesto:'temblar',  ritmo:.6 },
   agotado:   { brazoL:14,   brazoR:-14,  cabeza:11, salto:0, cara:'triste', piernas:0, gesto:'jadear',   ritmo:1.1 },
   aplaudir:  { brazoL:-46,  brazoR:46,   cabeza:0,  salto:1, cara:'feliz',  piernas:0, gesto:'aplaudir', ritmo:.5 },
-  pensativo: { brazoL:6,    brazoR:-116, cabeza:5,  salto:0, cara:'triste', piernas:0, gesto:'meditar',  ritmo:2.4 },
+  pensativo: { brazoL:8,    brazoR:-88, cabeza:5,  salto:0, cara:'triste', piernas:0, gesto:'meditar',  ritmo:2.4 },
   orgullo:   { brazoL:-16,  brazoR:16,   cabeza:-3, salto:0, cara:'feliz',  piernas:0, gesto:'pecho',    ritmo:1.5 },
   esposado:  { brazoL:-8,   brazoR:8,    cabeza:8,  salto:0, cara:'triste', piernas:3, gesto:'hundirse', ritmo:2.4 },
   rico:      { brazoL:-32,  brazoR:32,   cabeza:-4, salto:0, cara:'feliz',  piernas:0, gesto:'mostrar',  ritmo:1.3 },
   entrenar:  { brazoL:-72,  brazoR:72,   cabeza:0,  salto:1, cara:'normal', piernas:3, gesto:'braceo',   ritmo:.7 },
   // Poses nuevas: el juego repetía cuatro caras para veinte situaciones distintas.
-  llorar:    { brazoL:-104, brazoR:104,  cabeza:12, salto:0, cara:'triste', piernas:0, gesto:'sollozar', ritmo:1.8 },
+  llorar:    { brazoL:-92,  brazoR:92,  cabeza:12, salto:0, cara:'triste', piernas:0, gesto:'sollozar', ritmo:1.8 },
   gol:       { brazoL:-136, brazoR:136,  cabeza:-8, salto:4, cara:'feliz',  piernas:0, gesto:'agitar',   ritmo:.55 },
-  taparse:   { brazoL:-112, brazoR:112,  cabeza:10, salto:0, cara:'dolor',  piernas:0, gesto:'sollozar', ritmo:1.5 },
+  taparse:   { brazoL:-98,  brazoR:98,  cabeza:10, salto:0, cara:'dolor',  piernas:0, gesto:'sollozar', ritmo:1.5 },
   desafiante:{ brazoL:30,   brazoR:-30,  cabeza:-5, salto:0, cara:'dolor',  piernas:0, gesto:'pecho',    ritmo:1 },
   alivio:    { brazoL:-20,  brazoR:20,   cabeza:6,  salto:0, cara:'normal', piernas:0, gesto:'jadear',   ritmo:1.4 },
-  firmar:    { brazoL:6,    brazoR:-64,  cabeza:4,  salto:0, cara:'normal', piernas:0, gesto:'mostrar',  ritmo:1.2 },
+  firmar:    { brazoL:8,    brazoR:-52,  cabeza:4,  salto:0, cara:'normal', piernas:0, gesto:'mostrar',  ritmo:1.2 },
   nervioso:  { brazoL:12,   brazoR:-12,  cabeza:2,  salto:0, cara:'normal', piernas:3, gesto:'temblar',  ritmo:.8 },
   // Poses de vida cotidiana: se sienta, salta, se estira, se seca la frente.
   sentado:   { brazoL:16,   brazoR:-16,  cabeza:2,  salto:0, cara:'normal', piernas:4, gesto:'respirar', ritmo:2.6 },
   saltar:    { brazoL:-120, brazoR:120,  cabeza:-6, salto:6, cara:'feliz',  piernas:0, gesto:'agitar',   ritmo:.45 },
-  estirar:   { brazoL:-150, brazoR:150,  cabeza:-8, salto:0, cara:'normal', piernas:0, gesto:'mostrar',  ritmo:2.2 },
+  estirar:   { brazoL:-134, brazoR:134,  cabeza:-8, salto:0, cara:'normal', piernas:0, gesto:'mostrar',  ritmo:2.2 },
   sofocado:  { brazoL:26,   brazoR:-26,  cabeza:14, salto:0, cara:'triste', piernas:3, gesto:'jadear',   ritmo:.9 },
   bebe:      { brazoL:-58,  brazoR:-58,  cabeza:4,  salto:0, cara:'feliz',  piernas:0, gesto:'respirar', ritmo:2.4 }
 };
@@ -970,7 +970,10 @@ function avatarSprite(av, o){
     const mangaCol = av.traje ? '#1c2230' : (tipo==='stripes' ? alt : base);
     let g = '';
     g += `<rect x="${(b.x*S).toFixed(1)}" y="${(hombroY*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brH*0.34*S).toFixed(1)}" fill="${mangaCol}"/>`;
-    g += `<rect x="${(b.x*S).toFixed(1)}" y="${((hombroY+brH*0.34)*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brH*0.66*S).toFixed(1)}" fill="${P.c}"/>`;
+    // Antebrazo levemente quebrado hacia adentro: sin esto, con los brazos muy
+    // abiertos el miembro quedaba como un palo recto saliendo del hombro.
+    const _cod = (Math.abs(b.ang) > 55) ? (b.i === 0 ? 1 : -1) : 0;
+    g += `<rect x="${((b.x + _cod)*S).toFixed(1)}" y="${((hombroY+brH*0.34)*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brH*0.66*S).toFixed(1)}" fill="${P.c}"/>`;
     g += `<rect x="${(b.x*S).toFixed(1)}" y="${(hombroY*S).toFixed(1)}" width="${(1*S).toFixed(1)}" height="${(brH*S).toFixed(1)}" fill="${P.s}" opacity=".55"/>`;
     // Tatuajes acumulados
     const nt = Math.max(av.tatus||0, av.acc==='tatuajes'?1:0);
@@ -978,7 +981,7 @@ function avatarSprite(av, o){
     if (av.acc==='muneq') g += `<rect x="${(b.x*S).toFixed(1)}" y="${((manoY-1.6)*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(1.6*S).toFixed(1)}" fill="#baff00"/>`;
     // Reloj de oro
     if (av.bling >= 2 && b.i===1) g += `<rect x="${(b.x*S).toFixed(1)}" y="${((manoY-2)*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(2*S).toFixed(1)}" fill="#f5d14e"/>`;
-    g += `<rect x="${(b.x*S).toFixed(1)}" y="${(manoY*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brW*1.1*S).toFixed(1)}" fill="${av.acc==='guantes'?'#f97316':P.c}"/>`;
+    g += `<rect x="${((b.x + _cod)*S).toFixed(1)}" y="${(manoY*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brW*1.1*S).toFixed(1)}" fill="${av.acc==='guantes'?'#f97316':P.c}"/>`;
     // El grupo EXTERNO es el que anima (la clase existía en el CSS pero no estaba
     // aplicada a ningún elemento, así que los brazos nunca se movían: de ahí la
     // sensación de "imagen firme"). El interno mantiene la rotación fija de la pose.
@@ -2038,13 +2041,33 @@ const REPRES = [
               'No firmes nada de imagen a más de cinco años.'] }
 ];
 function repreDeG(){ return REPRES.find(r=>r.id === (G && G.repre)) || null; }
+// Apellidos típicos de cada país: los goleadores de la tabla y la gente del
+// mundo dejan de llamarse todos igual sin importar dónde estés jugando.
+const APELLIDOS_PAIS = {
+  'Uruguay':['Suárez','Cavani','Forlán','Recoba','Francescoli','Godín','Bentancur','Valverde','Núñez','Olivera','Viña','Araújo','Pereyra','Cáceres','Rodríguez','Techera','Lemos','De Arrascaeta'],
+  'Argentina':['Fernández','Gómez','Rodríguez','Álvarez','Paredes','Di María','Otamendi','Romero','Acuña','Molina','Palacios','Ocampos','Correa','Lautaro','Enzo','Mac Allister'],
+  'Brasil':['Silva','Santos','Oliveira','Souza','Pereira','Costa','Almeida','Ribeiro','Carvalho','Gomes','Rodrigues','Barbosa','Fernandes','Cardoso','Nascimento'],
+  'España':['García','Martínez','López','Sánchez','Fernández','Torres','Ramos','Iniesta','Morata','Olmo','Gavi','Pedri','Asensio','Rodri','Llorente'],
+  'Inglaterra':['Smith','Johnson','Williams','Brown','Taylor','Wilson','Bellingham','Foden','Saka','Rice','Stones','Walker','Kane','Grealish'],
+  'Italia':['Rossi','Russo','Ferrari','Esposito','Bianchi','Romano','Colombo','Barella','Verratti','Chiesa','Locatelli','Bastoni','Donnarumma'],
+  'Francia':['Martin','Bernard','Dubois','Moreau','Laurent','Girard','Mbappé','Camavinga','Tchouaméni','Konaté','Coman','Rabiot','Upamecano'],
+  'Alemania':['Müller','Schmidt','Schneider','Fischer','Weber','Wagner','Havertz','Gnabry','Kimmich','Goretzka','Rüdiger','Sané'],
+  'Portugal':['Silva','Santos','Ferreira','Pereira','Costa','Rodrigues','Fernandes','Leão','Dalot','Neves','Palhinha','Félix'],
+  'México':['Hernández','García','Martínez','López','Ramírez','Lozano','Álvarez','Vega','Antuna','Pineda','Ochoa'],
+  'Colombia':['Rodríguez','Gómez','Cuadrado','Díaz','Sánchez','Muñoz','Borré','Lerma','Uribe','Arias','Ospina'],
+  'Chile':['González','Muñoz','Rojas','Díaz','Vidal','Sánchez','Medel','Aránguiz','Isla','Bravo','Pulgar']
+};
+function apellidoDe(pais){
+  const L = APELLIDOS_PAIS[pais];
+  return L ? pick(L) : pick(RIVAL_NOMBRES);
+}
 const RIVAL_NOMBRES = ['Ferreyra','Cardozo','Almeida','Sosa','Benítez','Núñez','Vargas','Ibáñez','Quintana','Bermúdez','Olivera','Rojas','Silveira','Acuña','Zambrano','Da Silva','Moretti','Kovač','Bakayoko','Lindqvist','Van Dijk','Okafor','Petrov','Haaland','Mbeki'];
 function crearRival(pais, pos, nivel){
   // Arranca en un club real del mismo país (no en "cantera rival" genérica).
   const locales = todosClubs().filter(c=>c.pais===pais && c.str>=50 && c.str<=72);
   const c0 = locales.length ? pick(locales) : { name:'Cantera '+pais, str:56, liga:'Amateur '+pais, pais };
   return {
-    nombre: pick(RIVAL_NOMBRES),
+    nombre: apellidoDe(pais),
     pais, pos,
     nivel: clamp(nivel + ri(-3, 5), 40, 70),
     club: c0.name, clubStr: c0.str, liga: c0.liga, clubPais: c0.pais,
@@ -3033,7 +3056,9 @@ function generarIndividuales(liga, semilla, misG, misA){
     const out = [];
     for (let i=0;i<9;i++){
       const c = clubs[Math.floor(rr()*clubs.length)];
-      out.push({ nombre: pick(RIVAL_NOMBRES), club: c[0], n: Math.max(1, Math.round(max*(0.95 - i*0.07) - rr()*3)) });
+      // El apellido acompaña al país de la liga donde estás jugando.
+      const _p = (L && L.pais) || (G && G.clubPais) || 'Uruguay';
+      out.push({ nombre: apellidoDe(_p), club: c[0], n: Math.max(1, Math.round(max*(0.95 - i*0.07) - rr()*3)) });
     }
     return out;
   };
@@ -3552,13 +3577,33 @@ const DECO_ICON = {
   fichaje:   { i:'bx-transfer',       c:['#0f1a0a','#baff00'] },
   final:     { i:'bx-medal',          c:['#241a05','#f59e0b'] }
 };
+// A cada tipo de decisión le corresponde un LUGAR, no un cuadrado de color.
+const DECO_ESCENA = {
+  potrero:'baldio', ojeador:'baldio', fichaje:'oficina', agente:'oficina', dinero:'oficina',
+  contrato:'oficina', sponsor:'oficina', final:'cancha', titulo:'cancha', tactica:'cancha',
+  seleccion:'cancha', prensa:'estudio', redes:'estudio', lesion:'clinica', salud:'clinica',
+  mentoria:'predio', joda:'noche', familia:'casa', vida:'casa'
+};
 function decoImg(tipo){
   if(!tipo) return '';
-  const k=DECO_ICON[tipo] || DECO_ICON.tactica;
-  return `<div style="height:120px;border-radius:12px;overflow:hidden;margin-bottom:12px;background:linear-gradient(135deg,${k.c[0]},#0d0d0d);display:flex;align-items:center;justify-content:center;position:relative;">
-    <div style="position:absolute;inset:0;background:radial-gradient(120% 80% at 30% 20%, ${k.c[1]}22, transparent 60%);"></div>
-    <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0 2px, transparent 2px 12px);"></div>
-    <i class='bx ${k.i}' style="font-size:56px;color:${k.c[1]};filter:drop-shadow(0 4px 14px ${k.c[1]}66);z-index:1;"></i>
+  const k = DECO_ICON[tipo] || DECO_ICON.tactica;
+  const W = 640, H = 150;
+  const cual = DECO_ESCENA[tipo] || 'cancha';
+  let fondo = '';
+  try {
+    fondo = cual === 'baldio'  ? vjFondoBaldio(W,H)
+          : cual === 'cancha'  ? vjFondoCancha(W,H)
+          : cual === 'oficina' ? vjFondoOficina(W,H)
+          : cual === 'casa'    ? vjFondoCasa(W,H)
+          : cual === 'predio'  ? vjFondoPredio(W,H)
+          : cual === 'noche'   ? vjFondoBarrio(W,H)
+          : cual === 'estudio' ? vjFondoLugarRol(W,H)
+          : vjFondoBarrio(W,H);
+  } catch(e){ fondo = ''; }
+  return `<div style="height:120px;border-radius:12px;overflow:hidden;margin-bottom:12px;position:relative;background:#0b0f16;">
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" style="position:absolute;inset:0;width:100%;height:100%;shape-rendering:crispEdges;">${fondo}</svg>
+    <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,11,16,.10),rgba(8,11,16,.72));"></div>
+    <i class='bx ${k.i}' style="position:absolute;right:12px;bottom:10px;font-size:30px;color:${k.c[1]};opacity:.9;filter:drop-shadow(0 2px 8px rgba(0,0,0,.8));"></i>
   </div>`;
 }
 // Trofeo ilustrativo según la liga (img/trofeos/<n>.webp).
@@ -5550,7 +5595,10 @@ const VJ_NOMBRES = ['Ferreyra','Cardozo','Almeida','Sosa','Benítez','Núñez','
 function vjNombreNPC(semilla){
   let h = 0; const t = String(semilla || '');
   for(let i=0;i<t.length;i++) h = (h*31 + t.charCodeAt(i)) >>> 0;
-  return VJ_NOMBRES[h % VJ_NOMBRES.length];
+  // Si estás jugando en otro país, la gente de alrededor tiene apellidos de ahí.
+  const pais = (G && (VJ.escena === 'casa' || VJ.escena === 'barrio' ? G.pais : (G.clubPais || G.pais))) || 'Uruguay';
+  const L = APELLIDOS_PAIS[pais] || VJ_NOMBRES;
+  return L[h % L.length];
 }
 // Vecinos, familiares, dirigentes... cada uno con su cara, estable por nombre.
 function vjSpriteNPC(semilla, ropa, edad, pose){
@@ -5647,6 +5695,11 @@ function casaNivel(){
   return n;
 }
 // Vista por la ventana: dice DÓNDE estás viviendo, no sólo cuánto tenés.
+// Época del juego: cambia lo que se ve en las casas y en la calle.
+function epoca(){
+  const a = (G && G.anio) || 2026;
+  return a >= 2065 ? 3 : a >= 2048 ? 2 : a >= 2035 ? 1 : 0;
+}
 function casaVista(){
   if(!G) return 'barrio';
   const tier = ligaNivel(G.liga || '');
@@ -5747,6 +5800,23 @@ function vjFondoCasa(W,H){
   }
 
   // ── LO QUE COMPRASTE, ADENTRO ──
+  // ÉPOCA: de la tele de tubo al panel gigante y al holograma flotante.
+  const ep = epoca();
+  if (ep >= 1){
+    M(Math.round(W*0.30), pisoY-96, 96, 4, ep>=3 ? '#7dd3fc' : '#2a3140');       // panel colgado
+    M(Math.round(W*0.30), pisoY-94, 96, 40, '#070b12');
+    M(Math.round(W*0.31), pisoY-92, 92, 36, ep>=3 ? '#0d3a4f' : '#16304d');
+  }
+  if (ep >= 2){
+    // Luz ambiental de colores y un dron chico en el aire.
+    o += `<rect x="0" y="${pisoY-8}" width="${W}" height="3" fill="#7dd3fc" opacity=".28"/>`;
+    M(Math.round(W*0.55), 40, 10, 4, '#9aa4b0'); M(Math.round(W*0.55)+2, 44, 6, 2, '#7dd3fc');
+  }
+  if (ep >= 3){
+    // Holograma sobre la mesa.
+    o += `<ellipse cx="${Math.round(W*0.46)}" cy="${pisoY-34}" rx="26" ry="7" fill="#7dd3fc" opacity=".22"/>`;
+    o += `<rect x="${Math.round(W*0.44)}" y="${pisoY-64}" width="24" height="30" fill="#7dd3fc" opacity=".16"/>`;
+  }
   if (tiene('reloj')){ M(W-96,60,26,30,'#1a1408'); M(W-92,64,18,22,'#0b0904'); M(W-86,70,7,9,'#f5d14e'); }
   if (tiene('auto') && nv >= 1){                                              // el auto, por la ventana
     M(vx+8, vy+vh-14, 34, 9, '#3b6ea8'); M(vx+14, vy+vh-20, 20, 7, '#5a8fd0');
@@ -5802,8 +5872,15 @@ function vjFondoBarrio(W,H){
   if (nv <= 1){ M(0,pisoY-118,W,2,'#0d1219'); M(0,pisoY-104,W,1,'#0d1219'); }
   M(0,pisoY,W,H-pisoY,'#22262b'); M(0,pisoY,W,3,'#31363d');
   for(let i=0;i<W;i+=60) M(i,pisoY+6,34,2,'#2b3037');
-  // faroles
-  [150,470,790].forEach(x=>{ M(x,pisoY-96,4,96,'#2f353d'); M(x-8,pisoY-102,20,8,'#f5e6a8'); });
+  // faroles: de la lámpara amarilla al neón frío del futuro
+  const _ep = epoca();
+  const luz = _ep >= 3 ? '#a5f3fc' : _ep >= 2 ? '#dbeafe' : '#f5e6a8';
+  [150,470,790].forEach(x=>{ M(x,pisoY-96,4,96,'#2f353d'); M(x-8,pisoY-102,20,8,luz); });
+  if (_ep >= 2){
+    // Carteles de neón y una vía elevada al fondo.
+    M(240,pisoY-186,120,10,'#7dd3fc'); M(600,pisoY-206,90,8,'#f472b6');
+    if (_ep >= 3){ M(0,pisoY-238,W,6,'#243b55'); for(let i=0;i<W;i+=160) M(i,pisoY-232,70,4,'#7dd3fc'); }
+  }
   // kiosco
   M(560,pisoY-84,120,84,'#20303f'); M(560,pisoY-92,120,10,'#2e4557');
   M(576,pisoY-64,88,40,'#0d1620'); M(582,pisoY-58,34,28,'#f5a524'); M(624,pisoY-58,34,28,'#4fc3f7');
