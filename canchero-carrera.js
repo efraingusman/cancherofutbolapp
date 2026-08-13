@@ -892,8 +892,8 @@ function avatarSprite(av, o){
   // ── TORSO ──
   R(torsoX, torsoY, hombroW, torsoH, base);
   if (tipo === 'stripes'){
-    const ancho = Math.max(2, Math.round(hombroW/6));
-    for (let i = 0; i < hombroW; i += ancho*2) R(torsoX+i, torsoY, ancho, torsoH, alt);
+    const ancho = Math.max(1, Math.round(hombroW/9));
+    for (let i = ancho; i < hombroW-1; i += ancho*2) R(torsoX+i, torsoY, ancho, torsoH, alt);
   } else if (tipo === 'sash'){
     for (let i = 0; i < torsoH; i++){
       const sx = torsoX + Math.round(i * (hombroW/torsoH)) - Math.round(hombroW*0.22);
@@ -1306,7 +1306,7 @@ const CLUB_KITS = {
   'Vitória':['#c8102e','#000000','stripes'], 'Juventude':['#1f7a3d','#ffffff','stripes'],
   // España
   'Real Madrid':['#ffffff','#d4af37','solid'], 'Barcelona':['#0d2b6b','#a50044','stripes'],
-  'Atlético':['#ffffff','#c8102e','stripes'], 'Sevilla':['#ffffff','#c8102e','solid'],
+  'Atlético':['#c8102e','#ffffff','stripes'], 'Sevilla':['#ffffff','#c8102e','solid'],
   'Valencia':['#ffffff','#f5820d','solid'], 'Real Sociedad':['#ffffff','#1b6ec2','stripes'],
   'Villarreal':['#f5d800','#1a3d8f','solid'], 'Betis':['#1f7a3d','#ffffff','stripes'],
   'Athletic':['#ffffff','#c8102e','stripes'], 'Girona':['#c8102e','#ffffff','stripes'],
@@ -2112,7 +2112,9 @@ window._carreraFichar = function(i){
   const base = d.pos==='POR'?48:50;
   // Bonus del POTRERO (10-15 años): decisiones infantiles suman/restan nivel inicial.
   const potBonus = d._potBonus || 0;
-  const nivelInicial = clamp(base + potBonus, 40, 62);
+  // Hijo de futbolista: algo se hereda (y algo pesa).
+  const heredado = d.legado ? Math.round(Math.min(6, (d.legado.nivelMax - 70) / 5) + Math.min(4, (d.legado.titulos||0))) : 0;
+  const nivelInicial = clamp(base + potBonus + Math.max(0, heredado), 40, 66);
   G = {
     apellido:d.apellido, num:d.num, pie:d.pie, pais:d.pais, pos:d.pos, years:d.years,
     edad:15, nivel:nivelInicial, club:c.name, liga:c.liga, clubStr:c.str, clubPais:c.pais,
@@ -2131,7 +2133,13 @@ window._carreraFichar = function(i){
     // (traidor, dopado, ludopata, carcel, filantropo, doblenac, mediatico, leal...)
     flags:{},
     // NÉMESIS: te acompaña toda la carrera compitiendo por los mismos focos.
-    rival: crearRival(d.pais, d.pos, nivelInicial),
+    legado: d.legado || null,
+    rival: (function(){
+      const r = crearRival(d.pais, d.pos, nivelInicial);
+      // Si venís del legado, tu rival es el hijo del rival de tu viejo.
+      if (d.legado && d.legado.rival) r.nombre = d.legado.rival;
+      return r;
+    })(),
     // Legado del potrero: estilo elegido (crack/killer/guerrero) + bonus aplicado.
     estilo: d._potStyle || null, potBonus,
     // Avatar 8-bit diseñado por el jugador (evoluciona con la edad y el club).
@@ -2708,6 +2716,10 @@ function _finTemporada(ctx){
   G.temporada++; G.edad++; G.anio = (G.anio||2026) + 1;
   // El cuerpo acusa el paso del tiempo: entradas, canas, anteojos.
   avEnvejecer(G.edad);
+  // Los chicos crecen un año por temporada, no solo después del retiro.
+  const _fam = G.familia || {};
+  (_fam.hijos||[]).forEach(h=> h.edad = (h.edad||0) + 1);
+  (_fam.nietos||[]).forEach(n=> n.edad = (n.edad||0) + 1);
   // Las lesiones se curan solas al pasar la temporada.
   if(G.avatar){ G.avatar.vendaje = false; G.avatar.muletas = false; }
   G._mercadoHecho = false;
@@ -3833,7 +3845,7 @@ const EVENTOS=[
     { txt:'Rechazar y seguir limpio', ef:g=>{ g.moral+=6; return 'Buena decisión. Tu carrera va por buen camino.'; } } ] },
   // ══ ASPECTO — decisiones que dejan MARCA VISIBLE permanente en el avatar ════
   { t:'Se te está cayendo el pelo', img:'prensa', minAge:27, noFlag:'implante', d:'Te mirás en el espejo del vestuario y las entradas ya no se disimulan con nada. Los compañeros empezaron con las cargadas.', opts:[
-    { txt:'Injerto capilar en Turquía', ef:g=>{ g.dinero=Math.max(0,(g.dinero||0)-18000); g.flags=g.flags||{}; g.flags.implante=true; avMutar({implante:true, calvicie:-3}); return 'Volviste de Estambul con la cabeza vendada y el pelo nuevo. En dos meses no te reconocía nadie.'; } },
+    { txt:'Injerto capilar en Turquía',  ef:g=>{ g.dinero=Math.max(0,(g.dinero||0)-18000); g.flags=g.flags||{}; g.flags.implante=true; avMutar({implante:true, calvicie:-3}); return 'Volviste de Estambul con la cabeza vendada y el pelo nuevo. En dos meses no te reconocía nadie.'; } },
     { txt:'Raparme y asumirlo', ef:g=>{ g.moral+=6; avMutar({pelo:'rapado', calvicie:1}); return 'Te rapaste al cero y te quedó bien. Dejaste de pensar en eso para siempre.'; } },
     { txt:'Disimularlo como pueda', ef:g=>{ g.moral-=3; avMutar({calvicie:1}); return 'Gorra en toda foto y peinado estratégico. Todos se dan cuenta igual.'; } } ] },
   { t:'Te querés tatuar', img:'joda', minAge:19, d:'Un tatuador famoso te ofrece hacerte una manga completa. Es para siempre.', opts:[
@@ -5504,6 +5516,7 @@ function vjEdad(){
 function vjRopa(){
   // Si te vestiste vos, mandás vos — salvo adentro de una cancha, donde va el kit.
   const enCancha = ['baldio','predio','cancha'].indexOf(VJ.escena) >= 0;
+  if (G && G.gestion && G.gestion.esSeleccion && VJ.escena === 'trabajo') return 'traje';
   if (G && G.ropaElegida && !enCancha && !(G.avatar && G.avatar.preso)) return G.ropaElegida;
   if (VJ.mundo === 'potrero') return VJ.escena === 'baldio' ? null : 'calle';
   if (VJ.mundo === 'juveniles') return VJ.escena === 'pension' ? 'calle' : null;
@@ -6029,7 +6042,7 @@ const VIDA_SUCESOS = {
     { t:'Se agranda la familia', d:'Tu pareja te dice que viene un hijo en camino.', req:g=>!!(g.familia&&g.familia.pareja), opts:[
       { txt:'Salir corriendo a comprar la cuna', ef:(s,g)=>{ (g.familia.hijos=g.familia.hijos||[]).push({ nombre:pick(['Bruno','Vale','Nico','Emma','Joaco','Lucía','Tomás','Mía']), edad:0 }); s.felicidad=(s.felicidad||50)+18; s.familia=(s.familia||50)+22; s.soledad=(s.soledad||40)-25; return 'Nació. Te temblaban las manos más que antes de un penal. Nada de lo que ganaste se le parece.'; } },
       { txt:'Tomarlo con miedo y hacerte el fuerte', ef:(s,g)=>{ (g.familia.hijos=g.familia.hijos||[]).push({ nombre:pick(['Ana','Beto','Ciro','Sol','Iván']), edad:0 }); s.felicidad=(s.felicidad||50)+9; s.familia=(s.familia||50)+14; return 'Tardaste en caer. Cuando lo tuviste en brazos entendiste que no había con qué compararlo.'; } } ] },
-    { t:'Te querés casar', d:'Después de años, alguien te propone dar el paso. O lo proponés vos.', req:g=>!(g.familia&&g.familia.casado), opts:[
+    { t:'Te querés casar', edadMax:66, d:'Después de años, alguien te propone dar el paso. O lo proponés vos.', req:g=>!(g.familia&&g.familia.casado), opts:[
       { txt:'Casarme', ef:(s,g)=>{ g.familia = g.familia||{}; g.familia.casado = true; g.familia.pareja = g.familia.pareja || pick(['Carla','Rocío','Diego','Martín','Flor','Ana']); s.felicidad=(s.felicidad||50)+16; s.familia=(s.familia||50)+20; s.soledad=(s.soledad||40)-22; return 'Fiesta chica, la gente que importa. Por una vez, ninguna cámara.'; } },
       { txt:'Todavía no', ef:(s,g)=>{ s.soledad=(s.soledad||40)+10; s.felicidad=(s.felicidad||50)-4; return 'Lo dejaste para más adelante. "Más adelante" es una palabra peligrosa.'; } } ] },
     { t:'Se te fue alguien', d:'Una llamada de madrugada. Se murió alguien de los tuyos.', peso:'duro', opts:[
@@ -6063,6 +6076,14 @@ const VIDA_SUCESOS = {
       { txt:'Llevarlo a la canchita todos los sábados', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+18; s.familia=(s.familia||50)+14; s.salud=(s.salud||70)+4; return 'Sábado tras sábado, con el termo y la pelota gastada. Es lo mejor que te pasó después del fútbol.'; } },
       { txt:'Pagarle la mejor escuelita', ef:(s,g)=>{ g.dinero=Math.max(0,(g.dinero||0)-ri(5000,25000)); s.familia=(s.familia||50)+6; return 'Va a la mejor academia de la ciudad. Lo ves por video.'; } } ],
       d:'Tu nieto agarró la pelota y no la suelta. Quiere que le enseñes vos.' },
+    { t:'Tu hijo pisa una cancha por primera vez', req:g=>((g.familia||{}).hijos||[]).some(h=>(h.edad||0)>=5&&(h.edad||0)<=9), opts:[
+      { txt:'Llevarlo al club y bancarlo', ef:(s,g)=>{ const h=((g.familia||{}).hijos||[]).find(x=>(x.edad||0)>=5); if(h) h.futbol=true; s.familia+=14; s.felicidad+=12; return (h?h.nombre:'Tu hijo')+' pidió la camiseta tuya para dormir. Empezó a entrenar.'; } },
+      { txt:'Dejar que elija otra cosa', ef:(s,g)=>{ s.familia+=8; s.felicidad+=6; return 'Le compraste una guitarra. Nunca le pesó tu apellido.'; } } ],
+      d:'Uno de tus hijos agarró la pelota y no la suelta.' },
+    { t:'A tu hijo lo prueban en un club', req:g=>((g.familia||{}).hijos||[]).some(h=>h.futbol&&(h.edad||0)>=13), opts:[
+      { txt:'Aconsejarlo con todo lo que aprendí', ef:(s,g)=>{ const h=((g.familia||{}).hijos||[]).find(x=>x.futbol); if(h){ h.nivel=(h.nivel||50)+8; } s.familia+=16; return 'Le contaste los errores que cometiste vos. Quedó. Y quedó por lo suyo.'; } },
+      { txt:'No meterme, que aprenda solo', ef:(s,g)=>{ const h=((g.familia||{}).hijos||[]).find(x=>x.futbol); if(h){ h.nivel=(h.nivel||50)+3; } s.familia+=4; return 'Se la bancó solo. Le costó más, pero es todo suyo.'; } } ],
+      d:'Tu apellido abre puertas y también pesa. Hoy le toca a él.' },
     { t:'Tu hijo quiere jugar al fútbol', d:'Uno de tus hijos te pide que lo lleves a probarse. Lleva tu apellido y eso pesa.', req:g=>!!(g.familia&&(g.familia.hijos||[]).length), opts:[
       { txt:'Llevarlo y no meterme en nada', ef:(s,g)=>{ s.familia=(s.familia||50)+16; s.felicidad=(s.felicidad||50)+10; return 'Lo dejaste hacer su camino sin tu sombra encima. Te lo va a agradecer toda la vida.'; } },
       { txt:'Mover mis contactos', ef:(s,g)=>{ const b=Math.random()<.45; s.familia=(s.familia||50)+(b?8:-16); s.felicidad=(s.felicidad||50)+(b?6:-12); return b?'Le abriste una puerta y la aprovechó él solo.':'Se le hizo insoportable el peso de tu apellido. Dejó a los 17 y te lo echó en cara.'; } } ] }
@@ -6105,6 +6126,14 @@ const VIDA_SUCESOS = {
       d:'Cambiaron las reglas: hay árbitros automáticos y los partidos duran menos.' }
   ],
   social: [
+    { t:'Se termina el matrimonio', req:g=>!!(g.familia&&g.familia.casado), opts:[
+      { txt:'Separarnos en buenos términos', ef:(s,g)=>{ g.familia.casado=false; g.familia.exPareja=g.familia.pareja; g.familia.pareja=null; s.felicidad-=12; s.soledad+=20; return 'Se terminó sin gritos. Siguen hablando por los chicos.'; } },
+      { txt:'Pelear por todo', ef:(s,g)=>{ g.familia.casado=false; g.familia.exPareja=g.familia.pareja; g.familia.pareja=null; g.dinero=Math.max(0,(g.dinero||0)-ri(50000,400000)); s.felicidad-=22; s.soledad+=26; s.familia-=18; return 'Abogados, dos años de juicio y media fortuna. Nadie ganó.'; } } ],
+      d:'Hace rato que no se hablan. Uno de los dos lo dice en voz alta.' },
+    { t:'Volvés a enamorarte', req:g=>!!(g.familia&&!g.familia.pareja&&(g.familia.exPareja||g.familia.viudo)), opts:[
+      { txt:'Darle una oportunidad', ef:(s,g)=>{ g.familia.pareja=pick(['Marta','Elena','Rosa','Jorge','Andrés','Cecilia']); g.familia.casado=true; s.felicidad+=20; s.soledad-=26; return 'A esta altura ya no se busca a nadie: aparece. Y apareció.'; } },
+      { txt:'Prefiero mi tranquilidad', ef:(s,g)=>{ s.soledad+=8; s.felicidad+=4; return 'Elegiste tu rutina. Hay una paz en eso también.'; } } ],
+      d:'Alguien te mira distinto en el club social.' },
     { t:'Homenaje en tu viejo club', d:'Te llaman para hacerte un homenaje en el estadio donde debutaste.', opts:[
       { txt:'Ir y dar la vuelta olímpica', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+20; s.soledad=(s.soledad||40)-14; return 'El estadio entero cantó tu nombre. Lloraste como un pibe en el medio de la cancha.'; } },
       { txt:'Agradecer y no ir', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)-6; s.soledad=(s.soledad||40)+10; return 'No fuiste. Después viste el video y te arrepentiste.'; } } ] },
@@ -6118,11 +6147,15 @@ const VIDA_SUCESOS = {
 // pleno campeonato, un juicio que te come la cabeza).
 const SUCESOS_JUGADOR = {
   familia: [
+    { t:'Conocés a alguien', edadMin:18, req:g=>!((g.familia||{}).pareja), opts:[
+      { txt:'Jugármela', ef:(s,g)=>{ g.familia=g.familia||{}; g.familia.pareja=pick(["Carla","Rocío","Flor","Ana","Diego","Martín","Lucía","Sofía"]); s.felicidad+=14; s.soledad-=18; return "Empezaron a salir. Por primera vez en años pensás en algo que no es fútbol."; } },
+      { txt:'Ahora no, estoy en otra', ef:(s,g)=>{ s.soledad+=10; s.felicidad-=4; return "Dijiste que no había tiempo. Es la excusa de siempre."; } } ],
+      d:'Alguien te viene rondando hace rato y hoy se anima a decírtelo.' },
     { t:'Nace tu primer hijo en plena temporada', edadMin:20, req:g=>!!(g.familia&&g.familia.pareja), opts:[
       { txt:'Pedir permiso y estar en el parto', ef:(s,g)=>{ (g.familia.hijos=g.familia.hijos||[]).push({ nombre:pick(['Bruno','Valen','Nico','Emma','Joaco','Lucía','Tomás','Mía']), edad:0 }); s.felicidad+=20; s.familia+=24; s.soledad-=20; g.moral=clamp((g.moral||60)+8,0,100); g._momentoVisual='bebe'; g._pedirNombreHijo=true; return 'Te perdiste un partido y estuviste ahí. Después metiste gol y señalaste a la tribuna. Nadie te lo discutió.'; } },
       { txt:'Jugar igual, es un partido clave', ef:(s,g)=>{ (g.familia.hijos=g.familia.hijos||[]).push({ nombre:pick(['Ana','Beto','Ciro','Sol','Iván']), edad:0 }); s.felicidad+=6; s.familia-=12; g.nivel=clamp((g.nivel||60)+1,30,99); g._momentoVisual='bebe'; g._pedirNombreHijo=true; return 'Jugaste. Ganaron. Llegaste a la clínica a las dos de la mañana y te lo vas a reprochar mucho tiempo.'; } } ],
       d:'Tu pareja rompió bolsa y hay partido decisivo en 36 horas.' },
-    { t:'Casarte en pleno campeonato', edadMin:21, req:g=>!(g.familia&&g.familia.casado), opts:[
+    { t:'Casarte en pleno campeonato', edadMin:21, edadMax:38, req:g=>!(g.familia&&g.familia.casado), opts:[
       { txt:'Casarme ahora, la vida es una', ef:(s,g)=>{ g.familia=g.familia||{}; g.familia.casado=true; g.familia.pareja=g.familia.pareja||pick(['Carla','Rocío','Diego','Martín','Flor','Ana']); s.felicidad+=18; s.familia+=22; s.soledad-=24; g.moral=clamp((g.moral||60)+6,0,100); g._momentoVisual='boda'; return 'Fiesta en enero, luna de miel de cuatro días y a la pretemporada. Volviste liviano.'; } },
       { txt:'Esperar a que termine el torneo', ef:(s,g)=>{ s.familia-=10; s.felicidad-=6; g.nivel=clamp((g.nivel||60)+1,30,99); return 'Postergaste. El torneo terminó, después vino otro, y después otro.'; } } ],
       d:'Quieren casarse, pero estás peleando el campeonato y el club no larga a nadie.' },
@@ -6460,6 +6493,8 @@ function vjHotspotsClub(){
     // TU VIDA PRIVADA, mientras seguís jugando. Acá están los tuyos, y acá pasan
     // los nacimientos, los casamientos, los robos y las malas noticias.
     const fam = G.familia = G.familia || {};
+    if (!fam.pareja) out.push({ x:288, tipo:'obj', obj:'tele', escala:0.9, lbl:'Salir, ver gente, hacer vida',
+      accion:'suceso', cat:'familia', icono:'bx-heart' });
     if (fam.pareja) out.push({ x:288, tipo:'npc', semilla:'pareja'+fam.pareja, ropa:'calle', edad:Math.max(18,(G.edad||24)-1),
       lbl:'Hablar con ' + esc(fam.pareja), accion:'suceso', cat:'familia', icono:'bx-heart', nombre:esc(fam.pareja), rol:'tu pareja' });
     (fam.hijos||[]).slice(0,3).forEach((h,i)=> out.push({ x:370+i*56, tipo:'npc', semilla:'hijo'+h.nombre, ropa:'calle',
@@ -6467,6 +6502,9 @@ function vjHotspotsClub(){
       nombre:esc(h.nombre), rol:'tu hijo' }));
     out.push({ x:566, tipo:'obj', obj:'tele', lbl:'Ver los goles de la fecha', accion:'descansarCasa', icono:'bx-tv' });
     out.push({ x:646, tipo:'obj', obj:'ropero', escala:1.5, lbl:'Ropero — cambiarte', accion:'ropero', icono:'bx-closet' });
+    // La cuna aparece cuando hay un bebé de verdad en la casa.
+    if ((fam.hijos||[]).some(h=>(h.edad||0) <= 2))
+      out.push({ x:200, tipo:'obj', obj:'cuna', escala:1.4, lbl:'Estar con el bebé', accion:'suceso', cat:'familia', icono:'bx-heart' });
     out.push({ x:700, tipo:'npc', semilla:'vecino'+(G.apellido||''), ropa:'calle', edad:46,
       lbl:'La gente del barrio', accion:'suceso', cat:'social', icono:'bx-conversation', rol:'vecino' });
     out.push({ x:812, tipo:'obj', obj:'kiosco', lbl:'Papeles, plata y quilombos', accion:'suceso', cat:'dinero', icono:'bx-wallet' });
@@ -6520,6 +6558,10 @@ function vjObjSVG(tipo, escala){
     case 'trabajo':return wrap(64,50, R(0,26,64,24,'#2a2118')+R(0,22,64,5,'#443521')+R(8,4,30,20,'#0d1620')+R(11,7,24,14,'#2a6ba8')+R(44,10,14,14,'#d4af37'));
     case 'descanso':return wrap(46,52, R(6,10,34,42,'#2f3a2a')+R(10,14,26,10,'#4a5a40')+R(18,26,10,20,'#8fae74')+R(0,48,46,4,'#1b2117'));
     case 'cartel': return wrap(56,56, R(24,20,8,36,'#3a3a3a')+R(0,0,56,24,'#4a3a12')+R(4,4,48,16,'#f5c542'));
+    case 'cuna': return wrap(46,34,
+        R(2,10,42,24,'#8b6d4a')+R(0,6,46,5,'#a3855e')+R(6,14,34,16,'#efe6d4')
+        +R(14,16,18,7,'#dda877')+R(18,18,3,3,'#16130f')+R(26,18,3,3,'#16130f')
+        +R(2,30,4,4,'#6b5238')+R(40,30,4,4,'#6b5238'));
     case 'ropero': return wrap(40,54,
         R(0,0,40,54,'#3a2a1c')+R(2,2,17,50,'#4a3626')+R(21,2,17,50,'#4a3626')
         +R(17,24,3,6,'#c9a227')+R(20,24,3,6,'#c9a227')
@@ -6574,10 +6616,11 @@ function vjPisoPct(){
 function vjHud(){
   if (VJ.mundo === 'vida'){
     const R = VIDA_ROLES[G.vidaRol] || VIDA_ROLES.disfrutar;
+    const _sel = !!(G.gestion && G.gestion.esSeleccion);
     const L = VIDA_LAPSOS[G.vidaLapso] || VIDA_LAPSOS[VIDA_LAPSOS.length-1];
     const s = G.vidaStats || {};
-    return { titulo:`${esc(G.apellido||'')} · ${G.vidaEdad} años`,
-      sub:`${esc(R.n)}${(G.gestion&&G.gestion.club&&!G.gestion.sinTrabajo)?(' · '+esc(G.gestion.club)):(G.gestion&&G.gestion.sinTrabajo?' · SIN CLUB':'')}${G.vidaPausa>0?' · DE LICENCIA':''} · ${esc(L.lbl)}`, color:R.color,
+    return { titulo:`${(G.gestion&&G.gestion.esSeleccion)?flagImg(G.pais,15)+' ':''}${esc(G.apellido||'')} · ${G.vidaEdad} años`,
+      sub:`${G.anio||''} · ${esc(R.n)}${(G.gestion&&G.gestion.club&&!G.gestion.sinTrabajo)?(' · '+esc(G.gestion.club)):(G.gestion&&G.gestion.sinTrabajo?' · SIN CLUB':'')}${G.vidaPausa>0?' · DE LICENCIA':''}`, color:R.color,
       datos:R.barras.map(b=>[b[0], Math.round(s[b[1]]||0), b[2]]) };
   }
   if (VJ.mundo === 'potrero'){
@@ -6597,7 +6640,7 @@ function vjHud(){
       datos:[['FELICIDAD', Math.round(ps.felicidad||0), '#a78bfa'], ['FAMILIA', Math.round(ps.familia||0), '#f472b6'],
              ['SOLEDAD', Math.round(ps.soledad||0), '#94a3b8'], ['SALUD', Math.round(ps.salud||0), '#22c55e']] };
   }
-  return { titulo:`${esc(G.apellido||'')} · ${G.edad} años`, sub:`${esc(G.club)} · TEMPORADA ${G.temporada||1}`,
+  return { titulo:`${esc(G.apellido||'')} · ${G.edad} años`, sub:`${G.anio||''} · ${esc(G.club)} · TEMPORADA ${G.temporada||1}`,
     color:A, datos:[['NIVEL', Math.round(G.nivel), A], ['MORAL', Math.round(G.moral), '#22c55e'],
       ['FAMA', Math.round(G.fama), '#facc15'], ['DINERO', eur(G.dinero||0), '#4ade80']] };
 }
@@ -7211,17 +7254,49 @@ const VJ_CHARLAS = {
     '"El de la tribuna de arriba te putea todos los domingos y después te pide una foto."'
   ]
 };
+// Generador local: arma la frase combinando arranque + tema + cierre, con datos
+// reales de tu partida. Sin llamadas de red y sin repetirse.
+const HABLA = {
+  arranque:['Che,','Escuchame,','Te digo una cosa:','Mirá,','Entre nosotros,','La verdad,','Nada,'],
+  cierre:['¿o no?','y punto.','...en fin.','pero bueno.','así es esto.','te lo digo yo.','y no lo digo por decir.', ''],
+  temas:{
+    potrero:['acá el que no corre no juega','mi vieja me mata si llego tarde otra vez','en la otra cuadra dicen que nos ganan',
+      'la pelota está pinchada de nuevo','el que hace el último gol se la lleva','si sigo así me van a ver'],
+    juveniles:['el técnico anotó algo cuando te vio','en la pensión no se duerme, se sobrevive','este año suben dos, nada más',
+      'te vi hacer eso en el entrenamiento y me quedé duro','si te lesionás ahora, adiós','llamá a tu casa, en serio'],
+    club:['el domingo hay que dejar todo','la gente te tiene fe','en el vestuario se habla mucho y se dice poco',
+      'el que juega tranquilo dura más','si ganamos esta, cambia el año','a vos te miran de afuera, se nota'],
+    vida:['el tiempo pasó volando','todavía te recuerdan por aquel gol','uno se acostumbra a todo menos a no jugar',
+      'los pibes de ahora no saben lo que era eso','hay que moverse, quedarse quieto mata']
+  }
+};
+function vjFraseViva(cat){
+  const T = HABLA.temas[cat] || HABLA.temas.vida;
+  const ctx = [];
+  if (G && G.club) ctx.push('en ' + G.club + ' te siguen de cerca');
+  if (G && (G.titulos||0) >= 3) ctx.push('con lo que ganaste ya podés hablar de igual a igual');
+  if (G && (G.moral||60) < 40) ctx.push('te veo la cara, no me digas que estás bien');
+  if (G && G.familia && G.familia.pareja) ctx.push('¿cómo anda ' + G.familia.pareja + '?');
+  if (G && (G.familia||{}).hijos && G.familia.hijos.length) ctx.push('el pibe está grande ya, ¿eh?');
+  const pool = T.concat(ctx);
+  return (pick(HABLA.arranque) + ' ' + pool[Math.floor(Math.random()*pool.length)] + ' ' + pick(HABLA.cierre)).replace(/\s+/g,' ').trim();
+}
 function vjCharla(h, cat){
+  // Mitad del repertorio escrito, mitad generado al momento: nunca dos veces igual.
   const pool = VJ_CHARLAS[cat] || VJ_CHARLAS.club;
-  const clave = '_ch_' + cat;
-  const cont = (G || _draft || {});
-  const usados = cont[clave] = cont[clave] || [];
-  let libres = pool.map((_,i)=>i).filter(i=>usados.indexOf(i)<0);
-  if(!libres.length){ cont[clave] = []; libres = pool.map((_,i)=>i); }
-  const idx = libres[Math.floor(Math.random()*libres.length)];
-  cont[clave].push(idx);
+  const quien = (h && (h.nombre || h.rol)) ? ((h.nombre || h.rol) + ': ') : '';
+  if (typeof window.CANCHERO_LEYENDA_IA === 'function'){
+    try {
+      Promise.resolve(window.CANCHERO_LEYENDA_IA({ tipo:'charla', con:(h&&h.rol)||'alguien', mundo:VJ.mundo,
+        escena:VJ.escena, edad:vjEdad(), club:(G&&G.club)||null, animo:(G&&G.moral)||60 }))
+        .then(t=>{ if(t) vjFlash(quien + '"' + String(t).slice(0,140) + '"'); })
+        .catch(()=> vjFlash(quien + '"' + vjFraseViva(cat) + '"'));
+      return;
+    } catch(e){}
+  }
+  const frase = Math.random() < 0.55 ? vjFraseViva(cat) : pick(pool);
   if (G) save();
-  vjFlash(pool[idx]);
+  vjFlash(quien + '"' + frase + '"');
 }
 // Telon de fondo con el escenario actual. Las pantallas de dialogo y de
 // resultado quedaban sobre negro y el personaje parecia flotar en el vacio.
@@ -7236,6 +7311,17 @@ function fondoEscenaHTML(){
   }catch(e){ return ''; }
 }
 // Escenas especiales para los momentos que merecen verse, no solo leerse.
+// La pareja siempre se dibuja igual y con su propio aspecto.
+function vjSpritePareja(pose, embarazada, escala){
+  const fam = (G && G.familia) || {};
+  const nom = fam.pareja || 'pareja';
+  let h=0; for(let i=0;i<nom.length;i++) h=(h*31+nom.charCodeAt(i))>>>0;
+  const av = { piel: AV_PIELES[h%AV_PIELES.length].id, pelo: ['largo','colita','afro','rastas'][(h>>>3)%4],
+    peloColor: AV_COLORES_PELO[(h>>>6)%AV_COLORES_PELO.length].id, barba:0, acc:'nada',
+    calvicie:0, canas:0, cicatriz:0, peso: embarazada ? 1 : 0, tatus:0, bling:0 };
+  const edad = Math.max(20, ((VJ.mundo==='vida'?(G.vidaEdad||40):(G.edad||25)) - 2));
+  return avatarSprite(av, { edad, escala:escala||3, pose:pose||'idle', ropa:'calle', num:'', apellido:'' });
+}
 function vjEscenaEspecial(){
   if(!G || !G._momentoVisual) return '';
   const tipo = G._momentoVisual; G._momentoVisual = null;
@@ -7244,7 +7330,8 @@ function vjEscenaEspecial(){
   const yo = (pose) => avatarSprite(G.avatar, { edad, escala:3, pose, ropa:(tipo==='boda'?'traje':(vjRopa()||undefined)), num:'', apellido:'' });
   if (tipo === 'bebe'){
     const bebeNombre = ((fam.hijos||[])[(fam.hijos||[]).length-1]||{}).nombre || '';
-    return `<div style="display:flex;align-items:flex-end;justify-content:center;gap:4px;position:relative;">
+    return `<div style="display:flex;align-items:flex-end;justify-content:center;gap:6px;position:relative;">
+      <div style="line-height:0;">${vjSpritePareja('orgullo', false, 3)}</div>
       <div style="line-height:0;">${yo('bebe')}</div>
       <!-- el bebe, en brazos -->
       <div style="position:absolute;left:50%;bottom:44%;transform:translateX(-14px);line-height:0;">
@@ -7260,7 +7347,7 @@ function vjEscenaEspecial(){
   if (tipo === 'boda'){
     return `<div style="display:flex;align-items:flex-end;justify-content:center;gap:2px;">
       <div style="line-height:0;">${yo('orgullo')}</div>
-      <div style="line-height:0;">${vjSpriteNPC('pareja'+(fam.pareja||''), 'traje', Math.max(20, edad-2), 'orgullo')}</div>
+      <div style="line-height:0;">${vjSpritePareja('orgullo', false, 3)}</div>
     </div>`;
   }
   return '';
@@ -7440,9 +7527,12 @@ window._vjGestion = function(){
   let titulo = ar.txt, texto = '', ops = [];
   if (ar.id === 'club'){
     const cand = clubesParaDirigir();
-    texto = rol === 'dt' ? 'Estás sin equipo. Tres proyectos te llamaron.' : 'Estás sin lugar. Tres puertas abiertas.';
+    texto = (g.anios>0 ? 'Otra vez sin equipo. ' : 'Estás sin equipo. ') + (rol==='dt' ? 'Estos proyectos te llamaron.' : 'Estas puertas se abrieron.');
     ops = cand.map((c,i)=>({ txt: c.name + ' — ' + c.liga + ' (nivel ' + c.str + ')', dato:i }));
+    if (rol === 'dt' && (g.titulos||0) >= 2 && !g.esSeleccion)
+      ops.push({ txt:'Dirigir a la selección de ' + esc(G.pais), dato:'seleccion' });
     ops.push({ txt:'Esperar algo mejor', dato:-1 });
+    if ((G.vidaEdad||40) >= 60) ops.push({ txt:'Colgar el buzo: me retiro de esto', dato:'retiro' });
   } else if (ar.id === 'crisis'){
     texto = 'La dirigencia de ' + esc(g.club) + ' se juntó a hablar de vos. Los resultados no acompañan y la presión está al límite.';
     ops = [{ txt:'Pararme firme y pedir refuerzos', dato:'firme' },
@@ -7488,9 +7578,18 @@ window._vjGestionElegir = function(tipo, dato, idx){
   const g = gestionAsegurar(), s = G.vidaStats || {}, rol = G.vidaRol;
   let res = '';
   if (tipo === 'club'){
-    if (dato === -1){
+    if (dato === 'retiro'){
+      G.vidaRol = 'disfrutar'; G.vidaStats = vidaInit('disfrutar'); G.gestion = null;
+      res = 'Colgaste el buzo. Se terminó el oficio y arranca otra cosa.';
+      (G._vjHechos = G._vjHechos||{}).lapso = true;
+    } else if (dato === 'seleccion'){
+      g.club = 'Selección de ' + (G.pais||'Uruguay'); g.str = 80; g.liga = 'Selección'; g.pais = G.pais;
+      g.esSeleccion = true; g.sinTrabajo = false; g.anios = 0;
+      s.presion = clamp((s.presion||45) + 20, 0, 100);
+      res = 'Vas a dirigir a tu país. Traje, escudo en el pecho y un país entero mirándote.';
+    } else if (dato === -1){
       g.sinTrabajo = true; s.felicidad = clamp((s.felicidad||50) - 6, 0, 100);
-      res = 'Dijiste que no a los tres. El teléfono puede tardar en volver a sonar.';
+      res = 'Dijiste que no. El teléfono puede tardar en volver a sonar.';
       (G._vjHechos = G._vjHechos||{}).lapso = true;
     } else {
       const cand = clubesParaDirigir();
@@ -7539,6 +7638,56 @@ window._vjGestionElegir = function(tipo, dato, idx){
       <div style="font-size:15px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:18px;">${esc(res)}</div>
       <button onclick="window._vidaJugable()" style="background:linear-gradient(135deg,${_avShade(R.color,-70)},${R.color});color:#05070a;border:none;border-radius:13px;padding:14px 30px;font-weight:900;font-size:14.5px;cursor:pointer;">VOLVER <i class='bx bx-right-arrow-alt'></i></button>
     </div>
+  </div>`;
+};
+// ── EL LEGADO: empezar de nuevo, siendo tu hijo ──────────────────────────────
+window._legadoOferta = function(){
+  if(!G) return;
+  const hijos = ((G.familia||{}).hijos||[]).filter(h=>h.futbol) ;
+  const cand = hijos.length ? hijos : ((G.familia||{}).hijos||[]);
+  const m = document.getElementById('carrera-modal') || overlay();
+  if(!cand.length){ retiro(); return; }
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:40px 20px 40px;text-align:center;">
+    <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:${A};margin-bottom:10px;">EL LEGADO</div>
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;line-height:1.15;margin-bottom:12px;">Tu historia terminó.<br>La de ellos empieza.</div>
+    <div style="font-size:13.5px;color:#c4ccc0;line-height:1.6;margin-bottom:20px;">Podés seguir jugando con un hijo tuyo. Arranca de cero, en su potrero, con su propio camino — pero cargando tu apellido y todo lo que hiciste.</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      ${cand.map((h,i)=>`<button onclick="window._legadoJugar(${i})" style="display:flex;align-items:center;gap:12px;background:rgba(186,255,0,.08);border:1.5px solid rgba(186,255,0,.35);border-radius:15px;padding:14px;cursor:pointer;text-align:left;">
+        <div style="line-height:0;flex-shrink:0;">${vjSpriteNPC('hijo'+h.nombre,'calle',Math.max(12,h.edad||16),'idle')}</div>
+        <div><div style="font-size:16px;font-weight:900;color:#fff;">${esc(h.nombre)} ${esc(G.apellido||'')}</div>
+        <div style="font-size:11.5px;color:#9aa294;">${h.futbol?'Ya juega. ':'Nunca pisó una cancha en serio. '}${(h.edad||0)} años</div></div>
+      </button>`).join('')}
+    </div>
+    <button onclick="window._carreraResumenFinal()" style="width:100%;margin-top:14px;background:rgba(255,255,255,.04);border:1px solid #242a20;color:#8a9280;border-radius:12px;padding:12px;font-weight:800;font-size:12.5px;cursor:pointer;">No, ver el resumen de mi vida</button>
+  </div>`;
+};
+window._legadoJugar = function(i){
+  const padre = G;
+  const hijos = ((padre.familia||{}).hijos||[]).filter(h=>h.futbol);
+  const cand = hijos.length ? hijos : ((padre.familia||{}).hijos||[]);
+  const h = cand[i] || cand[0]; if(!h) return;
+  // Se guarda el legado del padre y se arranca una partida nueva siendo el hijo.
+  const legado = {
+    padre: padre.apellido, club: padre.club, titulos: padre.titulos||0,
+    nivelMax: Math.round(padre.nivel||60), vitrina: (padre.vitrina||[]).map(v=>v.nombre).slice(0,8),
+    anio: padre.anio || 2026, rival: padre.rival ? padre.rival.nombre : null,
+    idolo: padre._idoloNombre || null
+  };
+  try { localStorage.setItem('canchero_legado', JSON.stringify(legado)); } catch(e){}
+  try { localStorage.removeItem(LS); } catch(e){}
+  G = null;
+  _draft = { years:15, apellido: padre.apellido, num: padre.num || 10, pie:'Derecha', pais: padre.pais,
+    pos: padre.pos || 'DC', filtro:'', avatar: avatarDefault(), nombreHijo: h.nombre, legado };
+  _draft.dif = padre.dif || 'normal';
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:44px 20px 40px;text-align:center;">
+    <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:${A};margin-bottom:10px;">GENERACIÓN 2</div>
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;margin-bottom:12px;">${esc(h.nombre)} ${esc(padre.apellido||'')}</div>
+    <div style="font-size:13.5px;color:#c4ccc0;line-height:1.65;margin-bottom:8px;">Creciste escuchando lo que hizo tu viejo: ${legado.titulos} título${legado.titulos===1?'':'s'}, nivel ${legado.nivelMax}, ${legado.vitrina.length?('la vitrina llena de cosas como ' + esc(legado.vitrina[0])):'una carrera entera'}.</div>
+    <div style="font-size:13.5px;color:#c4ccc0;line-height:1.65;margin-bottom:22px;">En el barrio te van a comparar toda la vida. Ahora te toca a vos.</div>
+    <button onclick="window._carreraIdent(15)" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px 32px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">EMPEZAR MI PROPIO CAMINO <i class='bx bx-right-arrow-alt'></i></button>
   </div>`;
 };
 // ── ROPERO ───────────────────────────────────────────────────────────────────
@@ -7634,7 +7783,11 @@ function vjDormir(){
     ${fondoEscenaHTML()}
     <div style="position:relative;max-width:520px;margin:0 auto;padding:24px 20px;text-align:center;">
       <div style="font-size:10px;font-weight:900;letter-spacing:3px;color:#5d6879;margin-bottom:10px;">PASARON CINCO AÑOS</div>
-      <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(avatarSprite(G.avatar,{edad:G.vidaEdad,escala:3,pose:'idle',ropa:vjRopa()||undefined,num:'',apellido:''}), '14px 20px', 'casa')}</div>
+      <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(`
+        <div style="position:relative;width:180px;height:96px;">
+          <div style="position:absolute;left:0;bottom:0;line-height:0;">${vjObjSVG('cama',2.1)}</div>
+          <div style="position:absolute;left:44px;bottom:30px;transform:rotate(-90deg);transform-origin:50% 100%;line-height:0;">${avatarSprite(G.avatar,{edad:G.vidaEdad,escala:2,pose:'idle',ropa:vjRopa()||undefined,num:'',apellido:''})}</div>
+        </div>`, '14px 20px', 'casa')}</div>
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;">${G.vidaEdad} años</div>
       <div style="font-size:13px;color:#8a9280;margin:6px 0 20px;">${esc(L ? L.t : '')}</div>
       <button onclick="window._vidaJugable()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px 30px;font-weight:900;font-size:14.5px;cursor:pointer;">SEGUIR VIVIENDO <i class='bx bx-right-arrow-alt'></i></button>
@@ -7846,7 +7999,8 @@ window._vidaFinal = function(){
       <!-- La función retiro() es interna del módulo: en un onclick inline el
            navegador la busca en window y no la encuentra, así que el botón no
            hacía absolutamente nada. Va por el alias público. -->
-      <button onclick="window._carreraResumenFinal()" style="width:100%;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">VER EL RESUMEN DE TODA MI VIDA</button>
+      ${(((G.familia||{}).hijos||[]).length) ? `<button onclick="window._legadoOferta()" style="width:100%;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;margin-bottom:9px;"><i class='bx bx-child'></i> SEGUIR EL LEGADO CON TU HIJO</button>` : ''}
+      <button onclick="window._carreraResumenFinal()" style="width:100%;background:${((G.familia||{}).hijos||[]).length?'rgba(255,255,255,.05)':'linear-gradient(135deg,#16a34a,'+A+')'};color:${((G.familia||{}).hijos||[]).length?'#c4ccc0':'#000'};border:${((G.familia||{}).hijos||[]).length?'1px solid #242a20':'none'};border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">VER EL RESUMEN DE TODA MI VIDA</button>
     </div>
   </div>`;
 };
