@@ -5995,7 +5995,7 @@ function mundoRender(){
         </div>
       </div>
     </div>
-    <div id="vj-view" style="position:relative;flex:0 0 auto;height:38vh;min-height:190px;max-height:340px;overflow:hidden;background:#05070a;">
+    <div id="vj-view" style="position:relative;flex:0 0 auto;height:250px;overflow:hidden;background:#05070a;">
       <!-- vj-escala estira la escena para llenar el ancho: antes se dibujaba a
            tamano fijo pegada a la izquierda y quedaba media pantalla en negro. -->
       <div id="vj-escala" style="position:absolute;left:0;bottom:0;width:${W}px;height:${H}px;transform-origin:0 100%;">
@@ -6287,12 +6287,16 @@ function vjAjustarEscala(){
   const view = document.getElementById('vj-view');
   const capa = document.getElementById('vj-escala');
   if(!view || !capa) return;
-  const VW = view.clientWidth, VH = view.clientHeight;
+  const VW = view.clientWidth;
   const W = vjEscena().ancho, H = 250;
-  // Se agranda hasta llenar el alto, pero sin achicar nunca por debajo de 1.
-  const s = clamp(Math.min(VH / H, VW / 420), 1, 3.2);
+  // El zoom lo manda el ANCHO: la escena tiene que llenar la pantalla de lado a
+  // lado siempre. En el celular queda en 1 y la camara acompana al personaje; en
+  // PC se agranda hasta cubrir todo. El alto se deduce del zoom, asi no quedan
+  // franjas negras ni arriba ni a los costados.
+  const s = clamp(VW / W, 1, 2.4);
+  view.style.height = Math.round(H * s) + 'px';
   capa.style.transform = 'scale(' + s.toFixed(3) + ')';
-  capa.style.left = (W * s < VW) ? Math.round((VW - W * s) / 2) + 'px' : '0px';
+  capa.style.left = '0px';
   VJ.escala = s;
 }
 function vjCambiarEscena(nueva, entrarPor){
