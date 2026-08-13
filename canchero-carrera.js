@@ -2738,10 +2738,17 @@ function resumenTemporada(r){
         </div>
         ${gente.length?`<div style="display:flex;flex-wrap:wrap;gap:5px;">${gente.join('')}</div>`:''}
       </div>`; })():''}
-    ${r.eco?`<div style="background:linear-gradient(160deg,${r.eco.tono==='malo'?'rgba(239,68,68,.10)':'rgba(186,255,0,.09)'},rgba(20,22,18,.6));border:1.5px solid ${r.eco.tono==='malo'?'rgba(239,68,68,.4)':'rgba(186,255,0,.35)'};border-radius:14px;padding:13px 14px;margin-bottom:14px;">
-      <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:${r.eco.tono==='malo'?'#ef4444':A};margin-bottom:6px;"><i class='bx bx-time-five'></i> EFECTO MARIPOSA · ${esc(r.eco.titulo).toUpperCase()}</div>
-      <div style="font-size:11px;color:#8a8f96;margin-bottom:6px;">Por aquella vez que decidiste: <b style="color:#c4ccc0;">${esc(r.eco.origen)}</b></div>
-      <div style="font-size:13px;color:#e8e8e0;line-height:1.55;">${esc(r.eco.texto)}</div>
+    ${(!r.prensa && r.eco)?`<div style="background:linear-gradient(175deg,#f4f1e8,#e8e4d8);border-radius:12px;padding:14px 15px;margin-bottom:14px;box-shadow:0 6px 20px rgba(0,0,0,.5);transform:rotate(-.4deg);">
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1a1a1a;padding-bottom:6px;margin-bottom:8px;">
+        <div style="font-family:Georgia,serif;font-weight:900;font-size:13px;color:#1a1a1a;">${esc(prensaDe(G.clubPais||G.pais).diarios[0])}</div>
+        <div style="font-size:9px;color:#666;font-weight:700;">${G.anio-1}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+        <span style="font-size:8.5px;font-weight:900;letter-spacing:1.5px;color:#fff;background:${r.eco.tono==='malo'?'#a8281f':'#2a6b34'};padding:2px 7px;border-radius:3px;">${r.eco.tono==='malo'?'LO QUE VUELVE':'AQUELLO DIO SUS FRUTOS'}</span>
+      </div>
+      <div style="font-family:Georgia,serif;font-weight:900;font-size:15px;color:#111;line-height:1.25;margin-bottom:5px;">${esc(r.eco.titulo)}</div>
+      <div style="font-family:Georgia,serif;font-size:12px;color:#333;line-height:1.55;">${esc(r.eco.texto)}</div>
+      <div style="font-size:9.5px;color:#666;font-style:italic;margin-top:6px;">Todo empezó aquella vez que decidió: ${esc(r.eco.origen)}.</div>
     </div>`:''}
     ${r.prensa?(function(){ const p=r.prensa;
       const col = p.tono==='gloria'?'#facc15':p.tono==='bueno'?'#22c55e':p.tono==='malo'?'#ef4444':'#94a3b8';
@@ -2756,6 +2763,18 @@ function resumenTemporada(r){
         <div style="width:5px;height:5px;border-radius:50%;background:${col};"></div>
         <div style="font-size:10px;color:#555;font-style:italic;">por ${esc(p.firma)}</div>
       </div>
+      ${r.eco?`
+      <!-- EFECTO MARIPOSA: la consecuencia de una decisión vieja, contada como
+           columna del mismo diario. Es asi como se entera la gente. -->
+      <div style="margin-top:10px;padding-top:9px;border-top:2px solid #1a1a1a;">
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+          <span style="font-size:8.5px;font-weight:900;letter-spacing:1.5px;color:#fff;background:${r.eco.tono==='malo'?'#a8281f':'#2a6b34'};padding:2px 7px;border-radius:3px;">${r.eco.tono==='malo'?'LO QUE VUELVE':'AQUELLO DIO SUS FRUTOS'}</span>
+          <span style="font-size:9px;color:#777;font-style:italic;">columna</span>
+        </div>
+        <div style="font-family:Georgia,serif;font-weight:900;font-size:13.5px;color:#111;line-height:1.3;margin-bottom:4px;">${esc(r.eco.titulo)}</div>
+        <div style="font-family:Georgia,serif;font-size:11.5px;color:#333;line-height:1.55;">${esc(r.eco.texto)}</div>
+        <div style="font-size:9.5px;color:#666;font-style:italic;margin-top:5px;">Todo empezó aquella vez que decidió: ${esc(r.eco.origen)}.</div>
+      </div>`:''}
     </div>`; })():''}
     <button onclick="window._verTablas('pos')" style="width:100%;background:rgba(255,255,255,.04);border:1px solid #242a20;border-radius:12px;padding:11px;color:#c4ccc0;font-weight:800;font-size:12.5px;cursor:pointer;margin-bottom:10px;"><i class='bx bx-list-ol' style="color:${A};"></i> Ver tabla de posiciones y goleadores</button>
     <div id="cr-evwrap">${contBtn()}</div>
@@ -5885,20 +5904,65 @@ function vjPrincipal(){
   }
   return null;
 }
-// La opcion de pasar el tiempo, con la edad de ahora y la que viene, para que se
-// entienda de una que es asi como avanzan los anos.
+// ── LOS ASUNTOS DE CADA TRAMO ────────────────────────────────────────────────
+// Para que pasen cinco años hay que ocuparse de lo importante. Uno es obligatorio
+// (la decisión de tu rol); los otros son opcionales pero se anotan, y el resumen
+// final cuenta cuántos tramos viviste a fondo.
+function vjPendientesTramo(){
+  if(!G) return [];
+  const h = G._vjHechos || {};
+  const s = G.vidaStats || {};
+  const rol = VIDA_ROLES[G.vidaRol] || VIDA_ROLES.disfrutar;
+  const lista = [
+    { id:'lapso', obliga:true, hecho: !!h.lapso || (G.vidaPausa > 0),
+      txt: (G.vidaPausa > 0) ? 'Estás de licencia' : ('Decidir lo de ' + rol.n.toLowerCase()) },
+    { id:'sucesos', obliga:false, hecho: (h.sucesos || 0) >= 1, txt:'Ocuparte de algo tuyo (familia, plata, salud)' },
+    { id:'descanso', obliga:false, hecho: !!h.descanso, txt:'Descansar un poco' }
+  ];
+  if ((s.salud || 100) < 55) lista.push({ id:'salud', obliga:false, hecho: !!h.cuidoSalud, txt:'Cuidarte: la salud viene mal' });
+  if ((s.soledad || 0) > 60) lista.push({ id:'gente', obliga:false, hecho: (h.sucesos || 0) >= 2, txt:'Ver gente: estás muy solo' });
+  return lista;
+}
+// La opcion de pasar el tiempo, con la edad de ahora, la que viene y cuanto
+// resolviste del tramo.
 function vjDormirHotspot(x){
-  const hechos = G._vjHechos || {};
-  const listo = !!hechos.lapso || (G.vidaPausa > 0);
+  const pend = vjPendientesTramo();
+  const listo = pend.filter(p=>p.obliga).every(p=>p.hecho);
+  const hechos = pend.filter(p=>p.hecho).length;
+  const falta = pend.find(p=>p.obliga && !p.hecho);
   const hoy = G.vidaEdad || 36;
   const prox = (VIDA_LAPSOS[(G.vidaLapso||0) + 1] || {}).de;
   return { x:x || 400, tipo:'obj', obj:'cama', icono:'bx-moon', accion:'dormir', destacado:listo, bloqueado:!listo,
     lbl: listo
-      ? ('DORMIR Y PASAR 5 AÑOS' + (prox ? ' (' + hoy + ' → ' + prox + ')' : ' — el último tramo'))
-      : 'Para que pasen los años, primero resolvé lo de arriba' };
+      ? ('DORMIR Y PASAR 5 AÑOS' + (prox ? ' (' + hoy + ' → ' + prox + ')' : ' — el último tramo') +
+         '  ·  ' + hechos + '/' + pend.length + ' resuelto' + (hechos===1?'':'s'))
+      : ('Antes de dormir: ' + (falta ? falta.txt.toLowerCase() : 'resolvé lo del tramo')) };
+}
+// ¿Esta accion puede hacer algo AHORA? Si no, no se muestra.
+function vjPuede(h){
+  if(!h) return false;
+  switch(h.accion){
+    case 'suceso': {
+      if(!G) return false;
+      const enCarrera = VJ.mundo !== 'vida';
+      if (enCarrera){
+        const temp = G.temporada || 1;
+        const hechos = (G._sucTemp === temp) ? (G._sucHechos || 0) : 0;
+        if (hechos >= 2) return false;
+      } else if (((G._vjHechos||{}).sucesos || 0) >= 2) return false;
+      return !!vjSucesoDisponible(h.cat);
+    }
+    case 'entrenarClub':
+    case 'entrenarJuv':   return (G && (G._entrenos || 0) < 3);
+    case 'patear':        return (_draft && (_draft._pateos || 0) < 3);
+    case 'rol':           return !!(G && vidaEventoDe(G.vidaRol, G.vidaLapso, G._vidaSeen || []));
+    case 'tablas':        return !!(G && G._tablasData);
+    case 'licencia':      return !(G && G.vidaPausa > 0);
+    default:              return true;
+  }
 }
 function vjHotspots(){
-  let lista = vjHotspotsBase();
+  let lista = vjHotspotsBase().filter(h => h.bloqueado || vjPuede(h));
   const pr = vjPrincipal();
   // En la segunda vida el tiempo se mueve durmiendo: esa opcion no puede faltar
   // nunca de la lista, y siempre con el MISMO texto claro (antes la cama de la
@@ -6272,6 +6336,14 @@ function mundoRender(){
         <div style="display:flex;flex-direction:column;gap:9px;">
           ${VJ.hotspots.map((h,i)=>`<button onclick="window._vjAccion(${i})" ${h.bloqueado?'disabled':''} style="display:flex;align-items:center;gap:11px;background:${h.destacado?'rgba(186,255,0,.13)':'rgba(255,255,255,.04)'};border:1.5px solid ${h.destacado?A:'#242a20'};color:${h.bloqueado?'#5d6879':(h.destacado?A:'#e0e4dc')};border-radius:13px;padding:13px 14px;font-weight:800;font-size:13.5px;text-align:left;cursor:${h.bloqueado?'default':'pointer'};opacity:${h.bloqueado?.55:1};line-height:1.3;"><i class='bx ${h.icono}' style="font-size:20px;flex-shrink:0;"></i><span>${h.lbl}</span></button>`).join('')}
         </div>
+        ${(VJ.mundo === 'vida' && G && G.vidaRol) ? (function(){ const pend = vjPendientesTramo(); return `
+        <div style="margin-top:16px;background:rgba(255,255,255,.03);border:1px solid #1e2632;border-radius:13px;padding:12px 13px;">
+          <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#5d6879;margin-bottom:8px;">ESTE TRAMO DE TU VIDA</div>
+          ${pend.map(x=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:${x.hecho?'#4ade80':'#9aa4b2'};margin-bottom:5px;">
+            <i class='bx ${x.hecho?'bx-check-circle':'bx-circle'}' style="font-size:15px;flex-shrink:0;"></i>
+            <span style="${x.hecho?'text-decoration:line-through;opacity:.7;':''}">${esc(x.txt)}${x.obliga?'':' <span style="font-size:9px;color:#5d6879;">(opcional)</span>'}</span>
+          </div>`).join('')}
+        </div>`; })() : ''}
         <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#5d6879;margin:16px 0 9px;">IR A OTRO LADO</div>
         <div style="display:flex;gap:9px;flex-wrap:wrap;">
           ${['izq','der'].filter(k=>E.sale[k]).map(k=>`<button onclick="window._vjIr('${E.sale[k]}')" style="flex:1;min-width:140px;background:rgba(125,211,252,.10);border:1.5px solid rgba(125,211,252,.4);color:#7dd3fc;border-radius:13px;padding:13px 14px;font-weight:900;font-size:13px;cursor:pointer;">${k==='izq'?'◀ ':''}${esc(escenas[E.sale[k]].n)}${k==='der'?' ▶':''}</button>`).join('')}
@@ -6618,7 +6690,10 @@ function vjInteractuar(){
   if (h.accion === 'descansar'){
     const s = G.vidaStats; s.salud = clamp((s.salud||70) + ri(2,6), 0, 100);
     if (s.felicidad != null) s.felicidad = clamp(s.felicidad + ri(1,4), 0, 100);
+    (G._vjHechos = G._vjHechos || {}).descanso = true;
+    if ((s.salud||100) >= 55) G._vjHechos.cuidoSalud = true;
     save(); vjFlash('Un rato de fútbol en la tele. Nada del otro mundo, pero descansaste.');
+    mundoRender();
     return;
   }
   if (h.accion === 'trabajar'){
@@ -6653,7 +6728,7 @@ function vjInteractuar(){
       if (hechos.sucesos >= 2){ vjFlash('Ya pasó bastante por hoy. El tiempo tiene que correr.'); return; }
     }
     const suc = vjSucesoDisponible(h.cat);
-    if(!suc){ vjFlash('Todo tranquilo por acá.'); return; }
+    if(!suc){ vjFlash('Por ahora no hay nada pendiente por acá.'); mundoRender(); return; }
     G._vjSuc = suc;
     vjDialogo(suc.ev, 'suceso', h.lbl, h);
     return;
