@@ -3581,6 +3581,15 @@ function numerosDisponibles(ctx){
 }
 window._elegirNumero = function(ctx){
   if(!G) G=load(); if(!G) return;
+  // ¿Ya elegiste numero para este club / para la seleccion? Entonces no se
+  // vuelve a preguntar: se sigue de largo.
+  G._numHecho = G._numHecho || {};
+  const claveNum = (ctx === 'seleccion') ? 'sel' : ('club:' + G.club);
+  if (G._numHecho[claveNum]){
+    G._numCtx = ctx;
+    window._confirmarNumero();
+    return;
+  }
   const { libres, ocupados } = numerosDisponibles(ctx);
   G._numCtx = ctx;
   const esSel = ctx === 'seleccion';
@@ -3615,6 +3624,11 @@ window._setNumero = function(n){
 };
 window._confirmarNumero = function(){
   const ctx = G._numCtx; G._numCtx = null;
+  // Si confirmaste sin elegir, queda el que ya tenias: igual se da por resuelto
+  // para no volver a preguntar lo mismo una y otra vez.
+  if (ctx === 'seleccion' && !G.numSeleccion) G.numSeleccion = G.num;
+  G._numHecho = G._numHecho || {};
+  G._numHecho[(ctx === 'seleccion') ? 'sel' : ('club:' + G.club)] = true;
   const msg = G._msgFichaje; G._msgFichaje = null; save();
   if (ctx === 'seleccion'){ window._carreraContinuar(); return; }
   // Presentación oficial con la camiseta y el número elegidos.
@@ -4063,7 +4077,12 @@ function _poseReaccion(res, d){
   if (/lesi[oó]n|rompi|desgarr|ligament|operar|quir[oó]fano|muleta|infiltr/.test(t)) return 'lesion';
   // 2) LA COPA sólo si es un título DEPORTIVO de verdad. Antes cualquier texto con
   //    "título" (por ejemplo el título del liceo) sacaba el trofeo, que no pegaba.
-  const tituloDeportivo = /camp(e[oó]n|eonato)|copa |la copa|torneo|vuelta ol[ií]mpica|levant[aá]|ascenso a/.test(t)
+  // OJO: hay que descartar los textos NEGATIVOS. 'Copa decepcionante', 'perdimos
+  // la final' o 'te eliminaron' contienen las mismas palabras que un titulo y
+  // sacaban al muneco levantando el trofeo, justo cuando le habia ido mal.
+  const malaNoticia = /decepcion|decepcionante|fracas|elimina|qued[oó] afuera|no pudiste|perdi(ste|mos|eron)|derrota|sin gloria|flojo|jugar poco|jugaste poco|no anduvo|te toc[oó] jugar poco|frustrac|amarg/.test(t);
+  const tituloDeportivo = !malaNoticia
+                       && /camp(e[oó]n|eonato)|copa |la copa|torneo|vuelta ol[ií]mpica|levant[aá]|ascenso a/.test(t)
                        && !/t[ií]tulo del liceo|secundari|bachiller|gradu|diploma|universi|doctorado/.test(t);
   if (tituloDeportivo) return 'campeon';
   // 3) Estudios / reconocimientos que NO son copas
