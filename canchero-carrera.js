@@ -383,6 +383,9 @@ function jerseyKit(size, apellido, numero, kit){
       const x0 = Math.max(cuerpoX, sx), x1 = Math.min(cuerpoX+cuerpoW, sx+6);
       if (x1 > x0) R(x0, cuerpoY+i, x1-x0, 1, alt);
     }
+  } else if (tipo === 'banda'){
+    R(cuerpoX, cuerpoY + Math.round(cuerpoH*0.34), cuerpoW, Math.max(2, Math.round(cuerpoH*0.24)), alt);
+    R(5, 9, 3, 4, alt); R(32, 9, 3, 4, alt);
   }
   // Volumen
   R(cuerpoX, cuerpoY, 2, cuerpoH, dark);
@@ -886,6 +889,8 @@ function avatarSprite(av, o){
       const x0 = Math.max(torsoX, sx), x1 = Math.min(torsoX+hombroW, sx+w);
       if (x1 > x0) R(x0, torsoY+i, x1-x0, 1, alt);
     }
+  } else if (tipo === 'banda'){
+    R(torsoX, torsoY + Math.round(torsoH*0.36), hombroW, Math.max(2, Math.round(torsoH*0.24)), alt);
   }
   R(torsoX, torsoY, 2, torsoH, baseS);
   R(torsoX+hombroW-2, torsoY, 2, torsoH, baseS);
@@ -1065,6 +1070,7 @@ function avatarSprite(av, o){
         if (x1 > x0) CO(x0, jy+i, x1-x0, 1, alt);
       }
     }
+    else if (tipo === 'banda'){ CO(jx, jy + Math.round(jh*0.34), jw, Math.max(2, Math.round(jh*0.26)), alt); }
     CO(jx, jy, jw, 1, baseL); CO(jx, jy+jh-1, jw, 1, baseS);
     CO(jx, jy, 1, jh, baseS); CO(jx+jw-1, jy, 1, jh, baseS);
     CO(jx+Math.round(jw*0.38), jy, Math.round(jw*0.24), 2, _avShade(base,-50));   // cuello
@@ -1247,7 +1253,7 @@ const CLUB_KITS = {
   'Plaza Colonia':['#c8102e','#ffffff','solid'], 'Progreso':['#e63329','#ffffff','solid'],
   'River Plate (UY)':['#e2231a','#ffffff','sash'], 'Racing (UY)':['#1b6ec2','#ffffff','stripes'],
   // Argentina
-  'Boca Juniors':['#0d1a5c','#f5c400','solid'], 'River Plate':['#ffffff','#e2231a','sash'],
+  'Boca Juniors':['#0d1a5c','#f5c400','banda'], 'River Plate':['#ffffff','#e2231a','sash'],
   'Racing':['#7ec8e3','#ffffff','stripes'], 'Independiente':['#c8102e','#ffffff','solid'],
   'San Lorenzo':['#1a3d8f','#c8102e','stripes'], 'Rosario Central':['#f5c400','#1a3d8f','stripes'],
   "Newell's":['#c8102e','#000000','stripes'], 'Vélez':['#ffffff','#1a3d8f','sash'],
@@ -6503,6 +6509,17 @@ function vjCharla(h, cat){
   if (G) save();
   vjFlash(pool[idx]);
 }
+// Telon de fondo con el escenario actual. Las pantallas de dialogo y de
+// resultado quedaban sobre negro y el personaje parecia flotar en el vacio.
+function fondoEscenaHTML(){
+  try{
+    const W = vjEscena().ancho, H = 250;
+    return `<div style="position:absolute;inset:0;overflow:hidden;pointer-events:none;">
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" style="position:absolute;inset:0;width:100%;height:100%;shape-rendering:crispEdges;">${vjFondo(W,H)}</svg>
+      <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,7,10,.30) 0%,rgba(5,7,10,.72) 48%,#05070a 88%);"></div>
+    </div>`;
+  }catch(e){ return ''; }
+}
 // Aviso breve sin sacarte del mundo.
 function vjFlash(txt){
   const view = document.getElementById('vj-view'); if(!view) return;
@@ -6517,10 +6534,12 @@ function vjFlash(txt){
 function vjDialogo(ev, tipo, quien, h){
   vjDetener();
   const R = VIDA_ROLES[G.vidaRol] || VIDA_ROLES.disfrutar;
+  // El dialogo pasa EN el lugar donde estas, no sobre una pantalla negra.
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
-  <div style="min-height:100%;background:#05070a;display:flex;flex-direction:column;justify-content:flex-end;">
-    <div style="max-width:640px;margin:0 auto;width:100%;padding:20px 18px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;">
+  <div style="min-height:100%;background:#05070a;display:flex;flex-direction:column;justify-content:flex-end;position:relative;">
+    ${fondoEscenaHTML()}
+    <div style="position:relative;max-width:640px;margin:0 auto;width:100%;padding:20px 18px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;">
       <div style="display:flex;align-items:flex-end;justify-content:center;gap:6px;margin-bottom:14px;">
         ${h && h.tipo==='npc' ? `<div style="line-height:0;">${vjSpriteNPC(h.semilla, h.ropa, h.edad, 'pensando')}</div>` : `<div style="line-height:0;">${vjObjSVG(h?h.obj:'cartel')}</div>`}
         <div style="line-height:0;transform:scaleX(-1);">${vjSpriteJugador('pensando')}</div>
@@ -6606,8 +6625,9 @@ window._vjResolver = function(tipo, i){
   const volverJuv = (VJ.mundo === 'juveniles');
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
-  <div style="min-height:100%;background:#05070a;display:flex;flex-direction:column;justify-content:center;">
-    <div style="max-width:560px;margin:0 auto;width:100%;padding:24px 20px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;text-align:center;">
+  <div style="min-height:100%;background:#05070a;display:flex;flex-direction:column;justify-content:center;position:relative;">
+    ${fondoEscenaHTML()}
+    <div style="position:relative;max-width:560px;margin:0 auto;width:100%;padding:24px 20px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;text-align:center;">
       <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(avatarSprite(G.avatar,{ edad:edadR, escala:2.8, pose, ropa:vjRopa()||undefined, num:'', apellido:'' }), '12px 18px', escenaDePose(pose, G.avatar, edadR))}</div>
       <div style="font-size:15px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:14px;">${esc(res)}</div>
       ${chips?`<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:18px;">${chips}</div>`:'<div style="margin-bottom:18px;"></div>'}
@@ -6622,8 +6642,9 @@ function vjLicencia(){
   const R = VIDA_ROLES[G.vidaRol] || VIDA_ROLES.disfrutar;
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
-  <div style="min-height:100%;background:#05070a;display:flex;align-items:center;">
-    <div style="max-width:520px;margin:0 auto;padding:24px 20px;text-align:center;">
+  <div style="min-height:100%;background:#05070a;display:flex;align-items:center;position:relative;">
+    ${fondoEscenaHTML()}
+    <div style="position:relative;max-width:520px;margin:0 auto;padding:24px 20px;text-align:center;">
       <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(avatarSprite(G.avatar,{edad:G.vidaEdad||40,escala:2.8,pose:'pensativo',ropa:vjRopa()||undefined,num:'',apellido:''}), '12px 18px', 'casa')}</div>
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;color:#fff;margin-bottom:8px;">¿Te tomás una licencia?</div>
       <div style="font-size:13.5px;color:#c4ccc0;line-height:1.6;margin-bottom:20px;">Si parás, parás de verdad: durante el próximo tramo <b style="color:#fff;">no vas a ${G.vidaRol==='dt'?'dirigir':'estar en el cargo'}</b>, no vas a sumar resultados y tu lugar lo va a ocupar otro. Ganás salud y tiempo con los tuyos. Cuando vuelvas, vas a tener que reconstruir.</div>
@@ -6670,8 +6691,9 @@ function vjDormir(){
   // Pantalla de paso del tiempo, con el cuerpo ya cambiado.
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
-  <div style="min-height:100%;background:#05070a;display:flex;align-items:center;">
-    <div style="max-width:520px;margin:0 auto;padding:24px 20px;text-align:center;">
+  <div style="min-height:100%;background:#05070a;display:flex;align-items:center;position:relative;">
+    ${fondoEscenaHTML()}
+    <div style="position:relative;max-width:520px;margin:0 auto;padding:24px 20px;text-align:center;">
       <div style="font-size:10px;font-weight:900;letter-spacing:3px;color:#5d6879;margin-bottom:10px;">PASARON CINCO AÑOS</div>
       <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(avatarSprite(G.avatar,{edad:G.vidaEdad,escala:3,pose:'idle',ropa:vjRopa()||undefined,num:'',apellido:''}), '14px 20px', 'casa')}</div>
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;">${G.vidaEdad} años</div>
