@@ -1033,8 +1033,8 @@ function avatarSprite(av, o){
   else CR(bocaX, bocaY, bocaW, 1, P.d);
   // Barba
   // Un pibe no tiene barba, elija lo que elija en el editor.
-  const barba = edad < 15 ? 0
-              : Math.min(3, (edad < 18 ? Math.min(1, av.barba||0) : (av.barba||0)) + (edad>=32?1:0) + (edad>=45?1:0));
+  const barba = edad < 17 ? 0
+              : Math.min(3, (edad < 20 ? Math.min(1, av.barba||0) : (av.barba||0)) + (edad>=32?1:0) + (edad>=45?1:0));
   if (barba >= 1){
     CR(headX+1, headY+Math.round(cabezaH*0.68), cabezaW-2, Math.round(cabezaH*0.30), HC);
     if (pose.cara==='feliz'){ CR(bocaX, bocaY, bocaW, 2, '#7a3b34'); CR(bocaX, bocaY, bocaW, 1, '#f6f2e8'); }
@@ -5348,13 +5348,16 @@ function vjNombreNPC(semilla){
 }
 // Vecinos, familiares, dirigentes... cada uno con su cara, estable por nombre.
 function vjSpriteNPC(semilla, ropa, edad, pose){
+  edad = edad || 40;
   let h = 0; for(let i=0;i<String(semilla).length;i++) h = (h*31 + String(semilla).charCodeAt(i)) >>> 0;
   // Desplazamiento SIN signo: con `>>` el hash pasaba a negativo, el módulo daba
   // un índice negativo y el vecino salía `undefined` (rompía toda la escena).
   const sel = (arr, corr) => arr[((h >>> corr) % arr.length)];
   const av = { piel: sel(AV_PIELES,0).id, pelo: sel(AV_PELOS,3).id,
-    peloColor: sel(AV_COLORES_PELO,6).id, barba:(h>>>9)%3, acc:'nada',
-    calvicie:(h>>>11)%2, canas:(h>>>13)%2, cicatriz:0, peso:((h>>>15)%3)-1, tatus:0, bling:0 };
+    // Un pibe de juveniles no tiene barba de hombre grande.
+    peloColor: sel(AV_COLORES_PELO,6).id, barba: ((edad||40) < 20 ? 0 : (h>>>9)%3), acc:'nada',
+    calvicie: (edad >= 30 ? (h>>>11)%2 : 0), canas: (edad >= 45 ? (h>>>13)%2 : 0),
+    cicatriz:0, peso:((h>>>15)%3)-1, tatus:0, bling:0 };
   return avatarSprite(av, { edad: edad||40, escala:2.2, pose: pose||'idle', ropa: ropa||'calle', num:'', apellido:'' });
 }
 
@@ -6654,9 +6657,11 @@ function vjArrancarLoop(){
     if (moviendo !== !!VJ.mov){
       VJ.mov = moviendo ? 1 : 0;
       VJ.poseActual = moviendo ? 'caminar' : vjPoseQuieto();
+      VJ.proxPose = t + 4200 + Math.random()*3600;
       player.innerHTML = vjSpriteJugador(VJ.poseActual);
-    } else if (!moviendo){
-      // Quieto, cambia de actitud cada tanto: se sienta, se estira, salta.
+    } else if (!moviendo && t >= (VJ.proxPose || 0)){
+      // Quieto: cambia de actitud CADA VARIOS SEGUNDOS, no en cada cuadro.
+      VJ.proxPose = t + 4200 + Math.random()*3600;
       const nueva = vjPoseQuieto();
       if (nueva !== VJ.poseActual){ VJ.poseActual = nueva; player.innerHTML = vjSpriteJugador(nueva); }
     }
@@ -6766,6 +6771,7 @@ function vjDecidirSolo(ahora){
     VJ.meta = null;
     VJ.gestoLibre = pick(['sentado','saltar','estirar','sofocado','aplaudir','pensativo']);
     VJ.gestoHasta = (ahora || performance.now()) + 2600 + Math.random()*2600;
+    VJ.proxPose = 0;   // que se aplique enseguida, y despues aguante
   } else {
     VJ.meta = null;                                             // se queda quieto pensando
     const p = vjPensar(); if (p) vjBurbuja(p);
