@@ -2284,7 +2284,7 @@ window._carreraHub = function(){
       <div style="background:rgba(255,255,255,.03);border:1px solid #1c1c1c;border-radius:16px;padding:16px;">
         <div style="display:flex;align-items:center;gap:14px;">
           <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;">
-            ${avatarBox(avatarDeG(2.6, _poseHub()), '6px 10px', escenaDePose(_poseHub(), G.avatar, G.edad), propsDeG(2.2))}
+            ${avatarBox(avatarDeG(2.6, _poseHub()), '6px 10px', escenaDePose(_poseHub(), G.avatar, G.edad))}
             <div style="width:64px;border-radius:10px;background:linear-gradient(150deg,#e08a1e,#a85e0e);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px 0;"><div style="font-size:8px;font-weight:800;color:rgba(255,255,255,.8);letter-spacing:1px;">NIVEL</div><div style="font-size:20px;font-weight:900;color:#fff;line-height:1;">${Math.round(G.nivel)}</div></div>
           </div>
           <div style="flex:1;min-width:0;">
@@ -2626,7 +2626,7 @@ function resumenTemporada(r){
   <div style="max-width:520px;margin:0 auto;padding:30px 22px calc(30px + env(safe-area-inset-bottom));min-height:100%;display:flex;flex-direction:column;">
     <div style="text-align:center;margin-bottom:18px;">
       <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};">TEMPORADA ${G.temporada-1} · ${G.edad-1} AÑOS</div>
-      <div style="display:flex;justify-content:center;margin:8px 0 4px;">${avatarBox(avatarDeG(3.2, _poseTemporada(r), { edad:G.edad-1 }), '10px 16px', escenaDePose(_poseTemporada(r), G.avatar, G.edad-1), propsDeG(2.6))}</div>
+      <div style="display:flex;justify-content:center;margin:8px 0 4px;">${avatarBox(avatarDeG(3.2, _poseTemporada(r), { edad:G.edad-1 }), '10px 16px', escenaDePose(_poseTemporada(r), G.avatar, G.edad-1))}</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px;">${clubBadge(G.club,26)}<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:20px;color:#fff;">${esc(G.club)}</div></div>
       <div style="font-size:12px;color:#9aa0a6;margin-top:2px;">${esc(G.liga)} · ${posLabel(r.pos)} de ${r.totalEq}</div>
       <!-- TODOS los títulos del año, no sólo el "más importante". Si ganaste liga,
@@ -3544,7 +3544,7 @@ window._carreraElegirOferta = function(kind, i){
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
   <div style="max-width:520px;margin:0 auto;padding:42px 20px calc(30px + env(safe-area-inset-bottom));text-align:center;">
-    <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(avatarDeG(2.8, pose), '10px 16px', escenaDePose(pose, G.avatar, G.edad), propsDeG(2.2))}</div>
+    <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(avatarDeG(2.8, pose), '10px 16px', escenaDePose(pose, G.avatar, G.edad))}</div>
     <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px;">
       ${clubBadge(G.club,26)}<span style="font-size:16px;font-weight:900;color:#fff;">${esc(G.club)}</span>
     </div>
@@ -4252,7 +4252,7 @@ window._carreraElegir = function(i){
   const wrap=document.getElementById('cr-evwrap');
   if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:6px 0;">
     <div style="display:flex;justify-content:center;align-items:flex-end;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
-      ${avatarBox(avatarDeG(2.6, pose, { seleccion:esSeleccion }), '10px 16px', escenaRes, propsDeG(2.2))}
+      ${avatarBox(avatarDeG(2.6, pose, { seleccion:esSeleccion }), '10px 16px', escenaRes)}
       ${trofeoNuevo?`<div style="text-align:center;animation:crTrophy .7s cubic-bezier(.2,1.4,.4,1) both;"><div style="height:88px;display:flex;align-items:flex-end;justify-content:center;">${trofeoRender(trofeoNuevo.nombre,80)}</div><div style="font-size:12px;font-weight:900;color:#facc15;margin-top:6px;max-width:130px;line-height:1.2;">${esc(trofeoNuevo.nombre)}</div></div><style>@keyframes crTrophy{0%{transform:scale(.3) rotate(-12deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}</style>`:''}
     </div>
     ${esSeleccion?`<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.4);border-radius:20px;padding:3px 11px;font-size:10.5px;font-weight:900;color:#93c5fd;margin-bottom:9px;">${flagImg(G.pais,14)} SELECCIÓN DE ${esc(G.pais).toUpperCase()}</div>`:''}
@@ -4500,7 +4500,7 @@ window._carreraBienes = function(){
         if (tiene('escuela'))     props.push(['bx-award','Su escuela','#22c55e']);
         if (tiene('fundacion'))   props.push(['bxs-donate-heart','Su fundación','#f472b6']);
         return `<div style="display:flex;align-items:center;gap:14px;background:#0d100d;border:1px solid #1c211a;border-radius:14px;padding:12px;margin-bottom:14px;">
-          ${avatarBox(avatarDeG(2.4, pose), '8px 12px', escena, propsDeG(2.2))}
+          ${avatarBox(avatarDeG(2.4, pose), '8px 12px', escena)}
           <div style="flex:1;min-width:0;">
             <div style="font-size:12.5px;font-weight:900;color:#fff;">${props.length?'Tu patrimonio':'Todavía sin nada propio'}</div>
             <div style="font-size:11px;color:#7a8070;margin-top:2px;line-height:1.4;">${props.length?'Esto es lo que construiste con el fútbol.':'Comprá tu primera propiedad y vas a verte distinto acá.'}</div>
@@ -5300,6 +5300,15 @@ function vjSpriteJugador(pose){
   return avatarSprite(av, { edad:vjEdad(), escala:2.4, pose:pose||'idle', ropa: ropa||undefined,
     kitBase:k.base, kitAlt:k.alt, kitTxt:k.txt, kitTipo:k.tipo, num: ropa?'':num, apellido:'' });
 }
+// Nombre estable para cada personaje del mundo (siempre el mismo por semilla).
+const VJ_NOMBRES = ['Ferreyra','Cardozo','Almeida','Sosa','Benítez','Núñez','Vargas','Ibáñez','Quintana',
+  'Bermúdez','Olivera','Rojas','Silveira','Acuña','Zambrano','Da Silva','Moretti','Correa','Techera',
+  'Lemos','Pereyra','Cabrera','Méndez','Larrosa','Fagúndez','Bentancur','Viera','Umpiérrez'];
+function vjNombreNPC(semilla){
+  let h = 0; const t = String(semilla || '');
+  for(let i=0;i<t.length;i++) h = (h*31 + t.charCodeAt(i)) >>> 0;
+  return VJ_NOMBRES[h % VJ_NOMBRES.length];
+}
 // Vecinos, familiares, dirigentes... cada uno con su cara, estable por nombre.
 function vjSpriteNPC(semilla, ropa, edad, pose){
   let h = 0; for(let i=0;i<String(semilla).length;i++) h = (h*31 + String(semilla).charCodeAt(i)) >>> 0;
@@ -5508,8 +5517,15 @@ function vjFondoBarrio(W,H){
   const nv = casaNivel();
   const pisoY = Math.round(H*0.80); let o='';
   const M=(x,y,w,h,c)=>{ o+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`; };
-  o += `<defs><linearGradient id="vjb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a2436"/><stop offset="1" stop-color="#0b111c"/></linearGradient></defs>`;
+  o += `<defs><linearGradient id="vjb" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#243657"/><stop offset="45%" stop-color="#16223a"/>
+      <stop offset="100%" stop-color="#0a0f1a"/></linearGradient></defs>`;
   M(0,0,W,pisoY,'url(#vjb)');
+  // Estrellas y luna: el barrio es de noche, que se note.
+  for(let i=0;i<Math.ceil(W/26);i++){ const sx=(i*97)%W, sy=8+((i*53)%54);
+    M(sx, sy, ((i%5)===0)?2:1, ((i%5)===0)?2:1, 'rgba(232,240,255,.75)'); }
+  o += `<circle cx="${Math.round(W*0.82)}" cy="42" r="16" fill="#f2f0dc" opacity=".9"/>`;
+  o += `<circle cx="${Math.round(W*0.82)}" cy="42" r="34" fill="#cfe0ff" opacity=".10"/>`;
   // edificios de fondo: más altos y mejor iluminados cuanto mejor vivís
   const alto = nv >= 4 ? 180 : nv === 3 ? 140 : nv === 2 ? 110 : 90;
   for(let i=0;i<12;i++){ const bh = Math.round(alto*0.55)+((i*53)%Math.round(alto*0.6)), bx = i*84, bw = 70;
@@ -5535,8 +5551,20 @@ function vjFondoBarrio(W,H){
 function vjFondoBaldio(W,H){
   const pisoY = Math.round(H*0.76); let o='';
   const M=(x,y,w,h,c)=>{ o+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`; };
-  o += `<defs><linearGradient id="vjbd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2a12"/><stop offset="1" stop-color="#170f06"/></linearGradient></defs>`;
+  o += `<defs><linearGradient id="vjbd" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0a04b"/><stop offset="34%" stop-color="#a15f2e"/>
+      <stop offset="72%" stop-color="#4a2d15"/><stop offset="100%" stop-color="#20130a"/></linearGradient></defs>`;
   M(0,0,W,pisoY,'url(#vjbd)');
+  // Sol bajo y su reflejo: atardecer de potrero.
+  o += `<circle cx="${Math.round(W*0.18)}" cy="${Math.round(pisoY*0.30)}" r="26" fill="#ffd27a" opacity=".85"/>`;
+  o += `<circle cx="${Math.round(W*0.18)}" cy="${Math.round(pisoY*0.30)}" r="52" fill="#ffb457" opacity=".18"/>`;
+  // Casas bajas del barrio a lo lejos, en silueta.
+  for(let i=0;i<Math.ceil(W/70);i++){ const bh=26+((i*37)%26), bx=i*70;
+    M(bx, pisoY-118-bh, 62, bh, '#2a1a0f');
+    M(bx+12, pisoY-118-bh+8, 9, 9, '#3a2614'); M(bx+34, pisoY-118-bh+8, 9, 9, '#3a2614'); }
+  // Arboles detras del paredon.
+  for(let i=0;i<Math.ceil(W/150);i++){ const tx=40+i*150;
+    M(tx+9, pisoY-140, 5, 24, '#241608'); M(tx, pisoY-166, 24, 28, '#2f3d18'); M(tx+4, pisoY-176, 16, 12, '#3a4a1e'); }
   // paredón con pintadas
   M(0,pisoY-118,W,118,'#241a10');
   for(let i=0;i<W;i+=34) M(i,pisoY-118,2,118,'#1c1409');
@@ -5593,8 +5621,16 @@ function vjFondoPension(W,H){
 function vjFondoPredio(W,H){
   const pisoY = Math.round(H*0.72); let o='';
   const M=(x,y,w,h,c)=>{ o+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`; };
-  o += `<defs><linearGradient id="vjpr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#16304a"/><stop offset="1" stop-color="#0b1a26"/></linearGradient></defs>`;
+  o += `<defs><linearGradient id="vjpr" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7fb2d9"/><stop offset="40%" stop-color="#3d6f96"/>
+      <stop offset="100%" stop-color="#12293a"/></linearGradient></defs>`;
   M(0,0,W,pisoY,'url(#vjpr)');
+  // Nubes y arboleda del predio, de manana.
+  o += `<ellipse cx="${Math.round(W*0.22)}" cy="34" rx="54" ry="14" fill="#eaf2f8" opacity=".55"/>`;
+  o += `<ellipse cx="${Math.round(W*0.28)}" cy="28" rx="34" ry="12" fill="#eaf2f8" opacity=".45"/>`;
+  o += `<ellipse cx="${Math.round(W*0.68)}" cy="46" rx="66" ry="15" fill="#eaf2f8" opacity=".40"/>`;
+  for(let i=0;i<Math.ceil(W/120);i++){ const tx=30+i*120;
+    M(tx+10, pisoY-118, 6, 26, '#243318'); M(tx, pisoY-146, 26, 30, '#2f4a1e'); M(tx+5, pisoY-158, 16, 14, '#3b5c26'); }
   // alambrado
   for(let i=0;i<W;i+=12) M(i,pisoY-92,1,92,'rgba(180,200,210,.22)');
   for(let j=0;j<8;j++) M(0,pisoY-92+j*12,W,1,'rgba(180,200,210,.18)');
@@ -5623,11 +5659,20 @@ function vjFondoCancha(W,H){
   M(0,pisoY-24,W,6,'#0d0a1c');
   // focos
   for(let i=0;i<5;i++){ M(70+i*((W-140)/4),8,26,7,'#fff8dc'); M(80+i*((W-140)/4),15,6,26,'#3a3450'); }
-  // césped con franjas + líneas
+  // Humo de bengala sobre la popular.
+  o += `<ellipse cx="${Math.round(W*0.3)}" cy="${pisoY-96}" rx="120" ry="34" fill="#ff6b3d" opacity=".08"/>`;
+  o += `<ellipse cx="${Math.round(W*0.72)}" cy="${pisoY-84}" rx="150" ry="30" fill="#e8eef5" opacity=".06"/>`;
+  // Cesped con franjas, lineas y area chica.
   M(0,pisoY,W,H-pisoY,'#1e6b2c');
   for(let i=0;i<W;i+=64) M(i,pisoY,32,H-pisoY,'#238032');
   M(0,pisoY+4,W,2,'#e8f0e4');
   M(Math.round(W/2)-1,pisoY+4,2,H-pisoY,'rgba(232,240,228,.75)');
+  // Circulo central en perspectiva.
+  o += `<ellipse cx="${Math.round(W/2)}" cy="${pisoY+Math.round((H-pisoY)*0.62)}" rx="96" ry="26" fill="none" stroke="rgba(232,240,228,.55)" stroke-width="2"/>`;
+  // Arco a la izquierda, con red.
+  M(30,pisoY-46,3,48,'#e8f0e4'); M(30,pisoY-46,96,3,'#e8f0e4'); M(123,pisoY-46,3,48,'#e8f0e4');
+  for(let i=0;i<12;i++) M(33+i*8,pisoY-43,1,45,'rgba(240,245,240,.30)');
+  for(let j=0;j<6;j++) M(33,pisoY-43+j*8,90,1,'rgba(240,245,240,.30)');
   return o;
 }
 function vjFondoOficina(W,H){
@@ -5782,18 +5827,18 @@ function vjPrincipal(){
     const d = _draft; if(!d) return null;
     const ev = (d._potSet||[])[d._potPaso||0]; if(!ev) return null;
     return { x:330, tipo:'npc', semilla:'pibes'+(d.pais||''), ropa:'calle', edad:d._potEdad||12,
-      lbl:esc(ev.t), accion:'potrero', icono:'bx-football', destacado:true };
+      lbl:esc(ev.t), accion:'potrero', icono:'bx-football', destacado:true, nombre:'Los pibes', rol:'del baldío' };
   }
   if (VJ.mundo === 'juveniles'){
     if(!G) return null;
     const ev = (G._juvSet||[])[G._juvPaso||0]; if(!ev) return null;
     return { x:380, tipo:'npc', semilla:'dtjuv'+G.club, ropa:'dt', edad:52,
-      lbl:esc(ev.t), accion:'juvenil', icono:'bx-clipboard', destacado:true };
+      lbl:esc(ev.t), accion:'juvenil', icono:'bx-clipboard', destacado:true, rol:'DT juveniles' };
   }
   if (VJ.mundo === 'club'){
     if(!G) return null;
     return ((G._evLeft||0) > 0)
-      ? { x:mid, tipo:'npc', semilla:'dt'+G.club, ropa:'dt', edad:55, lbl:'El técnico te quiere hablar', accion:'decision', icono:'bx-clipboard', destacado:true }
+      ? { x:mid, tipo:'npc', semilla:'dt'+G.club, ropa:'dt', edad:55, lbl:'El técnico te quiere hablar', accion:'decision', icono:'bx-clipboard', destacado:true, rol:'DT' }
       : { x:mid, tipo:'obj', obj:'pelota', escala:2, lbl:'JUGAR LA TEMPORADA ' + (G.anio||''), accion:'jugar', icono:'bx-play-circle', destacado:true };
   }
   if (VJ.mundo === 'vida'){
@@ -5801,7 +5846,7 @@ function vjPrincipal(){
     const hechos = G._vjHechos || {};
     if (!hechos.lapso && !(G.vidaPausa > 0))
       return { x:mid, tipo:'npc', semilla:'jefe'+G.vidaRol, ropa:'traje', edad:58,
-        lbl:'Hablar con ' + vjNombreJefe().toLowerCase() + ' (decisión del tramo)', accion:'rol', icono:'bx-briefcase', destacado:true };
+        lbl:'Hablar con ' + vjNombreJefe().toLowerCase() + ' (decisión del tramo)', accion:'rol', icono:'bx-briefcase', destacado:true, rol:vjNombreJefe() };
     return vjDormirHotspot(mid);
   }
   return null;
@@ -5848,7 +5893,7 @@ function vjHotspotsBase(){
   const fam = G.familia = G.familia || {};
   if (VJ.escena === 'casa'){
     if (fam.pareja) out.push({ x:288, tipo:'npc', semilla:'pareja'+fam.pareja, ropa:'calle', edad:(G.vidaEdad||40)-2,
-      lbl:esc(fam.pareja), accion:'suceso', cat:'familia', icono:'bx-heart' });
+      lbl:'Hablar con ' + esc(fam.pareja), accion:'suceso', cat:'familia', icono:'bx-heart', nombre:esc(fam.pareja), rol:'tu pareja' });
     (fam.hijos||[]).slice(0,2).forEach((h,i)=> out.push({ x:360+i*54, tipo:'npc', semilla:'hijo'+h.nombre, ropa:'calle',
       edad: Math.max(6, (G.vidaEdad||40) - 30 + i*3), lbl:esc(h.nombre), accion:'suceso', cat:'familia', icono:'bx-child' }));
     out.push({ x:474, tipo:'obj', obj:'tele', lbl:'Ver fútbol', accion:'descansar', icono:'bx-tv' });
@@ -5858,9 +5903,9 @@ function vjHotspotsBase(){
       accion:'dormir', icono:'bx-moon', bloqueado: !hechos.lapso });
   } else if (VJ.escena === 'barrio'){
     out.push({ x:330, tipo:'npc', semilla:'amigo'+(G.apellido||'x'), ropa:'calle', edad:(G.vidaEdad||40),
-      lbl:'Un amigo de siempre', accion:'suceso', cat:'social', icono:'bx-conversation' });
+      lbl:'Un amigo de siempre', accion:'suceso', cat:'social', icono:'bx-conversation', rol:'amigo' });
     out.push({ x:610, tipo:'obj', obj:'kiosco', lbl:'El kiosco', accion:'suceso', cat:'dinero', icono:'bx-store' });
-    out.push({ x:830, tipo:'npc', semilla:'medico', ropa:'tv', edad:52, lbl:'El médico del barrio', accion:'suceso', cat:'salud', icono:'bx-plus-medical' });
+    out.push({ x:830, tipo:'npc', semilla:'medico', ropa:'tv', edad:52, lbl:'El médico del barrio', accion:'suceso', cat:'salud', icono:'bx-plus-medical', rol:'médico' });
   } else {
     // TRABAJO: el que te viene a ofrecer algo está PARADO ahí, no es un texto.
     const R = VIDA_ROLES[G.vidaRol] || VIDA_ROLES.disfrutar;
@@ -5889,10 +5934,10 @@ function vjHotspotsPotrero(){
     if (ev) out.push({ x:330, tipo:'npc', semilla:'pibes'+(d.pais||''), ropa:'calle', edad:edadPibe,
       lbl:esc(ev.t), accion:'potrero', icono:'bx-football', destacado:true });
     if (ev && ev.opts.some(o=>o.prueba)) out.push({ x:800, tipo:'npc', semilla:'ojeador', ropa:'tv', edad:50,
-      lbl:'Hablar con el ojeador', accion:'potrero', icono:'bx-search-alt' });
+      lbl:'Hablar con el ojeador', accion:'potrero', icono:'bx-search-alt', rol:'ojeador' });
   } else {
     out.push({ x:250, tipo:'npc', semilla:'viejo'+(d.apellido||''), ropa:'calle', edad:44,
-      lbl:'Charlar con tu viejo', accion:'charlaPotrero', icono:'bx-conversation' });
+      lbl:'Charlar con tu viejo', accion:'charlaPotrero', icono:'bx-conversation', rol:'tu viejo' });
     out.push({ x:560, tipo:'obj', obj:'kiosco', escala:1.6, lbl:'Pasar por el kiosco', accion:'charlaPotrero', icono:'bx-store' });
   }
   return out;
@@ -5905,16 +5950,16 @@ function vjHotspotsJuveniles(){
   const out = [];
   if (VJ.escena === 'pension'){
     out.push({ x:230, tipo:'npc', semilla:'companero'+G.club, ropa:'calle', edad:16,
-      lbl:'Un compañero de cuarto', accion:'charlaJuv', icono:'bx-conversation' });
+      lbl:'Un compañero de cuarto', accion:'charlaJuv', icono:'bx-conversation', rol:'compañero' });
     // A los 16, lejos de casa, lo que pasa en tu familia también te pega.
     out.push({ x:440, tipo:'obj', obj:'kiosco', lbl:'Llamar a casa', accion:'suceso', cat:'familia', icono:'bx-phone' });
     out.push({ x:660, tipo:'obj', obj:'cama', lbl:'Descansar bien', accion:'descansarJuv', icono:'bx-moon' });
   } else {
     if (ev) out.push({ x:380, tipo:'npc', semilla:'dtjuv'+G.club, ropa:'dt', edad:52,
-      lbl:'El técnico de juveniles', accion:'juvenil', icono:'bx-clipboard' });
-    out.push({ x:660, tipo:'obj', obj:'trabajo', lbl:'Entrenar aparte', accion:'entrenarJuv', icono:'bx-dumbbell' });
+      lbl:'El técnico de juveniles', accion:'juvenil', icono:'bx-clipboard', rol:'DT juveniles' });
+    out.push({ x:660, tipo:'obj', obj:'gimnasio', escala:1.7, lbl:'Quedarte entrenando aparte', accion:'entrenarJuv', icono:'bx-dumbbell' });
     out.push({ x:880, tipo:'npc', semilla:'veterano'+G.club, ropa:null, edad:34,
-      lbl:'Un veterano de primera', accion:'charlaJuv', icono:'bx-medal' });
+      lbl:'Un veterano de primera', accion:'charlaJuv', icono:'bx-medal', rol:'veterano' });
   }
   return out;
 }
@@ -5928,31 +5973,32 @@ function vjHotspotsClub(){
     // los nacimientos, los casamientos, los robos y las malas noticias.
     const fam = G.familia = G.familia || {};
     if (fam.pareja) out.push({ x:288, tipo:'npc', semilla:'pareja'+fam.pareja, ropa:'calle', edad:Math.max(18,(G.edad||24)-1),
-      lbl:esc(fam.pareja), accion:'suceso', cat:'familia', icono:'bx-heart' });
+      lbl:'Hablar con ' + esc(fam.pareja), accion:'suceso', cat:'familia', icono:'bx-heart', nombre:esc(fam.pareja), rol:'tu pareja' });
     (fam.hijos||[]).slice(0,3).forEach((h,i)=> out.push({ x:370+i*56, tipo:'npc', semilla:'hijo'+h.nombre, ropa:'calle',
-      edad: Math.max(4, h.edad || 5), lbl:esc(h.nombre), accion:'suceso', cat:'familia', icono:'bx-child' }));
+      edad: Math.max(4, h.edad || 5), lbl:'Estar con ' + esc(h.nombre), accion:'suceso', cat:'familia', icono:'bx-child',
+      nombre:esc(h.nombre), rol:'tu hijo' }));
     out.push({ x:566, tipo:'obj', obj:'tele', lbl:'Ver los goles de la fecha', accion:'descansarCasa', icono:'bx-tv' });
     out.push({ x:700, tipo:'npc', semilla:'vecino'+(G.apellido||''), ropa:'calle', edad:46,
-      lbl:'La gente del barrio', accion:'suceso', cat:'social', icono:'bx-conversation' });
+      lbl:'La gente del barrio', accion:'suceso', cat:'social', icono:'bx-conversation', rol:'vecino' });
     out.push({ x:812, tipo:'obj', obj:'kiosco', lbl:'Papeles, plata y quilombos', accion:'suceso', cat:'dinero', icono:'bx-wallet' });
     return out;
   }
   if (VJ.escena === 'vestuario'){
     out.push({ x:250, tipo:'npc', semilla:'dt'+G.club, ropa:'dt', edad:55,
-      lbl: pend ? 'El técnico te quiere hablar' : 'El técnico', accion: pend ? 'decision' : 'charlaClub',
-      icono:'bx-clipboard', destacado: pend });
+      lbl: pend ? 'Hablar con el técnico' : 'Charlar con el técnico', accion: pend ? 'decision' : 'charlaClub',
+      icono:'bx-clipboard', destacado: pend, rol:'DT' });
     out.push({ x:520, tipo:'npc', semilla:'capi'+G.club, ropa:null, edad:29,
-      lbl:'El capitán', accion:'charlaClub', icono:'bx-conversation' });
+      lbl:'Hablar con el capitán', accion:'charlaClub', icono:'bx-conversation', rol:'capitán' });
     out.push({ x:720, tipo:'obj', obj:'trabajo', lbl:'Tu casillero — ver tu ficha', accion:'ficha', icono:'bx-id-card' });
   } else if (VJ.escena === 'cancha'){
-    out.push({ x:260, tipo:'obj', obj:'descanso', lbl:'Gimnasio — entrenar', accion:'entrenarClub', icono:'bx-dumbbell' });
+    out.push({ x:260, tipo:'obj', obj:'gimnasio', escala:1.7, lbl:'Levantar pesas en el gimnasio', accion:'entrenarClub', icono:'bx-dumbbell' });
     out.push({ x:560, tipo:'obj', obj:'pelota', lbl: pend ? 'Primero hablá con el técnico' : 'JUGAR LA TEMPORADA',
       accion:'jugar', icono:'bx-play-circle', destacado: !pend, bloqueado: pend });
     out.push({ x:860, tipo:'npc', semilla:'hincha'+G.club, ropa:'calle', edad:38,
-      lbl:'Un hincha en la popular', accion:'charlaClub', icono:'bx-group' });
+      lbl:'Hablar con un hincha', accion:'charlaClub', icono:'bx-group', rol:'hincha' });
   } else {
     out.push({ x:230, tipo:'npc', semilla:'repre'+(G.apellido||''), ropa:'traje', edad:47,
-      lbl:'Tu representante', accion:'mercado', icono:'bx-briefcase' });
+      lbl:'Ver qué te ofrece tu representante', accion:'mercado', icono:'bx-briefcase', rol:'representante' });
     out.push({ x:520, tipo:'obj', obj:'trabajo', lbl:'Tu contador — plata y bienes', accion:'bienes', icono:'bx-wallet' });
     out.push({ x:700, tipo:'obj', obj:'cartel', lbl:'Tabla y goleadores', accion:'tablas', icono:'bx-list-ol' });
   }
@@ -5974,6 +6020,10 @@ function vjObjSVG(tipo, escala){
     case 'trabajo':return wrap(64,50, R(0,26,64,24,'#2a2118')+R(0,22,64,5,'#443521')+R(8,4,30,20,'#0d1620')+R(11,7,24,14,'#2a6ba8')+R(44,10,14,14,'#d4af37'));
     case 'descanso':return wrap(46,52, R(6,10,34,42,'#2f3a2a')+R(10,14,26,10,'#4a5a40')+R(18,26,10,20,'#8fae74')+R(0,48,46,4,'#1b2117'));
     case 'cartel': return wrap(56,56, R(24,20,8,36,'#3a3a3a')+R(0,0,56,24,'#4a3a12')+R(4,4,48,16,'#f5c542'));
+    case 'gimnasio': return wrap(58,40,
+        R(4,30,50,6,'#2b3038')+R(10,20,10,10,'#3a424e')+R(38,20,10,10,'#3a424e')   // banco
+        +R(2,8,54,4,'#9aa4b0')+R(0,2,10,16,'#20252c')+R(48,2,10,16,'#20252c')      // barra con discos
+        +R(2,0,6,4,'#2b3038')+R(50,0,6,4,'#2b3038'));
     case 'pelota': return wrap(26,26, R(3,3,20,20,'#e8e8dc')+R(0,8,26,10,'#e8e8dc')+R(8,0,10,26,'#e8e8dc')
                      +R(9,9,8,8,'#1a1a14')+R(4,4,5,5,'#1a1a14')+R(17,17,5,5,'#1a1a14')+R(3,3,20,2,'#fbfbf2'));
     default:       return wrap(30,30, R(0,0,30,30,'#555'));
@@ -6073,6 +6123,33 @@ function vjChequearMudanza(){
     ? 'TE MUDASTE: ' + nombre + '. Lo que ganás en la cancha se ve acá adentro.'
     : 'TUVISTE QUE MUDARTE: ' + nombre + '. La plata no alcanzó para sostener lo de antes.'), 450);
 }
+// Atmosfera: se dibuja ENCIMA del fondo y DEBAJO de los personajes.
+function vjAtmosfera(W, H, pisoPct){
+  const pisoY = Math.round(H * pisoPct);
+  return `<defs>
+      <linearGradient id="atmNiebla" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#8fa6c0" stop-opacity=".00"/>
+        <stop offset="72%" stop-color="#8fa6c0" stop-opacity=".13"/>
+        <stop offset="100%" stop-color="#8fa6c0" stop-opacity=".22"/>
+      </linearGradient>
+      <radialGradient id="atmLuz" cx="50%" cy="0%" r="88%">
+        <stop offset="0%" stop-color="#ffe9b0" stop-opacity=".16"/>
+        <stop offset="100%" stop-color="#ffe9b0" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="atmPiso" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#000" stop-opacity=".38"/>
+        <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+      </linearGradient>
+      <radialGradient id="atmVineta" cx="50%" cy="52%" r="72%">
+        <stop offset="55%" stop-color="#000" stop-opacity="0"/>
+        <stop offset="100%" stop-color="#000" stop-opacity=".55"/>
+      </radialGradient>
+    </defs>
+    <rect x="0" y="${Math.round(pisoY*0.45)}" width="${W}" height="${pisoY - Math.round(pisoY*0.45)}" fill="url(#atmNiebla)"/>
+    <rect width="${W}" height="${pisoY}" fill="url(#atmLuz)"/>
+    <rect x="0" y="${pisoY}" width="${W}" height="${Math.round((H-pisoY)*0.7)}" fill="url(#atmPiso)"/>
+    <rect width="${W}" height="${H}" fill="url(#atmVineta)"/>`;
+}
 // Pinta el mundo entero (fondo, gente, objetos, jugador, controles).
 function mundoRender(){
   vjDetener();
@@ -6107,9 +6184,14 @@ function mundoRender(){
       <div id="vj-escala" style="position:absolute;left:0;bottom:0;width:${W}px;height:${H}px;transform-origin:0 100%;">
       <div id="vj-world" style="position:absolute;left:0;top:0;width:${W}px;height:${H}px;will-change:transform;">
         <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="position:absolute;inset:0;shape-rendering:crispEdges;">${fondo}</svg>
+        <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="position:absolute;inset:0;pointer-events:none;">${vjAtmosfera(W,H,pisoPct)}</svg>
         ${VJ.hotspots.map((h,i)=>`
           <div id="vj-hs-${i}" style="position:absolute;left:${h.x}px;bottom:${Math.round(H*(1-pisoPct)) - (h.tipo==='npc'?14:2)}px;transform:translateX(-50%);line-height:0;${h.bloqueado?'opacity:.45;':''}">
             ${h.tipo==='npc' ? vjSpriteNPC(h.semilla, h.ropa, h.edad, 'idle') : vjObjSVG(h.obj, h.escala)}
+            ${h.tipo==='npc' ? `<div style="position:absolute;left:50%;top:-26px;transform:translateX(-50%);white-space:nowrap;text-align:center;line-height:1.15;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.9);">
+              <div style="font-size:9px;font-weight:900;color:#e8eef5;">${esc(h.nombre || vjNombreNPC(h.semilla))}</div>
+              <div style="font-size:7.5px;font-weight:800;color:${h.destacado?A:'#8fa0b4'};letter-spacing:.4px;">${esc((h.rol||'').toUpperCase())}</div>
+            </div>` : ''}
           </div>`).join('')}
         <div id="vj-player" style="position:absolute;left:0;bottom:${Math.round(H*(1-pisoPct))-15}px;line-height:0;will-change:transform;">${vjSpriteJugador('idle')}</div>
         <!-- Lo que compraste, apoyado en el piso de tu casa y a escala real. -->
@@ -6143,9 +6225,16 @@ function mundoRender(){
 // que pasar. No hace falta caminar ni apuntarle a nada.
 window._vjAccion = function(i){
   const h = (VJ.hotspots || [])[i]; if(!h) return;
-  VJ.hot = h;
-  VJ.meta = null; VJ.destino = null;
-  vjInteractuar();
+  if (h.bloqueado || h.accion === 'nada'){ VJ.hot = h; vjInteractuar(); return; }
+  // El personaje CAMINA hasta la persona o la cosa y recien ahi pasa algo. Antes
+  // se disparaba desde donde estuviera parado, que no tenia sentido.
+  // Si volves a tocar la misma opcion mientras camina, se resuelve al toque:
+  // nadie tiene que esperar a que el muneco llegue si no quiere.
+  if (VJ.pendiente === h){ VJ.pendiente = null; VJ.destino = null; VJ.hot = h; vjInteractuar(); return; }
+  VJ.meta = null;
+  VJ.pendiente = h;
+  VJ.pendienteHasta = performance.now() + 2600;   // si tarda demasiado, se resuelve igual
+  VJ.destino = clamp(h.x + (VJ.x <= h.x ? -54 : 54), 40, vjEscena().ancho - 40);
 };
 window._vjIr = function(escena){
   if(!escena || !vjEscenas()[escena]) return;
@@ -6165,7 +6254,7 @@ function vjDetener(){
   if (VJ.onKeyUp) window.removeEventListener('keyup', VJ.onKeyUp);
   if (VJ.onResize){ window.removeEventListener('resize', VJ.onResize); window.removeEventListener('orientationchange', VJ.onResize); }
   VJ.onKeyDown = VJ.onKeyUp = VJ.onResize = null;
-  VJ.keys = {}; VJ.destino = null; VJ.mov = 0;
+  VJ.keys = {}; VJ.destino = null; VJ.mov = 0; VJ.pendiente = null;
 }
 function vjArrancarLoop(){
   const view = document.getElementById('vj-view');
@@ -6260,6 +6349,15 @@ function vjArrancarLoop(){
       if (VJ.x <= 30 && E.sale.izq){ vjCambiarEscena(E.sale.izq, 'der'); return; }
       if (VJ.x >= E.ancho - 30 && E.sale.der){ vjCambiarEscena(E.sale.der, 'izq'); return; }
       VJ.x = clamp(VJ.x, 30, E.ancho - 30);
+    }
+    // ¿Estaba yendo hacia algo? Al llegar (o si tarda de mas), se resuelve.
+    if (VJ.pendiente){
+      if (Math.abs(VJ.pendiente.x - VJ.x) < 72 || t > VJ.pendienteHasta){
+        const objetivo = VJ.pendiente;
+        VJ.pendiente = null; VJ.destino = null; VJ.hot = objetivo;
+        vjInteractuar();
+        return;
+      }
     }
     const moviendo = !!dx;
     if (moviendo !== !!VJ.mov){
@@ -6376,6 +6474,8 @@ function vjDecidirSolo(ahora){
 }
 // Cuando está quieto, la pose depende de cómo viene la vida (no siempre la misma).
 function vjPoseQuieto(){
+  // Al lado de las pesas, entrena; no se queda mirando el infinito.
+  if (VJ.hot && /^entrenar/.test(VJ.hot.accion || '')) return 'entrenar';
   if (VJ.mundo !== 'vida') return pick(['idle','pensando','idle','orgullo','alivio']);
   const s = (G && G.vidaStats) || {};
   if ((s.salud||70) <= 25) return 'agotado';
@@ -6572,6 +6672,7 @@ function fondoEscenaHTML(){
     const W = vjEscena().ancho, H = 250;
     return `<div style="position:absolute;inset:0;overflow:hidden;pointer-events:none;">
       <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" style="position:absolute;inset:0;width:100%;height:100%;shape-rendering:crispEdges;">${vjFondo(W,H)}</svg>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" style="position:absolute;inset:0;width:100%;height:100%;">${vjAtmosfera(W,H,vjPisoPct())}</svg>
       <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,7,10,.30) 0%,rgba(5,7,10,.72) 48%,#05070a 88%);"></div>
     </div>`;
   }catch(e){ return ''; }
