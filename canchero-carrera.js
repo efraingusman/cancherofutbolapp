@@ -1487,15 +1487,18 @@ function _escFondo(tipo){
 // Hasta ahora los bienes sólo existían como una lista de texto en la pantalla de
 // finanzas. Si te comprás un yate, tiene que VERSE. Cada bien se dibuja como una
 // mini-silueta pixelada apoyada en el piso de la escena, junto al jugador.
+// Medidas en la MISMA grilla que el jugador (el muneco mide ~56 de alto), asi las
+// proporciones son reales: el auto es mas largo que alto una persona, la casa le
+// saca una cabeza, el yate y el avion son enormes.
 const BIEN_PROPS = {
-  auto:        { w:22, h:10, c:'#3b6ea8', d:[[0,4,22,6],[4,0,13,5],[5,1,5,3],[11,1,5,3],[3,9,4,2],[15,9,4,2]] },
-  casa:        { w:18, h:16, c:'#8b6d4a', d:[[1,6,16,10],[0,4,18,3],[7,10,4,6],[3,8,3,3],[12,8,3,3]] },
-  yate:        { w:26, h:14, c:'#e6ecf2', d:[[0,9,26,5],[4,4,16,5],[12,0,2,5],[14,1,7,3]] },
-  avion:       { w:28, h:12, c:'#c9d4de', d:[[2,5,24,4],[8,0,5,5],[6,9,10,3],[0,4,4,2],[24,4,4,2]] },
-  reloj:       { w:9,  h:12, c:'#f5d14e', d:[[2,0,5,3],[0,3,9,6],[2,9,5,3],[3,5,3,2]] },
-  restaurante: { w:18, h:14, c:'#d4763a', d:[[0,5,18,9],[1,2,16,3],[3,8,5,6],[11,8,5,4]] },
-  escuela:     { w:20, h:14, c:'#3f9c53', d:[[0,7,20,7],[2,3,16,4],[9,0,2,4],[4,9,4,5],[13,9,4,3]] },
-  fundacion:   { w:14, h:13, c:'#e8709e', d:[[2,2,4,4],[8,2,4,4],[1,5,12,3],[3,8,8,3],[5,11,4,2]] }
+  auto:        { w:56, h:24, c:'#3b6ea8', d:[[0,10,56,12],[12,0,30,11],[15,2,11,7],[29,2,11,7],[7,21,10,3],[39,21,10,3],[0,13,56,2]] },
+  casa:        { w:52, h:48, c:'#8b6d4a', d:[[3,16,46,32],[0,10,52,8],[21,30,10,18],[9,20,10,9],[33,20,10,9],[3,16,46,3]] },
+  yate:        { w:78, h:40, c:'#e6ecf2', d:[[0,26,78,14],[12,12,46,14],[34,0,4,13],[38,2,20,8],[6,30,66,3]] },
+  avion:       { w:88, h:34, c:'#c9d4de', d:[[6,14,74,11],[24,0,15,14],[18,25,30,7],[0,11,10,6],[76,11,12,6],[6,17,74,2]] },
+  reloj:       { w:16, h:22, c:'#f5d14e', d:[[4,0,8,5],[0,5,16,12],[4,17,8,5],[5,9,6,4]] },
+  restaurante: { w:52, h:40, c:'#d4763a', d:[[0,14,52,26],[2,6,48,8],[8,22,14,18],[31,22,14,12],[0,14,52,3]] },
+  escuela:     { w:56, h:40, c:'#3f9c53', d:[[0,20,56,20],[5,8,46,12],[25,0,5,9],[11,26,11,14],[36,26,11,9],[0,20,56,3]] },
+  fundacion:   { w:40, h:36, c:'#e8709e', d:[[6,5,11,11],[23,5,11,11],[2,14,36,9],[8,23,24,8],[14,31,12,5]] }
 };
 function _propSVG(id, escala){
   const P = BIEN_PROPS[id]; if(!P) return '';
@@ -1507,11 +1510,12 @@ function _propSVG(id, escala){
 // Bienes del jugador actual, ordenados del más grande al más chico, tope 3 para
 // que no tapen al personaje.
 function propsDeG(escala){
+  escala = escala || 2.2;
   if(!G || !G.bienes || !G.bienes.length) return '';
   const orden = ['avion','yate','casa','auto','restaurante','escuela','fundacion','reloj'];
   const tengo = orden.filter(id => G.bienes.some(b=>b.id===id)).slice(0,3);
   if(!tengo.length) return '';
-  return `<div style="display:flex;align-items:flex-end;gap:5px;">${tengo.map(id=>_propSVG(id, escala||1.6)).join('')}</div>`;
+  return `<div style="display:flex;align-items:flex-end;gap:9px;">${tengo.map(id=>_propSVG(id, escala)).join('')}</div>`;
 }
 function avatarBox(inner, pad, escena, props){
   const E = AV_ESCENARIOS[escena] || AV_ESCENARIOS.cancha;
@@ -2280,7 +2284,7 @@ window._carreraHub = function(){
       <div style="background:rgba(255,255,255,.03);border:1px solid #1c1c1c;border-radius:16px;padding:16px;">
         <div style="display:flex;align-items:center;gap:14px;">
           <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;">
-            ${avatarBox(avatarDeG(2.6, _poseHub()), '6px 10px', escenaDePose(_poseHub(), G.avatar, G.edad), propsDeG(1.4))}
+            ${avatarBox(avatarDeG(2.6, _poseHub()), '6px 10px', escenaDePose(_poseHub(), G.avatar, G.edad), propsDeG(2.2))}
             <div style="width:64px;border-radius:10px;background:linear-gradient(150deg,#e08a1e,#a85e0e);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px 0;"><div style="font-size:8px;font-weight:800;color:rgba(255,255,255,.8);letter-spacing:1px;">NIVEL</div><div style="font-size:20px;font-weight:900;color:#fff;line-height:1;">${Math.round(G.nivel)}</div></div>
           </div>
           <div style="flex:1;min-width:0;">
@@ -2622,7 +2626,7 @@ function resumenTemporada(r){
   <div style="max-width:520px;margin:0 auto;padding:30px 22px calc(30px + env(safe-area-inset-bottom));min-height:100%;display:flex;flex-direction:column;">
     <div style="text-align:center;margin-bottom:18px;">
       <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};">TEMPORADA ${G.temporada-1} · ${G.edad-1} AÑOS</div>
-      <div style="display:flex;justify-content:center;margin:8px 0 4px;">${avatarBox(avatarDeG(3.2, _poseTemporada(r), { edad:G.edad-1 }), '10px 16px', escenaDePose(_poseTemporada(r), G.avatar, G.edad-1), propsDeG(1.7))}</div>
+      <div style="display:flex;justify-content:center;margin:8px 0 4px;">${avatarBox(avatarDeG(3.2, _poseTemporada(r), { edad:G.edad-1 }), '10px 16px', escenaDePose(_poseTemporada(r), G.avatar, G.edad-1), propsDeG(2.6))}</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px;">${clubBadge(G.club,26)}<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:20px;color:#fff;">${esc(G.club)}</div></div>
       <div style="font-size:12px;color:#9aa0a6;margin-top:2px;">${esc(G.liga)} · ${posLabel(r.pos)} de ${r.totalEq}</div>
       <!-- TODOS los títulos del año, no sólo el "más importante". Si ganaste liga,
@@ -3234,6 +3238,7 @@ function eventoSeleccionRandom(){
       { txt: `${flagImg(G.pais,18)}&nbsp;Ir con todo — jugar el ${t.tipo}`, ef: g => {
         // Primera convocatoria: elegís el número de la selección.
         if (!g.numSeleccion) g._pedirNumSel = true;
+        g.flags = g.flags || {}; g.flags.debutSel = true; g.selPj = (g.selPj||0) + 1;
         const bien = Math.random() < 0.55 + (g.nivel - req(t))/100; // más chance si estás por arriba del corte
         if (bien) {
           g.fama += 14; g.nivel += 1;
@@ -3539,7 +3544,7 @@ window._carreraElegirOferta = function(kind, i){
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
   <div style="max-width:520px;margin:0 auto;padding:42px 20px calc(30px + env(safe-area-inset-bottom));text-align:center;">
-    <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(avatarDeG(2.8, pose), '10px 16px', escenaDePose(pose, G.avatar, G.edad), propsDeG(1.4))}</div>
+    <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(avatarDeG(2.8, pose), '10px 16px', escenaDePose(pose, G.avatar, G.edad), propsDeG(2.2))}</div>
     <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px;">
       ${clubBadge(G.club,26)}<span style="font-size:16px;font-weight:900;color:#fff;">${esc(G.club)}</span>
     </div>
@@ -3757,9 +3762,18 @@ const EVENTOS=[
   { t:'Capitanía vacante', img:'capitan', d:'Se fue el capitán. El plantel podría elegirte a vos.', opts:[
     { txt:'Postularme de líder', ef:g=>{ const si=Math.random()<.55; g.fama+=si?8:0; g.moral+=si?8:-4; return si?'Te dieron la cinta. Referente del grupo.':'Eligieron a otro. Golpe al ego.'; } },
     { txt:'No buscar el rol', ef:g=>{ g.nivel+=1; return 'Preferís liderar dentro de la cancha, callado.'; } } ] },
-  { t:'Sondeo de la Selección mayor', img:'seleccion', d:'El técnico de la mayor te sigue. Hay un amistoso y podrías debutar.', opts:[
-    { txt:'Pedir que me citen', ef:g=>{ const va=Math.random()<.5; g.fama+=va?12:2; g.valor=Math.round(g.valor*(va?1.15:1)); return va?'¡Debutaste con la mayor! Sueño cumplido.':'Quedaste en pre-lista. Cerca.'; } },
+  { t:'Sondeo de la Selección mayor', img:'seleccion', noFlag:'debutSel',
+    d:'El técnico de la mayor te sigue. Hay un amistoso y podrías debutar.', opts:[
+    { txt:'Pedir que me citen', ef:g=>{ const va=Math.random()<.5; g.fama+=va?12:2; g.valor=Math.round(g.valor*(va?1.15:1));
+        if(va){ g.flags=g.flags||{}; g.flags.debutSel=true; g.selPj=(g.selPj||0)+1; }
+        return va?'¡Debutaste con la mayor! Sueño cumplido.':'Quedaste en pre-lista. Cerca.'; } },
     { txt:'Dejar que llegue solo', ef:g=>{ g.nivel+=2; return 'Seguís rindiendo y esperando tu momento.'; } } ] },
+  // Una vez que ya sos de la casa, la noticia es otra: te consolidas, no debutas.
+  { t:'Sos fijo en la Selección', img:'seleccion', reqFlag:'debutSel',
+    d:'Ya no te citan: directamente contás. El técnico te quiere de arranque en la próxima fecha.', opts:[
+    { txt:'Ir y dejar todo', ef:g=>{ const bien=Math.random()<.6; g.selPj=(g.selPj||0)+1; g.fama+=bien?10:3; g.nivel+=bien?1:0;
+        return bien?'Otro partidazo con la camiseta de tu país. Ya sos parte de la historia grande.':'Cumpliste sin brillar. Con la mayor eso también se paga.'; } },
+    { txt:'Pedir descanso, vengo fundido', ef:g=>{ g.moral+=5; g.nivel+=1; g.fama-=4; return 'Te bajaste de la fecha. El técnico lo entendió; la prensa no tanto.'; } } ] },
   { t:'Eliminatorias importantes', img:'seleccion', d:'Te citan para un partido decisivo de Eliminatorias.', opts:[
     { txt:'Jugar aunque estés cansado', ef:g=>{ const bien=Math.random()<.55; g.fama+=bien?12:2; g.nivel+=bien?1:-2; return bien?'Figura con la Selección. Vidriera mundial.':'Se te notó el cansancio, partido flojo.'; } },
     { txt:'Cuidarme para el club', ef:g=>{ g.moral-=4; g.nivel+=1; return 'El hincha de la Selección lo cuestiona.'; } } ] },
@@ -4219,7 +4233,7 @@ window._carreraElegir = function(i){
   const wrap=document.getElementById('cr-evwrap');
   if(wrap) wrap.innerHTML=`<div style="text-align:center;padding:6px 0;">
     <div style="display:flex;justify-content:center;align-items:flex-end;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
-      ${avatarBox(avatarDeG(2.6, pose, { seleccion:esSeleccion }), '10px 16px', escenaRes, propsDeG(1.4))}
+      ${avatarBox(avatarDeG(2.6, pose, { seleccion:esSeleccion }), '10px 16px', escenaRes, propsDeG(2.2))}
       ${trofeoNuevo?`<div style="text-align:center;animation:crTrophy .7s cubic-bezier(.2,1.4,.4,1) both;"><div style="height:88px;display:flex;align-items:flex-end;justify-content:center;">${trofeoRender(trofeoNuevo.nombre,80)}</div><div style="font-size:12px;font-weight:900;color:#facc15;margin-top:6px;max-width:130px;line-height:1.2;">${esc(trofeoNuevo.nombre)}</div></div><style>@keyframes crTrophy{0%{transform:scale(.3) rotate(-12deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}</style>`:''}
     </div>
     ${esSeleccion?`<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.4);border-radius:20px;padding:3px 11px;font-size:10.5px;font-weight:900;color:#93c5fd;margin-bottom:9px;">${flagImg(G.pais,14)} SELECCIÓN DE ${esc(G.pais).toUpperCase()}</div>`:''}
@@ -4467,7 +4481,7 @@ window._carreraBienes = function(){
         if (tiene('escuela'))     props.push(['bx-award','Su escuela','#22c55e']);
         if (tiene('fundacion'))   props.push(['bxs-donate-heart','Su fundación','#f472b6']);
         return `<div style="display:flex;align-items:center;gap:14px;background:#0d100d;border:1px solid #1c211a;border-radius:14px;padding:12px;margin-bottom:14px;">
-          ${avatarBox(avatarDeG(2.4, pose), '8px 12px', escena, propsDeG(1.5))}
+          ${avatarBox(avatarDeG(2.4, pose), '8px 12px', escena, propsDeG(2.2))}
           <div style="flex:1;min-width:0;">
             <div style="font-size:12.5px;font-weight:900;color:#fff;">${props.length?'Tu patrimonio':'Todavía sin nada propio'}</div>
             <div style="font-size:11px;color:#7a8070;margin-top:2px;line-height:1.4;">${props.length?'Esto es lo que construiste con el fútbol.':'Comprá tu primera propiedad y vas a verte distinto acá.'}</div>
@@ -6058,6 +6072,8 @@ function mundoRender(){
             ${h.tipo==='npc' ? vjSpriteNPC(h.semilla, h.ropa, h.edad, 'idle') : vjObjSVG(h.obj, h.escala)}
           </div>`).join('')}
         <div id="vj-player" style="position:absolute;left:0;bottom:${Math.round(H*(1-pisoPct))-15}px;line-height:0;will-change:transform;">${vjSpriteJugador('idle')}</div>
+        <!-- Lo que compraste, apoyado en el piso de tu casa y a escala real. -->
+        ${(VJ.escena === 'casa' && propsDeG(2.8)) ? `<div style="position:absolute;left:${Math.round(W*0.80)}px;bottom:${Math.round(H*(1-pisoPct))-4}px;transform:translateX(-50%);line-height:0;">${propsDeG(2.8)}</div>` : ''}
         ${E.sale.izq?`<div style="position:absolute;left:6px;bottom:${Math.round(H*(1-pisoPct))}px;font-size:9px;font-weight:900;color:${_avisoEn(E.sale.izq)?'#0a0d08':'#7dd3fc'};background:${_avisoEn(E.sale.izq)?A:'rgba(5,7,10,.7)'};border:1px solid ${_avisoEn(E.sale.izq)?A:'#1e3a5c'};border-radius:8px;padding:3px 6px;">◀ ${esc(escenas[E.sale.izq].n)}${_avisoEn(E.sale.izq)?' •':''}</div>`:''}
         ${E.sale.der?`<div style="position:absolute;right:6px;bottom:${Math.round(H*(1-pisoPct))}px;font-size:9px;font-weight:900;color:#7dd3fc;background:rgba(5,7,10,.7);border:1px solid #1e3a5c;border-radius:8px;padding:3px 6px;">${esc(escenas[E.sale.der].n)} ▶</div>`:''}
       </div>
