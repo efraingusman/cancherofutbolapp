@@ -8581,11 +8581,11 @@ function vjPintarChat(){
         <div style="font-size:10px;font-weight:900;letter-spacing:1.5px;color:${A};margin-bottom:9px;">${esc(nombre.toUpperCase())} · ${esc(String(rol).toUpperCase())}</div>
         <div id="ly-chat-hilo" style="max-height:210px;overflow-y:auto;display:flex;flex-direction:column;gap:7px;margin-bottom:11px;">
           ${VJ._chatHilo.length ? VJ._chatHilo.map(l=>`
-            <div style="align-self:${l.yo?'flex-end':'flex-start'};max-width:84%;background:${l.yo?'rgba(186,255,0,.14)':'rgba(255,255,255,.06)'};border:1px solid ${l.yo?'rgba(186,255,0,.35)':'#243040'};color:${l.yo?A:'#dbe3ee'};border-radius:13px;padding:8px 11px;font-size:13px;line-height:1.45;">${esc(l.t)}</div>`).join('')
+            <div style="align-self:${l.yo?'flex-end':'flex-start'};max-width:84%;background:${l.yo?'rgba(186,255,0,.14)':'rgba(255,255,255,.06)'};border:1px solid ${l.yo?'rgba(186,255,0,.35)':'#243040'};color:${l.yo?A:'#dbe3ee'};border-radius:13px;padding:8px 11px;font-size:13px;line-height:1.45;${l.pensando?'opacity:.6;letter-spacing:2px;':''}">${l.pensando?'···':esc(l.t)}</div>`).join('')
             : `<div style="font-size:12.5px;color:#7d879a;">Escribile lo que quieras. Te va a contestar según quién es, qué le dijiste y cómo venís vos.</div>`}
         </div>
         <div style="display:flex;gap:8px;">
-          <input id="ly-chat-in" maxlength="120" placeholder="Escribí acá..." style="flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid #243040;color:#fff;border-radius:12px;padding:12px;font-size:13px;font-family:inherit;">
+          <input id="ly-chat-in" maxlength="160" ${VJ._chatHilo.some(x=>x.pensando)?'disabled':''} placeholder="Escribí acá..." style="flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid #243040;color:#fff;border-radius:12px;padding:12px;font-size:13px;font-family:inherit;">
           <button onclick="window._vjChatEnviar()" style="background:rgba(186,255,0,.16);border:1px solid ${A};color:${A};border-radius:12px;padding:12px 16px;font-weight:900;font-size:13px;cursor:pointer;"><i class='bx bx-send'></i></button>
         </div>
         <button onclick="window._vjChatCerrar()" style="width:100%;margin-top:9px;background:transparent;border:none;color:#5d6879;font-size:12px;font-weight:800;cursor:pointer;padding:8px;">Cortar la charla</button>
@@ -8600,6 +8600,37 @@ function vjPintarChat(){
   const hilo = document.getElementById('ly-chat-hilo');
   if (hilo) hilo.scrollTop = hilo.scrollHeight;
 }
+// Ficha completa para que el personaje entienda de qué se está hablando: quién es
+// él, quién sos vos y cómo viene la partida. Sin esto la respuesta sería genérica.
+function vjChatContexto(h){
+  const fam = (G && G.familia) || {};
+  const nombres = a => (a||[]).map(x => x.nombre + ' (' + (x.edad||0) + ')').join(', ');
+  const etapa = VJ.mundo === 'potrero' ? 'todavía es un pibe en el potrero'
+    : VJ.mundo === 'juveniles' ? 'está en las juveniles, peleando por debutar'
+    : VJ.mundo === 'vida' ? ('ya se retiró y ahora es ' + ((VIDA_ROLES[G && G.vidaRol] || {}).n || 'otra cosa').toLowerCase())
+    : 'está en plena carrera profesional';
+  const lugar = (vjEscena() || {}).n || '';
+  return {
+    nombre: h.nombre || vjNombreNPC(h.semilla, h.gen),
+    rol: h.rol || 'un conocido',
+    edadNPC: h.edad || null,
+    relacion: h.rol || '',
+    apellido: (G && G.apellido) || (_draft && _draft.apellido) || '',
+    edad: vjEdad(),
+    etapa, lugar,
+    anio: (G && G.anio) || 2026,
+    era: (typeof epocaEtiqueta === 'function' ? epocaEtiqueta((G && G.anio) || 2026) : ''),
+    club: (G && (VJ.mundo === 'vida' ? (G.gestion && G.gestion.club) : G.club)) || null,
+    liga: (G && G.liga) || null,
+    nivel: G ? Math.round(G.nivel || 0) : null,
+    titulos: G ? (G.titulos || 0) : null,
+    moral: G ? Math.round(G.moral || 0) : null,
+    dinero: G ? eur(G.dinero || 0) : null,
+    pareja: fam.pareja || null,
+    hijos: nombres(fam.hijos) || null,
+    nietos: nombres(fam.nietos) || null
+  };
+}
 window._vjChatEnviar = function(){
   const inp = document.getElementById('ly-chat-in');
   const txt = inp ? String(inp.value||'').trim() : '';
@@ -8609,18 +8640,51 @@ window._vjChatEnviar = function(){
   const semilla = h.semilla || h.obj || 'x';
   const rol = h.rol || 'vecino';
   const nombreNPC = h.nombre || '';
-  const responder = (r)=>{ VJ._chatHilo.push({ yo:false, t:r }); if(G) save(); vjPintarChat(); };
-  if (typeof window.CANCHERO_LEYENDA_IA === 'function'){
-    VJ._chatHilo.push({ yo:false, t:'...' });
+  const responder = (r)=>{
+    // Se saca el "pensando..." si estaba, y se agrega la respuesta.
+    if (VJ._chatHilo.length && VJ._chatHilo[VJ._chatHilo.length-1].pensando) VJ._chatHilo.pop();
+    VJ._chatHilo.push({ yo:false, t:r });
+    if(G) save();
     vjPintarChat();
-    Promise.resolve(window.CANCHERO_LEYENDA_IA({ tipo:'respuesta', dijo:txt, con:rol, mundo:VJ.mundo,
-      escena:VJ.escena, edad:vjEdad(), club:(G&&G.club)||null, apellido:(G&&G.apellido)||null,
-      animo:(G&&G.moral)||60, anio:(G&&G.anio)||2026 }))
-      .then(t=>{ VJ._chatHilo.pop(); responder(t ? String(t).slice(0,220) : npcResponder(txt, rol, semilla, nombreNPC)); })
-      .catch(()=>{ VJ._chatHilo.pop(); responder(npcResponder(txt, rol, semilla, nombreNPC)); });
+  };
+  const local = ()=> responder(npcResponder(txt, rol, semilla, nombreNPC));
+
+  // 1) Gancho propio, si alguien lo definió (tiene prioridad).
+  if (typeof window.CANCHERO_LEYENDA_IA === 'function'){
+    VJ._chatHilo.push({ yo:false, t:'...', pensando:true });
+    vjPintarChat();
+    Promise.resolve(window.CANCHERO_LEYENDA_IA(Object.assign({ tipo:'respuesta', dijo:txt,
+      hilo: VJ._chatHilo.filter(x=>!x.pensando), mundo:VJ.mundo, escena:VJ.escena }, vjChatContexto(h))))
+      .then(t=> t ? responder(String(t).slice(0,240)) : local())
+      .catch(local);
     return;
   }
-  responder(npcResponder(txt, rol, semilla, nombreNPC));
+
+  // 2) EL PERSONAJE PIENSA DE VERDAD: se le manda la charla entera y la ficha de
+  //    la partida a nuestro endpoint, que responde en personaje y AL TEMA.
+  //    Si no hay endpoint (o no está la key, o no hay red) cae al generador local
+  //    sin que el jugador note un error.
+  if (window._lyChatIA !== false){
+    VJ._chatHilo.push({ yo:false, t:'...', pensando:true });
+    vjPintarChat();
+    const ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+    const corte = setTimeout(()=>{ try{ ctrl && ctrl.abort(); }catch(e){} }, 9000);
+    fetch('/api/leyenda-chat', {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      signal: ctrl ? ctrl.signal : undefined,
+      body: JSON.stringify(Object.assign({ hilo: VJ._chatHilo.filter(x=>!x.pensando) }, vjChatContexto(h)))
+    })
+    .then(r=>{
+      clearTimeout(corte);
+      if (r.status === 204){ window._lyChatIA = false; return null; }   // no hay IA: no reintentar
+      if (!r.ok) return null;
+      return r.json();
+    })
+    .then(d=>{ if (d && d.texto) responder(d.texto); else local(); })
+    .catch(()=>{ clearTimeout(corte); local(); });
+    return;
+  }
+  local();
 };
 window._vjChatCerrar = function(){
   VJ._chatCon = null; VJ._chatHilo = [];
@@ -8681,6 +8745,18 @@ function vjFraseViva(cat){
   return (pick(HABLA.arranque) + ' ' + pool[Math.floor(Math.random()*pool.length)] + ' ' + pick(HABLA.cierre)).replace(/\s+/g,' ').trim();
 }
 function vjCharla(h, cat){
+  // Charlar es CONVERSAR: se abre el hilo y el personaje arranca hablando.
+  // Antes esto tiraba una frase del banco y se terminaba ahi.
+  if (h && h.tipo === 'npc'){
+    vjDetener();
+    VJ._chatCon = h;
+    VJ._chatHilo = [{ yo:false, t: pick(VJ_CHARLAS[cat] || VJ_CHARLAS.club) }];
+    vjPintarChat();
+    return;
+  }
+  return vjCharlaFlash(h, cat);
+}
+function vjCharlaFlash(h, cat){
   // Mitad del repertorio escrito, mitad generado al momento: nunca dos veces igual.
   const pool = VJ_CHARLAS[cat] || VJ_CHARLAS.club;
   const quien = (h && (h.nombre || h.rol)) ? ((h.nombre || h.rol) + ': ') : '';

@@ -221,7 +221,9 @@
       "Bash(python __TRACKED_VAR__/p19.py)",
       "Bash(git -c core.autocrlf=false commit -q -m ' *)",
       "Bash(curl -s \"https://cancherofutbolapp.vercel.app/leyenda\")",
-      "Bash(curl -s \"https://cancherofutbolapp.vercel.app/canchero-carrera.js?v=20260813a\")"
+      "Bash(curl -s \"https://cancherofutbolapp.vercel.app/canchero-carrera.js?v=20260813a\")",
+      "Bash(python __TRACKED_VAR__/p24.py)",
+      "Bash(node --check api/leyenda-chat.js)"
     ]
   }
 }
