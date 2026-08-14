@@ -6373,9 +6373,35 @@ function vjGen(h){
 }
 // Vecinos, familiares, dirigentes... cada uno con su cara, estable por nombre.
 // `gen` ('m'/'f') fuerza el género; si no se pasa, sale del hash.
+// Roles que el juego nombra SIEMPRE en masculino o en femenino en sus textos.
+// Si el sprite sale con el género equivocado, el texto y el dibujo se contradicen
+// ("tu amigo" dibujado como mujer), que es el error más caro de todos.
+const NPC_ROL_GEN = [
+  [/(repre|agente|jefe|dirigent|presidente|tecnico|técnico|dt|entrenador|ojeador|scout|periodista|comentarista|utilero|medico|médico|preparador|arbitro|árbitro|barra|hincha|pibe|amigo|companero|compañero|jugador|vecino|padre|viejo|abuelo|hermano|hijo|nieto|suegro|cunado|cuñado|patron|patrón|empresario|socio|abogado|contador|profe)/i, 'm'],
+  [/(amiga|companera|compañera|jugadora|vecina|madre|vieja|abuela|hermana|hija|nieta|suegra|novia|esposa|pareja|periodista_f|doctora|profesora)/i, 'f']
+];
+function generoDeSemilla(semilla){
+  const s = String(semilla||'');
+  // 1) El NOMBRE manda: la semilla suele ser rol+nombre ("hijoPaula"), y ahí la
+  //    persona concreta pesa más que la palabra del rol.
+  const todos = NOMBRES_F.concat(NOMBRES_PAREJA_F).map(x=>[x.toLowerCase(),'f'])
+    .concat(NOMBRES_M.concat(NOMBRES_PAREJA_M).map(x=>[x.toLowerCase(),'m']));
+  const bajo = s.toLowerCase();
+  let mejor = null, largo = 0;
+  for (const [n, g] of todos){
+    if (n.length > largo && bajo.indexOf(n) >= 0){ mejor = g; largo = n.length; }
+  }
+  if (mejor) return mejor;
+  // 2) Si no hay nombre, decide el rol.
+  for (const [re, g] of NPC_ROL_GEN) if (re.test(s)) return g;
+  return null;
+}
 function vjSpriteNPC(semilla, ropa, edad, pose, gen){
   edad = edad || 40;
   let h = 0; for(let i=0;i<String(semilla).length;i++) h = (h*31 + String(semilla).charCodeAt(i)) >>> 0;
+  // Antes esto era un 50/50 por hash: por eso un representante o un amigo salían
+  // dibujados como mujer. Ahora manda el rol/nombre de la semilla.
+  if (gen == null) gen = generoDeSemilla(semilla);
   if (gen == null) gen = ((h >>> 17) % 100) < 50 ? 'f' : 'm';
   // Desplazamiento SIN signo: con `>>` el hash pasaba a negativo, el módulo daba
   // un índice negativo y el vecino salía `undefined` (rompía toda la escena).
@@ -9720,7 +9746,110 @@ window._carreraSegundaVida = function(rol){
   G._vidaSeen = [];
   G._vidaFlags = {};
   G.segundaVida = { rol: VIDA_ROLES[rol].n, icon: VIDA_ROLES[rol].icon, res: VIDA_ROLES[rol].intro, key: rol };
+  G.vidaDestinos = [];      // historial de clubes/medios/empresas por los que pasaste
   save();
+  // Antes de arrancar, elegís DÓNDE: club si sos DT, cadena si sos periodista, etc.
+  if (DESTINOS[rol]) { window._elegirDestino(true); return; }
+  VJ.escena = 'casa'; VJ.x = 200;
+  window._vidaJugable();
+};
+
+// ── ELEGIR DÓNDE TRABAJÁS (y cambiar de lugar más adelante) ──────────────────
+// Cada rol tiene su propio tipo de destino. Se puede cambiar entre lapsos, así la
+// vida post-carrera también es una sucesión de decisiones y no un texto fijo.
+const DESTINOS = {
+  dt: { que:'club', titulo:'¿Qué equipo vas a dirigir?', icono:'bx-clipboard',
+    opciones(){
+      // Clubes acordes a tu prestigio: sin títulos no te llama un grande.
+      const pres = (G.titulos||0)*6 + (G.nivel||60)*0.5 + ((G.vidaStats&&G.vidaStats.resultados)||40)*0.4;
+      const techo = clamp(52 + pres*0.35, 55, 92);
+      const pool = todosClubs().filter(c => c.str <= techo && c.str >= techo-26 && c.name !== (G.vidaLugar||''));
+      return shuffle(pool).slice(0,3).map(c=>({
+        id:c.name, n:c.name, sub:c.liga, pais:c.pais, str:c.str,
+        badge:clubBadge(c.name,40),
+        nota: c.str>=82?'Exigencia máxima':c.str>=70?'Proyecto serio':'Para hacerte de abajo'
+      }));
+    } },
+  dirigente: { que:'club', titulo:'¿En qué club te postulás?', icono:'bx-briefcase',
+    opciones(){
+      const pool = todosClubs().filter(c => c.pais === (G.clubPais||G.pais) && c.name !== (G.vidaLugar||''));
+      return shuffle(pool).slice(0,3).map(c=>({ id:c.name, n:c.name, sub:c.liga, pais:c.pais, str:c.str,
+        badge:clubBadge(c.name,40), nota: c.str>=78?'Club grande, socios exigentes':'Club chico, todo por hacer' }));
+    } },
+  comentarista: { que:'medio', titulo:'¿Dónde vas a trabajar?', icono:'bx-microphone',
+    opciones(){
+      const P = prensaDe(G.clubPais || G.pais);
+      const medios = shuffle(P.diarios).slice(0,2).concat(['Streaming propio']);
+      return medios.map((m,i)=>({ id:m, n:m, sub: m==='Streaming propio'?'Tu canal, tus reglas':'Medio establecido',
+        badge:`<div style="width:40px;height:40px;border-radius:9px;background:${i===2?'#7c3aed':'#1e3a5f'};display:flex;align-items:center;justify-content:center;"><i class='bx ${i===2?'bx-broadcast':'bx-tv'}' style="font-size:22px;color:#fff;"></i></div>`,
+        nota: m==='Streaming propio'?'Más riesgo, todo tuyo':'Sueldo seguro, menos libertad' }));
+    } },
+  escuela: { que:'sede', titulo:'¿Dónde abrís la escuela?', icono:'bx-award',
+    opciones(){
+      const c = (CIUDADES[G.pais] || ['tu barrio','el centro','las afueras']);
+      return shuffle(c).slice(0,3).map(x=>({ id:x, n:x, sub:'Sede de la escuela',
+        badge:`<div style="width:40px;height:40px;border-radius:9px;background:#7a3d0d;display:flex;align-items:center;justify-content:center;"><i class='bx bx-map' style="font-size:22px;color:#fb923c;"></i></div>`,
+        nota:'Cada zona trae sus propios pibes' }));
+    } },
+  empresario: { que:'rubro', titulo:'¿En qué te metés?', icono:'bx-store',
+    opciones(){
+      const r = [['Inmobiliaria','Ladrillos: lento y seguro'],['Marca deportiva','Tu nombre en la ropa'],
+        ['Tecnología','Alto riesgo, alto retorno'],['Gastronomía','Restaurantes y franquicias'],
+        ['Representación','Manejar jugadores jóvenes']];
+      return shuffle(r).slice(0,3).map(x=>({ id:x[0], n:x[0], sub:x[1],
+        badge:`<div style="width:40px;height:40px;border-radius:9px;background:#0f3d2a;display:flex;align-items:center;justify-content:center;"><i class='bx bx-briefcase-alt-2' style="font-size:22px;color:#22c55e;"></i></div>`,
+        nota:'' }));
+    } }
+};
+window._elegirDestino = function(primeraVez){
+  if(!G) G=load(); if(!G) return;
+  const rol = G.vidaRol, D = DESTINOS[rol];
+  if(!D){ VJ.escena='casa'; VJ.x=200; window._vidaJugable(); return; }
+  const R = VIDA_ROLES[rol];
+  const ops = D.opciones();
+  G._destinoOps = ops; save();
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:540px;margin:0 auto;padding:20px 16px calc(28px + env(safe-area-inset-bottom));">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:${R.color};">${esc(R.n).toUpperCase()}</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:21px;color:#fff;margin-top:5px;">${esc(D.titulo)}</div>
+      ${G.vidaLugar?`<div style="font-size:11.5px;color:#8a9280;margin-top:4px;">Venís de ${esc(G.vidaLugar)}</div>`:''}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      ${ops.map((o,i)=>`<button onclick="window._tomarDestino(${i})" style="display:flex;align-items:center;gap:13px;background:rgba(255,255,255,.04);border:1.5px solid #262c22;border-radius:14px;padding:13px;cursor:pointer;text-align:left;">
+        ${o.badge}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:15px;font-weight:900;color:#fff;">${esc(o.n)}</div>
+          <div style="font-size:11px;color:#8a9280;margin-top:1px;">${o.pais?flagImgInline(o.pais)+' ':''}${esc(o.sub||'')}</div>
+          ${o.nota?`<div style="font-size:10px;color:${R.color};font-weight:800;margin-top:3px;">${esc(o.nota)}</div>`:''}
+        </div>
+        <i class='bx bx-chevron-right' style="color:#444;font-size:22px;"></i>
+      </button>`).join('')}
+    </div>
+    ${!primeraVez?`<button onclick="window._vidaJugable()" style="width:100%;margin-top:12px;background:#161616;color:#9aa294;border:1px solid #262c22;border-radius:12px;padding:12px;font-weight:800;font-size:12.5px;cursor:pointer;">Seguir donde estoy</button>`:''}
+  </div>`;
+};
+window._tomarDestino = function(i){
+  const o = (G._destinoOps||[])[i]; if(!o) return;
+  const rol = G.vidaRol, s = G.vidaStats || {};
+  if (G.vidaLugar && G.vidaLugar !== o.id){
+    (G.vidaDestinos = G.vidaDestinos || []).push({ lugar:G.vidaLugar, hasta:G.vidaEdad });
+  }
+  G.vidaLugar = o.id; G.vidaLugarSub = o.sub || '';
+  if (rol === 'dt' || rol === 'dirigente'){
+    G.vidaClubStr = o.str || 60;
+    // Un club grande sube la exigencia; uno chico da aire.
+    if (rol === 'dt'){ s.presion = clamp((s.presion||45) + (o.str>=82?18:o.str>=70?6:-10), 0, 100); }
+    else { s.poder = clamp((s.poder||40) + (o.str>=78?-8:8), 0, 100); }
+  } else if (rol === 'comentarista'){
+    if (o.id === 'Streaming propio'){ s.credibilidad = clamp((s.credibilidad||50)+8,0,100); s.rating = clamp((s.rating||40)-10,0,100); }
+    else { s.rating = clamp((s.rating||40)+8,0,100); }
+  } else if (rol === 'empresario'){
+    const riesgoso = /Tecnolog|Represent/.test(o.id);
+    s.riesgo = clamp((s.riesgo||30) + (riesgoso?18:-8), 0, 100);
+  }
+  G._destinoOps = null; save();
   VJ.escena = 'casa'; VJ.x = 200;
   window._vidaJugable();
 };
@@ -9784,6 +9913,7 @@ window._vidaLapso = function(){
           <div style="font-size:9.5px;font-weight:900;color:${R.color};letter-spacing:1px;">EDAD: ${L.lbl}</div>
           <div style="font-size:8.5px;color:#9aa294;margin-top:2px;line-height:1.35;">${esc(L.t)}</div>
           <div style="font-size:8.5px;color:#6b7360;margin-top:4px;border-top:1px solid ${R.color}22;padding-top:4px;"><i class='bx ${R.icon}' style="color:${R.color};"></i> ${esc(R.n)}</div>
+          ${G.vidaLugar?`<div style="font-size:9px;color:${R.color};font-weight:900;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(G.vidaLugar)}</div>`:''}
         </div>
         <!-- Etapa del lapso, arriba a la izquierda -->
         <div style="position:absolute;top:6px;left:6px;background:rgba(10,14,8,.72);border-radius:7px;padding:5px 9px;">
@@ -9856,8 +9986,18 @@ window._vidaSiguiente = function(){
   // Si la salud llegó a cero, la vida se termina antes.
   if ((G.vidaStats && G.vidaStats.salud <= 0)){ G._vidaFlags.murioAntes = true; window._vidaFinal(); return; }
   save();
-  if (G.vidaLapso >= VIDA_LAPSOS.length) window._vidaFinal();
-  else window._vidaLapso();
+  if (G.vidaLapso >= VIDA_LAPSOS.length){ window._vidaFinal(); return; }
+  // Entre lapsos podés cambiar de club, de medio o de rubro. Si te está yendo
+  // mal, además te pueden echar y la elección se vuelve obligatoria.
+  if (DESTINOS[G.vidaRol]){
+    const s = G.vidaStats || {};
+    const echado = (G.vidaRol==='dt' && (s.presion>=82 || s.resultados<=18))
+                || (G.vidaRol==='comentarista' && s.rating<=15)
+                || (G.vidaRol==='dirigente' && s.socios<=15);
+    if (echado){ G._vidaFlags.echado = true; window._elegirDestino(true); return; }
+    if (Math.random() < 0.55){ window._elegirDestino(false); return; }
+  }
+  window._vidaLapso();
 };
 
 // ── CIERRE DEL MODO VIDA: epílogo según cómo terminaron las barras ───────────
@@ -9891,7 +10031,12 @@ window._vidaFinal = function(){
     titulo = (s.soledad||0)>=65?'Se apagó de a poco':prom>=68?'En paz':'Una vida tranquila';
     texto = (s.soledad||0)>=65 ? 'Los últimos años fueron silenciosos. El teléfono sonaba poco y la casa quedaba grande. La fama se va mucho antes que uno.' : prom>=68 ? `Elegiste vivir y lo hiciste bien. ${F.homenajeado?'El estadio lleno cantando tu nombre fue el cierre perfecto. ':''}${F.libro?'Y dejaste escrito todo, sin maquillaje. ':''}Rodeado de los tuyos hasta el final.` : 'Una vida sin sobresaltos, con los tuyos cerca y la pelota lejos. No está nada mal.';
   }
-  G.segundaVida = { rol:R.n, icon:R.icon, res:texto, titulo, key:rol, prom:Math.round(prom) };
+  // Trayectoria post-carrera: por dónde pasaste como DT, periodista, dirigente...
+  const recorrido = (G.vidaDestinos||[]).map(d=>d.lugar).concat(G.vidaLugar?[G.vidaLugar]:[]);
+  if (recorrido.length){
+    texto += ` Pasaste por ${recorrido.length === 1 ? recorrido[0] : recorrido.slice(0,-1).join(', ') + ' y ' + recorrido[recorrido.length-1]}.`;
+  }
+  G.segundaVida = { rol:R.n, icon:R.icon, res:texto, titulo, key:rol, prom:Math.round(prom), recorrido };
   try { saveCareer(G); } catch(e) {}
   save();
   const kit = kitClub(G.club, G.clubPais || G.pais);
