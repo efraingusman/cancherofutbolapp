@@ -195,11 +195,16 @@ async function charlaAmbiente(req, res) {
         ctx,
         '',
         'REGLAS:',
-        '- A dice una frase y B le contesta. Nada más.',
+        '- A dice algo y B le contesta. Dos líneas, nada más.',
         '- Español rioplatense (vos, tenés, querés), natural, como se habla de verdad.',
-        '- Máximo 90 caracteres cada uno. Sin comillas, sin nombres al principio.',
-        '- Que suene a algo que se dice de paso, no a una escena de teatro.',
-        '- Cada uno habla según su edad y su rol: un nene no habla como un dirigente.',
+        '- ENTRE 45 Y 100 CARACTERES CADA UNO. Ni telegramas ni discursos.',
+        '- La respuesta de B tiene que APORTAR algo: una opinión, un dato, una queja,',
+        '  una cargada. Prohibido contestar "sí", "claro", "todo bien" y nada más.',
+        '- NO empieces con "Che". Variá el arranque; que no suene a plantilla.',
+        '- Sin comillas y sin poner el nombre adelante.',
+        '- Que se note quién es cada uno: un nene de 6 no habla como un DT de 55,',
+        '  y un médico no habla como un hincha.',
+        '- Que hablen de algo concreto, no en abstracto.',
         '- Respondé SOLO JSON: {"a":"...","b":"..."}'
     ].join('\n');
 
