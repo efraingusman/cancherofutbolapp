@@ -8031,7 +8031,7 @@ function mundoRender(){
         <div style="display:flex;flex-direction:column;gap:9px;">
           ${VJ.hotspots.map((h,i)=>`<div style="display:flex;gap:7px;">
             <button onclick="window._vjAccion(${i})" ${h.bloqueado?'disabled':''} style="flex:1;min-width:0;display:flex;align-items:center;gap:11px;background:${h.destacado?'rgba(186,255,0,.13)':'rgba(255,255,255,.04)'};border:1.5px solid ${h.destacado?A:'#242a20'};color:${h.bloqueado?'#5d6879':(h.destacado?A:'#e0e4dc')};border-radius:13px;padding:13px 14px;font-weight:800;font-size:13.5px;text-align:left;cursor:${h.bloqueado?'default':'pointer'};opacity:${h.bloqueado?.55:1};line-height:1.3;"><i class='bx ${h.icono}' style="font-size:20px;flex-shrink:0;"></i><span>${h.lbl}</span></button>
-            ${h.tipo==='npc' ? `<button onclick="window._vjHablar(${i})" title="Escribirle" style="flex:0 0 auto;background:rgba(125,211,252,.10);border:1.5px solid rgba(125,211,252,.35);color:#7dd3fc;border-radius:13px;padding:13px 12px;font-size:18px;cursor:pointer;line-height:1;"><i class='bx bx-message-rounded-dots'></i></button>` : ''}
+            ${vjCharlable(h) ? `<button onclick="window._vjHablar(${i})" title="Escribirle" style="flex:0 0 auto;background:rgba(125,211,252,.10);border:1.5px solid rgba(125,211,252,.35);color:#7dd3fc;border-radius:13px;padding:13px 12px;font-size:18px;cursor:pointer;line-height:1;"><i class='bx bx-message-rounded-dots'></i></button>` : ''}
           </div>`).join('')}
         </div>
         ${(VJ.mundo === 'vida' && G && G.vidaRol) ? (function(){ const pend = vjPendientesTramo(); return `
@@ -8051,6 +8051,11 @@ function mundoRender(){
   </div>`;
   vjArrancarLoop();
   vjChequearMudanza();
+  // La gente empieza a hablar sola al ratito de entrar, y sigue cada tanto.
+  clearInterval(VJ.ambT);
+  clearTimeout(VJ.ambT0);
+  VJ.ambT0 = setTimeout(vjAmbienteTick, 3500);
+  VJ.ambT = setInterval(vjAmbienteTick, 26000);
 }
 
 // Elegir una accion de la lista: el personaje se acerca solo y pasa lo que tenga
@@ -8078,6 +8083,8 @@ window._vidaMapa = function(){
 };
 function vjDetener(){
   VJ.activo = false;
+  clearInterval(VJ.ambT); clearTimeout(VJ.ambT0); VJ.ambT = VJ.ambT0 = 0;
+  vjLimpiarBurbujas();
   if (VJ.raf) cancelAnimationFrame(VJ.raf);
   if (VJ.timer) clearInterval(VJ.timer);
   clearTimeout(VJ.wd);
@@ -8686,6 +8693,75 @@ function npcResponder(txt, rol, semilla, quien){
     frase = pick(V.muletilla).replace(/^./, c=>c.toUpperCase()) + ', ' + frase.replace(/^./, c=>c.toLowerCase());
   return frase;
 }
+
+// ¿A esto se le puede escribir? Sólo a PERSONAS con identidad propia. Las
+// acciones que hacen avanzar la etapa se dibujan con un muñeco pero son
+// situaciones ("Lesión temprana", "El picado del barrio"): no son alguien.
+const VJ_ACCIONES_SITUACION = ['potrero','juvenil','decision','rol','gestion','jugar','dormir','irACasa','nada'];
+function vjCharlable(h){
+  return !!(h && h.tipo === 'npc' && h.rol && !h.bloqueado &&
+            VJ_ACCIONES_SITUACION.indexOf(h.accion) < 0);
+}
+// ══════════════════════════════════════════════════════════════════════════════
+// EL MUNDO HABLA SOLO
+// Si hay dos personas en la escena, cada tanto se ponen a charlar entre ellas sin
+// que vos escribas nada: aparecen los globitos sobre sus cabezas. Si querés meterte,
+// el botón de escribir sigue estando.
+// ══════════════════════════════════════════════════════════════════════════════
+function vjBurbujaEn(x, texto, ms){
+  const world = document.getElementById('vj-world'); if(!world) return;
+  const d = document.createElement('div');
+  d.className = 'vj-amb';
+  d.style.cssText = 'position:absolute;left:'+x+'px;bottom:'+Math.round(250*(1-vjPisoPct())+96)+'px;'+
+    'transform:translateX(-50%);max-width:190px;background:rgba(8,11,16,.94);border:1px solid #35506b;'+
+    'color:#e8eef5;border-radius:11px;padding:6px 9px;font-size:11px;font-weight:600;line-height:1.35;'+
+    'text-align:center;pointer-events:none;z-index:5;box-shadow:0 3px 12px rgba(0,0,0,.6);opacity:0;transition:opacity .25s;';
+  d.textContent = texto;
+  world.appendChild(d);
+  requestAnimationFrame(()=>{ d.style.opacity = '1'; });
+  setTimeout(()=>{ d.style.opacity = '0'; setTimeout(()=>d.remove(), 300); }, ms || 4200);
+}
+function vjLimpiarBurbujas(){ document.querySelectorAll('.vj-amb').forEach(e=>e.remove()); }
+// Temas de los que puede hablar la gente, según dónde estés.
+function vjTemaAmbiente(){
+  const t = { casa:['la familia','la casa','lo que se cocina','los chicos'],
+    barrio:['el barrio','el partido del domingo','lo caro que está todo'],
+    vestuario:['el partido que viene','el técnico','cómo viene el grupo'],
+    cancha:['el entrenamiento','la cancha','el rival'],
+    oficina:['contratos y plata','el mercado de pases'],
+    trabajo:['el laburo','cómo viene la temporada'],
+    baldio:['el picado','quién juega mejor'],
+    predio:['quién sube a primera','el entrenamiento'],
+    pension:['la comida de la pensión','extrañar la casa'] }[VJ.escena];
+  return pick(t || ['cualquier cosa','lo de siempre']);
+}
+// Cada tanto, dos personas de la escena se ponen a hablar.
+function vjAmbienteTick(){
+  if (!VJ.activo || VJ._chatCon) return;
+  const gente = (VJ.hotspots || []).filter(vjCharlable);
+  if (gente.length < 2) return;
+  const par = shuffle(gente.slice()).slice(0,2);
+  const A = par[0], B = par[1];
+  const ficha = h => ({ nombre: h.nombre || vjNombreNPC(h.semilla, h.gen), rol: h.rol, edad: h.edad });
+  const mostrar = (la, lb)=>{
+    if (!VJ.activo) return;
+    vjBurbujaEn(A.x, la, 4200);
+    setTimeout(()=>{ if (VJ.activo) vjBurbujaEn(B.x, lb, 4200); }, 2000);
+  };
+  const localA = vjFraseViva(VJ.mundo === 'vida' ? 'vida' : (VJ.mundo === 'potrero' ? 'potrero' : 'club'));
+  const localB = vjFraseViva(VJ.mundo === 'vida' ? 'vida' : (VJ.mundo === 'potrero' ? 'potrero' : 'club'));
+  if (window._lyChatIA === false){ mostrar(localA, localB); return; }
+  fetch('/api/game-judge', {
+    method:'POST', headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({ modo:'ambiente', a:ficha(A), b:ficha(B), tema:vjTemaAmbiente(),
+      lugar:(vjEscena()||{}).n || '', anio:(G&&G.anio)||2026, apellido:(G&&G.apellido)||'',
+      edad:vjEdad(), club:(G&&G.club)||null, titulos:(G&&G.titulos)||0 })
+  })
+  .then(r=> r.status === 200 ? r.json() : null)
+  .then(d=>{ if (d && d.a && d.b) mostrar(d.a, d.b); else mostrar(localA, localB); })
+  .catch(()=> mostrar(localA, localB));
+}
+
 // Pantalla de conversación: escribís, te contesta, y podés seguir.
 window._vjHablar = function(indice){
   const h = (VJ.hotspots||[])[indice];

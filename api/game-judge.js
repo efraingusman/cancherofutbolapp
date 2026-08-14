@@ -172,6 +172,53 @@ async function pollinations(messages) {
     return (t2 && t2.length < 600) ? t2 : null;
 }
 
+
+// ── DOS PERSONAJES HABLANDO ENTRE ELLOS ──────────────────────────────────────
+// No hace falta que el jugador escriba nada: el mundo tiene que sonar vivo. Se
+// piden las DOS líneas en una sola llamada para no gastar el doble.
+async function charlaAmbiente(req, res) {
+    const b = req.body || {};
+    const A = b.a || {}, B = b.b || {};
+    const ctx = [
+        b.anio ? `Estamos en ${b.anio}.` : '',
+        b.lugar ? `Están en ${b.lugar}.` : '',
+        b.apellido ? `Cerca hay alguien que se apellida ${b.apellido}${b.edad ? `, de ${b.edad} años` : ''}.` : '',
+        b.club ? `${b.apellido || 'Esa persona'} juega/trabaja en ${b.club}.` : '',
+        b.titulos ? `Ganó ${b.titulos} títulos.` : '',
+        b.tema ? `Tema del que están hablando: ${b.tema}.` : ''
+    ].filter(Boolean).join(' ');
+
+    const system = [
+        `Escribí un intercambio MUY corto entre dos personas de un juego de fútbol.`,
+        `PERSONA A: ${A.nombre || 'Alguien'}, ${A.rol || 'un conocido'}${A.edad ? `, ${A.edad} años` : ''}.`,
+        `PERSONA B: ${B.nombre || 'Alguien'}, ${B.rol || 'un conocido'}${B.edad ? `, ${B.edad} años` : ''}.`,
+        ctx,
+        '',
+        'REGLAS:',
+        '- A dice una frase y B le contesta. Nada más.',
+        '- Español rioplatense (vos, tenés, querés), natural, como se habla de verdad.',
+        '- Máximo 90 caracteres cada uno. Sin comillas, sin nombres al principio.',
+        '- Que suene a algo que se dice de paso, no a una escena de teatro.',
+        '- Cada uno habla según su edad y su rol: un nene no habla como un dirigente.',
+        '- Respondé SOLO JSON: {"a":"...","b":"..."}'
+    ].join('\n');
+
+    const txt = await pensarIA([
+        { role: 'system', content: system },
+        { role: 'user', content: 'Dale.' }
+    ]);
+    if (!txt) return res.status(204).end();
+    try {
+        const limpio = txt.replace(/```json|```/g, '').trim();
+        const d = JSON.parse(limpio.slice(limpio.indexOf('{'), limpio.lastIndexOf('}') + 1));
+        if (d && d.a && d.b) {
+            res.setHeader('Cache-Control', 'no-store');
+            return res.status(200).json({ a: String(d.a).slice(0, 110), b: String(d.b).slice(0, 110) });
+        }
+    } catch (e) { /* si no vino JSON limpio, mejor nada */ }
+    return res.status(204).end();
+}
+
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -181,6 +228,7 @@ export default async function handler(req, res) {
 
     // Charla con un NPC de Canchero Leyenda (misma función, otro modo).
     if (req.body && req.body.modo === 'chat') return charlaNPC(req, res);
+    if (req.body && req.body.modo === 'ambiente') return charlaAmbiente(req, res);
 
     const { teamA, teamB, nameA, nameB } = req.body || {};
     if (!Array.isArray(teamA) || !Array.isArray(teamB)) return res.status(400).json({ error: 'teamA y teamB requeridos' });
