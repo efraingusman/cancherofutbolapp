@@ -2758,25 +2758,25 @@ window._carreraOfertas = function(){
 // Se elige uno al firmar el primer contrato y se puede cambiar despues. Cada uno
 // tiene su estilo y te sugiere cosas distintas.
 const REPRES = [
-  { id:'viejo',  n:'Don Aníbal',        edad:64, rasgo:'El de toda la vida',
+  { id:'viejo',  n:'Don Aníbal',        edad:64, gen:'m', rasgo:'El de toda la vida',
     desc:'Representó a tu viejo club treinta años. No consigue Europa, pero jamás te va a vender.',
     comision:5,  contactos:35, honestidad:95,
     consejos:['No te apures con Europa: acá adentro todavía tenés cosas para ganar.',
               'Guardá la mitad de cada prima. La carrera dura menos de lo que parece.',
               'Renová ahora que estás bien; después te lo van a querer bajar.'] },
-  { id:'tiburon',n:'Marcelo Brienza',   edad:47, rasgo:'El tiburón',
+  { id:'tiburon',n:'Marcelo Brienza',   edad:47, gen:'m', rasgo:'El tiburón',
     desc:'Mueve jugadores a Europa como nadie. Se lleva su tajada y te suelta la mano si bajás.',
     comision:18, contactos:92, honestidad:35,
     consejos:['Hay una oferta afuera. Si no saltás ahora, a los 26 ya no te llama nadie.',
               'Pedí cláusula de salida. Sin eso quedás preso de un contrato largo.',
               'Rechazá la renovación: valés más de lo que te están ofreciendo.'] },
-  { id:'joven',  n:'Sofía Aranda',      edad:34, rasgo:'La que arma marca',
+  { id:'joven',  n:'Sofía Aranda',      edad:34, gen:'f', rasgo:'La que arma marca',
     desc:'Menos contactos, pero te construye una marca: sponsors, medios, imagen.',
     comision:10, contactos:62, honestidad:78,
     consejos:['Firmá el sponsor: esa plata es la que te queda cuando dejás de jugar.',
               'Cuidá lo que decís en redes; hoy un video te cambia el precio.',
               'Invertí en algo tuyo antes de los 30, no después.'] },
-  { id:'abogado',n:'Estudio Pereira',   edad:52, rasgo:'Los abogados',
+  { id:'abogado',n:'Estudio Pereira',   edad:52, gen:'m', rasgo:'Los abogados',
     desc:'Un estudio serio: contratos blindados, cero sorpresas, cero calor humano.',
     comision:12, contactos:70, honestidad:90,
     consejos:['Que el contrato tenga los bonos por partido jugado, no por título.',
@@ -3069,7 +3069,7 @@ window._elegirRepre = function(motivo){
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       ${REPRES.map((r,i)=>`<button onclick="window._fijarRepre('${r.id}')" style="display:flex;align-items:flex-start;gap:12px;background:${actual&&actual.id===r.id?'rgba(186,255,0,.10)':'rgba(255,255,255,.04)'};border:1.5px solid ${actual&&actual.id===r.id?A:'#242424'};border-radius:15px;padding:14px;cursor:pointer;text-align:left;">
-        <div style="flex-shrink:0;line-height:0;">${vjSpriteNPC('repre'+r.id, r.id==='joven'?'tv':'traje', r.edad, 'idle')}</div>
+        <div style="flex-shrink:0;line-height:0;">${vjSpriteNPC('repre'+r.id+r.n, r.id==='joven'?'tv':'traje', r.edad, 'idle', r.gen)}</div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:15px;font-weight:900;color:#fff;">${esc(r.n)}</div>
           <div style="font-size:10.5px;color:${A};font-weight:800;margin-bottom:4px;">${esc(r.rasgo)}</div>
@@ -3095,7 +3095,7 @@ window._fijarRepre = function(id){
   m.innerHTML = `
   <div style="max-width:520px;margin:0 auto;padding:44px 20px 40px;text-align:center;">
     <div style="display:flex;justify-content:center;align-items:flex-end;gap:6px;margin-bottom:14px;">
-      <div style="line-height:0;">${vjSpriteNPC('repre'+r.id, r.id==='joven'?'tv':'traje', r.edad, 'saludo')}</div>
+      <div style="line-height:0;">${vjSpriteNPC('repre'+r.id+r.n, r.id==='joven'?'tv':'traje', r.edad, 'saludo', r.gen)}</div>
       <div style="line-height:0;">${avatarDeG(2.4,'firmar')}</div>
     </div>
     <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:${A};margin-bottom:8px;">${esc(r.n).toUpperCase()}</div>
