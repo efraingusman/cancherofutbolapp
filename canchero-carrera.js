@@ -457,7 +457,7 @@ function montarSalida(){
   // ARRIBA A LA DERECHA, por encima de todo y sin pisar nada: la barra superior de
   // cada pantalla reserva su espacio (ver --ly-gutter) para que la X no tape ni el
   // titulo ni las estadisticas.
-  b.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + 8px);right:8px;width:32px;height:32px;border-radius:50%;background:rgba(10,12,10,.72);backdrop-filter:blur(6px);border:1px solid #2a3222;color:#9aa294;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);opacity:.85;';
+  b.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + 68px);right:8px;width:32px;height:32px;border-radius:50%;background:rgba(10,12,10,.72);backdrop-filter:blur(6px);border:1px solid #2a3222;color:#9aa294;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);opacity:.85;';
   b.innerHTML = "<i class='bx bx-x'></i>";
   b.onclick = function(){ window._carreraSalir(); };
   document.body.appendChild(b);
@@ -478,7 +478,7 @@ function montarAnio(){
   if (document.getElementById('carrera-anio')) return;
   const d = document.createElement('div');
   d.id = 'carrera-anio';
-  d.style.cssText = 'position:fixed;z-index:100069;top:calc(env(safe-area-inset-top, 0px) + 8px);right:46px;height:32px;display:flex;align-items:center;padding:0 10px;border-radius:16px;background:rgba(10,12,10,.72);backdrop-filter:blur(6px);border:1px solid #2a3222;color:#baff00;font-size:12px;font-weight:900;letter-spacing:1px;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.5);';
+  d.style.cssText = 'position:fixed;z-index:100069;top:calc(env(safe-area-inset-top, 0px) + 68px);right:46px;height:32px;display:flex;align-items:center;padding:0 10px;border-radius:16px;background:rgba(10,12,10,.72);backdrop-filter:blur(6px);border:1px solid #2a3222;color:#baff00;font-size:12px;font-weight:900;letter-spacing:1px;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.5);';
   document.body.appendChild(d);
   refrescarAnio();
   clearInterval(window._lyAnioT);
@@ -1229,6 +1229,12 @@ function avEnvejecer(edad){
 function avEtapa(edad){
   // La cabeza de los chicos es grande (así se lee "pibe"), pero no tanto como para
   // dejarlos sin cuerpo: con 1.30 la cabeza ocupaba media figura.
+  // Bebés y chicos: sin estas etapas, un recién nacido se dibujaba con el mismo
+  // cuerpo que un pibe de 13 y parecía un adulto en miniatura.
+  if (edad <= 1)  return { id:'bebe',     esc:0.30, hombro:0.58, cabeza:1.75, lbl:'Bebé' };
+  if (edad <= 3)  return { id:'nene2',    esc:0.40, hombro:0.62, cabeza:1.55, lbl:'Nene' };
+  if (edad <= 6)  return { id:'nene6',    esc:0.50, hombro:0.68, cabeza:1.40, lbl:'Nene' };
+  if (edad <= 9)  return { id:'nene9',    esc:0.60, hombro:0.73, cabeza:1.28, lbl:'Pibe' };
   if (edad <= 13) return { id:'nene',     esc:0.70, hombro:0.78, cabeza:1.16, lbl:'Pibe' };
   if (edad <= 16) return { id:'juvenil',  esc:0.84, hombro:0.88, cabeza:1.08, lbl:'Juvenil' };
   if (edad <= 19) return { id:'joven',    esc:0.94, hombro:0.96, cabeza:1.03, lbl:'Joven' };
@@ -1970,7 +1976,7 @@ function _avPelo(CR, tipo, hx, hy, hw, hh, c, calvicie){
 // El avatar usa SIEMPRE la del club donde juega; sólo con la selección usa la del país.
 const CLUB_KITS = {
   // Uruguay
-  'Nacional':['#ffffff','#1c4b9b','stripes'], 'Peñarol':['#f5c400','#111111','stripes'],
+  'Nacional':['#ffffff','#1c4b9b','solid'], 'Peñarol':['#f5c400','#111111','stripes'],
   'Defensor Sporting':['#7b1fa2','#ffffff','solid'], 'Danubio':['#ffffff','#111111','sash'],
   'Liverpool FC (UY)':['#1a3d8f','#000000','stripes'], 'Montevideo City':['#7ec8e3','#ffffff','solid'],
   'Boston River':['#0d2b6b','#e63329','solid'], 'Cerro':['#1b6ec2','#ffffff','solid'],
@@ -2001,7 +2007,7 @@ const CLUB_KITS = {
   'Vitória':['#c8102e','#000000','stripes'], 'Juventude':['#1f7a3d','#ffffff','stripes'],
   // España
   'Real Madrid':['#ffffff','#d4af37','solid'], 'Barcelona':['#0d2b6b','#a50044','stripes'],
-  'Atlético':['#c8102e','#ffffff','stripes'], 'Sevilla':['#ffffff','#c8102e','solid'],
+  'Atlético':['#c8102e','#ffffff','stripes','#0d1a5c'], 'Sevilla':['#ffffff','#c8102e','solid'],
   'Valencia':['#ffffff','#f5820d','solid'], 'Real Sociedad':['#ffffff','#1b6ec2','stripes'],
   'Villarreal':['#f5d800','#1a3d8f','solid'], 'Betis':['#1f7a3d','#ffffff','stripes'],
   'Athletic':['#ffffff','#c8102e','stripes'], 'Girona':['#c8102e','#ffffff','stripes'],
@@ -2092,7 +2098,10 @@ const CLUB_KITS = {
 // del nombre (hash) para que cada club amateur tenga igual su identidad propia.
 function kitClub(nombre, paisFallback){
   const k = CLUB_KITS[nombre];
-  if (k) return { base:k[0], alt:k[1], txt:_avContraste(k[0]), tipo:k[2] };
+  // 4º valor opcional: color de texto forzado. En camisetas a rayas de dos
+  // colores claros/fuertes (Atlético), el contraste automático contra el color
+  // base no alcanza y el número se pierde sobre la franja contraria.
+  if (k) return { base:k[0], alt:k[1], txt:k[3] || _avContraste(k[0]), tipo:k[2] };
   if (nombre){
     let h=0; for(let i=0;i<nombre.length;i++) h=(h*31+nombre.charCodeAt(i))>>>0;
     const hue = h % 360;
@@ -2884,9 +2893,9 @@ window._carreraFichar = function(i){
   G = {
     apellido:d.apellido, num:d.num, pie:d.pie, pais:d.pais, pos:d.pos, years:d.years,
     edad:15, nivel:nivelInicial, club:c.name, liga:c.liga, clubStr:c.str, clubPais:c.pais,
-    // Frecuencia REAL: la carrera arranca en 2026 (año del debut). Cada temporada +1 año.
-    // Mundial 2030, Copa América 2028, Eurocopa 2028, JJOO 2028/2032.
-    anio:2026,
+    // El tiempo NO se reinicia entre generaciones: el hijo/nieto arranca en el año
+    // en que terminó la vida del anterior. Sólo la primera carrera empieza en 2026.
+    anio: (d.legado && d.legado.anio) ? d.legado.anio : 2026,
     // Valor inicial COHERENTE con el club: interior/amateur arrancan valiendo
     // €500-€2k (o "vales de comida"). Solo grandes ligas europeas dan un pibe €100k+.
     // Formula: (str-42) * 260 * ligaBoost. Mínimo €300.
@@ -3192,6 +3201,9 @@ window._carreraHub = function(){
         <div style="display:flex;gap:8px;margin-top:8px;">
           <button onclick="window._carreraPedirSalida()" style="flex:1;background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:12px;padding:11px;font-weight:800;font-size:12px;cursor:pointer;"><i class='bx bx-log-out'></i> Pedir salida</button>
           <button onclick="window._carreraBienes()" style="flex:1;background:rgba(250,204,21,.08);color:#facc15;border:1px solid rgba(250,204,21,.3);border-radius:12px;padding:11px;font-weight:800;font-size:12px;cursor:pointer;"><i class='bx bx-wallet'></i> Mis bienes</button>
+        </div>
+        ${ancestros().length?`<button onclick="window._verAncestros()" style="width:100%;margin-top:8px;background:rgba(167,139,250,.08);color:#c4b5fd;border:1px solid rgba(167,139,250,.3);border-radius:12px;padding:11px;font-weight:800;font-size:12px;cursor:pointer;"><i class='bx bx-sitemap'></i> Ver la carrera de mi ${esc((ancestros()[ancestros().length-1]||{}).parentesco||'padre')}</button>`:''}
+        <div style="display:none;">
         </div>
       </div>
       <!-- Línea de tiempo: TODAS las temporadas jugadas, con posición y trofeo -->
@@ -6396,6 +6408,12 @@ function generoDeSemilla(semilla){
   for (const [re, g] of NPC_ROL_GEN) if (re.test(s)) return g;
   return null;
 }
+function vjSpriteHab(h, pose){
+  // La pareja NO se genera por hash: se dibuja con el avatar exacto que elegiste,
+  // si no cambiaba de cara entre la escena de la boda y la de la casa.
+  if (h && h._pareja) return vjSpritePareja(pose||'idle', false, 2.2);
+  return vjSpriteNPC(h.semilla, h.ropa, h.edad, pose||'idle', vjGen(h));
+}
 function vjSpriteNPC(semilla, ropa, edad, pose, gen){
   edad = edad || 40;
   let h = 0; for(let i=0;i<String(semilla).length;i++) h = (h*31 + String(semilla).charCodeAt(i)) >>> 0;
@@ -7627,7 +7645,7 @@ function vjHotspotsBase(){
   const hechos = G._vjHechos = G._vjHechos || {};
   const fam = G.familia = G.familia || {};
   if (VJ.escena === 'casa'){
-    if (fam.pareja) out.push({ x:250, tipo:'npc', semilla:'pareja'+fam.pareja, ropa:'calle', edad:(G.vidaEdad||40)-2,
+    if (fam.pareja) out.push({ x:250, tipo:'npc', _pareja:true, semilla:'pareja'+fam.pareja, ropa:'calle', edad:(G.vidaEdad||40)-2,
       gen: fam.parejaGen || parejaGen(),
       lbl:'Hablar con ' + esc(fam.pareja), accion:'suceso', cat:'familia', icono:'bx-heart', nombre:esc(fam.pareja), rol:'tu pareja' });
     (fam.hijos||[]).slice(0,2).forEach((h,i)=> out.push({ x:318+i*62, tipo:'npc', semilla:'hijo'+h.nombre, ropa:'calle',
@@ -7737,7 +7755,7 @@ function vjHotspotsClub(){
     const fam = G.familia = G.familia || {};
     if (!fam.pareja) out.push({ x:288, tipo:'obj', obj:'tele', escala:0.9, lbl:'Salir, ver gente, hacer vida',
       accion:'suceso', cat:'familia', icono:'bx-heart' });
-    if (fam.pareja) out.push({ x:250, tipo:'npc', semilla:'pareja'+fam.pareja, ropa:'calle', edad:Math.max(18,(G.edad||24)-1),
+    if (fam.pareja) out.push({ x:250, tipo:'npc', _pareja:true, semilla:'pareja'+fam.pareja, ropa:'calle', edad:Math.max(18,(G.edad||24)-1),
       gen: fam.parejaGen || parejaGen(),
       lbl:'Hablar con ' + esc(fam.pareja), accion:'suceso', cat:'familia', icono:'bx-heart', nombre:esc(fam.pareja), rol:'tu pareja' });
     // Los bebés NO caminan por el living: están en la cuna. Sólo los que ya andan
@@ -8067,7 +8085,7 @@ function mundoRender(){
         <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="position:absolute;inset:0;pointer-events:none;">${vjAtmosfera(W,H,pisoPct)}</svg>
         ${VJ.hotspots.map((h,i)=>`
           <div id="vj-hs-${i}" style="position:absolute;left:${h.x}px;bottom:${Math.round(H*(1-pisoPct)) - (h.tipo==='npc'?14:2)}px;transform:translateX(-50%);line-height:0;${h.bloqueado?'opacity:.45;':''}">
-            ${h.tipo==='npc' ? vjSpriteNPC(h.semilla, h.ropa, h.edad, 'idle', vjGen(h)) : vjObjSVG(h.obj, h.escala, h.bebe ? genDe(h.bebe) : null)}
+            ${h.tipo==='npc' ? vjSpriteHab(h,'idle') : vjObjSVG(h.obj, h.escala, h.bebe ? genDe(h.bebe) : null)}
             ${h.tipo==='npc' ? `<div style="position:absolute;left:50%;top:-26px;transform:translateX(-50%);white-space:nowrap;text-align:center;line-height:1.15;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.9);">
               <div style="font-size:9px;font-weight:900;color:#e8eef5;">${esc(h.nombre || vjNombreNPC(h.semilla, vjGen(h)))}</div>
               <div style="font-size:7.5px;font-weight:800;color:${h.destacado?A:'#8fa0b4'};letter-spacing:.4px;">${esc((h.rol||'').toUpperCase())}</div>
@@ -8841,7 +8859,7 @@ function vjPintarChat(){
     ${fondoEscenaHTML()}
     <div style="position:relative;max-width:640px;margin:0 auto;width:100%;padding:52px 18px calc(18px + env(safe-area-inset-bottom));box-sizing:border-box;">
       <div style="display:flex;align-items:flex-end;justify-content:center;gap:6px;margin-bottom:12px;">
-        <div style="line-height:0;">${h.tipo==='npc' ? vjSpriteNPC(h.semilla, h.ropa, h.edad, 'idle', vjGen(h)) : vjObjSVG(h.obj, h.escala)}</div>
+        <div style="line-height:0;">${h.tipo==='npc' ? vjSpriteHab(h,'idle') : vjObjSVG(h.obj, h.escala)}</div>
         <div style="line-height:0;transform:scaleX(-1);">${vjSpriteJugador('idle')}</div>
       </div>
       <div style="background:rgba(10,13,8,.82);border:1.5px solid #2a3a4c;border-radius:18px;padding:14px;">
@@ -9459,7 +9477,10 @@ function legadoChequear(){
 // hijos son grandes, sigue un NIETO, y despues un bisnieto. El legado no se corta.
 function legadoCandidatos(){
   const fam = (G && G.familia) || {};
-  const edadJugable = x => (x.edad == null) || (x.edad <= 22);
+  // Un heredero solo puede EMPEZAR de niño: si ya es grande, se saltea a la
+  // generacion siguiente. Asi el nieto arranca a la misma edad que arranco el abuelo.
+  const EDAD_INICIO = 12;
+  const edadJugable = x => (x.edad == null) || (x.edad <= 14);
   const hijos  = (fam.hijos||[]).filter(edadJugable);
   const nietos = (fam.nietos||[]).filter(edadJugable);
   const marca = (arr, rel) => arr.map(x => Object.assign({}, x, { _rel: rel }));
@@ -9468,7 +9489,7 @@ function legadoCandidatos(){
   // Si toda la descendencia ya es grande, aparece la generación que sigue.
   if (!cand.length && ((fam.hijos||[]).length || (fam.nietos||[]).length)){
     const g = Math.random() < 0.5 ? 'f' : 'm';
-    cand = [Object.assign(nacePersona(g), { edad:16, _rel:'nieto', _nuevo:true })];
+    cand = [Object.assign(nacePersona(g), { edad:EDAD_INICIO, _rel:'nieto', _nuevo:true })];
   }
   return cand;
 }
@@ -9503,7 +9524,8 @@ window._legadoJugar = function(i){
   const legado = {
     padre: padre.apellido, club: padre.club, titulos: padre.titulos||0,
     nivelMax: Math.round(padre.nivel||60), vitrina: (padre.vitrina||[]).map(v=>v.nombre).slice(0,8),
-    anio: padre.anio || 2026, rival: padre.rival ? padre.rival.nombre : null,
+    anio: (padre.vidaEdad && padre.anio) ? (padre.anio + Math.max(0, padre.vidaEdad - (padre.edad||36))) : (padre.anio || 2026),
+    rival: padre.rival ? padre.rival.nombre : null,
     idolo: padre._idoloNombre || null,
     gen: (previo.gen || 1) + 1,
     parentesco: h._rel === 'nieto' ? 'abuelo' : 'padre',
@@ -9516,6 +9538,13 @@ window._legadoJugar = function(i){
     paisOrigen: padre.pais
   };
   try { localStorage.setItem('canchero_legado', JSON.stringify(legado)); } catch(e){}
+  // Archivo de ancestros: se guarda la partida entera para poder REVISARLA despues.
+  try {
+    const arch = JSON.parse(localStorage.getItem('canchero_ancestros') || '[]');
+    arch.push({ gen: (previo.gen||1), apellido: padre.apellido, nombre: padre.nombre || padre.apellido,
+      parentesco: legado.parentesco, anioFin: legado.anio, partida: padre });
+    localStorage.setItem('canchero_ancestros', JSON.stringify(arch.slice(-4)));
+  } catch(e){}
   try { localStorage.removeItem(LS); } catch(e){}
   G = null;
   // La apariencia y el nombre YA ESTAN: sale de la familia, no se vuelve a crear.
@@ -10071,6 +10100,53 @@ window._vidaFinal = function(){
   </div>`;
 };
 // Alias público del resumen final (los onclick inline sólo ven window).
+// ── ARCHIVO DE ANCESTROS ─────────────────────────────────────────────────────
+// La carrera del padre/abuelo queda guardada y se puede volver a ver en cualquier
+// momento mientras jugás con el heredero.
+function ancestros(){ try { return JSON.parse(localStorage.getItem('canchero_ancestros')||'[]'); } catch(e){ return []; } }
+window._verAncestros = function(){
+  const AN = ancestros();
+  const m = document.getElementById('carrera-modal') || overlay();
+  if(!AN.length){ window._carreraHub(); return; }
+  const filas = AN.slice().reverse().map((a, i) => {
+    const p = a.partida || {};
+    const idx = AN.length - 1 - i;
+    return `<button onclick="window._verAncestro(${idx})" style="width:100%;display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.04);border:1.5px solid #262c22;border-radius:14px;padding:13px;cursor:pointer;text-align:left;margin-bottom:9px;">
+      <div style="line-height:0;flex-shrink:0;">${avatarSprite(p.avatar||avatarDefault(),{edad:Math.min(70,(p.vidaEdad||p.edad||40)),escala:1.7,pose:'idle',num:'',apellido:''})}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:15px;font-weight:900;color:#fff;">${esc(p.apellido||a.apellido||'—')}</div>
+        <div style="font-size:11px;color:#8a9280;margin-top:2px;">Tu ${esc(a.parentesco||'ancestro')} · ${(p.titulos||0)} títulos · nivel ${Math.round(p.nivel||0)}</div>
+        <div style="font-size:10px;color:#5f6a58;margin-top:1px;">Terminó en ${a.anioFin||'—'}</div>
+      </div>
+      <i class='bx bx-chevron-right' style="color:#444;font-size:22px;"></i>
+    </button>`;
+  }).join('');
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:20px 16px calc(28px + env(safe-area-inset-bottom));">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <button onclick="window._carreraHub()" style="background:rgba(255,255,255,.06);border:none;color:#aaa;width:32px;height:32px;border-radius:50%;font-size:17px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:18px;color:#fff;">Tu estirpe</div>
+    </div>
+    ${filas}
+  </div>`;
+};
+// Muestra el resumen final del ancestro SIN perder la partida en curso.
+window._verAncestro = function(idx){
+  const AN = ancestros(); const a = AN[idx]; if(!a || !a.partida) return;
+  const actual = G;
+  G = a.partida;
+  try { retiro(); } catch(e){}
+  G = actual;
+  setTimeout(function(){
+    const m = document.getElementById('carrera-modal'); if(!m) return;
+    const cont = m.firstElementChild || m;
+    const b = document.createElement('button');
+    b.style.cssText = 'position:sticky;bottom:10px;width:100%;margin-top:14px;background:linear-gradient(135deg,#16a34a,'+A+');color:#000;border:none;border-radius:13px;padding:14px;font-weight:900;font-size:14px;cursor:pointer;z-index:5;';
+    b.textContent = 'Volver a mi carrera';
+    b.onclick = function(){ window._carreraHub(); };
+    cont.appendChild(b);
+  }, 40);
+};
 window._carreraResumenFinal = function(){ try{ retiro(); }catch(e){ console.warn('resumen final', e); window._carreraHub(); } };
 // Compat con guardados viejos que usaban el sistema año a año.
 window._carreraVida = function(){ if(G && G.vidaRol) window._vidaJugable(); else retiro(); };
