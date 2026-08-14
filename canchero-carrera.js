@@ -8800,10 +8800,10 @@ window._vjChatEnviar = function(){
     vjPintarChat();
     const ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
     const corte = setTimeout(()=>{ try{ ctrl && ctrl.abort(); }catch(e){} }, 9000);
-    fetch('/api/leyenda-chat', {
+    fetch('/api/game-judge', {
       method:'POST', headers:{ 'Content-Type':'application/json' },
       signal: ctrl ? ctrl.signal : undefined,
-      body: JSON.stringify(Object.assign({ hilo: VJ._chatHilo.filter(x=>!x.pensando) }, vjChatContexto(h)))
+      body: JSON.stringify(Object.assign({ modo:'chat', hilo: VJ._chatHilo.filter(x=>!x.pensando) }, vjChatContexto(h)))
     })
     .then(r=>{
       clearTimeout(corte);

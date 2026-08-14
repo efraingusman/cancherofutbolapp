@@ -227,7 +227,12 @@
       "Bash(curl -s -X POST \"https://cancherofutbolapp.vercel.app/api/leyenda-chat\" -H \"Content-Type: application/json\" -d '{\"hilo\":[{\"yo\":true,\"t\":\"che, me llego una oferta de un club de Espana pero mi hija empieza la escuela aca. que hago?\"}],\"nombre\":\"Carolina\",\"rol\":\"tu pareja\",\"edadNPC\":34,\"apellido\":\"Ferreyra\",\"edad\":29,\"lugar\":\"Tu casa\",\"anio\":2041,\"club\":\"Nacional\",\"nivel\":84,\"titulos\":3,\"moral\":70,\"pareja\":\"Carolina\",\"hijos\":\"Emma \\(6\\)\"}' -w \"\\\\nHTTP:%{http_code}\\\\n\" --max-time 40)",
       "Bash(curl -s --max-time 15 -X POST \"https://cancherofutbolapp.vercel.app/api/leyenda-chat\" -H \"Content-Type: application/json\" -d '{\"hilo\":[{\"yo\":true,\"t\":\"me llego una oferta de Espana pero mi hija empieza la escuela aca, que hago?\"}],\"nombre\":\"Carolina\",\"rol\":\"tu pareja\",\"edadNPC\":34,\"apellido\":\"Ferreyra\",\"edad\":29,\"club\":\"Nacional\",\"hijos\":\"Emma \\(6\\)\"}' -w \"\\\\nHTTP:%{http_code}\\\\n\")",
       "Bash(curl -s --max-time 15 \"https://cancherofutbolapp.vercel.app/leyenda\")",
-      "Bash(python __TRACKED_VAR__/p26.py)"
+      "Bash(python __TRACKED_VAR__/p26.py)",
+      "Bash(curl -s --max-time 20 -o /tmp/live.html -w \"HTTP:%{http_code} size:%{size_download}\\\\n\" \"https://cancherofutbolapp.vercel.app/leyenda\")",
+      "Bash(curl -s --max-time 20 -o /dev/null -w \"HTTP:%{http_code} size:%{size_download}\\\\n\" \"https://cancherofutbolapp.vercel.app/\")",
+      "Bash(git ls-remote *)",
+      "Bash(cp api/game-judge.js /tmp/gj.mjs)",
+      "Bash(node --check /tmp/gj.mjs)"
     ]
   }
 }
