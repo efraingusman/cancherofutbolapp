@@ -1041,12 +1041,110 @@ function parejaGen(){
   if (G && G.parejaGen) return G.parejaGen;
   return 'f';
 }
+// Tres candidatas/os DISTINTOS: distinto aspecto, distinta forma de ser y
+// distinto efecto en tu vida. No es lo mismo salir con alguien del barrio que con
+// alguien que vive de las cámaras.
+const PAREJA_PERFILES = [
+  { id:'barrio', t:'De toda la vida',   d:'La conocés desde el barrio. No le importa el fútbol: le importás vos.',
+    piel:1, pelo:'largo',  color:'castano', peso:0,
+    ef:(s)=>{ s.felicidad=clamp((s.felicidad||50)+16,0,100); s.soledad=clamp((s.soledad||40)-24,0,100); s.familia=clamp((s.familia||50)+14,0,100); },
+    res:'Tranquila, de las que se quedan. Con ella la casa es un lugar donde descansás.' },
+  { id:'figura', t:'Alguien de la tele', d:'Trabaja en los medios. Salir juntos es tapa de revista todas las semanas.',
+    piel:0, pelo:'colita', color:'rubio',  peso:-1,
+    ef:(s,g)=>{ s.felicidad=clamp((s.felicidad||50)+10,0,100); s.soledad=clamp((s.soledad||40)-16,0,100); g.fama=clamp((g.fama||40)+14,0,100); },
+    res:'Se enteró todo el país en cuatro horas. Tu vida privada dejó de ser privada.' },
+  { id:'colega', t:'Del ambiente',       d:'También vive del deporte. Entiende las concentraciones, los viajes y las malas rachas.',
+    piel:2, pelo:'afro',   color:'negro',  peso:0,
+    ef:(s,g)=>{ s.felicidad=clamp((s.felicidad||50)+12,0,100); s.soledad=clamp((s.soledad||40)-18,0,100); g.moral=clamp((g.moral||60)+8,0,100); },
+    res:'No hay que explicarle nada. Eso, a esta altura, vale más que cualquier cosa.' }
+];
+// Arma los tres candidatos del momento (nombres distintos entre sí).
+function parejaCandidatos(){
+  const g = parejaGen();
+  const pool = shuffle((g === 'f' ? NOMBRES_PAREJA_F : NOMBRES_PAREJA_M).slice());
+  return PAREJA_PERFILES.map((P,i)=> Object.assign({}, P, {
+    nombre: pool[i] || pool[0],
+    gen: g,
+    av: { gen:g, piel:AV_PIELES[P.piel].id, pelo:P.pelo, peloColor:P.color, barba:0, acc:'nada',
+          calvicie:0, canas:0, cicatriz:0, peso:P.peso, tatus:0, bling:0 }
+  }));
+}
 function nombreParejaNuevo(){
   const g = parejaGen();
   if (G) G.familia = G.familia || {};
   if (G && G.familia) G.familia.parejaGen = g;
+  // Se dejan los tres candidatos listos y se marca que hay que elegir: la
+  // pantalla de elección aparece apenas se cierra el evento.
+  if (G){
+    G._parejaOpts = parejaCandidatos();
+    G._elegirPareja = true;
+    return G._parejaOpts[0].nombre;   // provisional: lo pisa lo que elijas
+  }
   return pick(g === 'f' ? NOMBRES_PAREJA_F : NOMBRES_PAREJA_M);
 }
+window._vjElegirPareja = function(){
+  if(!G || !(G._parejaOpts||[]).length){ window._vjParejaSeguir(); return; }
+  const edad = (VJ.mundo === 'vida') ? (G.vidaEdad||40) : (G.edad||25);
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="min-height:100%;background:#05070a;display:flex;flex-direction:column;justify-content:center;position:relative;">
+    ${fondoEscenaHTML()}
+    <div style="position:relative;max-width:600px;margin:0 auto;width:100%;padding:52px 18px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;">
+      <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#f9a8d4;margin-bottom:6px;text-align:center;">SE TE CRUZARON TRES</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;color:#fff;margin-bottom:14px;text-align:center;">¿Con quién te la jugás?</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${G._parejaOpts.map((c,i)=>`
+        <button onclick="window._vjPareja(${i})" style="display:flex;align-items:center;gap:12px;background:rgba(244,114,182,.07);border:1.5px solid rgba(244,114,182,.32);border-radius:15px;padding:12px;cursor:pointer;text-align:left;">
+          <div style="line-height:0;flex-shrink:0;">${avatarSprite(c.av,{ edad:Math.max(20,edad-2), escala:2, pose:'idle', ropa:'calle', num:'', apellido:'' })}</div>
+          <div style="min-width:0;">
+            <div style="font-size:15.5px;font-weight:900;color:#fff;">${esc(c.nombre)}</div>
+            <div style="font-size:10px;font-weight:900;letter-spacing:1px;color:#f9a8d4;margin:2px 0 3px;">${esc(c.t.toUpperCase())}</div>
+            <div style="font-size:12px;color:#c4ccc0;line-height:1.45;">${esc(c.d)}</div>
+          </div>
+        </button>`).join('')}
+      </div>
+      <button onclick="window._vjPareja(-1)" style="width:100%;margin-top:11px;background:rgba(255,255,255,.04);border:1px solid #242a20;color:#8a9280;border-radius:12px;padding:12px;font-weight:800;font-size:12.5px;cursor:pointer;">Ninguna: por ahora estoy bien solo</button>
+    </div>
+  </div>`;
+};
+window._vjPareja = function(i){
+  if(!G) return;
+  const opts = G._parejaOpts || [];
+  const fam = G.familia = G.familia || {};
+  const s = (VJ.mundo === 'vida') ? (G.vidaStats||{}) : personalAsegurar();
+  let res;
+  if (i < 0 || !opts[i]){
+    fam.pareja = null; fam.parejaGen = null;
+    s.soledad = clamp((s.soledad||40) + 10, 0, 100);
+    res = 'Preferiste seguir solo. Hay épocas en que uno no está para eso.';
+  } else {
+    const c = opts[i];
+    fam.pareja = c.nombre; fam.parejaGen = c.gen; fam.parejaAv = c.av; fam.parejaPerfil = c.id;
+    try { c.ef(s, G); } catch(e){}
+    res = c.res;
+  }
+  G._parejaOpts = null; G._elegirPareja = false;
+  Object.keys(s).forEach(k=>{ if(typeof s[k]==='number') s[k]=clamp(s[k],0,100); });
+  save();
+  window._vjParejaSeguir(res);
+};
+window._vjParejaSeguir = function(res){
+  const volver = ()=>{ if (VJ.mundo === 'vida') window._vidaJugable(); else window._clubMundo(VJ.escena); };
+  if(!res){ volver(); return; }
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="min-height:100%;background:#05070a;display:flex;align-items:center;position:relative;">
+    ${fondoEscenaHTML()}
+    <div style="position:relative;max-width:520px;margin:0 auto;padding:24px 20px;text-align:center;">
+      ${(G.familia||{}).pareja ? `<div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(`<div style="display:flex;align-items:flex-end;gap:2px;line-height:0;">
+        <div style="line-height:0;">${vjSpriteJugador('orgullo')}</div>
+        <div style="line-height:0;">${vjSpritePareja('orgullo', false, 3)}</div>
+      </div>`, '14px 20px', 'casa')}</div>` : ''}
+      <div style="font-size:15px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:18px;">${esc(res)}</div>
+      <button onclick="${VJ.mundo === 'vida' ? 'window._vidaJugable()' : "window._clubMundo('"+VJ.escena+"')"}" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px 30px;font-weight:900;font-size:14.5px;cursor:pointer;">SEGUIR <i class='bx bx-right-arrow-alt'></i></button>
+    </div>
+  </div>`;
+};
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ESTADO EVOLUTIVO DEL AVATAR
@@ -1326,7 +1424,7 @@ function avatarSprite(av, o){
   // Hombros más angostos, cadera más ancha y cintura marcada. Sin esto, cambiar el
   // pelo no alcanzaba: la pareja del jugador se veía como un hombre con peluca.
   const fem = av.gen === 'f';
-  const hombroW = Math.max(6, Math.round(18 * E.hombro * (fem ? 0.86 : 1)) + gordo);
+  const hombroW = Math.max(6, Math.round(18 * E.hombro * (fem ? 0.78 : 1)) + gordo);
   const torsoX = Math.round(cx - hombroW/2);
   const torsoY = cuelloY + 2;
   // El torso, el short y las piernas se REPARTEN el espacio que queda entre el
@@ -1344,7 +1442,7 @@ function avatarSprite(av, o){
   p.push(`<ellipse cx="${(cx*S).toFixed(1)}" cy="${((pisoY+1.5)*S).toFixed(1)}" rx="${(hombroW*0.62*S).toFixed(1)}" ry="${(2.4*S).toFixed(1)}" fill="rgba(0,0,0,.34)"/>`);
 
   // ── PIERNAS (con ciclo de movimiento) ──
-  const pw = Math.round(hombroW*0.30), gapP = Math.round(hombroW*0.10);
+  const pw = Math.max(2, Math.round(hombroW*(fem ? 0.26 : 0.30))), gapP = Math.round(hombroW*0.10);
   const lx1 = Math.round(cx - gapP/2 - pw), lx2 = Math.round(cx + gapP/2);
   const piernaSVG = [];
   [[lx1,-1],[lx2,1]].forEach(([lx,dir],i)=>{
@@ -1375,16 +1473,44 @@ function avatarSprite(av, o){
   });
 
   // ── SHORT / PANTALÓN ── (la cadera manda: en el cuerpo femenino es más ancha)
-  const shW = Math.max(4, (hombroW - 1) + (fem ? 3 : 0)), shX = Math.round(cx - shW/2);
+  const shW = Math.max(4, (hombroW - 1) + (fem ? 6 : 0)), shX = Math.round(cx - shW/2);
   const shortCol = preso ? '#c96a10' : pantalon ? pantalon : ((alt||'').toLowerCase()===(base||'').toLowerCase() ? '#f2f2ee' : alt);
-  R(shX, shortY, shW, shortH, shortCol);
+  // POLLERA: con ropa de civil, el cuerpo femenino usa pollera acampanada en vez
+  // de pantalón. Es lo que más rápido hace leer "mujer" a este tamaño.
+  const falda = fem && !!pantalon && !preso && av.falda !== false;
+  if (falda){
+    const fH = Math.max(3, Math.round(shortH * 2.1));
+    for (let i = 0; i < fH; i++){
+      const w = shW + Math.round((i / fH) * (shW * 0.85));
+      R(Math.round(cx - w/2), shortY + i, w, 1, base);
+    }
+    R(Math.round(cx - (shW*1.85)/2), shortY + fH - 1, Math.round(shW*1.85), 1, _avShade(base,-32));
+  }
+  R(shX, shortY, shW, shortH, falda ? base : shortCol);
   R(shX, shortY, 1, shortH, _avShade(shortCol,-30));
   R(shX+shW-1, shortY, 1, shortH, _avShade(shortCol,-40));
   R(shX, shortY+shortH-1, shW, 1, _avShade(shortCol,-45));
   R(Math.round(cx)-1, shortY+2, 2, shortH-2, _avShade(shortCol,-22));
 
   // ── TORSO ──
-  R(torsoX, torsoY, hombroW, torsoH, base);
+  // SILUETA: en el cuerpo femenino el torso se dibuja fila por fila con un ancho
+  // que cambia (hombros → busto → CINTURA → cadera). Los píxeles de la cintura
+  // sencillamente no se pintan, así que la curva se ve de verdad; antes era un
+  // rectángulo con una sombrita al costado y se leía como un hombre flaco.
+  const _fw = (i)=>{                       // ancho de la fila i del torso
+    if (!fem) return hombroW;
+    const t = i / Math.max(1, torsoH - 1);
+    if (t < 0.16) return hombroW;                       // hombros
+    if (t < 0.44) return hombroW + 2;                   // busto
+    if (t < 0.66) return Math.max(4, hombroW - 3);      // cintura
+    return hombroW + 4;                                 // cadera
+  };
+  const _fx = (i)=> Math.round(cx - _fw(i)/2);
+  if (fem){
+    for (let i = 0; i < torsoH; i++) R(_fx(i), torsoY+i, _fw(i), 1, base);
+  } else {
+    R(torsoX, torsoY, hombroW, torsoH, base);
+  }
   if (tipo === 'stripes'){
     const ancho = Math.max(1, Math.round(hombroW/9));
     for (let i = ancho; i < hombroW-1; i += ancho*2) R(torsoX+i, torsoY, ancho, torsoH, alt);
@@ -1414,16 +1540,21 @@ function avatarSprite(av, o){
     R(Math.round(cx)-2, torsoY+2, 4, 1, '#c0392b');                          // estetoscopio
     R(Math.round(cx)-3, torsoY+3, 1, 3, '#c0392b'); R(Math.round(cx)+2, torsoY+3, 1, 3, '#c0392b');
   }
-  R(torsoX, torsoY, 2, torsoH, baseS);
-  R(torsoX+hombroW-2, torsoY, 2, torsoH, baseS);
-  // Silueta femenina: cintura marcada y pecho insinuado, en la misma grilla de
-  // píxeles (nada de curvas, todo rectángulos como el resto del muñeco).
   if (fem){
-    const cintY = torsoY + Math.round(torsoH*0.52);
-    R(torsoX, cintY, 1, Math.round(torsoH*0.30), _avShade(base,-30));
-    R(torsoX+hombroW-1, cintY, 1, Math.round(torsoH*0.30), _avShade(base,-30));
-    R(torsoX+2, torsoY+Math.round(torsoH*0.26), Math.max(2,Math.round(hombroW*0.30)), 2, _avShade(base,-14));
-    R(torsoX+hombroW-2-Math.max(2,Math.round(hombroW*0.30)), torsoY+Math.round(torsoH*0.26), Math.max(2,Math.round(hombroW*0.30)), 2, _avShade(base,-14));
+    // Los bordes y las luces siguen la curva del cuerpo, no una caja.
+    for (let i = 0; i < torsoH; i++){
+      R(_fx(i), torsoY+i, 1, 1, baseS);
+      R(_fx(i)+_fw(i)-1, torsoY+i, 1, 1, _avShade(base,-34));
+    }
+    // Busto: dos volúmenes con su sombra debajo.
+    const buY = torsoY + Math.round(torsoH*0.26), buW = Math.max(2, Math.round(hombroW*0.34));
+    R(Math.round(cx)-buW-1, buY, buW, 2, _avShade(base, 14));
+    R(Math.round(cx)+1,     buY, buW, 2, _avShade(base, 14));
+    R(Math.round(cx)-buW-1, buY+2, buW, 1, _avShade(base,-22));
+    R(Math.round(cx)+1,     buY+2, buW, 1, _avShade(base,-22));
+  } else {
+    R(torsoX, torsoY, 2, torsoH, baseS);
+    R(torsoX+hombroW-2, torsoY, 2, torsoH, baseS);
   }
   R(torsoX+2, torsoY, hombroW-4, 1, baseL);
   R(torsoX, torsoY+torsoH-2, hombroW, 2, baseS);
@@ -8794,6 +8925,11 @@ function vjSpritePareja(pose, embarazada, escala){
   // El género de la pareja NO se sortea: es el que elegiste. Antes salía el hash y
   // tu mujer podía dibujarse con cuerpo y cara de hombre.
   const gen = (fam.parejaGen) || parejaGen();
+  // Si la elegiste entre las tres, se dibuja con el aspecto que viste al elegir.
+  if (fam.parejaAv)
+    return avatarSprite(Object.assign({}, fam.parejaAv, embarazada ? { peso:1 } : {}),
+      { edad: Math.max(20, ((VJ.mundo==='vida'?(G.vidaEdad||40):(G.edad||25)) - 2)),
+        escala: escala||3, pose: pose||'idle', ropa:'calle', num:'', apellido:'' });
   const av = { gen, piel: AV_PIELES[h%AV_PIELES.length].id,
     pelo: gen === 'f' ? ['largo','colita','afro','rastas'][(h>>>3)%4] : ['corto','rapado','tupe','colita'][(h>>>3)%4],
     peloColor: AV_COLORES_PELO[(h>>>6)%AV_COLORES_PELO.length].id, barba: gen==='f' ? 0 : (h>>>9)%2, acc:'nada',
@@ -8808,26 +8944,28 @@ function vjEscenaEspecial(){
   const edad = (VJ.mundo === 'vida') ? (G.vidaEdad||40) : (G.edad||25);
   const yo = (pose) => avatarSprite(G.avatar, { edad, escala:3, pose, ropa:(tipo==='boda'?'traje':(vjRopa()||undefined)), num:'', apellido:'' });
   if (tipo === 'bebe'){
-    const bebeNombre = ((fam.hijos||[])[(fam.hijos||[]).length-1]||{}).nombre || '';
-    return `<div style="display:flex;align-items:flex-end;justify-content:center;gap:6px;position:relative;">
-      <div style="line-height:0;">${vjSpritePareja('orgullo', false, 3)}</div>
-      <div style="line-height:0;">${yo('bebe')}</div>
-      <!-- el bebe, en brazos -->
-      <div style="position:absolute;left:50%;bottom:44%;transform:translateX(-14px);line-height:0;">
-        <svg width="34" height="26" viewBox="0 0 17 13" style="shape-rendering:crispEdges;">
-          <rect x="0" y="3" width="17" height="10" fill="#f2e3c8"/><rect x="0" y="3" width="17" height="2" fill="#fff7e6"/>
-          <rect x="4" y="0" width="9" height="6" fill="#dda877"/><rect x="6" y="2" width="2" height="2" fill="#16130f"/>
-          <rect x="10" y="2" width="2" height="2" fill="#16130f"/><rect x="4" y="0" width="9" height="2" fill="#4a2f1a"/>
-        </svg>
-      </div>
-      ${bebeNombre?`<div style="position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:900;color:#f9a8d4;">${esc(bebeNombre)}</div>`:''}
+    // EL NACIMIENTO. Antes el bebé era un rectángulo flotando al costado, pegado
+    // con posiciones absolutas a ojo. Ahora se alza EN BRAZOS (pose 'bebe', que
+    // dibuja la cuna de los antebrazos) y la escena pasa en una clínica, con
+    // piso, los dos parados juntos y el nombre abajo.
+    const bebe = (fam.hijos||[])[(fam.hijos||[]).length-1] || {};
+    const bg = genDe(bebe);
+    const yoConBebe = avatarSprite(G.avatar, { edad, escala:3, pose:'bebe', bebeGen:bg,
+      ropa:(vjRopa()||'calle'), num:'', apellido:'' });
+    return `<div style="text-align:center;">
+      ${avatarBox(`<div style="display:flex;align-items:flex-end;gap:2px;line-height:0;">
+        <div style="line-height:0;">${vjSpritePareja('orgullo', false, 3)}</div>
+        <div style="line-height:0;">${yoConBebe}</div>
+      </div>`, '14px 20px', 'hospital')}
+      ${bebe.nombre ? `<div style="margin-top:8px;font-size:13px;font-weight:900;color:#f9a8d4;">
+        ${esc(bebe.nombre)} · ${bg === 'f' ? 'tu hija' : 'tu hijo'}</div>` : ''}
     </div>`;
   }
   if (tipo === 'boda'){
-    return `<div style="display:flex;align-items:flex-end;justify-content:center;gap:2px;">
+    return avatarBox(`<div style="display:flex;align-items:flex-end;gap:2px;line-height:0;">
       <div style="line-height:0;">${yo('orgullo')}</div>
       <div style="line-height:0;">${vjSpritePareja('orgullo', false, 3)}</div>
-    </div>`;
+    </div>`, '14px 20px', 'estadio');
   }
   return '';
 }
@@ -8960,13 +9098,13 @@ window._vjResolver = function(tipo, i){
     ${fondoEscenaHTML()}
     <div style="position:relative;max-width:560px;margin:0 auto;width:100%;padding:24px 20px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;text-align:center;">
       <div style="display:flex;justify-content:center;margin-bottom:14px;">${
-        (G._momentoVisual ? avatarBox(vjEscenaEspecial(), '12px 18px', 'casa')
+        (G._momentoVisual ? vjEscenaEspecial()
                           : avatarBox(avatarSprite(G.avatar,{ edad:edadR, escala:2.8, pose, ropa:vjRopa()||undefined, num:'', apellido:'' }), '12px 18px', escenaDePose(pose, G.avatar, edadR)))
       }</div>
       <div style="font-size:15px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:14px;">${esc(res)}</div>
       ${chips?`<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:18px;">${chips}</div>`:'<div style="margin-bottom:18px;"></div>'}
       ${G._pedirNombreHijo ? vjElegirNombreHTML() : `
-      <button onclick="${volverJuv ? "window._juvenilesMundo()" : volver}" style="background:linear-gradient(135deg,${_avShade(color,-70)},${color});color:#05070a;border:none;border-radius:13px;padding:14px 30px;font-family:Outfit,sans-serif;font-weight:900;font-size:14.5px;cursor:pointer;">VOLVER <i class='bx bx-right-arrow-alt'></i></button>`}
+      <button onclick="${(G && G._elegirPareja) ? 'window._vjElegirPareja()' : (volverJuv ? "window._juvenilesMundo()" : volver)}" style="background:linear-gradient(135deg,${_avShade(color,-70)},${color});color:#05070a;border:none;border-radius:13px;padding:14px 30px;font-family:Outfit,sans-serif;font-weight:900;font-size:14.5px;cursor:pointer;">VOLVER <i class='bx bx-right-arrow-alt'></i></button>`}
     </div>
   </div>`;
 };
