@@ -86,7 +86,7 @@ async function charlaNPC(req, res) {
 // gratuitos; el ÚLTIMO no necesita registrarse ni configurar nada, así que el
 // juego habla con IA aunque no haya ninguna variable de entorno cargada.
 // Si mañana cargás una key gratuita de Gemini o de Groq, pasa a usarla sola.
-async function pensarIA(messages) {
+async function pensarIA(messages, opt) {
     const conTiempo = (pr, ms) => Promise.race([
         pr, new Promise(r => setTimeout(() => r(null), ms))
     ]);
@@ -99,7 +99,7 @@ async function pensarIA(messages) {
     const cadena = hayKey ? [openaiCompat, gemini] : [pollinations];
     for (const intento of cadena) {
         try {
-            const t = await conTiempo(intento(messages), 4000);
+            const t = await conTiempo(intento(messages, opt || {}), 4000);
             if (t && t.trim()) return t.trim();
         } catch (e) { /* se prueba el siguiente */ }
     }
@@ -107,7 +107,7 @@ async function pensarIA(messages) {
 }
 
 // Groq, OpenRouter y OpenAI hablan el mismo formato. Se usa el que tenga key.
-async function openaiCompat(messages) {
+async function openaiCompat(messages, opt = {}) {
     const opciones = [
         { key: process.env.GROQ_API_KEY,       url: 'https://api.groq.com/openai/v1/chat/completions',  model: 'llama-3.3-70b-versatile' },
         { key: process.env.OPENROUTER_API_KEY, url: 'https://openrouter.ai/api/v1/chat/completions',    model: 'meta-llama/llama-3.3-70b-instruct:free' },
@@ -117,7 +117,7 @@ async function openaiCompat(messages) {
         const r = await fetch(o.url, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${o.key}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: o.model, temperature: 0.9, presence_penalty: 0.6, frequency_penalty: 0.4, max_tokens: 90, messages })
+            body: JSON.stringify({ model: o.model, temperature: opt.temp ?? 0.9, presence_penalty: 0.6, frequency_penalty: 0.4, max_tokens: opt.max ?? 90, messages })
         });
         if (!r.ok) continue;
         const d = await r.json();
@@ -128,7 +128,7 @@ async function openaiCompat(messages) {
 }
 
 // Google Gemini: tiene capa gratuita generosa. Usa GEMINI_API_KEY.
-async function gemini(messages) {
+async function gemini(messages, opt = {}) {
     const key = process.env.GEMINI_API_KEY;
     if (!key) return null;
     const sys = messages.filter(m => m.role === 'system').map(m => m.content).join('\n');
@@ -139,7 +139,7 @@ async function gemini(messages) {
         body: JSON.stringify({
             systemInstruction: { parts: [{ text: sys }] },
             contents: turnos,
-            generationConfig: { temperature: 0.9, maxOutputTokens: 120 }
+            generationConfig: { temperature: opt.temp ?? 0.9, maxOutputTokens: opt.max ?? 120 }
         })
     });
     if (!r.ok) return null;
@@ -148,7 +148,7 @@ async function gemini(messages) {
 }
 
 // Pollinations: gratis y SIN key. Es el que hace que esto funcione de una.
-async function pollinations(messages) {
+async function pollinations(messages, opt = {}) {
     const r = await fetch('https://text.pollinations.ai/openai', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: 'openai', temperature: 0.9, max_tokens: 90, private: true, messages })
@@ -211,8 +211,14 @@ async function charlaAmbiente(req, res) {
 
     const txt = await pensarIA([
         { role: 'system', content: system },
-        { role: 'user', content: 'Dale.' }
-    ]);
+        // Ejemplos de cómo tiene que sonar. Con la instrucción sola el modelo
+        // devolvía frases cortadas o con palabras inventadas.
+        { role: 'user', content: 'Ejemplo: un DT de 55 y su capitán de 29, en el vestuario, sobre el partido que viene.' },
+        { role: 'assistant', content: '{"a":"Si salimos a presionarlos arriba nos comen los espacios","b":"Yo los aguanto atrás, pero alguien tiene que correr por afuera"}' },
+        { role: 'user', content: 'Ejemplo: una madre de 34 y su hija de 6, en casa, sobre los chicos.' },
+        { role: 'assistant', content: '{"a":"Terminá la leche que hoy hay que salir temprano","b":"¿Y podemos pasar por la plaza a la vuelta?"}' },
+        { role: 'user', content: 'Ahora la de verdad. Solo el JSON.' }
+    ], { temp: 0.55, max: 120 });
     if (!txt) return res.status(204).end();
     try {
         const limpio = txt.replace(/```json|```/g, '').trim();
