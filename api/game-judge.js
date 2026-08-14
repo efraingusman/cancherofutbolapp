@@ -182,9 +182,7 @@ async function charlaAmbiente(req, res) {
     const ctx = [
         b.anio ? `Estamos en ${b.anio}.` : '',
         b.lugar ? `Están en ${b.lugar}.` : '',
-        b.apellido ? `Cerca hay alguien que se apellida ${b.apellido}${b.edad ? `, de ${b.edad} años` : ''}.` : '',
-        b.club ? `${b.apellido || 'Esa persona'} juega/trabaja en ${b.club}.` : '',
-        b.titulos ? `Ganó ${b.titulos} títulos.` : '',
+        b.apellido ? `Cerca anda ${b.apellido}${b.edad ? `, de ${b.edad} años` : ''}${b.club ? `, de ${b.club}` : ''}. NO hace falta que hablen de él; mencionalo solo si viene al caso.` : '',
         b.tema ? `Tema del que están hablando: ${b.tema}.` : ''
     ].filter(Boolean).join(' ');
 
@@ -205,6 +203,9 @@ async function charlaAmbiente(req, res) {
         '- Que se note quién es cada uno: un nene de 6 no habla como un DT de 55,',
         '  y un médico no habla como un hincha.',
         '- Que hablen de algo concreto, no en abstracto.',
+        '- La mayoría de las veces NO hablen del jugador: hablá del tema y listo.',
+        '- Los familiares no lo llaman por el apellido: es "papá", "tu padre", "él".',
+        '- Español CORRECTO. No inventes palabras ni conjugaciones raras.',
         '- Respondé SOLO JSON: {"a":"...","b":"..."}'
     ].join('\n');
 
