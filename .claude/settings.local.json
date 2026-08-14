@@ -235,7 +235,8 @@
       "Bash(node --check /tmp/gj.mjs)",
       "Bash(python __TRACKED_VAR__/p30.py)",
       "Bash(python __TRACKED_VAR__/p32.py)",
-      "Bash(python __TRACKED_VAR__/p33.py)"
+      "Bash(python __TRACKED_VAR__/p33.py)",
+      "Bash(python __TRACKED_VAR__/p35.py)"
     ]
   }
 }

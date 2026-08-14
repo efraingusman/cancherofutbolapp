@@ -6352,6 +6352,25 @@ function vjNombreNPC(semilla, gen){
   const pila = (gen === 'f' ? NOMBRES_F : NOMBRES_M)[(h >>> 5) % (gen === 'f' ? NOMBRES_F : NOMBRES_M).length];
   return pila + ' ' + L[h % L.length];
 }
+
+// Género de un personaje de la escena. Si tiene nombre propio, MANDA EL NOMBRE:
+// no puede llamarse Don Aníbal y estar dibujado con pollera.
+function vjGen(h){
+  if (!h) return null;
+  if (h.gen) return h.gen;
+  if (h.nombre){
+    // Se mira la última palabra: "Don Aníbal" → Aníbal, "Paula Suárez" → Suárez no
+    // sirve, así que se prueba también la primera y gana la que esté en las listas.
+    const partes = String(h.nombre).trim().split(/\s+/);
+    for (const w of partes){
+      const bajo = w.toLowerCase();
+      if (NOMBRES_F.concat(NOMBRES_PAREJA_F).some(x=>x.toLowerCase()===bajo)) return 'f';
+      if (NOMBRES_M.concat(NOMBRES_PAREJA_M).some(x=>x.toLowerCase()===bajo)) return 'm';
+    }
+    return generoDe(partes[partes.length-1]);
+  }
+  return null;
+}
 // Vecinos, familiares, dirigentes... cada uno con su cara, estable por nombre.
 // `gen` ('m'/'f') fuerza el género; si no se pasa, sale del hash.
 function vjSpriteNPC(semilla, ropa, edad, pose, gen){
@@ -7199,25 +7218,37 @@ function vjSucesoDisponible(catPreferida){
 // LA ACCION QUE HACE AVANZAR LA VIDA. Va SIEMPRE primera y en TODOS los
 // escenarios de la etapa: antes estaba escondida en un escenario puntual y se
 // podia dar vueltas para siempre sin encontrar como seguir.
+// Dónde vive cada personaje que hace avanzar la etapa.
+function vjAvisoDe(npc, escena, texto){
+  // Si estás en su lugar, es él en persona. Si no, un aviso que te manda para allá.
+  if (VJ.escena === escena) return npc;
+  const nombre = (vjEscenas()[escena] || {}).n || 'otro lado';
+  return { x: npc.x, tipo:'obj', obj:'cartel', icono:'bx-map-pin', destacado:true,
+    accion:'irEscena', destino:escena, lbl: texto + ' — está en ' + nombre };
+}
 function vjPrincipal(){
   const W = vjEscena().ancho, mid = Math.round(W*0.5);
   if (VJ.mundo === 'potrero'){
     const d = _draft; if(!d) return null;
     const ev = (d._potSet||[])[d._potPaso||0]; if(!ev) return null;
-    return { x:330, tipo:'npc', semilla:'pibes'+(d.pais||''), ropa:'calle', edad:d._potEdad||12, gen:'m',
-      lbl:esc(ev.t), accion:'potrero', icono:'bx-football', destacado:true, nombre:'Los pibes', rol:'del baldío' };
+    return vjAvisoDe({ x:330, tipo:'npc', semilla:'pibes'+(d.pais||''), ropa:'calle', edad:d._potEdad||12, gen:'m',
+      lbl:esc(ev.t), accion:'potrero', icono:'bx-football', destacado:true, nombre:'Los pibes', rol:'del baldío' },
+      'baldio', esc(ev.t));
   }
   if (VJ.mundo === 'juveniles'){
     if(!G) return null;
     const ev = (G._juvSet||[])[G._juvPaso||0]; if(!ev) return null;
-    return { x:380, tipo:'npc', semilla:'dtjuv'+G.club, ropa:'dt', edad:52, gen:'m',
-      lbl:esc(ev.t), accion:'juvenil', icono:'bx-clipboard', destacado:true, rol:'DT juveniles' };
+    return vjAvisoDe({ x:380, tipo:'npc', semilla:'dtjuv'+G.club, ropa:'dt', edad:52, gen:'m',
+      lbl:esc(ev.t), accion:'juvenil', icono:'bx-clipboard', destacado:true, rol:'DT juveniles' },
+      'predio', esc(ev.t));
   }
   if (VJ.mundo === 'club'){
     if(!G) return null;
     return ((G._evLeft||0) > 0)
-      ? { x:mid, tipo:'npc', semilla:'dt'+G.club, ropa:'dt', edad:55, gen:'m', lbl:'El técnico te quiere hablar', accion:'decision', icono:'bx-clipboard', destacado:true, rol:'DT' }
-      : { x:mid, tipo:'obj', obj:'pelota', escala:0.9, lbl:'JUGAR LA TEMPORADA ' + (G.anio||''), accion:'jugar', icono:'bx-play-circle', destacado:true };
+      ? vjAvisoDe({ x:mid, tipo:'npc', semilla:'dt'+G.club, ropa:'dt', edad:55, gen:'m', lbl:'El técnico te quiere hablar', accion:'decision', icono:'bx-clipboard', destacado:true, rol:'DT' },
+          'vestuario', 'El técnico te quiere hablar')
+      : vjAvisoDe({ x:mid, tipo:'obj', obj:'pelota', escala:0.9, lbl:'JUGAR LA TEMPORADA ' + (G.anio||''), accion:'jugar', icono:'bx-play-circle', destacado:true },
+          'cancha', 'JUGAR LA TEMPORADA ' + (G.anio||''));
   }
   if (VJ.mundo === 'vida'){
     if(!G || !G.vidaRol) return null;
@@ -7227,8 +7258,9 @@ function vjPrincipal(){
     if (ar && !(G.vidaPausa > 0))
       return { x:mid, tipo:'obj', obj:'cartel', lbl:ar.txt, accion:'gestion', icono:ar.icono, destacado:true };
     if (!hechos.lapso && !(G.vidaPausa > 0))
-      return { x:mid, tipo:'npc', semilla:'jefe'+G.vidaRol, ropa:'traje', edad:58,
-        lbl:'Hablar con ' + vjNombreJefe().toLowerCase() + ' (decisión del tramo)', accion:'rol', icono:'bx-briefcase', destacado:true, rol:vjNombreJefe() };
+      return vjAvisoDe({ x:mid, tipo:'npc', semilla:'jefe'+G.vidaRol, ropa: G.vidaRol==='escuela'?'escuela':'traje', edad:58,
+        lbl:'Hablar con ' + vjNombreJefe().toLowerCase() + ' (decisión del tramo)', accion:'rol', icono:'bx-briefcase', destacado:true, rol:vjNombreJefe() },
+        'trabajo', 'Hablar con ' + vjNombreJefe().toLowerCase());
     return vjDormirHotspot(mid);
   }
   return null;
@@ -7718,6 +7750,7 @@ function vjHotspotsClub(){
   } else {
     const _rp = repreDeG();
     out.push({ x:230, tipo:'npc', semilla:'repre'+(_rp?_rp.id:'x'), ropa:(_rp&&_rp.id==='joven')?'tv':'traje', edad:(_rp?_rp.edad:47),
+      gen: generoDe(String((_rp&&_rp.n)||'Anibal').replace(/^(Don|Do\u00f1a|Sr\.?|Sra\.?)\s+/i,'').split(/\s+/)[0]),
       lbl:'Ver qué te ofrece ' + (_rp?_rp.n:'tu representante'), accion:'mercado', icono:'bx-briefcase',
       nombre:(_rp?_rp.n:'Tu representante'), rol:'representante' });
     out.push({ x:400, tipo:'obj', obj:'cartel', lbl:'Pedir consejo', accion:'consejo', icono:'bx-message-rounded-dots' });
@@ -8008,9 +8041,9 @@ function mundoRender(){
         <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="position:absolute;inset:0;pointer-events:none;">${vjAtmosfera(W,H,pisoPct)}</svg>
         ${VJ.hotspots.map((h,i)=>`
           <div id="vj-hs-${i}" style="position:absolute;left:${h.x}px;bottom:${Math.round(H*(1-pisoPct)) - (h.tipo==='npc'?14:2)}px;transform:translateX(-50%);line-height:0;${h.bloqueado?'opacity:.45;':''}">
-            ${h.tipo==='npc' ? vjSpriteNPC(h.semilla, h.ropa, h.edad, 'idle', h.gen) : vjObjSVG(h.obj, h.escala, h.bebe ? genDe(h.bebe) : null)}
+            ${h.tipo==='npc' ? vjSpriteNPC(h.semilla, h.ropa, h.edad, 'idle', vjGen(h)) : vjObjSVG(h.obj, h.escala, h.bebe ? genDe(h.bebe) : null)}
             ${h.tipo==='npc' ? `<div style="position:absolute;left:50%;top:-26px;transform:translateX(-50%);white-space:nowrap;text-align:center;line-height:1.15;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.9);">
-              <div style="font-size:9px;font-weight:900;color:#e8eef5;">${esc(h.nombre || vjNombreNPC(h.semilla, h.gen))}</div>
+              <div style="font-size:9px;font-weight:900;color:#e8eef5;">${esc(h.nombre || vjNombreNPC(h.semilla, vjGen(h)))}</div>
               <div style="font-size:7.5px;font-weight:800;color:${h.destacado?A:'#8fa0b4'};letter-spacing:.4px;">${esc((h.rol||'').toUpperCase())}</div>
             </div>` : ''}
           </div>`).join('')}
@@ -8426,6 +8459,7 @@ function vjInteractuar(){
   }
   if (h.accion === 'licencia'){ vjLicencia(); return; }
   if (h.accion === 'irACasa'){ vjCambiarEscena('casa','izq'); return; }
+  if (h.accion === 'irEscena'){ vjCambiarEscena(h.destino, 'izq'); return; }
   if (h.accion === 'dormir'){ vjDormir(); return; }
   if (h.accion === 'rol'){
     if (hechos.lapso){ vjFlash('Ya tomaste la decisión importante de este tramo. Andá a dormir para que pasen los años.'); return; }
@@ -8742,7 +8776,7 @@ function vjAmbienteTick(){
   if (gente.length < 2) return;
   const par = shuffle(gente.slice()).slice(0,2);
   const A = par[0], B = par[1];
-  const ficha = h => ({ nombre: h.nombre || vjNombreNPC(h.semilla, h.gen), rol: h.rol, edad: h.edad });
+  const ficha = h => ({ nombre: h.nombre || vjNombreNPC(h.semilla, vjGen(h)), rol: h.rol, edad: h.edad });
   const mostrar = (la, lb)=>{
     if (!VJ.activo) return;
     vjBurbujaEn(A.x, la, 4200);
@@ -8773,7 +8807,7 @@ window._vjHablar = function(indice){
 };
 function vjPintarChat(){
   const h = VJ._chatCon; if(!h) return;
-  const nombre = h.nombre || vjNombreNPC(h.semilla, h.gen);
+  const nombre = h.nombre || vjNombreNPC(h.semilla, vjGen(h));
   const rol = (h.rol || 'vecino');
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
@@ -8781,7 +8815,7 @@ function vjPintarChat(){
     ${fondoEscenaHTML()}
     <div style="position:relative;max-width:640px;margin:0 auto;width:100%;padding:52px 18px calc(18px + env(safe-area-inset-bottom));box-sizing:border-box;">
       <div style="display:flex;align-items:flex-end;justify-content:center;gap:6px;margin-bottom:12px;">
-        <div style="line-height:0;">${h.tipo==='npc' ? vjSpriteNPC(h.semilla, h.ropa, h.edad, 'idle', h.gen) : vjObjSVG(h.obj, h.escala)}</div>
+        <div style="line-height:0;">${h.tipo==='npc' ? vjSpriteNPC(h.semilla, h.ropa, h.edad, 'idle', vjGen(h)) : vjObjSVG(h.obj, h.escala)}</div>
         <div style="line-height:0;transform:scaleX(-1);">${vjSpriteJugador('idle')}</div>
       </div>
       <div style="background:rgba(10,13,8,.82);border:1.5px solid #2a3a4c;border-radius:18px;padding:14px;">
@@ -8818,7 +8852,7 @@ function vjChatContexto(h){
     : 'está en plena carrera profesional';
   const lugar = (vjEscena() || {}).n || '';
   return {
-    nombre: h.nombre || vjNombreNPC(h.semilla, h.gen),
+    nombre: h.nombre || vjNombreNPC(h.semilla, vjGen(h)),
     rol: h.rol || 'un conocido',
     edadNPC: h.edad || null,
     relacion: h.rol || '',
@@ -9084,7 +9118,7 @@ function vjDialogo(ev, tipo, quien, h){
           // el vecino de 46 con barba porque el retrato lo ponía el hotspot.
           const N = (ev && ev.npc) || null;
           if (N) return `<div style="line-height:0;">${vjSpriteNPC(N.semilla || ('ev'+ev.t), N.ropa || 'calle', N.edad || 40, 'pensando', N.gen)}</div>`;
-          if (h && h.tipo==='npc') return `<div style="line-height:0;">${vjSpriteNPC(h.semilla, h.ropa, h.edad, 'pensando', h.gen)}</div>`;
+          if (h && h.tipo==='npc') return `<div style="line-height:0;">${vjSpriteNPC(h.semilla, h.ropa, h.edad, 'pensando', vjGen(h))}</div>`;
           return `<div style="line-height:0;">${vjObjSVG(h?h.obj:'cartel')}</div>`;
         })()}
         <div style="line-height:0;transform:scaleX(-1);">${vjSpriteJugador('pensando')}</div>
