@@ -8061,7 +8061,7 @@ function mundoRender(){
   const hud = vjHud();
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
-  <div style="min-height:100%;background:#05070a;display:flex;flex-direction:column;">
+  <div style="height:100dvh;max-height:100dvh;overflow:hidden;background:#05070a;display:flex;flex-direction:column;">
     <div style="position:sticky;top:0;z-index:6;background:linear-gradient(180deg,rgba(5,7,10,.97),rgba(5,7,10,.86));backdrop-filter:blur(8px);border-bottom:1px solid #1a2230;padding:8px 12px;">
       <div style="max-width:720px;margin:0 auto;display:flex;align-items:center;gap:10px;padding-right:118px;">
         <div style="flex:1;min-width:0;">
@@ -8076,7 +8076,7 @@ function mundoRender(){
         </div>
       </div>
     </div>
-    <div id="vj-view" style="position:relative;flex:0 0 auto;height:250px;overflow:hidden;background:#05070a;">
+    <div id="vj-view" style="position:relative;flex:0 0 auto;height:min(250px, 46dvh);overflow:hidden;background:#05070a;">
       <!-- vj-escala estira la escena para llenar el ancho: antes se dibujaba a
            tamano fijo pegada a la izquierda y quedaba media pantalla en negro. -->
       <div id="vj-escala" style="position:absolute;left:0;bottom:0;width:${W}px;height:${H}px;transform-origin:0 100%;">
@@ -8102,7 +8102,7 @@ function mundoRender(){
     </div>
     <!-- LAS OPCIONES, COMO SIEMPRE. El personaje se mueve solo por la escena;
          vos elegis de esta lista. Nunca hace falta caminar hasta nada. -->
-    <div style="flex:1;background:linear-gradient(180deg,#080b0f,#05070a);border-top:1px solid #161d28;padding:14px 14px calc(20px + env(safe-area-inset-bottom));overflow-y:auto;">
+    <div style="flex:1 1 auto;min-height:0;background:linear-gradient(180deg,#080b0f,#05070a);border-top:1px solid #161d28;padding:14px 14px calc(20px + env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch;">
       <div style="max-width:560px;margin:0 auto;">
         <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#5d6879;margin-bottom:9px;">¿QUÉ HACÉS?</div>
         <div style="display:flex;flex-direction:column;gap:9px;">
@@ -8440,7 +8440,12 @@ function vjAjustarEscala(){
   // lado siempre. En el celular queda en 1 y la camara acompana al personaje; en
   // PC se agranda hasta cubrir todo. El alto se deduce del zoom, asi no quedan
   // franjas negras ni arriba ni a los costados.
-  const s = clamp(VW / W, 1, 2.4);
+  // En PC el zoom por ancho llegaba a 2.4 y la escena se comía hasta 600px de
+  // alto, dejando el panel de acciones fuera de la pantalla. Ahora el alto tiene
+  // tope (46% del viewport) y el zoom se recalcula para respetarlo.
+  const topeAlto = Math.max(150, Math.round((window.innerHeight || 700) * 0.46));
+  let s = clamp(VW / W, 1, 2.4);
+  if (H * s > topeAlto) s = topeAlto / H;
   view.style.height = Math.round(H * s) + 'px';
   capa.style.transform = 'scale(' + s.toFixed(3) + ')';
   capa.style.left = '0px';
