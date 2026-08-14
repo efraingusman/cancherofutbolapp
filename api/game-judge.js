@@ -22,9 +22,6 @@ function heuristic(team) {
 // entero (el deploy se quedaba en la versión anterior sin avisar).
 // Se entra con { modo:'chat', ... }.
 async function charlaNPC(req, res) {
-    const apiKey = process.env.OPENAI_API_KEY;
-    // Sin key el juego funciona igual: responde el generador local del cliente.
-    if (!apiKey) return res.status(204).end();
 
     const b = req.body || {};
     const hilo = Array.isArray(b.hilo) ? b.hilo.slice(-10) : [];
@@ -78,30 +75,101 @@ async function charlaNPC(req, res) {
         hilo.map(m => ({ role: m.yo ? 'user' : 'assistant', content: String(m.t || '').slice(0, 300) }))
     );
 
-    try {
-        const r = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: 'gpt-4o-mini',
-                temperature: 0.9,
-                presence_penalty: 0.6,   // que no repita giros entre respuestas
-                frequency_penalty: 0.4,
-                max_tokens: 90,
-                messages
-            })
-        });
-        const data = await r.json();
-        const txt = data && data.choices && data.choices[0] && data.choices[0].message
-            ? String(data.choices[0].message.content || '').trim()
-            : '';
-        if (!txt) return res.status(204).end();
-        res.setHeader('Cache-Control', 'no-store');
-        return res.status(200).json({ texto: txt.slice(0, 240) });
-    } catch (e) {
-        // Cualquier problema (sin red, límite, timeout) → el cliente usa lo local.
-        return res.status(204).end();
+    const txt = await pensarIA(messages);
+    if (!txt) return res.status(204).end();
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({ texto: txt.slice(0, 240) });
+}
+
+// ── MOTOR DE IA: gratis y sin depender de una sola cuenta ────────────────────
+// Se prueban los proveedores en orden y se usa el primero que conteste. Todos son
+// gratuitos; el ÚLTIMO no necesita registrarse ni configurar nada, así que el
+// juego habla con IA aunque no haya ninguna variable de entorno cargada.
+// Si mañana cargás una key gratuita de Gemini o de Groq, pasa a usarla sola.
+async function pensarIA(messages) {
+    const conTiempo = (pr, ms) => Promise.race([
+        pr, new Promise(r => setTimeout(() => r(null), ms))
+    ]);
+    // Hay 10 segundos de límite para toda la función: 4 por proveedor y se corta.
+    const hayKey = !!(process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY ||
+                      process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY);
+    // Pollinations sólo se intenta si NO hay ninguna key: es el último recurso y
+    // hoy suele responder 402 (dejó de ser gratis para anónimos). Se deja en la
+    // cadena porque no cuesta nada y si vuelve a abrirse funciona solo.
+    const cadena = hayKey ? [openaiCompat, gemini] : [pollinations];
+    for (const intento of cadena) {
+        try {
+            const t = await conTiempo(intento(messages), 4000);
+            if (t && t.trim()) return t.trim();
+        } catch (e) { /* se prueba el siguiente */ }
     }
+    return null;
+}
+
+// Groq, OpenRouter y OpenAI hablan el mismo formato. Se usa el que tenga key.
+async function openaiCompat(messages) {
+    const opciones = [
+        { key: process.env.GROQ_API_KEY,       url: 'https://api.groq.com/openai/v1/chat/completions',  model: 'llama-3.3-70b-versatile' },
+        { key: process.env.OPENROUTER_API_KEY, url: 'https://openrouter.ai/api/v1/chat/completions',    model: 'meta-llama/llama-3.3-70b-instruct:free' },
+        { key: process.env.OPENAI_API_KEY,     url: 'https://api.openai.com/v1/chat/completions',       model: 'gpt-4o-mini' }
+    ].filter(o => o.key);
+    for (const o of opciones) {
+        const r = await fetch(o.url, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${o.key}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: o.model, temperature: 0.9, presence_penalty: 0.6, frequency_penalty: 0.4, max_tokens: 90, messages })
+        });
+        if (!r.ok) continue;
+        const d = await r.json();
+        const t = d?.choices?.[0]?.message?.content;
+        if (t) return String(t);
+    }
+    return null;
+}
+
+// Google Gemini: tiene capa gratuita generosa. Usa GEMINI_API_KEY.
+async function gemini(messages) {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) return null;
+    const sys = messages.filter(m => m.role === 'system').map(m => m.content).join('\n');
+    const turnos = messages.filter(m => m.role !== 'system')
+        .map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            systemInstruction: { parts: [{ text: sys }] },
+            contents: turnos,
+            generationConfig: { temperature: 0.9, maxOutputTokens: 120 }
+        })
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+}
+
+// Pollinations: gratis y SIN key. Es el que hace que esto funcione de una.
+async function pollinations(messages) {
+    const r = await fetch('https://text.pollinations.ai/openai', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'openai', temperature: 0.9, max_tokens: 90, private: true, messages })
+    });
+    if (r.ok) {
+        const cuerpo = await r.text();
+        try {
+            const d = JSON.parse(cuerpo);
+            const t = d?.choices?.[0]?.message?.content;
+            if (t) return String(t);
+        } catch (e) { if (cuerpo && cuerpo.length < 600) return cuerpo; }
+    }
+    // Plan B del plan B: la variante por URL, que devuelve texto pelado.
+    const sys = messages.filter(m => m.role === 'system').map(m => m.content).join(' ');
+    const ult = [...messages].reverse().find(m => m.role === 'user');
+    if (!ult) return null;
+    const prompt = encodeURIComponent(sys + '\n\nTe dicen: "' + ult.content + '"\nContestá:');
+    const r2 = await fetch(`https://text.pollinations.ai/${prompt}?model=openai&private=true`);
+    if (!r2.ok) return null;
+    const t2 = await r2.text();
+    return (t2 && t2.length < 600) ? t2 : null;
 }
 
 export default async function handler(req, res) {
