@@ -333,14 +333,30 @@ function dibujar(){
       const t = P.mapa[y][x]; if (t !== '#' && t !== '=') continue;
       const px = x*TILE, py = y*TILE;
       if (t === '#'){
+        // Tierra con vetas y piedritas. El pasto va SOLO si no hay tierra encima:
+        // antes cada bloque llevaba su franja verde y el subsuelo parecía un
+        // sándwich de capas.
         c.fillStyle = '#6b4a28'; c.fillRect(px,py,TILE,TILE);
-        c.fillStyle = '#3f9a3f'; c.fillRect(px,py,TILE,5);
-        c.fillStyle = '#57381d'; c.fillRect(px,py+TILE-3,TILE,3);
-        c.fillStyle = 'rgba(0,0,0,.12)'; c.fillRect(px+TILE-2,py,2,TILE);
+        c.fillStyle = 'rgba(255,255,255,.05)'; c.fillRect(px,py+7,TILE,2);
+        c.fillStyle = 'rgba(0,0,0,.14)';
+        c.fillRect(px+4+((x*7)%9), py+12+((x*5)%6), 3, 2);
+        c.fillRect(px+13-((x*3)%7), py+17-((x*2)%5), 2, 2);
+        c.fillRect(px, py+TILE-3, TILE, 3);
+        const arriba = (y > 0) && (P.mapa[y-1][x] === '#');
+        if (!arriba){
+          c.fillStyle = '#3f9a3f'; c.fillRect(px,py,TILE,6);
+          c.fillStyle = '#57b357'; c.fillRect(px,py,TILE,2);
+          c.fillStyle = '#3f9a3f';
+          for (let k=0;k<TILE;k+=5) c.fillRect(px+k, py+6, 3, 2 + ((x+k)%3));
+        }
+        c.fillStyle = 'rgba(0,0,0,.10)'; c.fillRect(px+TILE-1,py,1,TILE);
       } else {
-        c.fillStyle = '#8a6a3a'; c.fillRect(px,py,TILE,8);
-        c.fillStyle = '#a98a56'; c.fillRect(px,py,TILE,3);
-        c.fillStyle = 'rgba(0,0,0,.2)'; c.fillRect(px,py+8,TILE,2);
+        // Tablón de madera con veta y sombra propia.
+        c.fillStyle = '#9c7642'; c.fillRect(px,py,TILE,9);
+        c.fillStyle = '#b8905a'; c.fillRect(px,py,TILE,3);
+        c.fillStyle = 'rgba(90,60,25,.55)'; c.fillRect(px,py+5,TILE,1);
+        c.fillStyle = 'rgba(0,0,0,.3)'; c.fillRect(px,py+9,TILE,3);
+        c.fillStyle = 'rgba(0,0,0,.14)'; c.fillRect(px+TILE-1,py,1,9);
       }
     }
   }
@@ -469,21 +485,50 @@ function dibujarJugador(c){
   c.fillRect(j.dir > 0 ? x+9 : x+4, y+4, 2, 2);
   c.textAlign = 'left';
 }
+// Fondo con CAPAS: cerros lejos, arboleda o tribuna a media distancia y arbustos
+// cerca, cada capa moviendose a distinta velocidad. Antes era un cielo plano con
+// cuatro nubes y el mundo se sentia vacio.
 function fondoDecorado(c, W, H, Z){
-  const off = -(P.cam*0.35) % 220;
+  const suelo = H * 0.86;
+  const capa = (vel, alto, color, paso, forma) => {
+    const off = -(P.cam * vel) % paso;
+    c.fillStyle = color;
+    for (let i = -1; i < W / paso + 2; i++) forma(off + i * paso, alto);
+  };
   if (P.fondo === 'estadio' || P.fondo === 'noche'){
-    c.fillStyle = P.fondo === 'noche' ? 'rgba(255,255,255,.08)' : 'rgba(255,255,255,.14)';
-    for (let i=-1;i<W/60+2;i++) c.fillRect(off*0.4 + i*60, H*0.28, 44, H*0.4);
+    // Tribunas en dos planos, con la gente insinuada.
+    capa(0.12, suelo, 'rgba(255,255,255,.07)', 150, (x,y)=>{ c.fillRect(x, y-H*0.46, 120, H*0.46); });
+    capa(0.28, suelo, 'rgba(255,255,255,.10)', 96,  (x,y)=>{ c.fillRect(x, y-H*0.32, 78, H*0.32); });
+    c.fillStyle = 'rgba(255,255,255,.16)';
+    for (let i=0;i<70;i++){
+      const x = (i*83 - (P.cam*0.28)) % (W+60), y = suelo - H*0.30 + (i%7)*9;
+      c.fillRect(x < 0 ? x + W + 60 : x, y, 4, 4);
+    }
     if (P.fondo === 'noche'){
-      c.fillStyle = 'rgba(255,255,255,.75)';
-      for (let i=0;i<26;i++) c.fillRect((i*97)%W, (i*53)%(H*0.4), 2, 2);
+      c.fillStyle = 'rgba(255,255,255,.8)';
+      for (let i=0;i<34;i++) c.fillRect((i*97)%W, (i*53)%(H*0.42), 2, 2);
+      // Focos del estadio
+      c.fillStyle = 'rgba(255,248,220,.9)';
+      for (let i=0;i<5;i++){ const x=(i*W/5)+40; c.fillRect(x, H*0.06, 26, 7); }
     }
   } else {
-    c.fillStyle = 'rgba(255,255,255,.5)';
-    for (let i=-1;i<W/220+2;i++){
-      const bx = off + i*220;
-      c.beginPath(); c.arc(bx, H*0.2, 20, 0, Math.PI*2); c.arc(bx+22, H*0.2, 26, 0, Math.PI*2); c.arc(bx+46, H*0.2, 18, 0, Math.PI*2); c.fill();
-    }
+    // Cerros lejanos
+    capa(0.10, suelo, 'rgba(120,150,175,.55)', 260, (x,y)=>{
+      c.beginPath(); c.moveTo(x, y); c.lineTo(x+130, y-H*0.30); c.lineTo(x+260, y); c.closePath(); c.fill();
+    });
+    // Nubes
+    capa(0.20, H*0.20, 'rgba(255,255,255,.55)', 230, (x,y)=>{
+      c.beginPath(); c.arc(x,y,20,0,Math.PI*2); c.arc(x+22,y,26,0,Math.PI*2); c.arc(x+46,y,18,0,Math.PI*2); c.fill();
+    });
+    // Arboleda de fondo
+    capa(0.42, suelo, 'rgba(28,86,44,.9)', 74, (x,y)=>{
+      c.fillRect(x+14, y-26, 6, 26);
+      c.beginPath(); c.arc(x+17, y-32, 17, 0, Math.PI*2); c.fill();
+    });
+    // Arbustos cerca
+    capa(0.7, suelo+10, 'rgba(20,72,36,.95)', 52, (x,y)=>{
+      c.beginPath(); c.arc(x, y, 13, Math.PI, 0); c.fill();
+    });
   }
 }
 // Pelota con gajos. Antes era un circulo blanco con un punto negro en el medio y
