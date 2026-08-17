@@ -8463,6 +8463,149 @@ function dtTabla(){
   g._tabla = filas; g._tablaTemp = G.vidaLapso||0;
   return filas;
 }
+// ══════════════════════════════════════════════════════════════════════════════
+// LA TEMPORADA COMO DT
+// Una lista de dieciocho nombres que no conocés no dice nada. Dirigir se juega
+// como se juega la carrera: se juega el año, se ve dónde saliste, quién fue tu
+// goleador, qué dice la prensa, y ahí se decide — vender a la figura, renovar,
+// o escuchar al club que te vino a buscar.
+// ══════════════════════════════════════════════════════════════════════════════
+function dtFiguras(g){
+  const p = (g.plantel || []).slice().sort((a,b)=>b.nivel-a.nivel);
+  if (!p.length) return null;
+  const delanteros = p.filter(j=>j.pos === 'DEL');
+  const gol = (delanteros[0] || p[0]);
+  const fig = p[0];
+  return { goleador: gol, figura: fig, distintos: gol !== fig };
+}
+window._dtTemporada = function(){
+  const g = dtPlantelAsegurar(); if(!g) return;
+  const s = G.vidaStats || {};
+  const media = dtMediaPlantel(g);
+  const tabla = (function(){ g._tablaTemp = null; return dtTabla(); })();
+  const pos = tabla.findIndex(f=>f.yo) + 1;
+  const T = trofeosDe(g.liga) || {};
+  // ¿Salió campeón? Primero es título; segundo o tercero, copa chica a veces.
+  const campeon = pos === 1;
+  const copita = !campeon && pos <= 3 && Math.random() < 0.3;
+  const titulo = campeon ? (T.local || 'el torneo') : (copita ? (T.copaNac || 'la copa') : null);
+  if (titulo){ _gtitulo(g, G, titulo); }
+  // El goleador del año, con nombre y números: eso sí se recuerda.
+  const F = dtFiguras(g);
+  const goles = F ? clamp(Math.round((F.goleador.nivel - 45) * 0.55 + ri(-3, 6)), 3, 34) : 0;
+  if (F) F.goleador.golesTemp = goles;
+  g.anios = (g.anios || 0) + 1;
+  // El resultado mueve la presión y los resultados, que es lo que te sostiene.
+  s.resultados = clamp((s.resultados||50) + (campeon ? 16 : pos <= 3 ? 8 : pos >= tabla.length-2 ? -16 : -3), 0, 100);
+  s.presion = clamp((s.presion||45) + (campeon ? -20 : pos <= 5 ? -5 : 14), 0, 100);
+  // La prensa dice lo que corresponde, no una frase suelta.
+  const prensa = campeon
+    ? pick(['"Lo dieron por muerto en marzo y salió campeón."','"El técnico del año. No hay discusión."','"Le cambió la cara al club."'])
+    : pos <= 3 ? pick(['"Peleó hasta la última fecha con la mitad de presupuesto."','"Un año serio. Le faltó poco."'])
+    : pos >= tabla.length-2 ? pick(['"El equipo no juega a nada. Se le terminó el crédito."','"La gente pide su salida."'])
+    : pick(['"Cumplió, nada más. En este club eso no alcanza."','"Un año gris que nadie va a recordar."']);
+  G._dtAno = { pos, total:tabla.length, titulo, prensa, goleador: F ? F.goleador : null, goles, media, echado: s.presion >= 88 };
+  save();
+  window._dtResumen();
+};
+window._dtResumen = function(){
+  const g = gestionAsegurar(); const R = VIDA_ROLES.dt; const A_ = G._dtAno || {};
+  const col = R.color;
+  const m = document.getElementById('carrera-modal') || overlay();
+  const gol = A_.goleador;
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:24px 16px calc(28px + env(safe-area-inset-bottom));">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:10px;font-weight:900;letter-spacing:2.4px;color:${col};">TEMPORADA ${G.anio||''}</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;margin-top:5px;">${esc(g.club)}</div>
+    </div>
+    ${A_.titulo ? `
+    <div style="text-align:center;background:linear-gradient(160deg,rgba(250,204,21,.14),rgba(20,22,18,.5));border:1.5px solid rgba(250,204,21,.45);border-radius:16px;padding:18px;margin-bottom:14px;">
+      <div style="margin-bottom:8px;">${trofeoRender(A_.titulo, 68)}</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:20px;color:#facc15;">¡CAMPEONES!</div>
+      <div style="font-size:13px;color:#e2d9c4;margin-top:4px;">${esc(A_.titulo)}</div>
+    </div>` : ''}
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">
+      ${[['PUESTO', A_.pos + 'º'], ['DE', A_.total], ['MEDIA', A_.media]].map(c=>`
+        <div style="background:rgba(255,255,255,.04);border:1px solid #232a1f;border-radius:12px;padding:12px 4px;text-align:center;">
+          <div style="font-size:21px;font-weight:900;color:#fff;line-height:1;">${c[1]}</div>
+          <div style="font-size:8px;color:#79836f;font-weight:900;letter-spacing:1px;margin-top:5px;">${c[0]}</div>
+        </div>`).join('')}
+    </div>
+    ${gol ? `
+    <div style="background:rgba(255,255,255,.04);border:1px solid #232a1f;border-radius:13px;padding:13px;margin-bottom:12px;">
+      <div style="font-size:9px;font-weight:900;letter-spacing:1.5px;color:${col};margin-bottom:7px;">EL GOLEADOR DEL AÑO</div>
+      <div style="display:flex;align-items:center;gap:11px;">
+        <div style="width:38px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${col}1c;border:1px solid ${col}44;border-radius:8px;font-size:10px;font-weight:900;color:${col};">${gol.pos}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:900;color:#fff;">${esc(gol.n)}</div>
+          <div style="font-size:11px;color:#79836f;font-weight:700;">${gol.edad} años · nivel ${gol.nivel} · vale ${eur(gol.valor)}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:24px;font-weight:900;color:#facc15;line-height:1;">${A_.goles}</div>
+          <div style="font-size:8px;color:#79836f;font-weight:900;letter-spacing:1px;">GOLES</div>
+        </div>
+      </div>
+    </div>` : ''}
+    <div style="background:rgba(0,0,0,.35);border-left:3px solid ${col};border-radius:8px;padding:11px 13px;margin-bottom:16px;">
+      <div style="font-size:9px;font-weight:900;letter-spacing:1.5px;color:#79836f;margin-bottom:5px;">LA PRENSA</div>
+      <div style="font-size:13px;color:#dfe7d6;line-height:1.5;font-style:italic;">${esc(A_.prensa||'')}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:9px;">
+      ${gol ? `<button onclick="window._dtVenderFigura()" style="background:rgba(250,204,21,.1);border:1.5px solid rgba(250,204,21,.4);color:#facc15;border-radius:13px;padding:13px;font-weight:900;font-size:13px;cursor:pointer;text-align:left;">Vender a ${esc(gol.n)} por ${eur(gol.valor)} — el club necesita la plata</button>` : ''}
+      <button onclick="window._dtOfertas()" style="background:rgba(125,211,252,.1);border:1.5px solid rgba(125,211,252,.4);color:#7dd3fc;border-radius:13px;padding:13px;font-weight:900;font-size:13px;cursor:pointer;text-align:left;">Escuchar a otros clubes</button>
+      <button onclick="window._vidaJugable()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px;font-weight:900;font-size:14.5px;cursor:pointer;">SEGUIR EN ${esc(g.club).toUpperCase()} <i class='bx bx-right-arrow-alt'></i></button>
+    </div>
+  </div>`;
+};
+window._dtVenderFigura = function(){
+  const g = gestionAsegurar(); const A_ = G._dtAno || {};
+  const gol = A_.goleador; if(!gol) return;
+  G.dinero = (G.dinero||0) + Math.round(gol.valor * 0.9);
+  g.plantel = (g.plantel||[]).filter(j=>j !== gol);
+  g.str = clamp(Math.round((g.str||58)*0.85 + dtMediaPlantel(g)*0.15), 30, 95);
+  const s = G.vidaStats || {};
+  s.plantel = clamp((s.plantel||50) - 12, 0, 100);
+  s.presion = clamp((s.presion||45) + 8, 0, 100);
+  G._dtAno.goleador = null;
+  save();
+  vjFlash('Se fue ' + gol.n + '. La plata entró, pero el vestuario lo sintió.');
+  window._vidaJugable();
+};
+window._dtOfertas = function(){
+  const cand = clubesParaDirigir();
+  const m = document.getElementById('carrera-modal') || overlay();
+  const g = gestionAsegurar();
+  m.innerHTML = `
+  <div style="max-width:480px;margin:0 auto;padding:26px 16px calc(28px + env(safe-area-inset-bottom));">
+    <div style="font-size:10px;font-weight:900;letter-spacing:2.2px;color:#7dd3fc;margin-bottom:8px;">EL MERCADO DE TÉCNICOS</div>
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:23px;color:#fff;margin-bottom:16px;">¿Dónde seguís?</div>
+    <div style="display:flex;flex-direction:column;gap:9px;">
+      ${cand.map((c,i)=>`<button onclick="window._dtFirmar(${i})" style="display:flex;align-items:center;gap:11px;background:rgba(255,255,255,.04);border:1.5px solid #262c22;border-radius:14px;padding:13px;cursor:pointer;text-align:left;">
+        ${clubBadge(c.name,38)}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14.5px;font-weight:900;color:#fff;">${esc(c.name)}</div>
+          <div style="font-size:11px;color:#79836f;font-weight:700;">${esc(c.liga)} · nivel ${c.str}</div>
+        </div>
+      </button>`).join('')}
+      <button onclick="window._vidaJugable()" style="background:rgba(255,255,255,.05);border:1px solid #2a3222;color:#cfd8c6;border-radius:13px;padding:13px;font-weight:900;font-size:13px;cursor:pointer;">Quedarme en ${esc(g.club)}</button>
+    </div>
+  </div>`;
+  G._dtOfertas = cand;
+};
+window._dtFirmar = function(i){
+  const c = (G._dtOfertas||[])[i]; if(!c) return;
+  const g = gestionAsegurar();
+  g.club = c.name; g.str = c.str; g.liga = c.liga; g.pais = c.pais;
+  g.anios = 0; g.plantel = []; g._plantelDe = null; g.mercado = null; g._tabla = null;
+  G.vidaLugar = c.name;
+  const s = G.vidaStats || {};
+  s.presion = clamp((s.presion||45) + (c.str >= 80 ? 16 : 4), 0, 100);
+  G._dtOfertas = null;
+  save();
+  vjFlash('Firmaste en ' + c.name + '. Plantel nuevo, exigencia nueva.');
+  window._vidaJugable();
+};
 window._vjEscritorio = function(tab){
   const g = dtPlantelAsegurar(); if(!g){ window._carreraHub(); return; }
   tab = tab || 'plantel';
@@ -9063,8 +9206,11 @@ function vjHotspotsBase(){
       out.push({ x:Math.round(W*0.74), tipo:'obj', obj:'trabajo', lbl:'Ponerte a laburar', accion:'trabajar', icono:'bx-wrench' });
       // EL ESCRITORIO: plantel, mercado de pases, tabla y vitrina. Lo que faltaba
       // para que dirigir se sienta como dirigir y no como elegir opciones sueltas.
-      if (G.vidaRol === 'dt')
-        out.push({ x:Math.round(W*0.58), tipo:'obj', obj:'trabajo', lbl:'Tu escritorio — plantel, mercado y tabla', accion:'escritorio', icono:'bx-clipboard', destacado:true });
+      if (G.vidaRol === 'dt'){
+        out.push({ x:Math.round(W*0.50), tipo:'obj', obj:'pelota', escala:1.1,
+          lbl:'JUGAR LA TEMPORADA ' + (G.anio||''), accion:'dtTemporada', icono:'bx-play-circle', destacado:true });
+        out.push({ x:Math.round(W*0.68), tipo:'obj', obj:'trabajo', lbl:'Ver el plantel y el mercado', accion:'escritorio', icono:'bx-clipboard' });
+      }
       // CAMBIAR DE CLUB CUANDO QUIERAS. Antes el destino se elegía UNA vez al
       // empezar el rol y quedabas atado a ese club para siempre.
       out.push({ x:Math.round(W*0.30), tipo:'obj', obj:'cartel',
@@ -9896,6 +10042,7 @@ function vjInteractuar(){
     case 'consejo':      vjConsejoRepre(); return;
     case 'gestion':      vjDetener(); window._vjGestion(); return;
     case 'escritorio':   vjDetener(); window._vjEscritorio('plantel'); return;
+    case 'dtTemporada':  vjDetener(); window._dtTemporada(); return;
     case 'truco':
       if (!window._trucoAbrir){ vjFlash('El truco no está disponible acá.'); return; }
       vjDetener();
