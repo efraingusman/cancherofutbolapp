@@ -11394,7 +11394,7 @@ window._carreraCompartir = function(){
     ...(G.rival&&(G.rival.ganados+G.rival.perdidos)?[`⚔️ Duelo con ${G.rival.nombre}: ${G.rival.ganados}—${G.rival.perdidos}`]:[]),
     `💰 Patrimonio: ${eur((G.dinero||0)+((G.inversiones&&G.inversiones.monto)||0)+(G.bienes||[]).reduce((s,b)=>{const B=bienByld(b.id)||{};return s+Math.round((b.precio||B.p||0)*0.65);},0))}`,
     ``,
-    `Jugalo en canchero.uy`
+    `Canchero Leyenda`
   ];
   const texto = lines.join('\n');
   // Antes esto compartia un chorro de texto pelado. Ahora se muestra una FICHA:
@@ -11446,7 +11446,7 @@ function fichaCompartir(D){
         <div style="font-size:8.5px;font-weight:900;letter-spacing:1.6px;color:#79836f;margin-bottom:6px;">TRAYECTORIA</div>
         <div style="font-size:10.5px;color:#b9c4ad;font-weight:700;line-height:1.6;">${esc(D.clubes.slice(0,6).join(' → '))}${D.clubes.length>6?' +'+(D.clubes.length-6):''}</div>
       </div>
-      <div style="position:relative;background:rgba(0,0,0,.42);border-top:1px solid rgba(255,255,255,.07);padding:9px;text-align:center;font-size:9.5px;font-weight:900;letter-spacing:1.4px;color:#6d7766;">canchero.uy</div>
+      <div style="position:relative;background:rgba(0,0,0,.42);border-top:1px solid rgba(255,255,255,.07);padding:9px;text-align:center;font-size:9.5px;font-weight:900;letter-spacing:1.4px;color:#6d7766;">CANCHERO LEYENDA</div>
     </div>
     <div style="display:flex;gap:9px;width:100%;max-width:380px;margin-top:16px;">
       <button onclick="window._lyFichaCompartir()" style="flex:1;background:${oro};border:0;color:#0a0d07;border-radius:13px;padding:14px;font-weight:900;font-size:13.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
@@ -11474,6 +11474,18 @@ function cargarImg(src){
     i.src = src;
   });
 }
+// El avatar del jugador es SVG generado. Para poder pintarlo en el canvas hay que
+// pasarlo por un data URI, y para eso el SVG necesita xmlns (los que genera el
+// juego no siempre lo traen, porque van inyectados en el DOM donde no hace falta).
+function svgAImagen(svg){
+  if (!svg) return Promise.resolve(null);
+  let s = String(svg);
+  if (s.indexOf('xmlns') < 0) s = s.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+  try {
+    const uri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
+    return cargarImg(uri);
+  } catch(e){ return Promise.resolve(null); }
+}
 // Escudo genérico dibujado a mano, para los clubes que no tienen archivo.
 function crestCanvas(x, nombre, cx, cy, r){
   let h = 0; for (let i=0;i<(nombre||'').length;i++) h = (h*31 + nombre.charCodeAt(i)) >>> 0;
@@ -11499,7 +11511,7 @@ function crestCanvas(x, nombre, cx, cy, r){
 // nombres y la ficha parecía un recibo.
 async function fichaCanvas(D){
   // El alto se ajusta al contenido: con pocos trofeos sobraba media ficha vacia.
-  const W = 720, H = 620 + Math.ceil(Math.min(10, D.trofArr.length)/5)*96 + 150;
+  const W = 720, H = 762 + Math.ceil(Math.min(10, D.trofArr.length)/5)*96 + 150;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const x = c.getContext('2d');
@@ -11517,18 +11529,37 @@ async function fichaCanvas(D){
   };
   centro('CANCHERO LEYENDA', 62, 20, oro);
   centro((G.pais||'').toUpperCase(), 92, 15, '#7d8a74');
-  centro(D.rango, 162, 26, oro);
-  centro((G.apellido||'—').toUpperCase(), 244, 74, '#ffffff');
-  centro('#'+(G.num||10)+'   ·   '+(G.pos||'')+'   ·   '+D.valor, 286, 22, '#8c9781');
+  // EL JUGADOR, dibujado. Una ficha de carrera sin la cara del protagonista era
+  // una planilla; con el muñeco es una figurita.
+  const kb = kitOf(G.pais || 'Uruguay');
+  const av = await svgAImagen(avatarSprite(G.avatar||avatarDefault(), {
+    edad:(G.edad||30), kitBase:kb[0], kitTxt:kb[1], num:G.num||10,
+    apellido:G.apellido||'', escala:3.4, pose:'orgullo' }));
+  const baseY = 112;
+  if (av){
+    // Piso de luz debajo, para que no flote sobre el fondo.
+    const gl = x.createRadialGradient(W/2, baseY+206, 6, W/2, baseY+206, 170);
+    gl.addColorStop(0, oro+'2e'); gl.addColorStop(1, 'transparent');
+    x.fillStyle = gl; x.fillRect(W/2-190, baseY+140, 380, 120);
+    x.fillStyle = 'rgba(0,0,0,.45)';
+    x.beginPath(); x.ellipse(W/2, baseY+208, 74, 12, 0, 0, Math.PI*2); x.fill();
+    const h2 = 230, w2 = av.width * (h2/av.height);
+    x.drawImage(av, W/2 - w2/2, baseY - 24, w2, h2);
+  }
+  const yTxt = av ? 392 : 200;
+  centro(D.rango, yTxt - 40, 24, oro);
+  centro((G.apellido||'—').toUpperCase(), yTxt + 30, 70, '#ffffff');
+  centro('#'+(G.num||10)+'   ·   '+(G.pos||'')+'   ·   '+D.valor, yTxt + 68, 21, '#8c9781');
   [['NIVEL',D.nivelF],['PJ',G.tot.pj],['GOLES',G.tot.g],['ASIST',G.tot.a]].forEach((cf,i)=>{
     const cw = (W-80)/4, cx = 40 + cw*i + cw/2;
-    x.fillStyle = 'rgba(255,255,255,.06)'; x.fillRect(40 + cw*i + 6, 326, cw-12, 104);
+    const yc = yTxt + 118;
+    x.fillStyle = 'rgba(255,255,255,.06)'; x.fillRect(40 + cw*i + 6, yc, cw-12, 104);
     x.font = '900 40px Outfit, Arial'; x.fillStyle = '#fff'; x.textAlign='center';
-    x.fillText(String(cf[1]), cx, 378);
-    x.font = '900 15px Outfit, Arial'; x.fillStyle = '#79836f'; x.fillText(cf[0], cx, 410);
+    x.fillText(String(cf[1]), cx, yc + 52);
+    x.font = '900 15px Outfit, Arial'; x.fillStyle = '#79836f'; x.fillText(cf[0], cx, yc + 84);
   });
   // ── TROFEOS, con su imagen ──
-  let y = 480;
+  let y = yTxt + 272;
   x.textAlign = 'left';
   x.font = '900 17px Outfit, Arial'; x.fillStyle = oro;
   x.fillText('VITRINA · ' + D.trofArr.length, 46, y);
@@ -11588,7 +11619,7 @@ async function fichaCanvas(D){
     x.fillText('+ ' + (D.clubes.length-6) + ' clubes más', W/2, y + 104);
   }
   x.fillStyle = 'rgba(0,0,0,.45)'; x.fillRect(0, H-70, W, 70);
-  centro('canchero.uy', H-28, 20, '#8d9782');
+  centro('CANCHERO LEYENDA', H-28, 18, '#8d9782');
   return c;
 }
 window._lyFichaCompartir = function(){
