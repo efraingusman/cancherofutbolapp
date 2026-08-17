@@ -488,8 +488,20 @@ function overlay(){
 // pantalla de decisión el jugador quedaba encerrado en el modal, sin forma de
 // volver al inicio de la app. Ahora el botón vive FUERA del innerHTML de cada
 // pantalla, así ninguna re-renderización se lo lleva puesto.
+// ── LA X Y EL AÑO SOLO EXISTEN JUGANDO ───────────────────────────────────────
+// En la portada convivían la X y el botón "Ir a Canchero": dos formas de salir,
+// una encima de la otra, y encima el cartel del año mostraba 2026 cuando todavía
+// no habías empezado nada. Ahora aparecen recién cuando arranca el juego.
+let LY_JUGANDO = false;
+function lyChrome(on){
+  LY_JUGANDO = !!on;
+  const x = document.getElementById('carrera-exit');
+  const a = document.getElementById('carrera-anio');
+  if (x) x.style.display = on ? 'flex' : 'none';
+  if (a) a.style.display = on ? 'flex' : 'none';
+}
 function montarSalida(){
-  if (document.getElementById('carrera-exit')) return;
+  if (document.getElementById('carrera-exit')){ lyChrome(LY_JUGANDO); return; }
   const b = document.createElement('button');
   b.id = 'carrera-exit';
   b.type = 'button';
@@ -498,12 +510,13 @@ function montarSalida(){
   // ARRIBA A LA DERECHA, por encima de todo y sin pisar nada: la barra superior de
   // cada pantalla reserva su espacio (ver --ly-gutter) para que la X no tape ni el
   // titulo ni las estadisticas.
-  b.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + 68px);right:8px;width:32px;height:32px;border-radius:50%;background:rgba(10,12,10,.72);backdrop-filter:blur(6px);border:1px solid #2a3222;color:#9aa294;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);opacity:.85;';
+  b.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + 82px);right:16px;width:32px;height:32px;border-radius:50%;background:rgba(10,12,10,.72);backdrop-filter:blur(6px);border:1px solid #2a3222;color:#9aa294;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);opacity:.85;';
   b.innerHTML = "<i class='bx bx-x'></i>";
   b.onclick = function(){ window._carreraSalir(); };
   document.body.appendChild(b);
-  // Cartel del AÑO: visible SIEMPRE, durante todo el juego.
+  // Cartel del AÑO: visible durante todo el juego, pero no antes de empezarlo.
   montarAnio();
+  lyChrome(LY_JUGANDO);
   // Traductor: a partir de acá cada pantalla se traduce sola al idioma elegido.
   try { lyObservar(); } catch(e){}
 }
@@ -519,7 +532,7 @@ function montarAnio(){
   if (document.getElementById('carrera-anio')) return;
   const d = document.createElement('div');
   d.id = 'carrera-anio';
-  d.style.cssText = 'position:fixed;z-index:100069;top:calc(env(safe-area-inset-top, 0px) + 68px);right:46px;height:32px;display:flex;align-items:center;padding:0 10px;border-radius:16px;background:rgba(10,12,10,.72);backdrop-filter:blur(6px);border:1px solid #2a3222;color:#baff00;font-size:12px;font-weight:900;letter-spacing:1px;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.5);';
+  d.style.cssText = 'position:fixed;z-index:100069;top:calc(env(safe-area-inset-top, 0px) + 82px);right:56px;height:32px;display:flex;align-items:center;padding:0 10px;border-radius:16px;background:rgba(10,12,10,.72);backdrop-filter:blur(6px);border:1px solid #2a3222;color:#baff00;font-size:12px;font-weight:900;letter-spacing:1px;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.5);';
   document.body.appendChild(d);
   refrescarAnio();
   clearInterval(window._lyAnioT);
@@ -572,6 +585,7 @@ window._carreraSalir = function(){
 
 // ── INTRO ───────────────────────────────────────────────────────────────────────
 window._carreraStart = function(){
+  lyChrome(false);
   const m=overlay(); const saved=load();
   // Primera vez que alguien abre el juego: se le explica antes de tirarlo adentro.
   if (!saved && !tutoVisto()){ window._lyComoSeJuega(0); return; }
@@ -618,6 +632,7 @@ const LY_TUTO_PASOS = [
     d:'Después de colgar los botines elegís qué hacer: DT, comentarista, dirigente, empresario, escuela o vida tranquila. Y cuando se te acaba el tiempo, tu nieto toma la posta.' }
 ];
 window._lyComoSeJuega = function(paso){
+  lyChrome(false);
   paso = paso || 0;
   const P = LY_TUTO_PASOS[paso]; if(!P){ tutoMarcar(); window._carreraStart(); return; }
   const ultimo = paso === LY_TUTO_PASOS.length - 1;
@@ -1008,6 +1023,7 @@ async function saveCareer(g){
   }catch(e){ console.warn('saveCareer', e); }
 }
 window._carreraRanking = async function(){
+  lyChrome(false);
   const m=overlay();
   m.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:24px 18px;text-align:center;color:#666;"><i class='bx bx-loader-alt bx-spin' style="font-size:30px;color:${A};"></i></div>`;
   let rows=[]; try{ const c=window._sb; if(c){ const {data}=await c.from('carrera_scores').select('name,email,score,nivel,titulos,club').order('score',{ascending:false}).limit(20); rows=data||[]; } }catch(e){}
@@ -1026,6 +1042,7 @@ window._carreraRanking = async function(){
 
 // ── DURACIÓN DE CARRERA ──────────────────────────────────────────────────────────
 window._carreraLen = function(){
+  lyChrome(false);
   // Nueva carrera: limpiar save y estado en memoria (antes se conservaba de la carrera
   // anterior, generando bugs al mezclar datos).
   try { localStorage.removeItem(LS); } catch(e) {}
@@ -2625,6 +2642,7 @@ window._avRandom = function(){
 function _avEscalaIdent(){ return (window.innerWidth||400) < 420 ? 3 : 3.6; }
 let _draft=null;
 window._carreraIdent = function(years){
+  lyChrome(false);
   _draft = _draft || { years, apellido:(me().name||'').split(' ').slice(-1)[0]||'', num:10, pie:'Derecha', pais:(me().nat||me().country||'Uruguay'), pos:'DC', filtro:'', avatar:avatarDefault() };
   if(!_draft.avatar) _draft.avatar = avatarDefault();
   _draft.dif = window._crDif || 'normal';
@@ -3426,6 +3444,7 @@ window._continuarPartida = function(){
 };
 // ── HUB DE CARRERA ───────────────────────────────────────────────────────────────
 window._carreraHub = function(){
+  lyChrome(true);
   if(!G) G=load(); if(!G){ window._carreraStart(); return; }
   const m=document.getElementById('carrera-modal')||overlay();
   const [c1,c2]=kitOf(G.pais);
@@ -8736,6 +8755,7 @@ window._vidaJugable = function(){
 };
 // Abre cualquier mundo caminable (potrero, juveniles, club, vida).
 function mundoAbrir(mundo, escena){
+  lyChrome(true);
   VJ.mundo = mundo;
   VJ.escena = escena || Object.keys(VJ_MUNDOS[mundo])[0];
   VJ.x = Math.round((VJ_MUNDOS[mundo][VJ.escena].ancho) * 0.22);
