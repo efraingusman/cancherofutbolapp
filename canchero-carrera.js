@@ -8307,6 +8307,9 @@ function vjHotspotsBase(){
     out.push({ x:452, tipo:'obj', obj:'tele', lbl:'Ver fútbol', accion:'descansar', icono:'bx-tv' });
     // La mesa del truco: partida completa contra la máquina, con envido y todo.
     out.push({ x:392, tipo:'obj', obj:'trabajo', escala:1.1, lbl:'La mesa — jugar al truco', accion:'truco', icono:'bx-joystick' });
+    // Si licenciaste tu imagen, el videojuego existe de verdad y se puede jugar.
+    if ((G._vidaFlags||{}).videojuego)
+      out.push({ x:352, tipo:'obj', obj:'tele', escala:0.9, lbl:'Tu videojuego — jugarlo', accion:'videojuego', icono:'bx-game' });
     out.push({ x:512, tipo:'obj', obj:'ropero', escala:1.5, lbl:'Ropero — cambiarte', accion:'ropero', icono:'bx-closet' });
     out.push({ x:568, tipo:'obj', obj:'espejo', escala:1.4, lbl:'Espejo — cambiar tu look', accion:'look', icono:'bx-cut' });
     // La cama va lejos del borde: pegada a la salida uno se pasaba de largo al
@@ -9152,6 +9155,12 @@ function vjInteractuar(){
       vjDetener();
       window._trucoVolverA = function(){ window._vidaJugable(); };  // al salir, volvés a tu casa
       window._trucoAbrir();
+      return;
+    case 'videojuego':
+      if (!window._platAbrir){ vjFlash('El videojuego no está disponible acá.'); return; }
+      vjDetener();
+      window._platVolverA = function(){ window._vidaJugable(); };
+      window._platAbrir({ apellido:G.apellido, num:G.num, colores:kitOf(G.pais||'Uruguay') });
       return;
     case 'cambiarRepre': vjDetener(); window._elegirRepre('cambio'); return;
     case 'bienes':       vjDetener(); window._carreraBienes(); return;
