@@ -7703,84 +7703,84 @@ const VIDA_SUCESOS = {
 // ══════════════════════════════════════════════════════════════════════════════
 const LEYENDAS = [
   // ── EL ALEGRE: juega como si todavía estuviera en la playa de su barrio ──
-  { id:'zeca', n:'Zeca Andrade', apodo:'O Sorriso', semilla:'leyZecaAndrade', ropa:'calle', edad:45, gen:'m', fama:52,
+  { id:'zeca', n:'Zeca Andrade', apodo:'O Sorriso', semilla:'leyZecaAndrade', ropa:'calle', edad:45, gen:'m', fama:22,
     t:'Zeca Andrade te lleva a jugar a la playa',
     d:'Te llega un audio de dos minutos, mitad en portugués y mitad riéndose. Es Zeca Andrade, "O Sorriso": armó un picadito en la arena y no acepta un no.',
     opts:[
       { txt:'Ir y jugar descalzo hasta que se haga de noche', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+18; s.soledad=(s.soledad||40)-14; g._vidaFlags=g._vidaFlags||{}; g._vidaFlags.playa=true; return 'Cuatro horas de arena, caños y carcajadas. Te hizo un sombrero, se tiró al piso de la risa y te abrazó como si te conociera de toda la vida. Volviste a tener diez años por una tarde.'; } },
       { txt:'Agradecer, estoy en pretemporada', ef:(s)=>{ s.felicidad=(s.felicidad||50)-4; return 'Dijiste que no. Después viste los videos y te quisiste morir.'; } } ] },
   // ── EL CALLADO: no habla, no posa, no falla ──
-  { id:'duende', n:'Emiliano Ruiz', apodo:'El Duende', semilla:'leyEmilianoRuiz', ropa:'calle', edad:39, gen:'m', fama:64,
+  { id:'duende', n:'Emiliano Ruiz', apodo:'El Duende', semilla:'leyEmilianoRuiz', ropa:'calle', edad:39, gen:'m', fama:34,
     t:'El Duende te invita a comer a su casa',
     d:'Un mensaje de tres palabras: "¿Venís a comer?". Es Emiliano Ruiz, el tipo más callado y más determinante que pisó una cancha. Nunca pensaste que ibas a leer eso.',
     opts:[
       { txt:'Ir con la familia', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+22; s.soledad=(s.soledad||40)-16; g._vidaFlags=g._vidaFlags||{}; g._vidaFlags.leyendaAmiga=true; return 'Asado, mate y un perro enorme que se llevó puesta a media mesa. Habla bajito y escucha el triple de lo que dice. A tus hijos les preguntó el nombre uno por uno y se los acordó toda la noche.'; } },
       { txt:'Ir solo, sin hacer ruido', ef:(s)=>{ s.felicidad=(s.felicidad||50)+14; return 'Comieron los dos, hablando de fútbol y de hijos. Se despidieron con un abrazo largo y ni una foto.'; } } ] },
   // ── EL OBSESIVO: llegó ahí por trabajo, y no deja que se te olvide ──
-  { id:'maquina', n:'Rui Bettencourt', apodo:'A Máquina', semilla:'leyRuiBettencourt', ropa:'traje', edad:41, gen:'m', fama:70,
+  { id:'maquina', n:'Rui Bettencourt', apodo:'A Máquina', semilla:'leyRuiBettencourt', ropa:'traje', edad:41, gen:'m', fama:42,
     t:'Rui Bettencourt te lleva en su jet',
     d:'Coincidieron en una gala. Al final de la noche te dice que a la mañana siguiente vuela y que hay un asiento libre.',
     opts:[
       { txt:'Subirme al jet', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+16; g.fama=clamp((g.fama||0)+6,0,100); g._vidaFlags=g._vidaFlags||{}; g._vidaFlags.jet=true; return 'Cuero blanco, agua mineral y tres horas de charla sobre disciplina. No tomó una gota de alcohol y se levantó a las cinco a entrenar en el hotel. Entendiste que el talento era la mitad más chica del asunto.'; } },
       { txt:'Prefiero volar en línea, gracias', ef:(s)=>{ s.felicidad=(s.felicidad||50)+4; return 'Te reíste y dijiste que no. Él también se rió. Quedaron bien igual.'; } } ] },
   // ── EL SHOWMAN: la fiesta lo sigue a él ──
-  { id:'palmeira', n:'Vinicius Palmeira', apodo:'O Rei da Noite', semilla:'leyVinPalmeira', ropa:'calle', edad:36, gen:'m', fama:58,
+  { id:'palmeira', n:'Vinicius Palmeira', apodo:'O Rei da Noite', semilla:'leyVinPalmeira', ropa:'calle', edad:36, gen:'m', fama:28,
     t:'Vinicius Palmeira te sienta a la mesa de póker',
     d:'Un piso altísimo, doce personas que reconocés de la tele y fichas que valen más que tu primer contrato.',
     opts:[
       { txt:'Sentarme y jugar en serio', ef:(s,g)=>{ const b=Math.random()<0.45; g.dinero=(g.dinero||0)+(b?ri(40000,260000):-ri(30000,180000)); s.felicidad=(s.felicidad||50)+(b?14:-10); return b?'Te levantaste a las seis de la mañana con más plata de la que llevaste y una anécdota para toda la vida.':'Perdiste una barbaridad en cuatro manos. Te palmeó la espalda y te juró que a él le pasó peor.'; } },
       { txt:'Mirar, charlar y no apostar', ef:(s)=>{ s.felicidad=(s.felicidad||50)+10; s.soledad=(s.soledad||40)-8; return 'No pusiste una ficha y te reíste toda la noche. Ganancia igual.'; } } ] },
   // ── EL VELOCISTA: el fútbol es el trabajo, el hobby es otra cosa ──
-  { id:'craddock', n:'Owen Craddock', apodo:'El Galés', semilla:'leyOwenCraddock', ropa:'calle', edad:38, gen:'m', fama:54,
+  { id:'craddock', n:'Owen Craddock', apodo:'El Galés', semilla:'leyOwenCraddock', ropa:'calle', edad:38, gen:'m', fama:26,
     t:'Owen Craddock te arrastra a un campo de golf',
     d:'Te manda la ubicación de un campo de golf a las siete de la mañana. Vos nunca agarraste un palo en tu vida.',
     opts:[
       { txt:'Ir y hacer el ridículo con ganas', ef:(s)=>{ s.felicidad=(s.felicidad||50)+14; s.soledad=(s.soledad||40)-10; return 'Erraste doce veces seguidas y él se rió las doce. Al final te enseñó a agarrar el palo y metiste una. Terminaron tomando cerveza a las once de la mañana.'; } },
       { txt:'El golf no es lo mío', ef:(s)=>{ s.felicidad=(s.felicidad||50)+2; return 'Le dijiste que preferías una canchita de cinco. Te contestó que él también, pero que ya no le da el cuerpo.'; } } ] },
   // ── EL CAUDILLO: el que iba al frente aunque doliera ──
-  { id:'mariscal', n:'Nelson Iturralde', apodo:'El Mariscal', semilla:'leyNelsonIturralde', ropa:'calle', edad:52, gen:'m', fama:50,
+  { id:'mariscal', n:'Nelson Iturralde', apodo:'El Mariscal', semilla:'leyNelsonIturralde', ropa:'calle', edad:52, gen:'m', fama:20,
     t:'El Mariscal te invita al asado de los viejos cracks',
     d:'Nelson Iturralde, el capitán que jugó una final con la nariz rota, junta a los campeones de su generación. Te quiere ahí aunque seas de otra época.',
     opts:[
       { txt:'Ir y escucharlos toda la tarde', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+16; s.soledad=(s.soledad||40)-14; g._vidaFlags=g._vidaFlags||{}; g._vidaFlags.asadoViejos=true; return 'Seis horas de historias que no están en ningún libro. Cuando te ibas te agarró del brazo: "Vos jugá siempre como si te estuvieran mirando los de tu barrio". No te lo olvidaste más.'; } },
       { txt:'Pasar a saludar y volverme', ef:(s)=>{ s.felicidad=(s.felicidad||50)+6; return 'Media hora, un abrazo y a casa. Igual te trataron como uno más.'; } } ] },
   // ── EL PRODIGIO: la generación que te empieza a pasar por arriba ──
-  { id:'sylla', n:'Amadou Sylla', apodo:'Le Gamin', semilla:'leyAmadouSylla', ropa:'calle', edad:22, gen:'m', fama:60,
+  { id:'sylla', n:'Amadou Sylla', apodo:'Le Gamin', semilla:'leyAmadouSylla', ropa:'calle', edad:22, gen:'m', fama:30,
     t:'El pibe del momento te pide consejo',
     d:'Amadou Sylla tiene veintidós años, ya ganó todo y está aterrado. Te escribe porque dice que sos el único que no le va a mentir.',
     opts:[
       { txt:'Decirle la verdad, aunque no le guste', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+12; g._vidaFlags=g._vidaFlags||{}; g._vidaFlags.mentor=true; return 'Le dijiste que la fama se va más rápido de lo que llegó y que se guarde gente de verdad al lado. Años después, en su discurso de retiro, dijo tu nombre.'; } },
       { txt:'Decirle que disfrute y no piense tanto', ef:(s)=>{ s.felicidad=(s.felicidad||50)+6; return 'Se rió, te agradeció y siguió su camino. No era el consejo que necesitaba, pero tampoco le hizo mal.'; } } ] },
   // ── EL ARQUERO: loco, enorme y con una memoria terrible ──
-  { id:'fioravanti', n:'Gigi Fioravanti', apodo:'Il Muro', semilla:'leyGigiFioravanti', ropa:'calle', edad:47, gen:'m', fama:53,
+  { id:'fioravanti', n:'Gigi Fioravanti', apodo:'Il Muro', semilla:'leyGigiFioravanti', ropa:'calle', edad:47, gen:'m', fama:24,
     t:'Gigi Fioravanti te recuerda aquel gol',
     d:'Te lo cruzás en un evento. Lo primero que te dice, sin saludar: "Vos me hiciste un gol en el 34, por abajo, palo izquierdo. Todavía lo sueño".',
     opts:[
       { txt:'Cargarlo un rato', ef:(s)=>{ s.felicidad=(s.felicidad||50)+13; return 'Le hiciste el gesto del gol ahí mismo. Se agarró la cabeza y terminaron los dos llorando de risa en un rincón.'; } },
       { txt:'Decirle que fue suerte', ef:(s)=>{ s.felicidad=(s.felicidad||50)+8; return 'Te miró serio: "No fue suerte. Por eso me duele". Y recién ahí se rió.'; } } ] },
   // ── EL FILÓSOFO: entiende el juego como nadie y no se calla nada ──
-  { id:'haaren', n:'Ruud van Haaren', apodo:'El Profesor', semilla:'leyRuudVanHaaren', ropa:'traje', edad:58, gen:'m', fama:56,
+  { id:'haaren', n:'Ruud van Haaren', apodo:'El Profesor', semilla:'leyRuudVanHaaren', ropa:'traje', edad:58, gen:'m', fama:27,
     t:'El Profesor te quiere explicar el juego',
     d:'Ruud van Haaren te invita a su casa a ver un partido. Trae un cuaderno. Vos pensaste que era una charla; era una clase.',
     opts:[
       { txt:'Escucharlo y tomar nota', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+10; g.nivel=clamp((g.nivel||60)+2,30,99); g._vidaFlags=g._vidaFlags||{}; g._vidaFlags.profesor=true; return 'Cuatro horas y dieciocho páginas. Te explicó por qué el espacio importa más que la pelota. Después de esa noche viste el fútbol distinto para siempre.'; } },
       { txt:'Discutirle de igual a igual', ef:(s)=>{ s.felicidad=(s.felicidad||50)+15; return 'Le peleaste cada idea. Se le iluminó la cara: hacía años que nadie lo contradecía. Terminaron a los gritos y felices a las tres de la mañana.'; } } ] },
   // ── EL PIONERO: abrió la puerta por la que después pasaron todos ──
-  { id:'asante', n:'Kwame Asante', apodo:'El Primero', semilla:'leyKwameAsante', ropa:'traje', edad:63, gen:'m', fama:51,
+  { id:'asante', n:'Kwame Asante', apodo:'El Primero', semilla:'leyKwameAsante', ropa:'traje', edad:63, gen:'m', fama:21,
     t:'Kwame Asante te cuenta cómo era antes',
     d:'El primero de su país en jugar en Europa. Llegó a los diecisiete, solo, sin hablar el idioma, y aguantó cosas que hoy no se cuentan.',
     opts:[
       { txt:'Preguntarle todo lo que aguantó', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+12; g._vidaFlags=g._vidaFlags||{}; g._vidaFlags.pionero=true; return 'Te contó lo que le gritaban desde la tribuna y cómo salía igual a jugar. "Yo no aguanté por mí", te dijo. "Aguanté para que ustedes no tuvieran que aguantar". Te quedaste sin palabras.'; } },
       { txt:'Agradecerle y no hurgar', ef:(s)=>{ s.felicidad=(s.felicidad||50)+8; return 'Le dijiste simplemente gracias. Te apretó la mano con las dos suyas y no hizo falta nada más.'; } } ] },
   // ── LA NÚMERO UNO: la mejor del mundo, y encima tuvo que demostrarlo el doble ──
-  { id:'valente', n:'Camila Valente', apodo:'La Diez', semilla:'leyCamilaValente', ropa:'calle', edad:34, gen:'f', fama:57,
+  { id:'valente', n:'Camila Valente', apodo:'La Diez', semilla:'leyCamilaValente', ropa:'calle', edad:34, gen:'f', fama:29,
     t:'Camila Valente te invita a su despedida',
     d:'La mejor jugadora de la historia de tu país se retira. Te manda una invitación escrita a mano para el partido homenaje.',
     opts:[
       { txt:'Ir y jugar el partido de exhibición', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+18; s.soledad=(s.soledad||40)-12; g._vidaFlags=g._vidaFlags||{}; g._vidaFlags.despedidaCamila=true; return 'Estadio lleno, y ella jugando descalza los últimos diez minutos. Te gambeteó dos veces y te pidió perdón riéndose. Al final agarró el micrófono y agradeció a las que vinieron antes que ella.'; } },
       { txt:'Ir de público, con mis hijos', ef:(s)=>{ s.felicidad=(s.felicidad||50)+14; s.familia=(s.familia||50)+10; return 'Tu hija no le sacó los ojos de encima en todo el partido. A la salida te pidió una pelota.'; } } ] },
   // ── EL QUE NO LLEGÓ: el mejor que viste, y no lo conoce nadie ──
-  { id:'tordo', n:'Hugo Peralta', apodo:'El Tordo', semilla:'leyHugoPeralta', ropa:'calle', edad:49, gen:'m', fama:40,
+  { id:'tordo', n:'Hugo Peralta', apodo:'El Tordo', semilla:'leyHugoPeralta', ropa:'calle', edad:49, gen:'m', fama:18,
     t:'El mejor que viste jugar atiende un kiosco',
     d:'Hugo Peralta era mejor que todos ustedes a los quince. Una rodilla, una mala junta y la vida. Lo cruzás atendiendo un kiosco a dos cuadras del club.',
     opts:[
@@ -7789,6 +7789,33 @@ const LEYENDAS = [
 ];
 // Las leyendas entran al banco de sucesos como una categoria mas, pero con el
 // `npc` cargado: por eso vjDialogo las DIBUJA en vez de mostrar un cartel.
+// ── ENCONTRARSE CON UNA LEYENDA ──────────────────────────────────────────────
+// Estaban escondidas dentro del banco de sucesos: para verlas tenía que salir
+// justo esa categoría entre todas, y con la fama muy alta. Podías jugar carreras
+// enteras sin cruzarte con una. Ahora hay un lugar fijo donde aparecen.
+function leyendaDisponible(){
+  if (!G) return null;
+  const vistas = G._leyVistas = G._leyVistas || [];
+  const fama = G.fama || 0;
+  const libres = LEYENDAS.filter(L => vistas.indexOf(L.id) < 0 && fama >= L.fama);
+  if (!libres.length) return null;
+  // Siempre la misma mientras no la resuelvas, para que no cambie al repintar.
+  const fijada = G._leyActual && libres.find(L=>L.id===G._leyActual);
+  const L = fijada || pick(libres);
+  G._leyActual = L.id;
+  return L;
+}
+function vjLeyendaEncuentro(h){
+  const L = LEYENDAS.find(x=>x.id === (h && h.leyId)) || leyendaDisponible();
+  if (!L){ vjFlash('Por ahora no hay nadie esperándote.'); return; }
+  (G._leyVistas = G._leyVistas || []).push(L.id);
+  G._leyActual = null;
+  G._vjSuc = { cat:'leyendas', ev:{ t:L.t, d:L.d, opts:L.opts,
+    npc:{ semilla:L.semilla, ropa:L.ropa, edad:L.edad, gen:L.gen,
+          nombre: L.apodo ? (L.n + ' · ' + L.apodo) : L.n } }, clave:'ley|'+L.id };
+  save();
+  vjDialogo(G._vjSuc.ev, 'suceso', G._vjSuc.ev.npc.nombre, h);
+}
 function leyendasComoSucesos(){
   return LEYENDAS.map(L=>({
     t: L.t, d: L.d, opts: L.opts,
@@ -8700,6 +8727,11 @@ function vjHotspotsClub(){
       accion:'jugar', icono:'bx-play-circle', destacado: !pend, bloqueado: pend });
     out.push({ x:860, tipo:'npc', semilla:'hincha'+G.club, ropa:'calle', edad:38,
       lbl:'Hablar con un hincha', accion:'charlaClub', icono:'bx-group', rol:'hincha' });
+    // Si hay una leyenda esperándote, se la VE parada en la cancha.
+    const _L = leyendaDisponible();
+    if (_L) out.push({ x:520, tipo:'npc', semilla:_L.semilla, ropa:_L.ropa, edad:_L.edad, gen:_L.gen,
+      leyId:_L.id, lbl:_L.n + ' te está esperando', accion:'leyenda', icono:'bx-star',
+      destacado:true, nombre:_L.n, rol:_L.apodo || 'leyenda' });
     // TU RIVAL DE TODA LA VIDA, en carne y hueso. Existía desde el principio pero
     // sólo como una fila de números en una pantalla: nunca se lo veía ni se le
     // podía hablar. Ahora aparece antes de los partidos, con SU cara (la que tiene
@@ -9430,6 +9462,7 @@ function vjInteractuar(){
       return;
     case 'abuelo':       vjAbuelo(h); return;
     case 'destino':      vjDetener(); window._elegirDestino(false); return;
+    case 'leyenda':      vjLeyendaEncuentro(h); return;
     case 'miCarrera':    vjDetener(); window._lyMiCarrera(); return;
     case 'rival':        vjRival(h); return;
     case 'videojuego':
