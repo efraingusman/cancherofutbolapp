@@ -3182,12 +3182,43 @@ window._lyFinal = function(cfg){
     +   '<button onclick="window._lyFinalJugar()" style="width:100%;max-width:360px;background:linear-gradient(135deg,#16a34a,' + A + ');color:#000;border:none;border-radius:14px;padding:16px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">' + D.b + ' <i class="bx bx-right-arrow-alt"></i></button>'
     + '</div>';
 };
+// Pantalla de resultado: se ve el trofeo y dice de QUÉ saliste campeón.
+window._lyResultadoFinal = function(gano, titulo, rival){
+  const m = document.getElementById('carrera-modal') || overlay();
+  const col = gano ? '#facc15' : '#ef4444';
+  m.innerHTML = `
+  <div style="min-height:100%;background:radial-gradient(120% 80% at 50% 0%, ${gano?'#2a2006':'#2a0c0c'} 0%, #05070a 62%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:26px 18px calc(28px + env(safe-area-inset-bottom));box-sizing:border-box;text-align:center;">
+    ${gano && titulo ? `<div style="margin-bottom:16px;">${trofeoRender(titulo, 96)}</div>` : `<div style="font-size:54px;margin-bottom:10px;">😞</div>`}
+    <div style="font-size:10px;font-weight:900;letter-spacing:2.6px;color:${col};margin-bottom:9px;">${gano?'CAMPEÓN':'SE TE ESCAPÓ'}</div>
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:27px;color:#fff;line-height:1.2;margin-bottom:10px;">
+      ${gano ? ('Saliste campeón de<br>' + esc(titulo||'la final')) : ('Perdiste la final de<br>' + esc(titulo||'la temporada'))}
+    </div>
+    <div style="font-size:13.5px;color:#b9c4ad;line-height:1.6;max-width:400px;margin-bottom:22px;">
+      ${gano
+        ? ('Con ' + esc(G.club||'tu club') + '. Ya son ' + (G.titulos||1) + ' título' + ((G.titulos||1)===1?'':'s') + ' en tu vitrina.' + (rival?(' Y se lo ganaste a ' + esc(rival) + '.'):''))
+        : ('Se define en detalles. ' + (rival?('Esta vez fue para ' + esc(rival) + '. '):'') + 'Va a haber revancha.')}
+    </div>
+    <button onclick="window._carreraHub()" style="width:100%;max-width:360px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">SEGUIR <i class='bx bx-right-arrow-alt'></i></button>
+  </div>`;
+};
 window._lyFinalJugar = function(modo){
   const cfg = G && G._finalPend; if(!cfg) return;
   modo = modo || cfg.modo || 'simular';
   const cerrar = (gano)=>{
     G._finalPend = null;
+    // GANAR SUMA EL TITULO. Antes la final se resolvia y el trofeo dependia de
+    // que el evento se acordara de agregarlo: se podia ganar una final y no
+    // aparecer nada en la vitrina.
+    if (gano && cfg.titulo){
+      G.titulos = (G.titulos || 0) + 1;
+      G.vitrina = G.vitrina || [];
+      G.vitrina.push({ nombre: cfg.titulo, club: G.club, edad: G.edad, anio: G.anio });
+      G.moral = clamp((G.moral || 60) + 14, 0, 100);
+      save();
+    }
     try { (gano ? cfg.onGana : cfg.onPierde)(); } catch(e){}
+    // Y se dice de que saliste campeon, o que se escapo.
+    setTimeout(()=>{ try { window._lyResultadoFinal(gano, cfg.titulo, cfg.rival); } catch(e){} }, 120);
   };
   if (modo === 'simular'){ cerrar(Math.random() < (cfg.chance != null ? cfg.chance : 0.5)); return; }
   if (modo === 'truco' && window._trucoAbrir){
@@ -10291,8 +10322,8 @@ window._vjChatEnviar = function(){
     })
     .then(r=>{
       clearTimeout(corte);
-      if (r.status === 204){ vjAvisarSinIA(); return null; }   // sin IA ahora; se reintenta la proxima
-      if (!r.ok) return null;
+      if (r.status === 204){ vjAvisarSinIA('el servidor no devolvio texto'); return null; }
+      if (!r.ok){ vjAvisarSinIA('el servidor respondio ' + r.status); return null; }
       return r.json();
     })
     .then(d=>{ if (d && d.texto) responder(d.texto); else local(); })
@@ -10489,11 +10520,14 @@ window._lyConfirmarSalida = function(){
   d.querySelector('#ly-salir-no').onclick = cerrar;
   d.querySelector('#ly-salir-si').onclick = function(){ cerrar(); window._carreraSalir(); };
 };
-function vjAvisarSinIA(){
+function vjAvisarSinIA(motivo){
   if (window._lyAvisoIA) return;
   window._lyAvisoIA = true;
-  try { vjFlash('La IA de los diálogos no respondió. Van respuestas propias del personaje hasta que vuelva.'); } catch(e){}
-  try { console.warn('[leyenda] /api/game-judge no devolvió texto: ¿falta la API key en el servidor?'); } catch(e){}
+  const donde = (location.hostname === 'localhost' || location.protocol === 'file:')
+    ? 'Estás jugando en local: acá no existe /api. Probalo en el sitio publicado.'
+    : 'Van respuestas propias del personaje hasta que vuelva.';
+  try { vjFlash('La IA de los diálogos no contestó. ' + donde); } catch(e){}
+  try { console.warn('[leyenda] /api/game-judge falló:', motivo || '(sin detalle)', '| host:', location.hostname); } catch(e){}
 }
 // Aviso breve sin sacarte del mundo.
 function vjFlash(txt){
