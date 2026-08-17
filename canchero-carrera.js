@@ -11382,6 +11382,7 @@ window._carreraCompartir = function(){
   if(!G) G=load(); if(!G) return;
   const clubes = Array.from(new Set((G.timeline||[]).map(t=>t.club)));
   const trofArr = (G.vitrina||[]).map(v=>v.nombre);
+  const trofClub = (G.vitrina||[]).map(v=>v.club||'');
   const nivelF = Math.round(G.nivel||0);
   const valor = eur(G.valor||0);
   const rango = G.titulos>=8||nivelF>=88 ? 'LEYENDA' : G.titulos>=4||nivelF>=80 ? 'GRAN CARRERA' : 'CARRERA';
@@ -11400,7 +11401,7 @@ window._carreraCompartir = function(){
   // Antes esto compartia un chorro de texto pelado. Ahora se muestra una FICHA:
   // se ve el jugador, el rango, los numeros grandes y la vitrina, como una figurita.
   // Desde ahi se comparte (imagen si el navegador deja, texto si no).
-  fichaCompartir({ rango, nivelF, valor, clubes, trofArr, texto });
+  fichaCompartir({ rango, nivelF, valor, clubes, trofArr, trofClub, texto });
 };
 // Ficha visual de fin de carrera, estilo figurita/carta.
 function fichaCompartir(D){
@@ -11511,7 +11512,7 @@ function crestCanvas(x, nombre, cx, cy, r){
 // nombres y la ficha parecía un recibo.
 async function fichaCanvas(D){
   // El alto se ajusta al contenido: con pocos trofeos sobraba media ficha vacia.
-  const W = 720, H = 762 + Math.ceil(Math.min(10, D.trofArr.length)/5)*96 + 150;
+  const W = 720, H = 762 + Math.ceil(Math.min(10, D.trofArr.length)/5)*104 + 150;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const x = c.getContext('2d');
@@ -11569,7 +11570,7 @@ async function fichaCanvas(D){
     const f = trofeoImgSlug(t);
     return f ? cargarImg('img/trofeos/' + f) : Promise.resolve(null);
   }));
-  const porFila = 5, cel = (W-92)/porFila, alto = 96;
+  const porFila = 5, cel = (W-92)/porFila, alto = 104;
   trofs.forEach((t, i)=>{
     const fila = Math.floor(i/porFila), col = i%porFila;
     const cx = 46 + cel*col + cel/2, cy = y + fila*alto + 34;
@@ -11586,7 +11587,13 @@ async function fichaCanvas(D){
     }
     x.font = '700 11px Outfit, Arial'; x.fillStyle = '#b9c4ad'; x.textAlign = 'center';
     const nom = t.length > 18 ? t.slice(0,17)+'…' : t;
-    x.fillText(nom, cx, cy + 40);
+    x.fillText(nom, cx, cy + 38);
+    const cl = (D.trofClub||[])[i];
+    if (cl){
+      x.font = '700 10px Outfit, Arial'; x.fillStyle = '#79836f';
+      const cn = cl.length > 16 ? cl.slice(0,15)+'…' : cl;
+      x.fillText(cn, cx, cy + 52);
+    }
   });
   y += Math.ceil(trofs.length/porFila) * alto + 18;
   if (D.trofArr.length > 10){
