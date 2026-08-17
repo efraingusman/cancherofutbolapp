@@ -11463,66 +11463,130 @@ function fichaCompartir(D){
 // estuvo cargado en la página: la promesa fallaba y siempre terminabas
 // compartiendo texto pelado. Ahora la ficha se dibuja a mano en un canvas, sin
 // librerías y sin pedir nada de afuera, así que la imagen sale siempre.
-function fichaCanvas(D){
-  const W = 720, H = 1080, S = 1;
+// Carga una imagen del propio sitio para poder dibujarla en el canvas. Si no
+// existe (no todos los clubes ni todos los torneos tienen archivo), devuelve
+// null y el dibujo sigue sin ella: nunca rompe la ficha.
+function cargarImg(src){
+  return new Promise(function(res){
+    const i = new Image();
+    i.onload = function(){ res(i); };
+    i.onerror = function(){ res(null); };
+    i.src = src;
+  });
+}
+// Escudo genérico dibujado a mano, para los clubes que no tienen archivo.
+function crestCanvas(x, nombre, cx, cy, r){
+  let h = 0; for (let i=0;i<(nombre||'').length;i++) h = (h*31 + nombre.charCodeAt(i)) >>> 0;
+  const hue = h % 360;
+  x.save();
+  x.beginPath();
+  x.moveTo(cx-r, cy-r*0.85); x.lineTo(cx, cy-r); x.lineTo(cx+r, cy-r*0.85);
+  x.lineTo(cx+r, cy+r*0.15); x.quadraticCurveTo(cx+r, cy+r*0.8, cx, cy+r);
+  x.quadraticCurveTo(cx-r, cy+r*0.8, cx-r, cy+r*0.15); x.closePath();
+  const g = x.createLinearGradient(0, cy-r, 0, cy+r);
+  g.addColorStop(0, 'hsl('+hue+' 65% 46%)'); g.addColorStop(1, 'hsl('+((hue+30)%360)+' 55% 24%)');
+  x.fillStyle = g; x.fill();
+  x.strokeStyle = 'rgba(0,0,0,.4)'; x.lineWidth = 2; x.stroke();
+  const ini = (nombre||'?').replace(/[^A-Za-zÁÉÍÓÚÑ ]/g,'').split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,3).toUpperCase() || '?';
+  x.font = '900 ' + Math.round(r*0.7) + 'px Outfit, Arial';
+  x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(ini, cx, cy + r*0.05);
+  x.textBaseline = 'alphabetic';
+  x.restore();
+}
+// La ficha se dibuja a mano en un canvas: sin librerías y sin pedir nada de
+// afuera. Ahora los trofeos y los clubes se VEN — antes iban como una lista de
+// nombres y la ficha parecía un recibo.
+async function fichaCanvas(D){
+  // El alto se ajusta al contenido: con pocos trofeos sobraba media ficha vacia.
+  const W = 720, H = 620 + Math.ceil(Math.min(10, D.trofArr.length)/5)*96 + 150;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const x = c.getContext('2d');
   const oro = D.rango === 'LEYENDA' ? '#facc15' : A;
-  // Fondo
   const g = x.createLinearGradient(0,0,0,H);
   g.addColorStop(0,'#1b2411'); g.addColorStop(.55,'#0a0d07'); g.addColorStop(1,'#05070a');
   x.fillStyle = g; x.fillRect(0,0,W,H);
   const halo = x.createRadialGradient(W/2,0,10,W/2,0,W*0.9);
   halo.addColorStop(0, oro+'33'); halo.addColorStop(1,'transparent');
   x.fillStyle = halo; x.fillRect(0,0,W,H*0.6);
-  // Marco
-  x.strokeStyle = oro+'88'; x.lineWidth = 5;
-  x.strokeRect(10,10,W-20,H-20);
-  const centro = (t, y, size, col, peso) => {
-    x.font = (peso||900)+' '+size+'px Outfit, Arial, sans-serif';
+  x.strokeStyle = oro+'88'; x.lineWidth = 5; x.strokeRect(10,10,W-20,H-20);
+  const centro = (t, y, size, col) => {
+    x.font = '900 '+size+'px Outfit, Arial, sans-serif';
     x.fillStyle = col; x.textAlign = 'center'; x.fillText(t, W/2, y);
   };
   centro('CANCHERO LEYENDA', 62, 20, oro);
   centro((G.pais||'').toUpperCase(), 92, 15, '#7d8a74');
-  // Rango
-  centro(D.rango, 168, 26, oro);
-  // Nombre y datos
-  centro((G.apellido||'—').toUpperCase(), 250, 74, '#ffffff');
-  centro('#'+(G.num||10)+'   ·   '+(G.pos||'')+'   ·   '+D.valor, 292, 22, '#8c9781');
-  // Números grandes
-  const cifras = [['NIVEL',D.nivelF],['PJ',G.tot.pj],['GOLES',G.tot.g],['ASIST',G.tot.a]];
-  cifras.forEach((cf,i)=>{
+  centro(D.rango, 162, 26, oro);
+  centro((G.apellido||'—').toUpperCase(), 244, 74, '#ffffff');
+  centro('#'+(G.num||10)+'   ·   '+(G.pos||'')+'   ·   '+D.valor, 286, 22, '#8c9781');
+  [['NIVEL',D.nivelF],['PJ',G.tot.pj],['GOLES',G.tot.g],['ASIST',G.tot.a]].forEach((cf,i)=>{
     const cw = (W-80)/4, cx = 40 + cw*i + cw/2;
-    x.fillStyle = 'rgba(255,255,255,.06)';
-    x.fillRect(40 + cw*i + 6, 340, cw-12, 108);
+    x.fillStyle = 'rgba(255,255,255,.06)'; x.fillRect(40 + cw*i + 6, 326, cw-12, 104);
     x.font = '900 40px Outfit, Arial'; x.fillStyle = '#fff'; x.textAlign='center';
-    x.fillText(String(cf[1]), cx, 392);
-    x.font = '900 15px Outfit, Arial'; x.fillStyle = '#79836f';
-    x.fillText(cf[0], cx, 424);
+    x.fillText(String(cf[1]), cx, 378);
+    x.font = '900 15px Outfit, Arial'; x.fillStyle = '#79836f'; x.fillText(cf[0], cx, 410);
   });
-  // Vitrina
-  let y = 512;
+  // ── TROFEOS, con su imagen ──
+  let y = 480;
   x.textAlign = 'left';
   x.font = '900 17px Outfit, Arial'; x.fillStyle = oro;
-  x.fillText('VITRINA · ' + D.trofArr.length, 46, y); y += 34;
-  x.font = '700 20px Outfit, Arial'; x.fillStyle = '#d8e0cf';
-  D.trofArr.slice(0,7).forEach(t=>{ x.fillText('•  ' + t, 52, y); y += 32; });
-  if (D.trofArr.length > 7){ x.fillStyle = oro; x.fillText('+ ' + (D.trofArr.length-7) + ' más', 52, y); y += 32; }
-  // Trayectoria
-  y = Math.max(y + 22, 810);
-  x.font = '900 17px Outfit, Arial'; x.fillStyle = '#79836f';
-  x.fillText('TRAYECTORIA', 46, y); y += 32;
-  x.font = '700 19px Outfit, Arial'; x.fillStyle = '#b9c4ad';
-  // El recorrido puede ser largo: se parte en renglones que entren en la ficha.
-  let linea = '';
-  D.clubes.forEach((cl,i)=>{
-    const prueba = linea ? (linea + ' → ' + cl) : cl;
-    if (x.measureText(prueba).width > W-100){ x.fillText(linea, 52, y); y += 30; linea = cl; }
-    else linea = prueba;
+  x.fillText('VITRINA · ' + D.trofArr.length, 46, y);
+  y += 24;
+  const trofs = D.trofArr.slice(0, 10);
+  const imgs = await Promise.all(trofs.map(t=>{
+    const f = trofeoImgSlug(t);
+    return f ? cargarImg('img/trofeos/' + f) : Promise.resolve(null);
+  }));
+  const porFila = 5, cel = (W-92)/porFila, alto = 96;
+  trofs.forEach((t, i)=>{
+    const fila = Math.floor(i/porFila), col = i%porFila;
+    const cx = 46 + cel*col + cel/2, cy = y + fila*alto + 34;
+    const im = imgs[i];
+    if (im){
+      const esc2 = Math.min(52/im.width, 52/im.height);
+      x.drawImage(im, cx - im.width*esc2/2, cy - im.height*esc2/2, im.width*esc2, im.height*esc2);
+    } else {
+      // Sin archivo: copa dorada dibujada, nunca un hueco vacío.
+      x.beginPath(); x.arc(cx, cy, 22, 0, Math.PI*2);
+      const gg = x.createRadialGradient(cx, cy-8, 3, cx, cy, 24);
+      gg.addColorStop(0,'#facc15'); gg.addColorStop(1,'#7a5406');
+      x.fillStyle = gg; x.fill();
+    }
+    x.font = '700 11px Outfit, Arial'; x.fillStyle = '#b9c4ad'; x.textAlign = 'center';
+    const nom = t.length > 18 ? t.slice(0,17)+'…' : t;
+    x.fillText(nom, cx, cy + 40);
   });
-  if (linea) x.fillText(linea, 52, y);
-  // Pie
+  y += Math.ceil(trofs.length/porFila) * alto + 18;
+  if (D.trofArr.length > 10){
+    x.textAlign = 'left'; x.font = '900 14px Outfit, Arial'; x.fillStyle = oro;
+    x.fillText('+ ' + (D.trofArr.length-10) + ' más', 46, y); y += 26;
+  }
+  // ── CLUBES, con escudo ──
+  x.textAlign = 'left';
+  x.font = '900 17px Outfit, Arial'; x.fillStyle = '#79836f';
+  x.fillText('TRAYECTORIA', 46, y); y += 20;
+  const clubs = D.clubes.slice(0, 6);
+  const escudos = await Promise.all(clubs.map(cl=>{
+    const sl = (typeof NAMESLUG !== 'undefined') && NAMESLUG[cl];
+    return sl ? cargarImg('img/clubs/' + sl + '.webp') : Promise.resolve(null);
+  }));
+  const cel2 = (W-92)/Math.max(1, clubs.length);
+  clubs.forEach((cl, i)=>{
+    const cx = 46 + cel2*i + cel2/2, cy = y + 42;
+    const im = escudos[i];
+    if (im){
+      const e2 = Math.min(46/im.width, 46/im.height);
+      x.drawImage(im, cx - im.width*e2/2, cy - im.height*e2/2, im.width*e2, im.height*e2);
+    } else crestCanvas(x, cl, cx, cy, 23);
+    x.font = '700 11px Outfit, Arial'; x.fillStyle = '#b9c4ad'; x.textAlign = 'center';
+    const nom = cl.length > 14 ? cl.slice(0,13)+'…' : cl;
+    x.fillText(nom, cx, cy + 38);
+  });
+  if (D.clubes.length > 6){
+    x.textAlign = 'center'; x.font = '900 13px Outfit, Arial'; x.fillStyle = '#79836f';
+    x.fillText('+ ' + (D.clubes.length-6) + ' clubes más', W/2, y + 104);
+  }
   x.fillStyle = 'rgba(0,0,0,.45)'; x.fillRect(0, H-70, W, 70);
   centro('canchero.uy', H-28, 20, '#8d9782');
   return c;
@@ -11538,8 +11602,7 @@ window._lyFichaCompartir = function(){
     catch(e){ prompt('Copiá y compartí tu carrera:', texto); }
   };
   if (!D){ soloTexto(); return; }
-  let canvas;
-  try { canvas = fichaCanvas(D); } catch(e){ soloTexto(); return; }
+  Promise.resolve().then(()=>fichaCanvas(D)).then(function(canvas){
   canvas.toBlob(function(blob){
     if (!blob){ soloTexto(); return; }
     const file = new File([blob], 'canchero-leyenda.png', { type:'image/png' });
@@ -11557,6 +11620,7 @@ window._lyFichaCompartir = function(){
       setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
     }catch(e){ soloTexto(); }
   }, 'image/png');
+  }).catch(soloTexto);
 };
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO AUTOMÁTICO ("play")
