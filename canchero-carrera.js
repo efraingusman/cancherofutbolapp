@@ -1176,9 +1176,27 @@ function nombreParejaNuevo(){
   if (G){
     G._parejaOpts = parejaCandidatos();
     G._elegirPareja = true;
+    // La cara provisional también se guarda. Si por lo que sea nunca llegás a la
+    // pantalla de elección (un evento que te casa de una), igual hay UNA cara
+    // fija y no una sorteada distinta en cada pantalla.
+    G.familia.parejaAv = G.familia.parejaAv || G._parejaOpts[0].av;
     return G._parejaOpts[0].nombre;   // provisional: lo pisa lo que elijas
   }
   return pick(g === 'f' ? NOMBRES_PAREJA_F : NOMBRES_PAREJA_M);
+}
+// Red de seguridad: cualquier pareja que exista sin cara guardada recibe una y
+// queda fija para siempre. Cubre partidas viejas y eventos que crean la pareja
+// sin pasar por el selector.
+function parejaAvAsegurar(){
+  if (!G) return null;
+  const fam = G.familia = G.familia || {};
+  if (!fam.pareja) return null;
+  if (!fam.parejaAv){
+    const cands = parejaCandidatos();
+    fam.parejaAv = (cands && cands.length) ? cands[0].av : null;
+    save();
+  }
+  return fam.parejaAv;
 }
 window._vjElegirPareja = function(){
   if(!G || !(G._parejaOpts||[]).length){ window._vjParejaSeguir(); return; }
@@ -3331,6 +3349,10 @@ window._clubMundo = function(escena){
 window._continuarPartida = function(){
   const g = load(); if(!g){ window._carreraLen(); return; }
   G = g;
+  // Partidas viejas: si la pareja quedó sin cara guardada, se le fija una AHORA y
+  // no cuando toque dibujarla. Así es la misma en la casa, en el diálogo y en
+  // cualquier pantalla, que era justo lo que fallaba.
+  try { parejaAvAsegurar(); } catch(e){}
   if (G.vidaRol) { window._vidaJugable(); return; }
   if (G._juvSet && (G._juvPaso == null || G._juvPaso < G._juvSet.length) && !G.debutEdad){ window._juvenilesMundo(); return; }
   window._clubMundo();
@@ -9709,25 +9731,27 @@ function vjPintarChat(){
   const rol = (h.rol || 'vecino');
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
-  <div style="min-height:100%;background:#05070a;display:flex;flex-direction:column;justify-content:flex-end;position:relative;">
+  <!-- La charla ocupa TODA la pantalla y el hilo se estira: antes vivía en una
+       cajita de 210px y había que deslizar para leer tres mensajes. -->
+  <div style="height:100%;min-height:100%;background:#05070a;display:flex;flex-direction:column;position:relative;">
     ${fondoEscenaHTML()}
-    <div style="position:relative;max-width:640px;margin:0 auto;width:100%;padding:52px 18px calc(18px + env(safe-area-inset-bottom));box-sizing:border-box;">
-      <div style="display:flex;align-items:flex-end;justify-content:center;gap:6px;margin-bottom:12px;">
+    <div style="position:relative;flex:1;min-height:0;max-width:640px;margin:0 auto;width:100%;padding:52px 18px calc(18px + env(safe-area-inset-bottom));box-sizing:border-box;display:flex;flex-direction:column;">
+      <div style="flex:0 0 auto;display:flex;align-items:flex-end;justify-content:center;gap:6px;margin-bottom:10px;">
         <div style="line-height:0;">${h.tipo==='npc' ? vjSpriteHab(h,'idle') : vjObjSVG(h.obj, h.escala)}</div>
         <div style="line-height:0;transform:scaleX(-1);">${vjSpriteJugador('idle')}</div>
       </div>
-      <div style="background:rgba(10,13,8,.82);border:1.5px solid #2a3a4c;border-radius:18px;padding:14px;">
-        <div style="font-size:10px;font-weight:900;letter-spacing:1.5px;color:${A};margin-bottom:9px;">${esc(nombre.toUpperCase())} · ${esc(String(rol).toUpperCase())}</div>
-        <div id="ly-chat-hilo" style="max-height:210px;overflow-y:auto;display:flex;flex-direction:column;gap:7px;margin-bottom:11px;">
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:rgba(10,13,8,.82);border:1.5px solid #2a3a4c;border-radius:18px;padding:14px;">
+        <div style="flex:0 0 auto;font-size:10px;font-weight:900;letter-spacing:1.5px;color:${A};margin-bottom:9px;">${esc(nombre.toUpperCase())} · ${esc(String(rol).toUpperCase())}</div>
+        <div id="ly-chat-hilo" style="flex:1;min-height:96px;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:7px;margin-bottom:11px;">
           ${VJ._chatHilo.length ? VJ._chatHilo.map(l=>`
             <div style="align-self:${l.yo?'flex-end':'flex-start'};max-width:84%;background:${l.yo?'rgba(186,255,0,.14)':'rgba(255,255,255,.06)'};border:1px solid ${l.yo?'rgba(186,255,0,.35)':'#243040'};color:${l.yo?A:'#dbe3ee'};border-radius:13px;padding:8px 11px;font-size:13px;line-height:1.45;${l.pensando?'opacity:.6;letter-spacing:2px;':''}">${l.pensando?'···':esc(l.t)}</div>`).join('')
             : `<div style="font-size:12.5px;color:#7d879a;">Escribile lo que quieras. Te va a contestar según quién es, qué le dijiste y cómo venís vos.</div>`}
         </div>
-        <div style="display:flex;gap:8px;">
-          <input id="ly-chat-in" maxlength="160" ${VJ._chatHilo.some(x=>x.pensando)?'disabled':''} placeholder="Escribí acá..." style="flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid #243040;color:#fff;border-radius:12px;padding:12px;font-size:13px;font-family:inherit;">
+        <div style="flex:0 0 auto;display:flex;gap:8px;">
+          <input id="ly-chat-in" maxlength="160" ${VJ._chatHilo.some(x=>x.pensando)?'disabled':''} placeholder="Escribí acá..." style="flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid #243040;color:#fff;border-radius:12px;padding:12px;font-size:16px;font-family:inherit;">
           <button onclick="window._vjChatEnviar()" style="background:rgba(186,255,0,.16);border:1px solid ${A};color:${A};border-radius:12px;padding:12px 16px;font-weight:900;font-size:13px;cursor:pointer;"><i class='bx bx-send'></i></button>
         </div>
-        <button onclick="window._vjChatCerrar()" style="width:100%;margin-top:9px;background:transparent;border:none;color:#5d6879;font-size:12px;font-weight:800;cursor:pointer;padding:8px;">Cortar la charla</button>
+        <button onclick="window._vjChatCerrar()" style="flex:0 0 auto;width:100%;margin-top:9px;background:transparent;border:none;color:#5d6879;font-size:12px;font-weight:800;cursor:pointer;padding:8px;">Cortar la charla</button>
       </div>
     </div>
   </div>`;
@@ -9928,6 +9952,7 @@ function fondoEscenaHTML(){
 // La pareja siempre se dibuja igual y con su propio aspecto.
 function vjSpritePareja(pose, embarazada, escala){
   const fam = (G && G.familia) || {};
+  try { parejaAvAsegurar(); } catch(e){}   // que nunca quede sin cara propia
   const nom = fam.pareja || 'pareja';
   let h=0; for(let i=0;i<nom.length;i++) h=(h*31+nom.charCodeAt(i))>>>0;
   // El género de la pareja NO se sortea: es el que elegiste. Antes salía el hash y
@@ -10050,6 +10075,10 @@ function vjDialogo(ev, tipo, quien, h){
           // el vecino de 46 con barba porque el retrato lo ponía el hotspot.
           const N = (ev && ev.npc) || null;
           if (N) return `<div style="line-height:0;">${vjSpriteNPC(N.semilla || ('ev'+ev.t), N.ropa || 'calle', N.edad || 40, 'pensando', N.gen)}</div>`;
+          // Tu pareja se dibuja SIEMPRE por su propia vía. Sin esto, caminando por
+          // la casa se veía la que elegiste, pero al hablarle el retrato salía del
+          // hash: era otra mujer, y encima cambiaba de una charla a otra.
+          if (h && h._pareja) return `<div style="line-height:0;">${vjSpritePareja('pensando', false, 2.2)}</div>`;
           if (h && h.tipo==='npc') return `<div style="line-height:0;">${vjSpriteNPC(h.semilla, h.ropa, h.edad, 'pensando', vjGen(h), h.av)}</div>`;
           return `<div style="line-height:0;">${vjObjSVG(h?h.obj:'cartel')}</div>`;
         })()}
