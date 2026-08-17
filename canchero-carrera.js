@@ -5949,8 +5949,37 @@ window._carreraVender = function(id, reventa){
 // Pantalla de retiro: hero con camiseta + país, honores, stats totales, vitrina
 // de trofeos (imagen real), timeline por temporada con escudo real del club y sus
 // stats. Todo scrolleable, con animación de entrada.
+// EL HOMENAJE SE VE. Antes el partido despedida era un párrafo dentro de la
+// ficha final: lo más emotivo de la carrera pasaba como una línea de texto.
+// Ahora hay una escena propia, con el estadio, la gente y vos saludando, y
+// recién después llega el resumen.
+function homenajeEscena(){
+  const m = document.getElementById('carrera-modal') || overlay();
+  const H = clubMasJugado();
+  const sel = 'Selección de ' + (G.pais || 'Uruguay');
+  const publico = clamp(28000 + (G.titulos||0)*6000 + Math.round((G.nivelMax||G.nivel||60)*280), 12000, 85000);
+  const kb = kitOf(G.pais || 'Uruguay');
+  m.innerHTML = `
+  <div style="min-height:100%;background:radial-gradient(120% 80% at 50% 0%, #1a2a12 0%, #05070a 62%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:26px 18px calc(28px + env(safe-area-inset-bottom));box-sizing:border-box;text-align:center;">
+    <div style="font-size:10px;font-weight:900;letter-spacing:2.6px;color:#facc15;margin-bottom:8px;">TU PARTIDO DESPEDIDA</div>
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;line-height:1.15;margin-bottom:6px;">${esc(H.club)} &nbsp;vs&nbsp; ${esc(sel)}</div>
+    <div style="font-size:12.5px;color:#8d9782;font-weight:700;margin-bottom:16px;">${esc(estadioDe(G.pais, G.apellido))} · ${publico.toLocaleString('es')} personas</div>
+    <div style="display:flex;justify-content:center;margin-bottom:18px;">
+      ${avatarBox(avatarSprite(G.avatar||avatarDefault(), { edad:(G.edad||34), kitBase:kb[0], kitTxt:kb[1], num:G.num||10, apellido:G.apellido||'', escala:3, pose:'orgullo' }), '16px 26px', 'estadio')}
+    </div>
+    <div style="max-width:440px;font-size:14px;color:#d8dfcd;line-height:1.7;margin-bottom:22px;">
+      Saliste a los veinte minutos. El estadio entero se puso de pie y no se sentó hasta que llegaste al túnel.
+      Tu camiseta colgada del alambrado, tus hijos en el círculo central, y cuarenta mil personas cantando tu apellido.
+      Levantaste la mano una vez. Alcanzó.
+    </div>
+    <button onclick="window._lyHomenajeSeguir()" style="width:100%;max-width:360px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">VER MI CARRERA <i class='bx bx-right-arrow-alt'></i></button>
+  </div>`;
+}
+window._lyHomenajeSeguir = function(){ if(G) G._homenajeVisto = true; retiro(); };
 function retiro(){
   const m=document.getElementById('carrera-modal')||overlay();
+  // Primero la escena, una sola vez.
+  if (G && !G._homenajeVisto && G.tot && (G.timeline||[]).length){ homenajeEscena(); return; }
   try{ saveCareer(G); }catch(e){}
   const nivelF = Math.round(G.nivel);
   const anios = (G.timeline||[]).length || G.years || 0;
@@ -11427,11 +11456,80 @@ function fichaCompartir(D){
     </div>
   </div>`;
   window._lyFichaTexto = D.texto;
+  window._lyFichaDatos = D;   // lo usa el canvas al compartir
 }
 // Compartir desde la ficha: intenta imagen; si no se puede, va el texto.
+// Compartir de verdad una IMAGEN. Antes esto dependía de html2canvas, que nunca
+// estuvo cargado en la página: la promesa fallaba y siempre terminabas
+// compartiendo texto pelado. Ahora la ficha se dibuja a mano en un canvas, sin
+// librerías y sin pedir nada de afuera, así que la imagen sale siempre.
+function fichaCanvas(D){
+  const W = 720, H = 1080, S = 1;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  const oro = D.rango === 'LEYENDA' ? '#facc15' : A;
+  // Fondo
+  const g = x.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#1b2411'); g.addColorStop(.55,'#0a0d07'); g.addColorStop(1,'#05070a');
+  x.fillStyle = g; x.fillRect(0,0,W,H);
+  const halo = x.createRadialGradient(W/2,0,10,W/2,0,W*0.9);
+  halo.addColorStop(0, oro+'33'); halo.addColorStop(1,'transparent');
+  x.fillStyle = halo; x.fillRect(0,0,W,H*0.6);
+  // Marco
+  x.strokeStyle = oro+'88'; x.lineWidth = 5;
+  x.strokeRect(10,10,W-20,H-20);
+  const centro = (t, y, size, col, peso) => {
+    x.font = (peso||900)+' '+size+'px Outfit, Arial, sans-serif';
+    x.fillStyle = col; x.textAlign = 'center'; x.fillText(t, W/2, y);
+  };
+  centro('CANCHERO LEYENDA', 62, 20, oro);
+  centro((G.pais||'').toUpperCase(), 92, 15, '#7d8a74');
+  // Rango
+  centro(D.rango, 168, 26, oro);
+  // Nombre y datos
+  centro((G.apellido||'—').toUpperCase(), 250, 74, '#ffffff');
+  centro('#'+(G.num||10)+'   ·   '+(G.pos||'')+'   ·   '+D.valor, 292, 22, '#8c9781');
+  // Números grandes
+  const cifras = [['NIVEL',D.nivelF],['PJ',G.tot.pj],['GOLES',G.tot.g],['ASIST',G.tot.a]];
+  cifras.forEach((cf,i)=>{
+    const cw = (W-80)/4, cx = 40 + cw*i + cw/2;
+    x.fillStyle = 'rgba(255,255,255,.06)';
+    x.fillRect(40 + cw*i + 6, 340, cw-12, 108);
+    x.font = '900 40px Outfit, Arial'; x.fillStyle = '#fff'; x.textAlign='center';
+    x.fillText(String(cf[1]), cx, 392);
+    x.font = '900 15px Outfit, Arial'; x.fillStyle = '#79836f';
+    x.fillText(cf[0], cx, 424);
+  });
+  // Vitrina
+  let y = 512;
+  x.textAlign = 'left';
+  x.font = '900 17px Outfit, Arial'; x.fillStyle = oro;
+  x.fillText('VITRINA · ' + D.trofArr.length, 46, y); y += 34;
+  x.font = '700 20px Outfit, Arial'; x.fillStyle = '#d8e0cf';
+  D.trofArr.slice(0,7).forEach(t=>{ x.fillText('•  ' + t, 52, y); y += 32; });
+  if (D.trofArr.length > 7){ x.fillStyle = oro; x.fillText('+ ' + (D.trofArr.length-7) + ' más', 52, y); y += 32; }
+  // Trayectoria
+  y = Math.max(y + 22, 810);
+  x.font = '900 17px Outfit, Arial'; x.fillStyle = '#79836f';
+  x.fillText('TRAYECTORIA', 46, y); y += 32;
+  x.font = '700 19px Outfit, Arial'; x.fillStyle = '#b9c4ad';
+  // El recorrido puede ser largo: se parte en renglones que entren en la ficha.
+  let linea = '';
+  D.clubes.forEach((cl,i)=>{
+    const prueba = linea ? (linea + ' → ' + cl) : cl;
+    if (x.measureText(prueba).width > W-100){ x.fillText(linea, 52, y); y += 30; linea = cl; }
+    else linea = prueba;
+  });
+  if (linea) x.fillText(linea, 52, y);
+  // Pie
+  x.fillStyle = 'rgba(0,0,0,.45)'; x.fillRect(0, H-70, W, 70);
+  centro('canchero.uy', H-28, 20, '#8d9782');
+  return c;
+}
 window._lyFichaCompartir = function(){
   const texto = window._lyFichaTexto || '';
-  const nodo = document.getElementById('ly-ficha');
+  const D = window._lyFichaDatos;
   const soloTexto = ()=>{
     try{
       if (navigator.share){ navigator.share({ title:'Mi carrera en Canchero Leyenda', text: texto }).catch(()=>{}); return; }
@@ -11439,23 +11537,26 @@ window._lyFichaCompartir = function(){
     try{ navigator.clipboard.writeText(texto); alert('¡Copiado! Pegalo en tus redes.\n\n'+texto); }
     catch(e){ prompt('Copiá y compartí tu carrera:', texto); }
   };
-  // html2canvas solo si la pagina ya lo trae; nunca se carga de afuera.
-  if (!nodo || typeof window.html2canvas !== 'function'){ soloTexto(); return; }
-  try{
-    window.html2canvas(nodo, { backgroundColor:null, scale:2, useCORS:true }).then(canvas=>{
-      canvas.toBlob(blob=>{
-        if (!blob){ soloTexto(); return; }
-        const file = new File([blob], 'canchero-leyenda.png', { type:'image/png' });
-        if (navigator.canShare && navigator.canShare({ files:[file] })){
-          navigator.share({ files:[file], title:'Mi carrera en Canchero Leyenda', text: texto }).catch(()=>soloTexto());
-        } else {
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(blob); a.download = 'canchero-leyenda.png';
-          document.body.appendChild(a); a.click(); a.remove();
-        }
-      }, 'image/png');
-    }).catch(soloTexto);
-  }catch(e){ soloTexto(); }
+  if (!D){ soloTexto(); return; }
+  let canvas;
+  try { canvas = fichaCanvas(D); } catch(e){ soloTexto(); return; }
+  canvas.toBlob(function(blob){
+    if (!blob){ soloTexto(); return; }
+    const file = new File([blob], 'canchero-leyenda.png', { type:'image/png' });
+    // Compartir la imagen si el sistema deja; si no, se descarga.
+    try{
+      if (navigator.canShare && navigator.canShare({ files:[file] })){
+        navigator.share({ files:[file], title:'Mi carrera en Canchero Leyenda', text: texto }).catch(()=>{});
+        return;
+      }
+    }catch(e){}
+    try{
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'canchero-leyenda.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+    }catch(e){ soloTexto(); }
+  }, 'image/png');
 };
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO AUTOMÁTICO ("play")
