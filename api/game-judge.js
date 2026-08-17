@@ -96,7 +96,13 @@ async function charlaNPC(req, res) {
                         body: JSON.stringify({ model: 'llama-3.1-8b-instant', max_tokens: 10, messages: [{ role: 'user', content: 'hola' }] })
                     });
                     const t = await r.text();
-                    return r.status + ' ' + t.slice(0, 220);
+                    let lista = '';
+                    try {
+                        const lm = await fetch('https://api.groq.com/openai/v1/models', { headers: { 'Authorization': 'Bearer ' + process.env.GROQ_API_KEY } });
+                        const dj = await lm.json();
+                        lista = lm.status + ' modelos: ' + ((dj.data||[]).map(m=>m.id).slice(0,8).join(', ') || JSON.stringify(dj).slice(0,120));
+                    } catch(e){ lista = 'no se pudo listar: ' + e.message; }
+                    return 'chat ' + r.status + ' ' + t.slice(0,120) + ' || ' + lista;
                 } catch (e) { return 'error de red: ' + e.message; }
             })()
         }});
