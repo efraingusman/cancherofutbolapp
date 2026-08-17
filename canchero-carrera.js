@@ -505,14 +505,14 @@ function montarSalida(){
   const b = document.createElement('button');
   b.id = 'carrera-exit';
   b.type = 'button';
-  b.title = 'Salir del juego';
-  b.setAttribute('aria-label', 'Salir de Canchero Leyenda');
+  b.title = 'Volver';
+  b.setAttribute('aria-label', 'Volver');
   // ARRIBA A LA DERECHA, por encima de todo y sin pisar nada: la barra superior de
   // cada pantalla reserva su espacio (ver --ly-gutter) para que la X no tape ni el
   // titulo ni las estadisticas.
   b.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + 82px);right:16px;width:32px;height:32px;border-radius:50%;background:rgba(10,12,10,.72);backdrop-filter:blur(6px);border:1px solid #2a3222;color:#9aa294;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);opacity:.85;';
-  b.innerHTML = "<i class='bx bx-x'></i>";
-  b.onclick = function(){ window._carreraSalir(); };
+  b.innerHTML = "<i class='bx bx-arrow-back'></i>";
+  b.onclick = function(){ window._lyConfirmarSalida(); };
   document.body.appendChild(b);
   // Cartel del AÑO: visible durante todo el juego, pero no antes de empezarlo.
   lyChrome(LY_JUGANDO);   // el año y la edad ya están en la barra de arriba
@@ -10015,12 +10015,12 @@ window._vjChatEnviar = function(){
     })
     .then(r=>{
       clearTimeout(corte);
-      if (r.status === 204){ window._lyChatIA = false; return null; }   // no hay IA: no reintentar
+      if (r.status === 204){ vjAvisarSinIA(); return null; }   // sin IA ahora; se reintenta la proxima
       if (!r.ok) return null;
       return r.json();
     })
     .then(d=>{ if (d && d.texto) responder(d.texto); else local(); })
-    .catch(()=>{ clearTimeout(corte); local(); });
+    .catch(()=>{ clearTimeout(corte); vjAvisarSinIA(); local(); });
     return;
   }
   local();
@@ -10189,6 +10189,35 @@ function vjConsejoRepre(){
   if (G.flags && G.flags.barreraIdioma) propios.push('Aprendé el idioma ya. Sin eso no vas a jugar, por más que corras.');
   if ((G.nivel||0) >= 85 && ligaNivel(G.liga||'') < 14) propios.push('Estás para una liga grande. No te duermas.');
   vjFlash(r.n + ': "' + pick(propios.length ? propios.concat(r.consejos) : r.consejos) + '"');
+}
+// Si la IA no contesta, se avisa UNA vez por sesión en vez de fingir que las
+// respuestas enlatadas son del personaje. Antes se apagaba la IA para siempre
+// ante un solo fallo y no había manera de darse cuenta.
+// Salir no puede ser un toque en falso: antes la X te sacaba de una. Ahora
+// pregunta, y el cartel es chico y se cierra tocando al lado.
+window._lyConfirmarSalida = function(){
+  if (document.getElementById('ly-salir')) return;
+  const d = document.createElement('div');
+  d.id = 'ly-salir';
+  d.style.cssText = 'position:fixed;inset:0;z-index:100080;background:rgba(3,5,3,.72);display:flex;align-items:center;justify-content:center;padding:20px;';
+  d.innerHTML = '<div style="max-width:330px;width:100%;background:#0d120b;border:1.5px solid #2a3222;border-radius:18px;padding:20px;text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.65);">'
+    + '<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:18px;color:#fff;margin-bottom:7px;">¿Salís del juego?</div>'
+    + '<div style="font-size:12.5px;color:#9aa48f;line-height:1.55;margin-bottom:16px;">Tu carrera queda guardada. Podés volver cuando quieras.</div>'
+    + '<div style="display:flex;gap:9px;">'
+    + '<button id="ly-salir-no" style="flex:1;background:rgba(255,255,255,.06);border:1px solid #2a3222;color:#cfd8c6;border-radius:12px;padding:13px;font-weight:900;font-size:13.5px;cursor:pointer;">Seguir jugando</button>'
+    + '<button id="ly-salir-si" style="flex:1;background:' + A + ';border:0;color:#0a0d07;border-radius:12px;padding:13px;font-weight:900;font-size:13.5px;cursor:pointer;">Salir</button>'
+    + '</div></div>';
+  document.body.appendChild(d);
+  const cerrar = ()=> d.remove();
+  d.addEventListener('click', e=>{ if (e.target === d) cerrar(); });
+  d.querySelector('#ly-salir-no').onclick = cerrar;
+  d.querySelector('#ly-salir-si').onclick = function(){ cerrar(); window._carreraSalir(); };
+};
+function vjAvisarSinIA(){
+  if (window._lyAvisoIA) return;
+  window._lyAvisoIA = true;
+  try { vjFlash('La IA de los diálogos no respondió. Van respuestas propias del personaje hasta que vuelva.'); } catch(e){}
+  try { console.warn('[leyenda] /api/game-judge no devolvió texto: ¿falta la API key en el servidor?'); } catch(e){}
 }
 // Aviso breve sin sacarte del mundo.
 function vjFlash(txt){
