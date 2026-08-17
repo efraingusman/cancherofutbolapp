@@ -73,7 +73,7 @@ function construirNivel(cfg){
     const anchoP = 6;
     const c = ventana(8 + p*paso, anchoP);
     if (c < 0) continue;
-    const fila = (p % 2 === 0) ? pisoY-6 : pisoY-3;      // 3 y 6 tiles de altura
+    const fila = (p % 2 === 0) ? pisoY-6 : pisoY-3;
     for (let k=0;k<anchoP;k++) filas[fila][c+k] = '=';
     filas[fila-1][c+2] = 'o'; filas[fila-1][c+3] = 'o';  // pelotas sobre la plataforma
   }
@@ -139,7 +139,7 @@ function reubicar(){
   P.j = { x:P.inicio.x, y:P.inicio.y, vx:0, vy:0, w:15, h:20, piso:false, dir:1, inv:0, paso:0 };
   P.cam = 0;
   P.ganado = false;
-  P.tiros = [];
+  P.tiros = []; P.misTiros = []; P.recargaPatada = 0;
 }
 // ¿El tile de esa coordenada es sólido?
 function solido(px, py){
@@ -226,15 +226,39 @@ function paso(){
     }
   }
 
+  // ── TU PATADA ──
+  // Podes defenderte: pateas una pelota y el rival que le pegue queda afuera.
+  P.misTiros = P.misTiros || [];
+  if (P.k.patear && (P.recargaPatada||0) <= 0){
+    P.recargaPatada = 26;
+    P.misTiros.push({ x:j.x + (j.dir>0? j.w+2 : -6), y:j.y + 9, vx: j.dir*5.2, r:5, vida:80, giro:0 });
+    j.pateando = 10;
+  }
+  P.k.patear = false;
+  if (P.recargaPatada > 0) P.recargaPatada--;
+  if (j.pateando > 0) j.pateando--;
+  for (let i=P.misTiros.length-1; i>=0; i--){
+    const t = P.misTiros[i];
+    t.x += t.vx; t.giro += 0.35;
+    if (--t.vida <= 0 || chocaCaja(t.x-t.r, t.y-t.r, t.r*2, t.r*2)){ P.misTiros.splice(i,1); continue; }
+    let pego = false;
+    for (const e of P.enemigos){
+      if (!e.vivo) continue;
+      if (t.x + t.r > e.x && t.x - t.r < e.x + e.w && t.y + t.r > e.y && t.y - t.r < e.y + e.h){
+        e.vivo = false; P.puntos += 150; pego = true; break;
+      }
+    }
+    if (pego) P.misTiros.splice(i,1);
+  }
   // ── PELOTAZOS ──
   // Los rivales no solo caminan: te tiran pelotas y hay que esquivarlas.
   P.tiros = P.tiros || [];
   for (const e of P.enemigos){
     if (!e.vivo) continue;
-    const cerca = Math.abs(e.x - j.x) < 120 && Math.abs(e.y - j.y) < 24 && j.piso;
+    const cerca = Math.abs(e.x - j.x) < 105 && Math.abs(e.y - j.y) < 24 && j.piso;
     e.recarga = (e.recarga || 0) - 1;
     if (cerca && e.recarga <= 0){
-      e.recarga = 260 + Math.floor(Math.random()*140);
+      e.recarga = 380 + Math.floor(Math.random()*200);
       P.tiros.push({ x:e.x + e.w/2, y:e.y + 6, vx: (j.x < e.x ? -1.9 : 1.9), r:5, vida:70 });
     }
   }
@@ -348,9 +372,7 @@ function dibujar(){
   P.pelotas.forEach(b=>{
     if (b.tomada) return;
     if (b.x < P.cam-TILE || b.x > P.cam + W/Z + TILE) return;
-    c.fillStyle = '#fff'; c.beginPath(); c.arc(b.x, b.y, 6, 0, Math.PI*2); c.fill();
-    c.fillStyle = '#222'; c.beginPath(); c.arc(b.x, b.y, 2.2, 0, Math.PI*2); c.fill();
-    c.strokeStyle = '#222'; c.lineWidth = 1; c.beginPath(); c.arc(b.x, b.y, 6, 0, Math.PI*2); c.stroke();
+    pelotaSVG(c, b.x, b.y, 7, 0);
   });
   // Enemigos
   P.enemigos.forEach(e=>{
@@ -365,13 +387,17 @@ function dibujar(){
     c.fillStyle = '#20140c'; c.fillRect(e.x+5, e.y-1, 8, 3);
     c.fillStyle = '#111'; c.fillRect(e.vx>0? e.x+10 : e.x+6, e.y+3, 2, 2);
   });
+  // Mis pelotazos
+  (P.misTiros||[]).forEach(t=>{
+    if (t.x < P.cam-30 || t.x > P.cam + W/Z + 30) return;
+    c.save(); c.shadowColor = A; c.shadowBlur = 8;
+    pelotaSVG(c, t.x, t.y, t.r, t.giro);
+    c.restore();
+  });
   // Pelotazos en el aire
   (P.tiros||[]).forEach(t=>{
     if (t.x < P.cam-30 || t.x > P.cam + W/Z + 30) return;
-    c.fillStyle = '#fff'; c.beginPath(); c.arc(t.x, t.y, t.r, 0, Math.PI*2); c.fill();
-    c.strokeStyle = '#222'; c.lineWidth = 1; c.stroke();
-    c.fillStyle = '#222';
-    c.beginPath(); c.arc(t.x + Math.cos(t.giro)*2, t.y + Math.sin(t.giro)*2, 1.6, 0, Math.PI*2); c.fill();
+    pelotaSVG(c, t.x, t.y, t.r + 1, t.giro);
   });
   // Jugador
   dibujarJugador(c);
@@ -427,14 +453,63 @@ function fondoDecorado(c, W, H, Z){
     }
   }
 }
+// Pelota con gajos. Antes era un circulo blanco con un punto negro en el medio y
+// parecia un ojo mirandote.
+function pelotaSVG(c, x, y, r, giro){
+  c.save(); c.translate(x, y); c.rotate(giro || 0);
+  c.beginPath(); c.arc(0, 0, r, 0, Math.PI*2);
+  const g = c.createRadialGradient(-r*0.3, -r*0.4, r*0.15, 0, 0, r);
+  g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#cfd4d8');
+  c.fillStyle = g; c.fill();
+  c.strokeStyle = '#2a2f35'; c.lineWidth = Math.max(1, r*0.16); c.stroke();
+  // pentagono central y tres gajos: se lee como pelota aunque sea chiquita
+  c.fillStyle = '#2a2f35';
+  c.beginPath();
+  for (let k=0;k<5;k++){
+    const a = -Math.PI/2 + k*Math.PI*2/5, rr = r*0.42;
+    k ? c.lineTo(Math.cos(a)*rr, Math.sin(a)*rr) : c.moveTo(Math.cos(a)*rr, Math.sin(a)*rr);
+  }
+  c.closePath(); c.fill();
+  c.lineWidth = Math.max(1, r*0.13);
+  for (let k=0;k<5;k++){
+    const a = -Math.PI/2 + k*Math.PI*2/5;
+    c.beginPath();
+    c.moveTo(Math.cos(a)*r*0.42, Math.sin(a)*r*0.42);
+    c.lineTo(Math.cos(a)*r*0.95, Math.sin(a)*r*0.95);
+    c.stroke();
+  }
+  c.restore();
+}
+function corazon(c, x, y, r, lleno){
+  c.beginPath();
+  c.moveTo(x, y + r*0.75);
+  c.bezierCurveTo(x - r*1.4, y - r*0.5, x - r*0.5, y - r*1.3, x, y - r*0.45);
+  c.bezierCurveTo(x + r*0.5, y - r*1.3, x + r*1.4, y - r*0.5, x, y + r*0.75);
+  c.closePath();
+  if (lleno){ c.fillStyle = '#ff3b52'; c.fill(); c.strokeStyle = '#7a0d1c'; }
+  else { c.fillStyle = 'rgba(255,255,255,.10)'; c.fill(); c.strokeStyle = 'rgba(255,255,255,.35)'; }
+  c.lineWidth = 2; c.stroke();
+}
 function hud(c, W){
-  c.fillStyle = 'rgba(6,10,6,.62)'; c.fillRect(0,0,W,26);
-  c.fillStyle = '#fff'; c.font = 'bold 12px Outfit, Arial'; c.textAlign = 'left';
-  c.fillText('★ ' + P.puntos, 10, 17);
-  c.fillStyle = A; c.textAlign = 'center';
-  c.fillText(P.nombreNivel + '  ·  ' + (P.nivel+1) + '/' + NIVELES.length, W/2, 17);
-  c.fillStyle = '#ff6b6b'; c.textAlign = 'right';
-  c.fillText('♥'.repeat(Math.max(0,P.vidas+1)), W-10, 17);
+  const h = 46;
+  const g = c.createLinearGradient(0,0,0,h);
+  g.addColorStop(0,'rgba(60,20,14,.95)'); g.addColorStop(1,'rgba(30,10,7,.92)');
+  c.fillStyle = g; c.fillRect(0,0,W,h);
+  c.fillStyle = 'rgba(255,255,255,.16)'; c.fillRect(0,h-3,W,3);
+  // Vidas, a la izquierda y bien visibles
+  for (let i=0;i<3;i++) corazon(c, 24 + i*30, 22, 10, i <= P.vidas);
+  // Puntos
+  c.font = '900 13px Outfit, Arial'; c.textAlign = 'left';
+  c.fillStyle = 'rgba(255,255,255,.6)'; c.fillText('PUNTOS', 128, 17);
+  c.fillStyle = '#ffd75e'; c.font = '900 20px Outfit, Arial'; c.fillText(String(P.puntos).padStart(6,'0'), 128, 37);
+  // Pelotas juntadas
+  c.fillStyle = '#fff'; c.beginPath(); c.arc(244, 24, 9, 0, Math.PI*2); c.fill();
+  c.strokeStyle='#222'; c.lineWidth=1.5; c.stroke();
+  c.fillStyle='#222'; c.beginPath(); c.arc(244,24,3,0,Math.PI*2); c.fill();
+  c.fillStyle = '#fff'; c.font = '900 17px Outfit, Arial'; c.fillText('x ' + (P.pelotasTomadas||0), 258, 30);
+  // Nivel
+  c.fillStyle = A; c.font = '900 14px Outfit, Arial'; c.textAlign = 'right';
+  c.fillText(P.nombreNivel + '  ' + (P.nivel+1) + '/' + NIVELES.length, W-14, 29);
   c.textAlign = 'left';
 }
 function pantallaFin(c, W, H){
@@ -481,7 +556,7 @@ function montarCanvas(){
   <div style="position:absolute;inset:0;display:flex;flex-direction:column;">
     <div style="flex:1;position:relative;overflow:hidden;">
       <canvas id="plat-cnv" style="position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;touch-action:none;"></canvas>
-      <button onclick="window._platSalir()" style="position:absolute;top:calc(env(safe-area-inset-top,0px) + 8px);right:8px;z-index:5;width:32px;height:32px;border-radius:50%;background:rgba(6,10,6,.75);border:1px solid #2a3222;color:#9aa294;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class='bx bx-x'></i></button>
+
       <div id="plat-reintentar" style="display:none;position:absolute;left:50%;bottom:22%;transform:translateX(-50%);z-index:5;">
         <button onclick="window._platReiniciar()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:13px 26px;font-weight:900;font-size:14px;cursor:pointer;">REINTENTAR</button>
       </div>
@@ -489,6 +564,7 @@ function montarCanvas(){
     <div id="plat-mandos" style="flex:0 0 auto;display:flex;gap:10px;padding:12px 14px calc(14px + env(safe-area-inset-bottom));background:rgba(6,10,6,.9);">
       <button data-k="izq" style="flex:1;background:rgba(255,255,255,.07);border:1.5px solid #2a3222;color:#e0e4dc;border-radius:14px;padding:17px;font-size:22px;cursor:pointer;user-select:none;"><i class='bx bx-left-arrow-alt'></i></button>
       <button data-k="der" style="flex:1;background:rgba(255,255,255,.07);border:1.5px solid #2a3222;color:#e0e4dc;border-radius:14px;padding:17px;font-size:22px;cursor:pointer;user-select:none;"><i class='bx bx-right-arrow-alt'></i></button>
+      <button data-k="patear" style="flex:1;background:rgba(255,214,94,.16);border:1.5px solid rgba(255,214,94,.55);color:#ffd65e;border-radius:14px;padding:17px;font-weight:900;font-size:14px;cursor:pointer;user-select:none;">PATEAR</button>
       <button data-k="salto" style="flex:1.5;background:${A}22;border:1.5px solid ${A}66;color:${A};border-radius:14px;padding:17px;font-weight:900;font-size:15px;cursor:pointer;user-select:none;">SALTAR</button>
     </div>
   </div>`;
@@ -498,8 +574,9 @@ function montarCanvas(){
   // Mandos táctiles: sostener funciona, no hace falta repetir el toque.
   m.querySelectorAll('#plat-mandos button').forEach(b=>{
     const k = b.getAttribute('data-k');
-    const on = ev=>{ ev.preventDefault(); if (k==='salto') P.k.salto = true; else P.k[k] = true; };
-    const off = ev=>{ ev.preventDefault(); if (k!=='salto') P.k[k] = false; };
+    // Saltar y patear son de UN toque; las flechas se sostienen.
+    const on = ev=>{ ev.preventDefault(); P.k[k] = true; };
+    const off = ev=>{ ev.preventDefault(); if (k!=='salto' && k!=='patear') P.k[k] = false; };
     b.addEventListener('touchstart', on, {passive:false});
     b.addEventListener('touchend', off, {passive:false});
     b.addEventListener('touchcancel', off, {passive:false});
@@ -523,6 +600,7 @@ function teclado(e, abajo){
   if (k === 'ArrowLeft' || k === 'a' || k === 'A'){ P.k.izq = abajo; e.preventDefault(); }
   if (k === 'ArrowRight' || k === 'd' || k === 'D'){ P.k.der = abajo; e.preventDefault(); }
   if (k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W'){ if (abajo) P.k.salto = true; e.preventDefault(); }
+  if (k === 'ArrowDown' || k === 's' || k === 'S' || k === 'x' || k === 'X'){ if (abajo) P.k.patear = true; e.preventDefault(); }
 }
 
 // ── ENTRADA ───────────────────────────────────────────────────────────────────
@@ -537,7 +615,7 @@ function avisarDesafio(gano){
 window._platAbrir = function(opts){
   opts = opts || {};
   P = {
-    k:{ izq:false, der:false, salto:false },
+    k:{ izq:false, der:false, salto:false, patear:false },
     vidas:2, puntos:0, pelotasTomadas:0, fin:null, pausa:false,
     apellido: opts.apellido || 'CANCHERO',
     num: opts.num || 10,
