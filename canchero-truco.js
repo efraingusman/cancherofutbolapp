@@ -383,45 +383,86 @@ function guardar(){ try { localStorage.setItem(LS, JSON.stringify({ ptsYo:T.ptsY
 
 // ── DIBUJO DE LAS CARTAS ──────────────────────────────────────────────────────
 // Carta española dibujada en SVG: sin imágenes, se ve igual en todos lados.
+// ── LAS CARTAS ────────────────────────────────────────────────────────────────
+// Baraja española dibujada en SVG: espada, basto, oro y copa con su forma real,
+// y las figuras (10, 11, 12) con su personaje. Antes cada palo era un triangulo
+// o un rectangulo y no se distinguia ninguno de otro.
+function paloSVG(p, cx, cy, s, col){
+  const o = { espada:'#2f5fa8', basto:'#2f7a4a', oro:'#c8901a', copa:'#b0342c' }[p] || col;
+  const osc = { espada:'#1d3f75', basto:'#1d5233', oro:'#8f6410', copa:'#7c231d' }[p] || col;
+  if (p === 'espada'){
+    // Hoja recta con guarda y empuñadura.
+    return `<g>
+      <path d="M${cx} ${cy-s} L${cx+s*0.16} ${cy+s*0.25} L${cx} ${cy+s*0.42} L${cx-s*0.16} ${cy+s*0.25} Z" fill="${o}" stroke="${osc}" stroke-width="${s*0.06}"/>
+      <rect x="${cx-s*0.42}" y="${cy+s*0.24}" width="${s*0.84}" height="${s*0.13}" rx="${s*0.05}" fill="${osc}"/>
+      <rect x="${cx-s*0.09}" y="${cy+s*0.37}" width="${s*0.18}" height="${s*0.4}" fill="${osc}"/>
+      <circle cx="${cx}" cy="${cy+s*0.82}" r="${s*0.13}" fill="${o}" stroke="${osc}" stroke-width="${s*0.05}"/>
+    </g>`;
+  }
+  if (p === 'basto'){
+    // Garrote con nudos.
+    return `<g>
+      <path d="M${cx-s*0.14} ${cy+s*0.9} L${cx-s*0.09} ${cy-s*0.62} Q${cx} ${cy-s*0.95} ${cx+s*0.09} ${cy-s*0.62} L${cx+s*0.14} ${cy+s*0.9} Z" fill="${o}" stroke="${osc}" stroke-width="${s*0.06}"/>
+      <circle cx="${cx-s*0.2}" cy="${cy-s*0.2}" r="${s*0.15}" fill="${o}" stroke="${osc}" stroke-width="${s*0.05}"/>
+      <circle cx="${cx+s*0.21}" cy="${cy+s*0.18}" r="${s*0.14}" fill="${o}" stroke="${osc}" stroke-width="${s*0.05}"/>
+      <circle cx="${cx-s*0.18}" cy="${cy+s*0.5}" r="${s*0.12}" fill="${o}" stroke="${osc}" stroke-width="${s*0.05}"/>
+    </g>`;
+  }
+  if (p === 'oro'){
+    // Moneda con doble aro y destello.
+    return `<g>
+      <circle cx="${cx}" cy="${cy}" r="${s*0.82}" fill="${o}" stroke="${osc}" stroke-width="${s*0.1}"/>
+      <circle cx="${cx}" cy="${cy}" r="${s*0.55}" fill="none" stroke="${osc}" stroke-width="${s*0.07}"/>
+      <circle cx="${cx-s*0.26}" cy="${cy-s*0.28}" r="${s*0.16}" fill="#ffe9a8" opacity=".85"/>
+    </g>`;
+  }
+  // copa
+  return `<g>
+    <path d="M${cx-s*0.55} ${cy-s*0.62} L${cx+s*0.55} ${cy-s*0.62} L${cx+s*0.38} ${cy+s*0.05} Q${cx} ${cy+s*0.3} ${cx-s*0.38} ${cy+s*0.05} Z" fill="${o}" stroke="${osc}" stroke-width="${s*0.06}"/>
+    <rect x="${cx-s*0.08}" y="${cy+s*0.16}" width="${s*0.16}" height="${s*0.42}" fill="${osc}"/>
+    <ellipse cx="${cx}" cy="${cy+s*0.66}" rx="${s*0.42}" ry="${s*0.13}" fill="${o}" stroke="${osc}" stroke-width="${s*0.05}"/>
+    <path d="M${cx-s*0.55} ${cy-s*0.62} q${s*0.55} ${s*0.22} ${s*1.1} 0" fill="none" stroke="${osc}" stroke-width="${s*0.06}"/>
+  </g>`;
+}
 function cartaSVG(c, ancho, tapada){
   const w = ancho || 62, h = Math.round(w*1.55);
   if (tapada){
     return `<svg viewBox="0 0 62 96" width="${w}" height="${h}" style="display:block;">
       <rect x="1" y="1" width="60" height="94" rx="6" fill="#1d2b45" stroke="#33436a" stroke-width="2"/>
-      <rect x="7" y="7" width="48" height="82" rx="4" fill="none" stroke="#3d5180" stroke-width="1.5"/>
-      <circle cx="31" cy="48" r="13" fill="none" stroke="#3d5180" stroke-width="1.5"/>
+      <rect x="6" y="6" width="50" height="84" rx="4" fill="none" stroke="#3d5180" stroke-width="1.5"/>
+      <g opacity=".55">${[18,34,50,66,82].map(y=>[16,31,46].map(x=>`<circle cx="${x}" cy="${y}" r="3" fill="#3d5180"/>`).join('')).join('')}</g>
     </svg>`;
   }
   const P = PALOS.find(x=>x.id===c.p) || PALOS[0];
   const col = P.c;
-  // Un símbolo simple por palo, repetido según el valor (figuras: un blasón).
   const figura = c.v >= 10;
-  const simbolo = (cx, cy, s) => {
-    if (c.p === 'espada') return `<path d="M${cx} ${cy-s} L${cx+s*0.3} ${cy+s*0.5} L${cx} ${cy+s} L${cx-s*0.3} ${cy+s*0.5} Z" fill="${col}"/>`;
-    if (c.p === 'basto')  return `<rect x="${cx-s*0.22}" y="${cy-s}" width="${s*0.44}" height="${s*2}" rx="${s*0.2}" fill="${col}"/>`;
-    if (c.p === 'oro')    return `<circle cx="${cx}" cy="${cy}" r="${s*0.85}" fill="none" stroke="${col}" stroke-width="${s*0.34}"/>`;
-    return `<path d="M${cx-s*0.8} ${cy-s*0.6} Q${cx} ${cy+s*0.9} ${cx+s*0.8} ${cy-s*0.6} Z" fill="${col}"/>`;
-  };
   let cuerpo = '';
   if (figura){
-    cuerpo = `<rect x="18" y="30" width="26" height="36" rx="4" fill="${col}" opacity=".2"/>` + simbolo(31, 48, 11);
+    // Figuras: un personaje simple con el palo en la mano, distinto por valor.
+    const capa = c.v === 10 ? '#6c4bb0' : c.v === 11 ? '#2f7a4a' : '#b0342c';
+    cuerpo = `
+      <rect x="17" y="34" width="28" height="32" rx="4" fill="${capa}" opacity=".85"/>
+      <circle cx="31" cy="30" r="8" fill="#e8c9a0" stroke="#8a6a45" stroke-width="1"/>
+      <rect x="22" y="20" width="18" height="7" rx="3" fill="${capa}"/>
+      <circle cx="28" cy="30" r="1.2" fill="#2b2016"/><circle cx="34" cy="30" r="1.2" fill="#2b2016"/>
+      ${paloSVG(c.p, 31, 52, 9, col)}`;
   } else {
-    const n = Math.min(c.v, 7);
-    const cols = n <= 3 ? 1 : 2;
-    const filas = Math.ceil(n/cols);
-    let k = 0;
-    for (let f=0; f<filas; f++){
-      for (let cc=0; cc<cols && k<n; cc++, k++){
-        const x = cols === 1 ? 31 : (cc === 0 ? 22 : 40);
-        const y = 34 + f * (44/Math.max(1,filas-1||1)) * (filas>1?1:0) + (filas===1?14:0);
-        cuerpo += simbolo(x, Math.min(70, y), 6.5);
-      }
-    }
+    // Números: el palo repetido, distribuido como en la baraja real.
+    const pos = {
+      1:[[31,48]], 2:[[31,34],[31,62]], 3:[[31,30],[31,48],[31,66]],
+      4:[[21,34],[41,34],[21,62],[41,62]],
+      5:[[21,32],[41,32],[31,48],[21,64],[41,64]],
+      6:[[21,30],[41,30],[21,48],[41,48],[21,66],[41,66]],
+      7:[[21,30],[41,30],[21,48],[41,48],[31,58],[21,68],[41,68]]
+    }[c.v] || [[31,48]];
+    const tam = c.v === 1 ? 13 : pos.length <= 3 ? 9 : 7.5;
+    cuerpo = pos.map(pt => paloSVG(c.p, pt[0], pt[1], tam, col)).join('');
   }
   return `<svg viewBox="0 0 62 96" width="${w}" height="${h}" style="display:block;">
     <rect x="1" y="1" width="60" height="94" rx="6" fill="#fdfbf4" stroke="${col}" stroke-width="2"/>
-    <text x="7" y="17" font-family="Outfit,Arial" font-weight="900" font-size="14" fill="${col}">${c.v}</text>
-    <text x="55" y="88" font-family="Outfit,Arial" font-weight="900" font-size="14" fill="${col}" text-anchor="end" transform="rotate(180 55 84)">${c.v}</text>
+    <rect x="4.5" y="4.5" width="53" height="87" rx="4" fill="none" stroke="${col}" stroke-width="1" opacity=".5"/>
+    <text x="7" y="16" font-family="Outfit,Arial" font-weight="900" font-size="13" fill="${col}">${c.v}</text>
+    <text x="55" y="88" font-family="Outfit,Arial" font-weight="900" font-size="13" fill="${col}" text-anchor="end" transform="rotate(180 55 84)">${c.v}</text>
     ${cuerpo}
   </svg>`;
 }

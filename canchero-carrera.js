@@ -3190,7 +3190,9 @@ window._lyFinalJugar = function(modo){
       pelo:(AV_COLORES_PELO.find(x=>x.id===((G.avatar||{}).peloColor))||AV_COLORES_PELO[0]).c,
       rival:(G.rival&&G.rival.nombre)||null, rivalCol:kitOf((G.rival&&G.rival.pais)||'Argentina'),
       desafio:true, titulo:cfg.titulo, onFin:cerrar,
-      avatarSVG: avatarSprite(G.avatar||avatarDefault(), { edad:(G.edad||28), kitBase:kitOf(G.pais||'Uruguay')[0], kitTxt:kitOf(G.pais||'Uruguay')[1], num:G.num||10, apellido:'', escala:1.6, pose:'caminar' }) });
+      avatarSVG: avatarSprite(G.avatar||avatarDefault(), { edad:(G.edad||28), kitBase:kitOf(G.pais||'Uruguay')[0], kitTxt:kitOf(G.pais||'Uruguay')[1], num:G.num||10, apellido:'', escala:1.6, pose:'caminar' }),
+      // El rival, con SU cara y SU camiseta: el villano del juego es el de verdad.
+      rivalSVG: (G.rival && G.rival.avatar) ? avatarSprite(G.rival.avatar, { edad:(G.edad||28), kitBase:kitOf((G.rival.pais)||'Argentina')[0], kitTxt:kitOf((G.rival.pais)||'Argentina')[1], num:G.rival.num||9, apellido:'', escala:1.6, pose:'caminar' }) : null });
     return;
   }
   cerrar(Math.random() < 0.5);

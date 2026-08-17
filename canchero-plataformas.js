@@ -379,6 +379,16 @@ function dibujar(){
   P.enemigos.forEach(e=>{
     if (!e.vivo) return;
     if (e.x < P.cam-TILE*2 || e.x > P.cam + W/Z + TILE*2) return;
+    if (P.rivalImg){
+      const h2 = 32, w2 = P.rivalImg.width * (h2 / P.rivalImg.height);
+      c.save();
+      c.fillStyle = 'rgba(0,0,0,.35)';
+      c.beginPath(); c.ellipse(e.x + e.w/2, e.y + e.h, 10, 3, 0, 0, Math.PI*2); c.fill();
+      if (e.vx > 0){ c.translate(e.x + e.w/2, 0); c.scale(-1, 1); c.translate(-(e.x + e.w/2), 0); }
+      c.drawImage(P.rivalImg, e.x + e.w/2 - w2/2, e.y + e.h - h2, w2, h2);
+      c.restore();
+      return;
+    }
     const rc = P.rivalCol || ['#b02a2a','#ffffff'];
     c.fillStyle = '#1a1a2a'; c.fillRect(e.x+3, e.y+13, 4, 5); c.fillRect(e.x+e.w-7, e.y+13, 4, 5);
     c.fillStyle = rc[0]; c.fillRect(e.x+1, e.y+5, e.w-2, 9);
@@ -410,12 +420,12 @@ function dibujar(){
 // El muneco cuadrado no se parecia en nada a tu jugador. Ahora se usa EL MISMO
 // avatar del resto del juego: llega como SVG, se convierte a imagen una sola vez
 // y se dibuja. Si por lo que sea no carga, queda el dibujo simple de respaldo.
-function cargarAvatar(svg){
+function cargarAvatar(svg, campo){
   if (!svg) return;
   let t = String(svg);
   if (t.indexOf('xmlns') < 0) t = t.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
   const im = new Image();
-  im.onload = function(){ if (P) P.avImg = im; };
+  im.onload = function(){ if (P) P[campo || 'avImg'] = im; };
   im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(t);
 }
 function dibujarJugador(c){
@@ -659,7 +669,7 @@ window._platAbrir = function(opts){
     colores: opts.colores || ['#4aa3df','#ffffff'],
     zoom: 2,
     desafio: !!opts.desafio, onFin: opts.onFin || null, titulo: opts.titulo || null,
-    piel: opts.piel || null, pelo: opts.pelo || null, avImg: null,
+    piel: opts.piel || null, pelo: opts.pelo || null, avImg: null, rivalImg: null,
     rivalCol: (function(){
       const mio = (opts.colores||['#4aa3df'])[0], suyo = (opts.rivalCol||['#b02a2a'])[0];
       const dist = (a,b)=>{ const h=x=>parseInt(x.slice(1),16); const A=h(a),B=h(b);
@@ -668,7 +678,8 @@ window._platAbrir = function(opts){
     })(), rival: opts.rival || null
   };
   cargarNivel(0);
-  cargarAvatar(opts.avatarSVG);
+  cargarAvatar(opts.avatarSVG, 'avImg');
+  cargarAvatar(opts.rivalSVG, 'rivalImg');
   montarCanvas();
   P.onResize = ()=>{ ajustar(); };
   window.addEventListener('resize', P.onResize);
