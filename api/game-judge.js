@@ -106,6 +106,16 @@ async function pensarIA(messages, opt) {
     return null;
 }
 
+// Saca el razonamiento interno y deja SOLO lo que diria el personaje.
+function limpiarRespuesta(t) {
+    let s = String(t || '');
+    s = s.replace(/<think>[\s\S]*?<\/think>/gi, '');   // razonamiento cerrado
+    s = s.replace(/<think>[\s\S]*$/i, '');             // razonamiento sin cerrar
+    s = s.replace(/^\s*(assistant|respuesta)\s*:\s*/i, '');
+    s = s.replace(/^["']+|["']+$/g, '');
+    return s.trim();
+}
+
 // Groq, OpenRouter y OpenAI hablan el mismo formato. Se usa el que tenga key.
 async function openaiCompat(messages, opt = {}) {
     const opciones = [
@@ -129,8 +139,11 @@ async function openaiCompat(messages, opt = {}) {
         });
         if (!r.ok) continue;                 // modelo dado de baja o sin cuota: probar el siguiente
         const d = await r.json();
-        const t = d?.choices?.[0]?.message?.content;
-        if (t) return String(t);
+        let t = d?.choices?.[0]?.message?.content;
+        // Algunos modelos escupen su razonamiento en <think>...</think> antes de la
+        // respuesta. Eso no lo tiene que leer el jugador.
+        if (t) t = limpiarRespuesta(String(t));
+        if (t) return t;
       }
     }
     return null;
