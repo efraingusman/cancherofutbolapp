@@ -8597,6 +8597,14 @@ function vjHotspotsBase(){
       // para que dirigir se sienta como dirigir y no como elegir opciones sueltas.
       if (G.vidaRol === 'dt')
         out.push({ x:Math.round(W*0.58), tipo:'obj', obj:'trabajo', lbl:'Tu escritorio — plantel, mercado y tabla', accion:'escritorio', icono:'bx-clipboard', destacado:true });
+      // CAMBIAR DE CLUB CUANDO QUIERAS. Antes el destino se elegía UNA vez al
+      // empezar el rol y quedabas atado a ese club para siempre.
+      out.push({ x:Math.round(W*0.30), tipo:'obj', obj:'cartel',
+        lbl: G.vidaRol==='dt' ? 'Escuchar ofertas de otros clubes' : 'Cambiar de lugar',
+        accion:'destino', icono:'bx-transfer' });
+      // Lo que hiciste como jugador, a mano: la carrera no se borra al retirarte.
+      out.push({ x:Math.round(W*0.90), tipo:'obj', obj:'trabajo', escala:0.9,
+        lbl:'Tu carrera como jugador', accion:'miCarrera', icono:'bx-id-card' });
       if (G.vidaRol === 'dt' || G.vidaRol === 'dirigente' || G.vidaRol === 'escuela')
         out.push({ x:Math.round(W*0.16), tipo:'obj', obj:'descanso', lbl:'Pedir una licencia', accion:'licencia', icono:'bx-pause' });
     }
@@ -9421,6 +9429,8 @@ function vjInteractuar(){
       window._trucoAbrir();
       return;
     case 'abuelo':       vjAbuelo(h); return;
+    case 'destino':      vjDetener(); window._elegirDestino(false); return;
+    case 'miCarrera':    vjDetener(); window._lyMiCarrera(); return;
     case 'rival':        vjRival(h); return;
     case 'videojuego':
       if (!window._platAbrir){ vjFlash('El videojuego no está disponible acá.'); return; }
@@ -11045,6 +11055,47 @@ const DESTINOS = {
         badge:`<div style="width:40px;height:40px;border-radius:9px;background:#0f3d2a;display:flex;align-items:center;justify-content:center;"><i class='bx bx-briefcase-alt-2' style="font-size:22px;color:#22c55e;"></i></div>`,
         nota:'' }));
     } }
+};
+// ── LO QUE HICISTE COMO JUGADOR ──────────────────────────────────────────────
+// Después del retiro la carrera desaparecía de la vista y quedabas manejando un
+// club sin memoria de por qué estabas ahí. Esto la trae de vuelta en una pantalla.
+window._lyMiCarrera = function(){
+  if(!G) return;
+  const kb = kitOf(G.pais || 'Uruguay');
+  const clubes = Array.from(new Set((G.timeline||[]).map(t=>t.club))).filter(Boolean);
+  const v = (G.vitrina||[]).filter(t=>!t.comoDT);
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:24px 16px calc(28px + env(safe-area-inset-bottom));">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:10px;font-weight:900;letter-spacing:2.4px;color:${A};margin-bottom:10px;">TU CARRERA COMO JUGADOR</div>
+      <div style="display:flex;justify-content:center;margin-bottom:10px;">
+        ${avatarBox(avatarSprite(G.avatar||avatarDefault(), { edad:Math.min(34,(G.edad||32)), kitBase:kb[0], kitTxt:kb[1], num:G.num||10, apellido:G.apellido||'', escala:2.4, pose:'orgullo' }), '12px 18px', 'estadio')}
+      </div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;">${esc(G.apellido||'')} <span style="color:${A};">#${G.num||10}</span></div>
+      <div style="font-size:12px;color:#8d9782;font-weight:700;margin-top:4px;">${esc(G.pos||'')} · se retiró a los ${G.edad||34}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:14px;">
+      ${[['PJ',G.tot.pj],['GOLES',G.tot.g],['ASIST',G.tot.a],['TÍTULOS',v.length]].map(c=>`
+        <div style="background:rgba(255,255,255,.04);border:1px solid #232a1f;border-radius:12px;padding:11px 3px;text-align:center;">
+          <div style="font-size:19px;font-weight:900;color:#fff;line-height:1;">${c[1]}</div>
+          <div style="font-size:8px;color:#79836f;font-weight:900;letter-spacing:1px;margin-top:4px;">${c[0]}</div>
+        </div>`).join('')}
+    </div>
+    ${v.length?`<div style="font-size:9px;font-weight:900;letter-spacing:1.6px;color:#facc15;margin-bottom:8px;">VITRINA</div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
+      ${v.slice().reverse().map(t=>`<div style="display:flex;align-items:center;gap:10px;background:rgba(250,204,21,.06);border:1px solid rgba(250,204,21,.2);border-radius:11px;padding:8px 11px;">
+        <div style="flex-shrink:0;">${trofeoRender(t.nombre,30)}</div>
+        <div style="min-width:0;"><div style="font-size:12px;font-weight:900;color:#fff;">${esc(t.nombre)}</div>
+        <div style="font-size:10px;color:#79836f;font-weight:700;">${esc(t.club||'')}${t.edad?' · a los '+t.edad:''}</div></div>
+      </div>`).join('')}
+    </div>`:''}
+    <div style="font-size:9px;font-weight:900;letter-spacing:1.6px;color:#79836f;margin-bottom:8px;">CLUBES</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      ${clubes.map(c=>`<div style="display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.04);border:1px solid #232a1f;border-radius:11px;padding:7px 11px;">${clubBadge(c,24)}<span style="font-size:11.5px;font-weight:800;color:#cfd8c6;">${esc(c)}</span></div>`).join('')}
+    </div>
+    <button onclick="window._vidaJugable()" style="width:100%;margin-top:18px;background:rgba(255,255,255,.05);border:1px solid #2a3222;color:#cfd8c6;border-radius:13px;padding:14px;font-weight:900;font-size:13.5px;cursor:pointer;">Volver</button>
+  </div>`;
 };
 window._elegirDestino = function(primeraVez){
   if(!G) G=load(); if(!G) return;
