@@ -3189,7 +3189,8 @@ window._lyFinalJugar = function(modo){
       piel:(AV_PIELES.find(x=>x.id===((G.avatar||{}).piel))||AV_PIELES[1]).c,
       pelo:(AV_COLORES_PELO.find(x=>x.id===((G.avatar||{}).peloColor))||AV_COLORES_PELO[0]).c,
       rival:(G.rival&&G.rival.nombre)||null, rivalCol:kitOf((G.rival&&G.rival.pais)||'Argentina'),
-      desafio:true, titulo:cfg.titulo, onFin:cerrar });
+      desafio:true, titulo:cfg.titulo, onFin:cerrar,
+      avatarSVG: avatarSprite(G.avatar||avatarDefault(), { edad:(G.edad||28), kitBase:kitOf(G.pais||'Uruguay')[0], kitTxt:kitOf(G.pais||'Uruguay')[1], num:G.num||10, apellido:'', escala:1.6, pose:'caminar' }) });
     return;
   }
   cerrar(Math.random() < 0.5);

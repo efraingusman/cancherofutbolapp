@@ -73,7 +73,7 @@ function construirNivel(cfg){
     const anchoP = 6;
     const c = ventana(8 + p*paso, anchoP);
     if (c < 0) continue;
-    const fila = (p % 2 === 0) ? pisoY-6 : pisoY-3;
+    const fila = (p % 2 === 0) ? pisoY-5 : pisoY-3;   // 110px: entra dentro de los 120 que sube el salto
     for (let k=0;k<anchoP;k++) filas[fila][c+k] = '=';
     filas[fila-1][c+2] = 'o'; filas[fila-1][c+3] = 'o';  // pelotas sobre la plataforma
   }
@@ -222,7 +222,7 @@ function paso(){
   for (const b of P.pelotas){
     if (b.tomada) continue;
     if (Math.abs((j.x+j.w/2) - b.x) < 14 && Math.abs((j.y+j.h/2) - b.y) < 15){
-      b.tomada = true; P.puntos += 100; P.pelotasTomadas++;
+      b.tomada = true; P.puntos += 100; P.pelotasTomadas++; P.goles = (P.goles||0) + 1;
     }
   }
 
@@ -302,6 +302,7 @@ function paso(){
 }
 function perderVida(){
   P.vidas--;
+  P.golesContra = (P.golesContra||0) + 1;
   if (P.vidas < 0){ P.fin = 'perdiste'; avisarDesafio(false); dibujar(); return; }
   reubicar();
   P.j.inv = 70;
@@ -406,8 +407,30 @@ function dibujar(){
   hud(c, W);
   if (P.fin) pantallaFin(c, W, H);
 }
+// El muneco cuadrado no se parecia en nada a tu jugador. Ahora se usa EL MISMO
+// avatar del resto del juego: llega como SVG, se convierte a imagen una sola vez
+// y se dibuja. Si por lo que sea no carga, queda el dibujo simple de respaldo.
+function cargarAvatar(svg){
+  if (!svg) return;
+  let t = String(svg);
+  if (t.indexOf('xmlns') < 0) t = t.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+  const im = new Image();
+  im.onload = function(){ if (P) P.avImg = im; };
+  im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(t);
+}
 function dibujarJugador(c){
   const j = P.j;
+  if (P.avImg){
+    if (j.inv > 0 && Math.floor(j.inv/4) % 2 === 0) return;
+    const h = 34, w = P.avImg.width * (h / P.avImg.height);
+    c.save();
+    c.fillStyle = 'rgba(0,0,0,.35)';
+    c.beginPath(); c.ellipse(j.x + j.w/2, j.y + j.h, 11, 3, 0, 0, Math.PI*2); c.fill();
+    if (j.dir < 0){ c.translate(j.x + j.w/2, 0); c.scale(-1, 1); c.translate(-(j.x + j.w/2), 0); }
+    c.drawImage(P.avImg, j.x + j.w/2 - w/2, j.y + j.h - h, w, h);
+    c.restore();
+    return;
+  }
   if (j.inv > 0 && Math.floor(j.inv/4) % 2 === 0) return;   // parpadea al revivir
   const col = P.colores || ['#4aa3df','#ffffff'];
   const x = j.x, y = j.y;
@@ -506,7 +529,10 @@ function hud(c, W){
   c.fillStyle = '#fff'; c.beginPath(); c.arc(244, 24, 9, 0, Math.PI*2); c.fill();
   c.strokeStyle='#222'; c.lineWidth=1.5; c.stroke();
   c.fillStyle='#222'; c.beginPath(); c.arc(244,24,3,0,Math.PI*2); c.fill();
-  c.fillStyle = '#fff'; c.font = '900 17px Outfit, Arial'; c.fillText('x ' + (P.pelotasTomadas||0), 258, 30);
+  c.fillStyle = '#fff'; c.font = '900 17px Outfit, Arial';
+  c.fillText((P.goles||0) + ' - ' + (P.golesContra||0), 258, 30);
+  c.fillStyle = 'rgba(255,255,255,.55)'; c.font = '900 9px Outfit, Arial';
+  c.fillText('GOLES', 258, 40);
   // Nivel
   c.fillStyle = A; c.font = '900 14px Outfit, Arial'; c.textAlign = 'right';
   c.fillText(P.nombreNivel + '  ' + (P.nivel+1) + '/' + NIVELES.length, W-14, 29);
@@ -515,14 +541,25 @@ function hud(c, W){
 function pantallaFin(c, W, H){
   c.fillStyle = 'rgba(4,7,4,.86)'; c.fillRect(0,0,W,H);
   const gano = P.fin === 'ganaste';
+  const g = P.goles || 0, gc = P.golesContra || 0;
   c.textAlign = 'center';
+  // El resultado se cuenta como lo que es: un partido. Se ve el marcador y se
+  // dice si saliste campeón y de qué, o si perdiste la final.
   c.fillStyle = gano ? A : '#ff6b6b';
-  c.font = 'bold 30px Outfit, Arial';
-  c.fillText(gano ? '¡CAMPEÓN!' : 'SE ACABÓ', W/2, H/2 - 14);
-  c.fillStyle = '#fff'; c.font = 'bold 15px Outfit, Arial';
-  c.fillText(P.puntos + ' puntos', W/2, H/2 + 12);
-  c.fillStyle = '#9aa48f'; c.font = '12px Outfit, Arial';
-  c.fillText(gano ? 'Terminaste los cuatro niveles.' : 'Tocá REINTENTAR para volver a empezar.', W/2, H/2 + 34);
+  c.font = '900 30px Outfit, Arial';
+  c.fillText(gano ? '¡CAMPEÓN!' : 'PERDISTE LA FINAL', W/2, H/2 - 54);
+  if (P.titulo){
+    c.fillStyle = gano ? '#ffd75e' : '#9aa48f';
+    c.font = '900 17px Outfit, Arial';
+    c.fillText(gano ? P.titulo : ('Se te escapó: ' + P.titulo), W/2, H/2 - 28);
+  }
+  // Marcador grande
+  c.fillStyle = '#fff'; c.font = '900 54px Outfit, Arial';
+  c.fillText(g + ' - ' + gc, W/2, H/2 + 22);
+  c.fillStyle = 'rgba(255,255,255,.55)'; c.font = '900 11px Outfit, Arial';
+  c.fillText('GOLES A FAVOR  ·  EN CONTRA', W/2, H/2 + 42);
+  c.fillStyle = '#9aa48f'; c.font = '13px Outfit, Arial';
+  c.fillText(P.puntos + ' puntos', W/2, H/2 + 68);
   c.textAlign = 'left';
 }
 
@@ -616,13 +653,13 @@ window._platAbrir = function(opts){
   opts = opts || {};
   P = {
     k:{ izq:false, der:false, salto:false, patear:false },
-    vidas:2, puntos:0, pelotasTomadas:0, fin:null, pausa:false,
+    vidas:2, puntos:0, pelotasTomadas:0, goles:0, golesContra:0, fin:null, pausa:false,
     apellido: opts.apellido || 'CANCHERO',
     num: opts.num || 10,
     colores: opts.colores || ['#4aa3df','#ffffff'],
     zoom: 2,
     desafio: !!opts.desafio, onFin: opts.onFin || null, titulo: opts.titulo || null,
-    piel: opts.piel || null, pelo: opts.pelo || null,
+    piel: opts.piel || null, pelo: opts.pelo || null, avImg: null,
     rivalCol: (function(){
       const mio = (opts.colores||['#4aa3df'])[0], suyo = (opts.rivalCol||['#b02a2a'])[0];
       const dist = (a,b)=>{ const h=x=>parseInt(x.slice(1),16); const A=h(a),B=h(b);
@@ -631,6 +668,7 @@ window._platAbrir = function(opts){
     })(), rival: opts.rival || null
   };
   cargarNivel(0);
+  cargarAvatar(opts.avatarSVG);
   montarCanvas();
   P.onResize = ()=>{ ajustar(); };
   window.addEventListener('resize', P.onResize);
