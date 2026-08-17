@@ -446,6 +446,10 @@ function sanear(g){
   g.familia = g.familia || {};
   g.familia.hijos = g.familia.hijos || [];
   g.familia.nietos = g.familia.nietos || [];
+  // Sin edad numerica el juego la inventaba y el hijo aparecia adulto un tramo y
+  // nene al siguiente.
+  g.familia.hijos.forEach(h=>{ if (typeof h.edad !== 'number' || !isFinite(h.edad)) h.edad = 0; });
+  g.familia.nietos.forEach(x=>{ if (typeof x.edad !== 'number' || !isFinite(x.edad)) x.edad = 0; });
   g.vitrina = g.vitrina || [];
   g.timeline = g.timeline || [];
   g.flags = g.flags || {};
@@ -8302,13 +8306,23 @@ SUCESOS_JUGADOR.exclub = [
 ];
 // Elige un suceso disponible. En la carrera usa el repertorio del jugador; después
 // del retiro, el de la segunda vida.
-function vjSucesoDisponible(catPreferida){
+// De quien habla un evento, mirando su texto. Sirve para no mezclar a la pareja
+// con los hijos dentro de la misma categoria 'familia'.
+function sujetoDe(ev){
+  const t = ((ev.t||'') + ' ' + (ev.d||'')).toLowerCase();
+  if (/nieto|nieta/.test(t)) return 'nieto';
+  if (/hijo|hija|beb[eé]|pibe tuyo/.test(t)) return 'hijo';
+  if (/pareja|esposa|mujer|casar|matrimonio|divorci|novia|novio/.test(t)) return 'pareja';
+  return null;
+}
+function vjSucesoDisponible(catPreferida, soloEsa, sujeto){
   const enCarrera = VJ.mundo !== 'vida';
   const banco = enCarrera ? SUCESOS_JUGADOR : VIDA_SUCESOS;
   const edad = enCarrera ? (G.edad || 20) : (G.vidaEdad || 40);
   const vistos = G._vjSucVistos = G._vjSucVistos || [];
-  const cats = shuffle(Object.keys(banco));
-  if (catPreferida && banco[catPreferida]) cats.unshift(catPreferida);
+  const cats = (soloEsa && catPreferida && banco[catPreferida])
+    ? [catPreferida]
+    : (catPreferida && banco[catPreferida] ? [catPreferida].concat(shuffle(Object.keys(banco))) : shuffle(Object.keys(banco)));
   for(const c of cats){
     const pool = banco[c] || [];
     for(const ev of shuffle(pool)){
@@ -8318,6 +8332,10 @@ function vjSucesoDisponible(catPreferida){
       // Los sucesos de ciencia ficcion solo aparecen cuando el calendario llego ahi.
       if (ev.anioMin != null && (G.anio || 2026) < ev.anioMin) continue;
       if (ev.req && !ev.req(G)) continue;
+      // Si se pidio por una persona concreta, el evento tiene que ser DE ella.
+      // Con una persona tocada, el evento tiene que ser SUYO. Si no hay ninguno,
+      // el que habla es ella (vjCharlaSuelta), no un evento de otro.
+      if (sujeto && sujetoDe(ev) !== sujeto) continue;
       return { cat:c, ev, clave };
     }
   }
@@ -8915,7 +8933,7 @@ function vjHotspotsBase(){
     // `av` viaja con el hotspot: así el hijo se dibuja con los rasgos que heredó
     // de sus padres y no con una cara sorteada por el hash de su nombre.
     (fam.hijos||[]).slice(0,2).forEach((h,i)=> out.push({ x:318+i*62, tipo:'npc', semilla:'hijo'+h.nombre, ropa:'calle',
-      edad: (h.edad != null ? h.edad : ((G.vidaEdad||40) - 30 + i*3)), gen: genDe(h), av: h.av,
+      edad: (h.edad != null ? h.edad : 0), gen: genDe(h), av: h.av,
       lbl:'Estar con ' + esc(h.nombre), accion:'suceso', cat:'familia', icono:'bx-child', nombre:esc(h.nombre),
       rol:'tu ' + palabraHijo(genDe(h)) }));
     (fam.nietos||[]).slice(0,2).forEach((n,i)=> out.push({ x:452+i*60, tipo:'npc', semilla:'nieto'+n.nombre, ropa:'calle',
@@ -9902,7 +9920,23 @@ function vjInteractuar(){
       hechos.sucesos = hechos.sucesos || 0;
       if (hechos.sucesos >= 2){ vjFlash('Ya pasó bastante por hoy. El tiempo tiene que correr.'); return; }
     }
-    let suc = vjSucesoDisponible(h.cat);
+    // Si tocaste a una PERSONA, lo que pasa tiene que ser DE ESA PERSONA. Antes
+    // se caía a cualquier categoría: hablabas con tu hijo y salía un negocio,
+    // con otro avatar y una charla que no venía a cuento.
+    const dePersona = (h.tipo === 'npc');
+    const suj = (function(){
+      const r = String(h.rol||'').toLowerCase();
+      if (/nieto|nieta/.test(r)) return 'nieto';
+      if (/hijo|hija/.test(r)) return 'hijo';
+      if (/pareja/.test(r)) return 'pareja';
+      return null;
+    })();
+    let suc = vjSucesoDisponible(h.cat, dePersona, suj);
+    if(!suc && dePersona){
+      // Sin evento propio no se inventa uno ajeno: te habla y sigue la vida.
+      vjCharlaSuelta(h);
+      return;
+    }
     if(!suc){ G._vjSucVistos = []; suc = vjSucesoDisponible(h.cat); }
     if(!suc){ vjFlash('Por ahora no hay nada pendiente por acá.'); mundoRender(); return; }
     G._vjSuc = suc;
@@ -9945,6 +9979,40 @@ function vjEntrenar(cuanto, txt){
     mundoRender();
     vjFlash(txt + ' (+' + cuanto + ' nivel, −2 moral)');
   }});
+}
+// ── QUE CADA UNO TE HABLE DE LO SUYO ─────────────────────────────────────────
+// Cuando una persona no tiene un evento propio pendiente, igual te dice algo que
+// tiene que ver con QUIÉN es y con la etapa en la que está: un hijo de seis años
+// no habla como uno de veinte, y tu pareja no habla como el vecino. Antes, en
+// ese hueco, el juego sacaba un evento de otra categoría con otro avatar.
+function vjCharlaSuelta(h){
+  const rol = String(h.rol || '').toLowerCase();
+  const ed = h.edad != null ? h.edad : 30;
+  let f;
+  if (rol.indexOf('hijo') >= 0 || rol.indexOf('hija') >= 0){
+    f = ed <= 3  ? ['(te estira los brazos y se ríe)','(dice algo que solo entendés vos)']
+      : ed <= 9  ? ['¿Vos jugabas en la tele de verdad?','Pa, ¿me enseñás a pegarle con la zurda?','En la escuela dicen que sos famoso. ¿Es verdad?']
+      : ed <= 16 ? ['El técnico no me pone y yo entreno igual que todos.','¿Vos también tenías miedo antes de un partido?','No quiero que vengas a verme, me pongo nervioso.']
+      : ['Estuve pensando en dejar de jugar. No te enojes.','¿Cómo supiste que ella era la indicada?','Conseguí trabajo. Uno de verdad, digo.'];
+  } else if (rol.indexOf('nieto') >= 0 || rol.indexOf('nieta') >= 0){
+    f = ed <= 4 ? ['(se te cuelga de la pierna y no te suelta)','¡Abu!']
+      : ['Abu, contame otra vez la del gol en la final.','¿Es verdad que jugabas descalzo?','Mirá lo que aprendí, mirá, mirá.'];
+  } else if (rol.indexOf('pareja') >= 0){
+    f = ['¿Estás bien? Hace días que estás en otra.','Me gusta cuando estás así, tranquilo.',
+         'Che, ¿te acordás de la primera vez que te vi jugar?','No hace falta que ganes nada para que yo esté acá.'];
+  } else if (rol.indexOf('abuelo') >= 0 || rol.indexOf('padre') >= 0){
+    f = ['En mi época esto era otra cosa. Pero vos hacelo a tu manera.','¿Comiste?','Te veo bien parado. Eso no se compra.'];
+  } else if (rol.indexOf('vecino') >= 0){
+    f = ['¿Viste lo que pasó el domingo? Un papelón.','Che, ¿me firmás una para el nieto?',
+         'Acá en el barrio todos te bancamos, eh.','Se llovió otra vez la esquina. Nadie hace nada.'];
+  } else if (rol.indexOf('repre') >= 0){
+    f = ['Estoy moviendo cosas. Cuando haya algo firme te llamo.','No firmes nada sin mostrármelo antes.','Tranquilo que esto se acomoda.'];
+  } else {
+    f = ['Todo bien por acá.','Nos vemos, che.','Andá que se te hace tarde.'];
+  }
+  vjBurbujaEn(h.x, pick(f), 4600);
+  const s = personalAsegurar();
+  if (s){ s.soledad = clamp((s.soledad||30) - ri(1,3), 0, 100); save(); }
 }
 // ── CRUZARTE CON TU RIVAL ────────────────────────────────────────────────────
 // Lo que te dice sale del historial real del duelo: cuántas le ganaste, cuántas
