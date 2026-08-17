@@ -8805,6 +8805,82 @@ function asuntoDeRol(){
 // Para que pasen cinco años hay que ocuparse de lo importante. Uno es obligatorio
 // (la decisión de tu rol); los otros son opcionales pero se anotan, y el resumen
 // final cuenta cuántos tramos viviste a fondo.
+// ══════════════════════════════════════════════════════════════════════════════
+// EL OBJETIVO DE LA SEGUNDA VIDA
+// Jugando la carrera el norte es obvio: ser el mejor posible. Después del retiro
+// no había ninguno, y por eso el tramo se sentía un menú de cosas sueltas que se
+// hacen apurado para terminar. Cada rol tiene ahora SU meta, con hitos concretos
+// que se ven, se tachan y le dan sentido a lo que hacés todos los días.
+// ══════════════════════════════════════════════════════════════════════════════
+const METAS_ROL = {
+  dt: { n:'Ser el técnico que todos quieren', d:'Que tu nombre valga tanto en el banco como valió en la cancha.',
+    hitos:[
+      { t:'Ganar tu primer título dirigiendo', ok:(g)=>((g.gestion&&g.gestion.titulos)||0) >= 1 },
+      { t:'Dirigir tres años el mismo club',   ok:(g)=>((g.gestion&&g.gestion.anios)||0) >= 3 },
+      { t:'Armar un plantel de media 70+',     ok:(g)=>{ const p=(g.gestion&&g.gestion.plantel)||[]; if(p.length<11) return false;
+          return Math.round(p.slice(0,11).reduce((a,b)=>a+b.nivel,0)/11) >= 70; } },
+      { t:'Llegar a dirigir la selección',     ok:(g)=>!!(g.gestion&&g.gestion.esSeleccion) },
+      { t:'Ganar tres títulos en total',       ok:(g)=>((g.gestion&&g.gestion.titulos)||0) >= 3 }
+    ] },
+  comentarista: { n:'Ser la voz que la gente cree', d:'Que cuando vos decís algo, el fútbol entero se dé vuelta a escuchar.',
+    hitos:[
+      { t:'Llegar a 60 de credibilidad', ok:(g,s)=>(s.credibilidad||0) >= 60 },
+      { t:'Llegar a 60 de rating',       ok:(g,s)=>(s.rating||0) >= 60 },
+      { t:'Tener tu propio programa',    ok:(g)=>!!(g._vidaFlags&&(g._vidaFlags.podcast||g._vidaFlags.programa)) },
+      { t:'Cubrir un Mundial',           ok:(g)=>!!(g._vidaFlags&&g._vidaFlags.mundialCubierto) },
+      { t:'Aguantar sin venderte',       ok:(g,s)=>(s.credibilidad||0) >= 75 }
+    ] },
+  escuela: { n:'Sacar jugadores de tu barrio', d:'Que el próximo que llegue lejos haya empezado en tu canchita.',
+    hitos:[
+      { t:'Llenar la escuela de chicos',   ok:(g,s)=>(s.pibes||0) >= 60 },
+      { t:'Descubrir tu primer talento',   ok:(g)=>!!(g._vidaFlags&&(g._vidaFlags.becoPibe||g._vidaFlags.descubrio)) },
+      { t:'Que la escuela se sostenga sola',ok:(g,s)=>(s.economia||0) >= 55 },
+      { t:'Abrir la rama femenina',        ok:(g)=>!!(g._vidaFlags&&g._vidaFlags.abrioFemenino) },
+      { t:'Llegar a 70 de prestigio',      ok:(g,s)=>(s.prestigio||0) >= 70 }
+    ] },
+  disfrutar: { n:'Llegar entero al final', d:'Que la vida que te queda valga tanto como la que jugaste.',
+    hitos:[
+      { t:'Estar en paz (felicidad 65+)',  ok:(g,s)=>(s.felicidad||0) >= 65 },
+      { t:'No quedarte solo (soledad -40)',ok:(g,s)=>(s.soledad||100) <= 40 },
+      { t:'Tener a los tuyos cerca',       ok:(g,s)=>(s.familia||0) >= 60 },
+      { t:'Ver crecer a un nieto',         ok:(g)=>(((g.familia||{}).nietos)||[]).some(n=>(n.edad||0) >= 5) },
+      { t:'Cuidarte: llegar con salud 55+',ok:(g,s)=>(s.salud||0) >= 55 }
+    ] }
+};
+function metaDelRol(){
+  const M = METAS_ROL[G && G.vidaRol]; if(!M) return null;
+  const s = G.vidaStats || {};
+  const hitos = M.hitos.map(h=>({ t:h.t, ok:!!h.ok(G, s) }));
+  const hechos = hitos.filter(h=>h.ok).length;
+  return { n:M.n, d:M.d, hitos, hechos, total:hitos.length, completo: hechos === hitos.length };
+}
+// Tarjeta del objetivo, para que el norte esté siempre a la vista.
+function metaHTML(){
+  const M = metaDelRol(); if(!M) return '';
+  const R = VIDA_ROLES[G.vidaRol] || VIDA_ROLES.disfrutar;
+  const pct = Math.round((M.hechos / M.total) * 100);
+  const falta = M.hitos.find(h=>!h.ok);
+  return `
+  <div style="margin-top:14px;background:linear-gradient(160deg,${R.color}14,rgba(255,255,255,.03));border:1.5px solid ${R.color}44;border-radius:14px;padding:13px;">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
+      <div style="font-size:9.5px;font-weight:900;letter-spacing:1.6px;color:${R.color};">TU OBJETIVO</div>
+      <div style="font-size:11px;font-weight:900;color:${R.color};">${M.hechos}/${M.total}</div>
+    </div>
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:15px;color:#fff;margin:5px 0 3px;">${esc(M.n)}</div>
+    <div style="font-size:11.5px;color:#9aa48f;line-height:1.5;margin-bottom:9px;">${esc(M.d)}</div>
+    <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;margin-bottom:10px;">
+      <div style="height:100%;width:${pct}%;background:${R.color};border-radius:3px;transition:width .4s;"></div>
+    </div>
+    ${M.hitos.map(h=>`<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:${h.ok?'#4ade80':'#9aa4b2'};margin-bottom:5px;">
+      <i class='bx ${h.ok?'bx-check-circle':'bx-circle'}' style="font-size:14px;flex-shrink:0;"></i>
+      <span style="${h.ok?'text-decoration:line-through;opacity:.7;':''}">${esc(h.t)}</span>
+    </div>`).join('')}
+    ${falta ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:11.5px;color:${R.color};font-weight:800;">
+      <i class='bx bx-right-arrow-alt'></i> Ahora: ${esc(falta.t.toLowerCase())}</div>` : `
+    <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:#facc15;font-weight:900;">
+      <i class='bx bxs-trophy'></i> Lo lograste. Lo que venga ahora es de regalo.</div>`}
+  </div>`;
+}
 function vjPendientesTramo(){
   if(!G) return [];
   const h = G._vjHechos || {};
@@ -9430,6 +9506,7 @@ function mundoRender(){
             ${vjCharlable(h) ? `<button onclick="window._vjHablar(${i})" title="Escribirle" style="flex:0 0 auto;background:rgba(125,211,252,.10);border:1.5px solid rgba(125,211,252,.35);color:#7dd3fc;border-radius:13px;padding:13px 12px;font-size:18px;cursor:pointer;line-height:1;"><i class='bx bx-message-rounded-dots'></i></button>` : ''}
           </div>`).join('')}
         </div>
+        ${(VJ.mundo === 'vida' && G && G.vidaRol) ? metaHTML() : ''}
         ${(VJ.mundo === 'vida' && G && G.vidaRol) ? (function(){ const pend = vjPendientesTramo(); return `
         <div style="margin-top:16px;background:rgba(255,255,255,.03);border:1px solid #1e2632;border-radius:13px;padding:12px 13px;">
           <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#5d6879;margin-bottom:8px;">ESTE TRAMO DE TU VIDA</div>
@@ -11824,7 +11901,18 @@ window._vidaFinal = function(){
   if (recorrido.length){
     texto += ` Pasaste por ${recorrido.length === 1 ? recorrido[0] : recorrido.slice(0,-1).join(', ') + ' y ' + recorrido[recorrido.length-1]}.`;
   }
-  G.segundaVida = { rol:R.n, icon:R.icon, res:texto, titulo, key:rol, prom:Math.round(prom), recorrido };
+  // ¿Cumpliste lo que te habías propuesto? El objetivo del rol se cierra acá, y
+  // se dice sin vueltas: sin esto el tramo terminaba sin saber si te fue bien.
+  const MT = metaDelRol();
+  if (MT){
+    texto += MT.completo
+      ? ` Te habías propuesto ${MT.n.toLowerCase()}, y lo cumpliste entero.`
+      : MT.hechos >= Math.ceil(MT.total/2)
+        ? ` Te habías propuesto ${MT.n.toLowerCase()}: llegaste a ${MT.hechos} de ${MT.total}. No es poco.`
+        : ` Te habías propuesto ${MT.n.toLowerCase()}, y quedaste en ${MT.hechos} de ${MT.total}. Se te fue el tiempo.`;
+  }
+  G.segundaVida = { rol:R.n, icon:R.icon, res:texto, titulo, key:rol, prom:Math.round(prom), recorrido,
+    meta: MT ? { n:MT.n, hechos:MT.hechos, total:MT.total, completo:MT.completo } : null };
   try { saveCareer(G); } catch(e) {}
   save();
   const kit = kitClub(G.club, G.clubPais || G.pais);
