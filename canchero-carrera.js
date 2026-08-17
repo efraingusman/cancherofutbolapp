@@ -1336,6 +1336,7 @@ function avatarDefault(){
     canas:0,       // 0-2
     cicatriz:0,    // 0-2 (ceja / mejilla)
     peso:0,        // -1 flaco · 0 normal · 1 pasado de kilos
+    musculo:0,     // 0 normal · 1 entrenado · 2 muy trabajado (se ve en hombros y brazos)
     tatus:0,       // 0-3 brazos
     bling:0,       // 0-2 cadenas y reloj de oro
     vendaje:false, // lesión activa (rodilla vendada)
@@ -1345,6 +1346,40 @@ function avatarDefault(){
     lentes:false,
     capitanPerm:false
   };
+}
+// ── EL CUERPO CUENTA LO QUE HICISTE ──────────────────────────────────────────
+// El avatar era casi fijo: entrenaras o no, se veía igual. Ahora el cuerpo sale
+// de la partida — si entrenás se te nota en hombros y brazos, si abandonás y la
+// salud cae, se te van los kilos encima. También el oro que colgás depende de la
+// plata que tengas. Se recalcula al cerrar cada temporada.
+function avCuerpoAlDia(){
+  if (!G || !G.avatar) return;
+  const av = G.avatar;
+  const entrenos = G._entrenosTot || 0;
+  const salud = (G.vidaStats && G.vidaStats.salud != null) ? G.vidaStats.salud : 80;
+  const edad = (VJ && VJ.mundo === 'vida') ? (G.vidaEdad || 45) : (G.edad || 25);
+  const activo = edad <= (edadRetiro ? edadRetiro() : 34);
+  // MÚSCULO: entrenar suma, dejar de hacerlo lo desinfla, y con los años se va.
+  let m = 0;
+  if (activo) m = entrenos >= 8 ? 2 : entrenos >= 3 ? 1 : 0;
+  else m = entrenos >= 8 && edad < 50 ? 1 : 0;
+  av.musculo = m;
+  // KILOS: sin actividad y con salud baja, se nota. Un cuerpo entrenado no engorda.
+  if (m >= 1) av.peso = 0;
+  else if (!activo && (salud < 55 || edad >= 60)) av.peso = 1;
+  else if (activo && (G.moral || 60) < 30 && entrenos === 0) av.peso = 1;
+  else av.peso = 0;
+  // ORO: lo que colgás depende de lo que tengas. Antes era una decisión suelta.
+  const plata = (G.dinero || 0);
+  av.bling = plata >= 3000000 ? 2 : plata >= 600000 ? 1 : 0;
+}
+// El ánimo se ve en la CARA y en cómo se para, no solo en una barra.
+function poseDeAnimo(){
+  const mo = (G && G.moral != null) ? G.moral : 60;
+  if (mo >= 78) return 'orgullo';
+  if (mo <= 25) return 'taparse';
+  if (mo <= 42) return 'pensando';
+  return null;   // normal: manda la pose que pidió la escena
 }
 // Aplica cambios permanentes al avatar. Devuelve una frase describiendo lo visible.
 function avMutar(cambios){
@@ -1599,11 +1634,14 @@ function avatarSprite(av, o){
   const cuelloY = headY + cabezaH;
   // El peso cambia el ancho del torso
   const gordo = av.peso > 0 ? 3 : av.peso < 0 ? -2 : 0;
+  // El musculo se ve donde se ve de verdad: hombros mas anchos y brazos mas
+  // gruesos. Los kilos ensanchan la panza; el gimnasio, la espalda.
+  const musc = Math.max(0, Math.min(2, av.musculo || 0));
   // ── CUERPO FEMENINO ──
   // Hombros más angostos, cadera más ancha y cintura marcada. Sin esto, cambiar el
   // pelo no alcanzaba: la pareja del jugador se veía como un hombre con peluca.
   const fem = av.gen === 'f';
-  const hombroW = Math.max(6, Math.round(18 * E.hombro * (fem ? 0.78 : 1)) + gordo);
+  const hombroW = Math.max(6, Math.round(18 * E.hombro * (fem ? 0.78 : 1)) + gordo + musc*2);
   const torsoX = Math.round(cx - hombroW/2);
   const torsoY = cuelloY + 2;
   // El torso, el short y las piernas se REPARTEN el espacio que queda entre el
@@ -1780,7 +1818,7 @@ function avatarSprite(av, o){
   if (o.capitan || av.capitanPerm) { R(torsoX-1, torsoY+Math.round(torsoH*0.22), 3, 4, '#facc15'); R(torsoX-1, torsoY+Math.round(torsoH*0.22), 3, 1, '#fde68a'); }
 
   // ── BRAZOS ──
-  const brW = Math.max(2, Math.round(hombroW*0.19));
+  const brW = Math.max(2, Math.round(hombroW*0.19) + (musc>=2?2:musc));   // el gimnasio se ve en el brazo
   const brH = Math.round(torsoH*0.92);
   const hombroY = torsoY + 2;
   const brazos = [
@@ -3424,6 +3462,7 @@ window._carreraDebut = function(){
 // En el hub el jugador no se queda con la misma cara toda la carrera: refleja
 // cómo viene (moral, plata, lesiones) y varía dentro de eso.
 function _poseHub(){
+  const an = poseDeAnimo(); if (an) return an;
   if(!G) return 'idle';
   const a = G.avatar || {};
   if (a.preso) return 'esposado';
@@ -3872,6 +3911,7 @@ function _finTemporada(ctx){
   const idBase = 4 + (titulosGanados.length*10) + (pos===1?6:pos<=3?3:0) + (rend>0.5?4:rend<0.15?-3:0);
   G.idolatria[G.club] = clamp((G.idolatria[G.club]||0) + idBase, -100, 100);
   G.temporada++; G.edad++; G.anio = (G.anio||2026) + 1;
+  try { avCuerpoAlDia(); } catch(e){}
   // La temporada retro dura eso: una temporada. Después el mundo vuelve a ser el
   // que era, con su año y su tecnología.
   if (G._retro != null) G._retro = null;
@@ -9822,7 +9862,9 @@ function vjEntrenar(cuanto, txt){
     'Repeticiones, y otras cien más...','Solo vos, la pelota y el arco...'
   ]), onDone:()=>{
     G.nivel = subirNivel(cuanto);
+    G._entrenosTot = (G._entrenosTot || 0) + 1;   // el cuerpo se acuerda de todo
     G.moral = clamp(G.moral - 2, 0, 100);
+    try { avCuerpoAlDia(); } catch(e){}
     save();
     mundoRender();
     vjFlash(txt + ' (+' + cuanto + ' nivel, −2 moral)');
@@ -11234,6 +11276,7 @@ function vjDormir(){
   (fam.hijos||[]).forEach(h=> h.edad = (h.edad||0) + 5);
   (fam.nietos||[]).forEach(n=> n.edad = (n.edad||0) + 5);
   asegurarDescendencia(fam);
+  try { avCuerpoAlDia(); } catch(e){}
   const L = VIDA_LAPSOS[G.vidaLapso];
   G.vidaEdad = L ? L.de : (G.vidaEdad || 40) + 5;
   G.anio = (G.anio || 2026) + 5;      // el calendario tambien avanza: el futuro llega
