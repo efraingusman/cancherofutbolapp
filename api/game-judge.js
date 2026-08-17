@@ -93,7 +93,7 @@ async function charlaNPC(req, res) {
                     const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${process.env.GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 10, messages: [{ role: 'user', content: 'hola' }] })
+                        body: JSON.stringify({ model: 'llama-3.1-8b-instant', max_tokens: 10, messages: [{ role: 'user', content: 'hola' }] })
                     });
                     const t = await r.text();
                     return r.status + ' ' + t.slice(0, 220);
@@ -125,7 +125,7 @@ async function pensarIA(messages, opt) {
     const cadena = hayKey ? [openaiCompat, gemini] : [pollinations];
     for (const intento of cadena) {
         try {
-            const t = await conTiempo(intento(messages, opt || {}), 4000);
+            const t = await conTiempo(intento(messages, opt || {}), 8000);
             if (t && t.trim()) return t.trim();
         } catch (e) { /* se prueba el siguiente */ }
     }
@@ -135,20 +135,29 @@ async function pensarIA(messages, opt) {
 // Groq, OpenRouter y OpenAI hablan el mismo formato. Se usa el que tenga key.
 async function openaiCompat(messages, opt = {}) {
     const opciones = [
-        { key: process.env.GROQ_API_KEY,       url: 'https://api.groq.com/openai/v1/chat/completions',  model: 'llama-3.3-70b-versatile' },
-        { key: process.env.OPENROUTER_API_KEY, url: 'https://openrouter.ai/api/v1/chat/completions',    model: 'meta-llama/llama-3.3-70b-instruct:free' },
-        { key: process.env.OPENAI_API_KEY,     url: 'https://api.openai.com/v1/chat/completions',       model: 'gpt-4o-mini' }
+        // Groq da de baja modelos seguido: el que estaba fijo dejo de existir y la
+        // IA de los dialogos quedo muda sin que nadie se enterara. Por eso ahora
+        // cada proveedor lleva VARIOS modelos y se prueba el siguiente si el
+        // anterior ya no esta.
+        { key: process.env.GROQ_API_KEY,       url: 'https://api.groq.com/openai/v1/chat/completions',
+          modelos: ['llama-3.1-8b-instant', 'openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'llama-3.3-70b-versatile'] },
+        { key: process.env.OPENROUTER_API_KEY, url: 'https://openrouter.ai/api/v1/chat/completions',
+          modelos: ['meta-llama/llama-3.3-70b-instruct:free', 'google/gemma-2-9b-it:free'] },
+        { key: process.env.OPENAI_API_KEY,     url: 'https://api.openai.com/v1/chat/completions',
+          modelos: ['gpt-4o-mini'] }
     ].filter(o => o.key);
     for (const o of opciones) {
+      for (const modelo of o.modelos) {
         const r = await fetch(o.url, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${o.key}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: o.model, temperature: opt.temp ?? 0.9, presence_penalty: 0.6, frequency_penalty: 0.4, max_tokens: opt.max ?? 90, messages })
+            body: JSON.stringify({ model: modelo, temperature: opt.temp ?? 0.9, presence_penalty: 0.6, frequency_penalty: 0.4, max_tokens: opt.max ?? 90, messages })
         });
-        if (!r.ok) continue;
+        if (!r.ok) continue;                 // modelo dado de baja o sin cuota: probar el siguiente
         const d = await r.json();
         const t = d?.choices?.[0]?.message?.content;
         if (t) return String(t);
+      }
     }
     return null;
 }
