@@ -236,7 +236,22 @@
       "Bash(python __TRACKED_VAR__/p30.py)",
       "Bash(python __TRACKED_VAR__/p32.py)",
       "Bash(python __TRACKED_VAR__/p33.py)",
-      "Bash(python __TRACKED_VAR__/p35.py)"
+      "Bash(python __TRACKED_VAR__/p35.py)",
+      "Bash(grep -n \"LAPSO \\\\${G.vidaLapso+1}\" canchero-carrera.js)",
+      "Bash(grep -n \"G.segundaVida = { rol:R.n, icon:R.icon, res:texto\" canchero-carrera.js)",
+      "Bash(perl -0pi -e 's/const nodo=\\\\\\(id\\\\\\)=>\\\\\\(\\\\{.*?\\\\}\\\\\\);/const nodo=\\(id\\)=>\\({ id, _h:\"\", set innerHTML\\(v\\){ this._h=v; if\\(id===\"cr-evwrap\"\\){ HTML = HTML.split\\(\"<!--EVW-->\"\\)[0]+\"<!--EVW-->\"+v; } else { HTML=v; } }, get innerHTML\\(\\){return this._h;}, style:{}, remove\\(\\){}, closest\\(\\){return null;}, querySelector\\(\\){return null;}, querySelectorAll\\(\\){return [];}, appendChild\\(\\){}, addEventListener\\(\\){}, setAttribute\\(\\){}, getAttribute\\(\\){return null;}, className:\"\" }\\);/s' /tmp/simu.js)",
+      "Bash(perl -0pi -e \"s/errores\\\\.push\\\\\\('SIN ACCIONES tras '\\\\+pasos\\\\+' pasos \\\\| edad='\\\\+W\\\\.__T\\\\.getG\\\\\\(\\\\\\)\\\\.edad\\\\+' \\\\| html='\\\\+HTML\\\\.replace\\\\\\(\\\\/<\\\\[^>\\\\]\\\\+>\\\\/g,' '\\\\\\)\\\\.replace\\\\\\(\\\\/\\\\\\\\\\\\\\\\s\\\\+\\\\/g,' '\\\\\\)\\\\.slice\\\\\\(0,140\\\\\\)\\\\\\);/errores.push\\('SIN ACCIONES | onclicks='+JSON.stringify\\([...HTML.matchAll\\(\\\\/onclick=\\\\\\\\\\\\\"\\([^\\\\\\\\\\\\\"]+\\)\\\\\\\\\\\\\"\\\\/g\\)].map\\(m=>m[1]\\).slice\\(0,6\\)\\)\\);/s\" /tmp/simu.js)",
+      "Bash(timeout 110 node /tmp/simu.js)",
+      "Bash(perl -0pi -e \"s/\\\\/_carrera\\\\|_vida\\\\|_momento\\\\|_verTablas\\\\|_setNumero\\\\|_confirmarNumero\\\\|_elegirNumero\\\\|retiro\\\\//\\\\/^window\\\\\\\\\\\\\\\\._\\\\|^retiro\\\\\\\\\\\\\\\\\\(\\\\//\" /tmp/simu.js)",
+      "Bash(perl -0pi -e 's/const acts=acciones\\\\\\(\\\\\\)\\\\.filter\\\\\\(a=>.*?\\\\\\);/const acts=acciones\\(\\).filter\\(a=>a.indexOf\\(\"window._\"\\)===0||a.indexOf\\(\"retiro\\(\"\\)===0\\);/s' /tmp/simu.js)",
+      "Bash(sed -i 's/canchero-carrera.js?v=20260812b/canchero-carrera.js?v=20260812c/' index.html)",
+      "Bash(git commit -m 'Leyenda: Sofia Aranda se dibuja como mujer *)",
+      "Bash(sed -n \"/^function kitClub/,+3p\" canchero-carrera.js)",
+      "Bash(sed -i 's/canchero-carrera.js?v=20260812c/canchero-carrera.js?v=20260812d/' index.html)",
+      "Bash(git commit -m 'Leyenda: continuidad entre generaciones, bebes en escala, kits y badge *)",
+      "Bash(sed -i 's/canchero-carrera.js?v=20260812d/canchero-carrera.js?v=20260812e/' index.html)",
+      "Bash(git commit -m 'Leyenda: la escena entra completa en PC, sin scroll *)",
+      "Bash(grep -n 'v.edad}</span><span style=\"flex:1;\"><b style=\"color:#fff;\">${esc\\(v.t\\)}' canchero-carrera.js)"
     ]
   }
 }
