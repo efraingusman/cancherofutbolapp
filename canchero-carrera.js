@@ -531,6 +531,8 @@ window._carreraSalir = function(){
 // ── INTRO ───────────────────────────────────────────────────────────────────────
 window._carreraStart = function(){
   const m=overlay(); const saved=load();
+  // Primera vez que alguien abre el juego: se le explica antes de tirarlo adentro.
+  if (!saved && !tutoVisto()){ window._lyComoSeJuega(0); return; }
   m.innerHTML=`
   <div style="position:relative;min-height:100%;background:#0a0c0a;">
     <!-- Fondo del juego (Maradona/Pelé/Messi/Ronaldinho/CR7): tapa toda la intro con
@@ -550,10 +552,60 @@ window._carreraStart = function(){
         <button onclick="window._carreraLen()" style="width:100%;margin-top:10px;background:${saved?'rgba(255,255,255,.06)':'linear-gradient(135deg,#16a34a,'+A+')'};color:${saved?'#fff':'#000'};border:${saved?'1px solid #2a2a2a':'none'};border-radius:15px;padding:16px;font-family:Outfit,sans-serif;font-weight:900;font-size:16px;cursor:pointer;${saved?'':'box-shadow:0 10px 30px rgba(80,220,110,.32);'}">${saved?'Nueva carrera':'EMPEZAR MI CARRERA'}</button>
         <button onclick="window._carreraRanking()" style="width:100%;margin-top:10px;background:rgba(255,255,255,.05);color:#fff;border:1px solid #242424;border-radius:15px;padding:14px;font-weight:800;font-size:14px;cursor:pointer;"><i class='bx bx-bar-chart-alt-2' style="color:${A};"></i> Ranking de leyendas</button>
         <button onclick="window._leyendaLogros()" style="width:100%;margin-top:10px;background:rgba(255,255,255,.05);color:#fff;border:1px solid #242424;border-radius:15px;padding:14px;font-weight:800;font-size:14px;cursor:pointer;"><i class='bx bx-medal' style="color:${A};"></i> Tus logros${haySesion()?'':' <span style="font-size:11px;color:#7d879a;">(iniciá sesión para guardarlos)</span>'}</button>
+        <button onclick="window._lyComoSeJuega()" style="width:100%;margin-top:10px;background:rgba(255,255,255,.05);color:#fff;border:1px solid #242424;border-radius:15px;padding:14px;font-weight:800;font-size:14px;cursor:pointer;"><i class='bx bx-help-circle' style="color:${A};"></i> Cómo se juega</button>
         <button onclick="window._lyElegirIdioma()" style="width:100%;margin-top:10px;background:rgba(255,255,255,.04);color:#c4ccc0;border:1px solid #242424;border-radius:15px;padding:12px;font-weight:800;font-size:13px;cursor:pointer;"><i class='bx bx-globe' style="color:${A};"></i> Idioma: ${esc((LY_IDIOMAS.find(x=>x.id===LY_LANG)||LY_IDIOMAS[0]).n)}</button>
       </div>
     </div>
   </div>`;
+};
+// ── CÓMO SE JUEGA ────────────────────────────────────────────────────────────
+// La primera partida se entendia a los tropezones: no quedaba claro que se
+// camina, que las decisiones son el juego, ni que la vida sigue tras el retiro.
+// Esto se muestra solo la primera vez, y despues queda a mano desde la portada.
+const LY_VISTO_TUTO = 'canchero_leyenda_tuto_v1';
+function tutoVisto(){ try { return localStorage.getItem(LY_VISTO_TUTO) === '1'; } catch(e){ return false; } }
+function tutoMarcar(){ try { localStorage.setItem(LY_VISTO_TUTO, '1'); } catch(e){} }
+const LY_TUTO_PASOS = [
+  { i:'bx-walk',        t:'Caminás vos',
+    d:'No es un menú: tu jugador camina por el barrio, el club y tu casa. Flechas o A/D en la compu, botones o tocando el piso en el celu. Si lo soltás, se maneja solo.' },
+  { i:'bx-conversation',t:'Todo pasa hablando',
+    d:'Acercate a la gente y tocá el botón de acción. Los personajes te cuentan cosas, te ofrecen negocios y te traen problemas. Podés escribirles lo que quieras y te contestan.' },
+  { i:'bx-git-branch',  t:'Las decisiones son el juego',
+    d:'Cada temporada te llegan decisiones: fichar, quedarte, pelearte, cuidar a tu familia. No hay opción correcta — hay consecuencias, y quedan para siempre.' },
+  { i:'bx-time-five',   t:'La vida no termina al retirarte',
+    d:'Después de colgar los botines elegís qué hacer: DT, comentarista, dirigente, empresario, escuela o vida tranquila. Y cuando se te acaba el tiempo, tu nieto toma la posta.' }
+];
+window._lyComoSeJuega = function(paso){
+  paso = paso || 0;
+  const P = LY_TUTO_PASOS[paso]; if(!P){ tutoMarcar(); window._carreraStart(); return; }
+  const ultimo = paso === LY_TUTO_PASOS.length - 1;
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="min-height:100%;background:radial-gradient(120% 80% at 50% 0%, #16200e 0%, #0a0c0a 60%);display:flex;flex-direction:column;">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:34px 24px;max-width:460px;margin:0 auto;">
+      <div style="width:82px;height:82px;border-radius:50%;background:rgba(186,255,0,.1);border:2px solid ${A}55;display:flex;align-items:center;justify-content:center;margin-bottom:22px;">
+        <i class='bx ${P.i}' style="font-size:40px;color:${A};"></i>
+      </div>
+      <div style="font-size:10px;font-weight:900;letter-spacing:2.6px;color:${A};margin-bottom:11px;">PASO ${paso+1} DE ${LY_TUTO_PASOS.length}</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:27px;color:#fff;line-height:1.15;margin-bottom:13px;">${P.t}</div>
+      <div style="font-size:14.5px;color:#b9c4ad;line-height:1.65;">${P.d}</div>
+      <div style="display:flex;gap:7px;margin-top:26px;">
+        ${LY_TUTO_PASOS.map((_,i)=>`<div style="width:${i===paso?22:7}px;height:7px;border-radius:4px;background:${i===paso?A:'rgba(255,255,255,.18)'};transition:.2s;"></div>`).join('')}
+      </div>
+    </div>
+    <div style="max-width:460px;margin:0 auto;width:100%;padding:0 24px calc(30px + env(safe-area-inset-bottom));box-sizing:border-box;display:flex;gap:9px;">
+      <button onclick="${paso===0?'window._lyTutoSalir()':`window._lyComoSeJuega(${paso-1})`}" style="background:rgba(255,255,255,.05);border:1px solid #2a3222;color:#cfd8c6;border-radius:14px;padding:15px 20px;font-weight:900;font-size:14px;cursor:pointer;">${paso===0?'Saltar':'Atrás'}</button>
+      <button onclick="${ultimo?'window._lyTutoSalir()':`window._lyComoSeJuega(${paso+1})`}" style="flex:1;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">${ultimo?'¡Dale, a jugar!':'Siguiente'} <i class='bx bx-right-arrow-alt'></i></button>
+    </div>
+  </div>`;
+};
+window._lyTutoSalir = function(){ tutoMarcar(); window._carreraStart(); };
+// Elegiste "solo la carrera" pero al final te dieron ganas de seguir: se puede.
+window._lySeguirVida = function(){
+  if(!G) return;
+  G.alcance = 'todo';
+  save();
+  retiro();
 };
 
 
@@ -957,9 +1009,21 @@ window._carreraLen = function(){
         <div style="font-size:10px;color:#999;margin-top:3px;">${d[2]}</div>
       </button>`).join('')}
     </div>
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:16px;color:#fff;margin:22px 0 4px;">¿Hasta dónde querés jugar?</div>
+    <div style="font-size:12px;color:#8a8f96;margin-bottom:12px;">Podés quedarte solo con la carrera del jugador, o seguir la vida entera.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="cr-alc-row">
+      ${[['todo','Vida completa','Carrera + retiro + legado del nieto',A],['carrera','Solo la carrera','Termina cuando colgás los botines','#4fc3f7']].map(d=>`<button data-alc="${d[0]}" onclick="window._crAlcance='${d[0]}';document.querySelectorAll('#cr-alc-row button').forEach(function(b){b.style.borderColor='#262626';b.style.background='rgba(255,255,255,.04)'});this.style.borderColor='${d[3]}';this.style.background='rgba(255,255,255,.08)';" style="background:rgba(255,255,255,.04);border:1.5px solid #262626;border-radius:14px;padding:13px 10px;cursor:pointer;text-align:left;">
+        <div style="font-weight:900;font-size:13.5px;color:${d[3]};">${d[1]}</div>
+        <div style="font-size:10.5px;color:#999;margin-top:4px;line-height:1.4;">${d[2]}</div>
+      </button>`).join('')}
+    </div>
   </div>`;
   if(!window._crDif) window._crDif='normal';
-  setTimeout(function(){ var b=document.querySelector('#cr-dif-row button[data-dif="'+(window._crDif)+'"]'); if(b){ b.style.borderColor=A; b.style.background='rgba(255,255,255,.08)'; } },30);
+  if(!window._crAlcance) window._crAlcance='todo';
+  setTimeout(function(){
+    var b=document.querySelector('#cr-dif-row button[data-dif="'+(window._crDif)+'"]'); if(b){ b.style.borderColor=A; b.style.background='rgba(255,255,255,.08)'; }
+    var a=document.querySelector('#cr-alc-row button[data-alc="'+(window._crAlcance)+'"]'); if(a){ a.style.borderColor=(window._crAlcance==='todo'?A:'#4fc3f7'); a.style.background='rgba(255,255,255,.08)'; }
+  },30);
 };
 
 // ── IDENTIDAD ───────────────────────────────────────────────────────────────────
@@ -2481,6 +2545,7 @@ window._carreraIdent = function(years){
   _draft = _draft || { years, apellido:(me().name||'').split(' ').slice(-1)[0]||'', num:10, pie:'Derecha', pais:(me().nat||me().country||'Uruguay'), pos:'DC', filtro:'', avatar:avatarDefault() };
   if(!_draft.avatar) _draft.avatar = avatarDefault();
   _draft.dif = window._crDif || 'normal';
+  _draft.alcance = window._crAlcance || 'todo';   // 'todo' | 'carrera'
   _draft.years = years;
   renderIdent();
 };
@@ -2932,7 +2997,7 @@ window._carreraFichar = function(i){
     estilo: d._potStyle || null, potBonus,
     // Avatar 8-bit diseñado por el jugador (evoluciona con la edad y el club).
     avatar: d.avatar || avatarDefault(),
-    dif:(d.dif||'normal'), creado:Date.now()
+    dif:(d.dif||'normal'), alcance:(d.alcance||'todo'), creado:Date.now()
   };
   save();
   window._elegirRepre('primero');       // de pibe ya elegís quién te maneja
@@ -5725,19 +5790,36 @@ function retiro(){
    .cr-fade{animation:crFadeUp .6s cubic-bezier(.2,1,.3,1) both}
    .cr-fade-d1{animation-delay:.12s}.cr-fade-d2{animation-delay:.24s}.cr-fade-d3{animation-delay:.36s}.cr-fade-d4{animation-delay:.48s}</style>
   <div style="max-width:640px;margin:0 auto;padding:24px 18px calc(40px + env(safe-area-inset-bottom));min-height:100%;">
-    ${(!G.segundaVida) ? `
-    <!-- ELECCIÓN DE SEGUNDA VIDA — arriba, prominente para que no quede enterrada -->
-    <div class="cr-fade" style="background:linear-gradient(160deg,rgba(167,139,250,.12),rgba(20,22,18,.5));border:1.5px solid rgba(167,139,250,.4);border-radius:16px;padding:16px;margin-bottom:16px;">
-      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:16px;color:#fff;text-align:center;">Se acabó el fútbol. Ahora, ¿qué?</div>
-      <div style="font-size:12.5px;color:#c4ccc0;text-align:center;margin:4px 0 12px;">Elegí un camino. Vas a poder caminar tu casa, tu barrio y tu laburo, hablar con la gente y decidir, hasta los ${VIDA_LAPSOS[VIDA_LAPSOS.length-1].a}.</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button onclick="window._carreraSegundaVida('dt')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:14px 8px;color:#fff;cursor:pointer;text-align:center;" onmouseover="this.style.borderColor='${A}'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-clipboard' style="font-size:24px;color:${A};display:block;margin-bottom:4px;"></i><div style="font-weight:900;font-size:12.5px;">Ser DT</div></button>
-        <button onclick="window._carreraSegundaVida('comentarista')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:14px 8px;color:#fff;cursor:pointer;text-align:center;" onmouseover="this.style.borderColor='#64b4ff'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-microphone' style="font-size:24px;color:#64b4ff;display:block;margin-bottom:4px;"></i><div style="font-weight:900;font-size:12.5px;">Comentarista</div></button>
-        <button onclick="window._carreraSegundaVida('dirigente')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:14px 8px;color:#fff;cursor:pointer;text-align:center;" onmouseover="this.style.borderColor='#facc15'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-briefcase' style="font-size:24px;color:#facc15;display:block;margin-bottom:4px;"></i><div style="font-weight:900;font-size:12.5px;">Dirigente</div></button>
-        <button onclick="window._carreraSegundaVida('empresario')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:14px 8px;color:#fff;cursor:pointer;text-align:center;" onmouseover="this.style.borderColor='#22c55e'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-store' style="font-size:24px;color:#22c55e;display:block;margin-bottom:4px;"></i><div style="font-weight:900;font-size:12.5px;">Empresario</div></button>
-        <button onclick="window._carreraSegundaVida('escuela')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:14px 8px;color:#fff;cursor:pointer;text-align:center;" onmouseover="this.style.borderColor='#f97316'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-award' style="font-size:24px;color:#f97316;display:block;margin-bottom:4px;"></i><div style="font-weight:900;font-size:12.5px;">Escuela</div></button>
-        <button onclick="window._carreraSegundaVida('disfrutar')" style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:14px 8px;color:#fff;cursor:pointer;text-align:center;" onmouseover="this.style.borderColor='#a78bfa'" onmouseout="this.style.borderColor='#1c1c1c'"><i class='bx bx-glasses' style="font-size:24px;color:#a78bfa;display:block;margin-bottom:4px;"></i><div style="font-weight:900;font-size:12.5px;">Disfrutar</div></button>
+    ${(!G.segundaVida && G.alcance !== 'carrera') ? `
+    <!-- ELECCIÓN DE SEGUNDA VIDA — cada camino se explica, con su color y lo que
+         mide. Antes eran seis botones iguales con un icono y no se entendia en
+         que se diferenciaban. -->
+    <div class="cr-fade" style="background:linear-gradient(160deg,rgba(167,139,250,.12),rgba(20,22,18,.5));border:1.5px solid rgba(167,139,250,.4);border-radius:18px;padding:17px;margin-bottom:16px;">
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;color:#fff;text-align:center;">Se acabó el fútbol. Ahora, ¿qué?</div>
+      <div style="font-size:12.5px;color:#c4ccc0;text-align:center;margin:6px 0 14px;line-height:1.55;">Elegí un camino y vivilo hasta los ${VIDA_LAPSOS[VIDA_LAPSOS.length-1].a}: caminás tu casa, tu barrio y tu laburo, hablás con la gente y decidís.</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${['dt','comentarista','dirigente','empresario','escuela','disfrutar'].map(id=>{
+          const R = VIDA_ROLES[id];
+          const mide = R.barras.filter(b=>b[1]!=='salud').map(b=>b[0].toLowerCase()).join(' · ');
+          return `<button onclick="window._carreraSegundaVida('${id}')" style="width:100%;display:flex;align-items:center;gap:12px;background:linear-gradient(160deg,${R.color}12,rgba(13,16,13,.7));border:1.5px solid ${R.color}3a;border-radius:14px;padding:13px 14px;color:#fff;cursor:pointer;text-align:left;" onmouseover="this.style.borderColor='${R.color}'" onmouseout="this.style.borderColor='${R.color}3a'">
+            <div style="width:42px;height:42px;flex-shrink:0;border-radius:11px;background:${R.color}1e;border:1px solid ${R.color}55;display:flex;align-items:center;justify-content:center;">
+              <i class='bx ${R.icon}' style="font-size:23px;color:${R.color};"></i>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:15px;color:${R.color};line-height:1.2;">${R.n}</div>
+              <div style="font-size:11.5px;color:#b3bda8;margin-top:4px;line-height:1.45;">${esc(R.intro)}</div>
+              <div style="font-size:9.5px;color:#6f7a65;font-weight:800;letter-spacing:.6px;margin-top:5px;text-transform:uppercase;">Se mide por: ${esc(mide)}</div>
+            </div>
+            <i class='bx bx-chevron-right' style="font-size:22px;color:${R.color};flex-shrink:0;"></i>
+          </button>`;
+        }).join('')}
       </div>
+    </div>` : ''}
+    ${(G.alcance === 'carrera' && !G.segundaVida) ? `
+    <div class="cr-fade" style="background:linear-gradient(160deg,rgba(79,195,247,.1),rgba(20,22,18,.5));border:1.5px solid rgba(79,195,247,.35);border-radius:16px;padding:15px;margin-bottom:16px;text-align:center;">
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:16px;color:#fff;">Hasta acá llega tu carrera</div>
+      <div style="font-size:12.5px;color:#c4ccc0;margin:6px 0 12px;line-height:1.55;">Elegiste jugar solo la carrera del jugador. Si querés seguir con la vida después del retiro, el legado y todo lo demás, podés hacerlo igual.</div>
+      <button onclick="window._lySeguirVida()" style="width:100%;background:rgba(255,255,255,.06);border:1px solid #2a3222;color:#cfd8c6;border-radius:12px;padding:12px;font-weight:900;font-size:13px;cursor:pointer;">Seguir con la vida después del retiro</button>
     </div>` : ''}
     <!-- HERO -->
     <div class="cr-fade" style="position:relative;background:radial-gradient(120% 90% at 50% 0%,${leyenda?'#3a2a06':'#14340f'} 0%,#0a0c0a 60%);border:1px solid ${rangoColor}55;border-radius:22px;padding:22px 18px 20px;overflow:hidden;text-align:center;">
@@ -7529,6 +7611,175 @@ function gestionAsegurar(){
   }
   return G.gestion;
 }
+// ══════════════════════════════════════════════════════════════════════════════
+// EL ESCRITORIO DEL DT
+// Faltaba lo mas basico del oficio: ver a quien dirigis, comprar y vender, saber
+// en que puesto quedaste y mirar lo que ganaste. Sin esto "ser DT" eran cuatro
+// decisiones sueltas y nada mas.
+// ══════════════════════════════════════════════════════════════════════════════
+const DT_POS = ['ARQ','DEF','DEF','DEF','DEF','MED','MED','MED','DEL','DEL','DEL'];
+// Genera un jugador coherente con la fuerza del club y el pais de la liga.
+function dtJugador(str, pais, pos){
+  const edad = ri(17, 35);
+  // Los pibes valen menos ahora pero pueden crecer; los veteranos ya no.
+  const base = clamp(str + ri(-12, 10), 35, 96);
+  const nivel = clamp(edad <= 20 ? base - ri(3,9) : edad >= 33 ? base - ri(2,7) : base, 32, 96);
+  const proy = edad <= 21 ? clamp(nivel + ri(4, 16), nivel, 97) : nivel;
+  return {
+    n: pick(NOMBRES_M) + ' ' + apellidoDe(pais),
+    pos: pos || pick(DT_POS), edad, nivel, proy,
+    valor: Math.round(Math.pow(nivel/10, 4) * (edad <= 23 ? 1.5 : edad >= 32 ? 0.45 : 1) * 900)
+  };
+}
+// Arma (una sola vez) el plantel del club que dirigis. Si cambiaste de club, se
+// rehace: no podes seguir dirigiendo a los jugadores del equipo anterior.
+function dtPlantelAsegurar(){
+  const g = gestionAsegurar(); if(!g) return null;
+  let nuevo = false;
+  if (!g.plantel || !g.plantel.length || g._plantelDe !== g.club){
+    g._plantelDe = g.club;
+    g.plantel = DT_POS.concat(shuffle(DT_POS).slice(0,7)).map(p => dtJugador(g.str, g.pais || G.pais, p));
+    g.plantel.sort((a,b)=> DT_POS.indexOf(a.pos) - DT_POS.indexOf(b.pos) || b.nivel - a.nivel);
+    nuevo = true;
+  }
+  if (!g.mercado || g._mercadoTemp !== (G.vidaLapso||0)){
+    g._mercadoTemp = G.vidaLapso || 0;
+    g.mercado = Array.from({length:6}, ()=> dtJugador(g.str + 6, pick([g.pais||G.pais,'Argentina','Brasil','Uruguay']), null));
+    nuevo = true;
+  }
+  // Se GUARDA apenas se genera. Sin esto el plantel se rearmaba de cero cada vez
+  // que abrias el escritorio: otros nombres, otros numeros, nada tuyo.
+  if (nuevo) save();
+  return g;
+}
+function dtMediaPlantel(g){
+  const p = (g.plantel||[]); if(!p.length) return g.str||58;
+  return Math.round(p.slice(0,11).reduce((s,j)=>s+j.nivel,0) / Math.min(11, p.length));
+}
+// Tabla de posiciones del torneo que dirigis, con tu equipo marcado.
+function dtTabla(){
+  const g = dtPlantelAsegurar(); if(!g) return [];
+  if (g._tabla && g._tablaTemp === (G.vidaLapso||0)) return g._tabla;
+  const L = LIGAS.find(x=>x.liga===g.liga);
+  const rivales = L ? L.clubs.filter(c=>c[0]!==g.club).slice(0,13) : [];
+  const media = dtMediaPlantel(g);
+  const filas = rivales.map(c=>({ club:c[0], str:c[1], pts: Math.round(c[1]*0.75 + rnd(-11,11)) }));
+  filas.push({ club:g.club, str:media, pts: Math.round(media*0.75 + rnd(-6,14)), yo:true });
+  filas.sort((a,b)=> b.pts - a.pts);
+  g._tabla = filas; g._tablaTemp = G.vidaLapso||0;
+  return filas;
+}
+window._vjEscritorio = function(tab){
+  const g = dtPlantelAsegurar(); if(!g){ window._carreraHub(); return; }
+  tab = tab || 'plantel';
+  const R = VIDA_ROLES[G.vidaRol] || VIDA_ROLES.dt;
+  const col = R.color;
+  const m = document.getElementById('carrera-modal') || overlay();
+  const tabBtn = (id, lbl, ic) => `<button onclick="window._vjEscritorio('${id}')" style="flex:1;background:${tab===id?col+'1e':'transparent'};border:0;border-bottom:2px solid ${tab===id?col:'transparent'};color:${tab===id?col:'#7d8a74'};padding:11px 4px;font-weight:900;font-size:11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;"><i class='bx ${ic}' style="font-size:16px;"></i>${lbl}</button>`;
+  const fichaJug = (j, extra) => `
+    <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border:1px solid #232a1f;border-radius:12px;padding:9px 11px;">
+      <div style="width:34px;height:26px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${col}1c;border:1px solid ${col}44;border-radius:7px;font-size:9.5px;font-weight:900;color:${col};">${j.pos}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12.5px;font-weight:900;color:#e9efe2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(j.n)}</div>
+        <div style="font-size:10px;color:#79836f;font-weight:700;margin-top:2px;">${j.edad} años${j.proy>j.nivel?` · proyección ${j.proy}`:''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:16px;font-weight:900;color:${j.nivel>=80?'#facc15':j.nivel>=68?col:'#9aa48f'};line-height:1;">${j.nivel}</div>
+        <div style="font-size:9px;color:#6b7362;font-weight:800;margin-top:2px;">${eur(j.valor)}</div>
+      </div>
+      ${extra||''}
+    </div>`;
+  let cuerpo = '';
+  if (tab === 'plantel'){
+    const media = dtMediaPlantel(g);
+    cuerpo = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:13px;">
+        ${[['MEDIA XI',media],['JUGADORES',(g.plantel||[]).length],['AÑOS ACÁ',g.anios||0]].map(c=>`
+          <div style="background:rgba(255,255,255,.04);border:1px solid #232a1f;border-radius:11px;padding:10px 4px;text-align:center;">
+            <div style="font-size:18px;font-weight:900;color:#fff;line-height:1;">${c[1]}</div>
+            <div style="font-size:8px;color:#79836f;font-weight:900;letter-spacing:1px;margin-top:4px;">${c[0]}</div>
+          </div>`).join('')}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${(g.plantel||[]).map((j,i)=>fichaJug(j, `<button onclick="window._dtVender(${i})" title="Vender" style="flex-shrink:0;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#f87171;border-radius:8px;padding:6px 8px;font-size:11px;font-weight:900;cursor:pointer;">Vender</button>`)).join('')}
+      </div>`;
+  } else if (tab === 'mercado'){
+    cuerpo = `
+      <div style="background:rgba(250,204,21,.07);border:1px solid rgba(250,204,21,.28);border-radius:12px;padding:11px 13px;margin-bottom:12px;">
+        <div style="font-size:9px;font-weight:900;letter-spacing:1.4px;color:#facc15;">CAJA DEL CLUB</div>
+        <div style="font-size:19px;font-weight:900;color:#fff;margin-top:3px;">${eur(G.dinero||0)}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${(g.mercado||[]).map((j,i)=>fichaJug(j, `<button onclick="window._dtFichar(${i})" style="flex-shrink:0;background:${col}1e;border:1px solid ${col}55;color:${col};border-radius:8px;padding:6px 9px;font-size:11px;font-weight:900;cursor:pointer;">Fichar</button>`)).join('')}
+      </div>
+      <div style="font-size:11px;color:#79836f;line-height:1.55;margin-top:11px;">El mercado se renueva cada tramo. Los pibes con proyección alta valen menos hoy de lo que van a valer.</div>`;
+  } else if (tab === 'tabla'){
+    const filas = dtTabla();
+    const miPos = filas.findIndex(f=>f.yo) + 1;
+    cuerpo = `
+      <div style="background:${col}12;border:1px solid ${col}40;border-radius:12px;padding:12px 14px;margin-bottom:12px;">
+        <div style="font-size:9px;font-weight:900;letter-spacing:1.4px;color:${col};">${esc(g.liga||'')}</div>
+        <div style="font-size:15px;font-weight:900;color:#fff;margin-top:4px;">${esc(g.club)} va ${miPos}º de ${filas.length}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        ${filas.map((f,i)=>`
+          <div style="display:flex;align-items:center;gap:9px;background:${f.yo?col+'16':'rgba(255,255,255,.03)'};border:1px solid ${f.yo?col+'50':'#1e241a'};border-radius:9px;padding:8px 11px;">
+            <span style="width:19px;font-size:11px;font-weight:900;color:${i===0?'#facc15':f.yo?col:'#6b7362'};">${i+1}</span>
+            <span style="flex:1;min-width:0;font-size:12px;font-weight:${f.yo?900:700};color:${f.yo?'#fff':'#b9c4ad'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(f.club)}</span>
+            <span style="font-size:12.5px;font-weight:900;color:${f.yo?col:'#8d9782'};">${f.pts}</span>
+          </div>`).join('')}
+      </div>`;
+  } else {
+    const v = G.vitrina || [];
+    cuerpo = v.length ? `
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${v.slice().reverse().map(t=>`
+          <div style="display:flex;align-items:center;gap:11px;background:rgba(250,204,21,.06);border:1px solid rgba(250,204,21,.22);border-radius:12px;padding:10px 12px;">
+            <div style="flex-shrink:0;">${trofeoRender(t.nombre, 34)}</div>
+            <div style="min-width:0;">
+              <div style="font-size:12.5px;font-weight:900;color:#fff;">${esc(t.nombre)}</div>
+              <div style="font-size:10px;color:#79836f;font-weight:700;margin-top:2px;">${esc(t.club||'')}${t.edad?` · a los ${t.edad}`:''}</div>
+            </div>
+          </div>`).join('')}
+      </div>`
+      : `<div style="text-align:center;padding:34px 16px;color:#79836f;font-size:13px;line-height:1.6;"><i class='bx bx-trophy' style="font-size:38px;display:block;margin-bottom:10px;opacity:.4;"></i>Todavía no ganaste nada.<br>La vitrina se llena dirigiendo.</div>`;
+  }
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:26px 16px calc(28px + env(safe-area-inset-bottom));">
+    <div style="font-size:10px;font-weight:900;letter-spacing:2.2px;color:${col};margin-bottom:7px;">${esc(String(R.n).toUpperCase())}</div>
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:23px;color:#fff;line-height:1.15;margin-bottom:3px;">${esc(g.club)}</div>
+    <div style="font-size:12px;color:#8d9782;font-weight:700;margin-bottom:16px;">${esc(g.liga||'')} · ${g.titulos||0} título${(g.titulos||0)===1?'':'s'} dirigiendo</div>
+    <div style="display:flex;background:rgba(255,255,255,.03);border:1px solid #232a1f;border-radius:13px;overflow:hidden;margin-bottom:15px;">
+      ${tabBtn('plantel','Plantel','bx-group')}${tabBtn('mercado','Mercado','bx-transfer')}${tabBtn('tabla','Tabla','bx-list-ol')}${tabBtn('vitrina','Vitrina','bx-trophy')}
+    </div>
+    ${cuerpo}
+    <button onclick="window._vidaJugable()" style="width:100%;margin-top:18px;background:rgba(255,255,255,.05);border:1px solid #2a3222;color:#cfd8c6;border-radius:13px;padding:14px;font-weight:900;font-size:13.5px;cursor:pointer;">Volver</button>
+  </div>`;
+};
+window._dtFichar = function(i){
+  const g = dtPlantelAsegurar(); if(!g) return;
+  const j = (g.mercado||[])[i]; if(!j) return;
+  if ((G.dinero||0) < j.valor){ alert('No te alcanza la caja para fichar a ' + j.n + '.'); return; }
+  G.dinero = (G.dinero||0) - j.valor;
+  g.plantel.push(j);
+  g.plantel.sort((a,b)=> DT_POS.indexOf(a.pos) - DT_POS.indexOf(b.pos) || b.nivel - a.nivel);
+  g.mercado.splice(i,1);
+  g.str = clamp(Math.round((g.str||58)*0.85 + dtMediaPlantel(g)*0.15), 30, 95);
+  g._tablaTemp = null;                       // la tabla se recalcula con el refuerzo
+  save();
+  window._vjEscritorio('mercado');
+};
+window._dtVender = function(i){
+  const g = dtPlantelAsegurar(); if(!g) return;
+  const j = (g.plantel||[])[i]; if(!j) return;
+  if ((g.plantel||[]).length <= 11){ alert('No podés quedarte con menos de once. Fichá antes de vender.'); return; }
+  G.dinero = (G.dinero||0) + Math.round(j.valor * 0.85);
+  g.plantel.splice(i,1);
+  g.str = clamp(Math.round((g.str||58)*0.85 + dtMediaPlantel(g)*0.15), 30, 95);
+  g._tablaTemp = null;
+  save();
+  window._vjEscritorio('plantel');
+};
 // Los clubes a los que podés ir según cómo te fue.
 function clubesParaDirigir(){
   const g = gestionAsegurar(); if(!g) return [];
@@ -7904,6 +8155,10 @@ function vjHotspotsBase(){
       out.push({ x:Math.round(W*0.42), tipo:'npc', semilla:'jefe'+G.vidaRol, ropa: G.vidaRol==='escuela'?'escuela':'traje',
         edad:58, lbl: vjNombreJefe(), accion:'rol', icono:R.icon });
       out.push({ x:Math.round(W*0.74), tipo:'obj', obj:'trabajo', lbl:'Ponerte a laburar', accion:'trabajar', icono:'bx-wrench' });
+      // EL ESCRITORIO: plantel, mercado de pases, tabla y vitrina. Lo que faltaba
+      // para que dirigir se sienta como dirigir y no como elegir opciones sueltas.
+      if (G.vidaRol === 'dt')
+        out.push({ x:Math.round(W*0.58), tipo:'obj', obj:'trabajo', lbl:'Tu escritorio — plantel, mercado y tabla', accion:'escritorio', icono:'bx-clipboard', destacado:true });
       if (G.vidaRol === 'dt' || G.vidaRol === 'dirigente' || G.vidaRol === 'escuela')
         out.push({ x:Math.round(W*0.16), tipo:'obj', obj:'descanso', lbl:'Pedir una licencia', accion:'licencia', icono:'bx-pause' });
     }
@@ -8701,6 +8956,7 @@ function vjInteractuar(){
     case 'mercado':      vjDetener(); window._carreraMercadoForzado(); return;
     case 'consejo':      vjConsejoRepre(); return;
     case 'gestion':      vjDetener(); window._vjGestion(); return;
+    case 'escritorio':   vjDetener(); window._vjEscritorio('plantel'); return;
     case 'cambiarRepre': vjDetener(); window._elegirRepre('cambio'); return;
     case 'bienes':       vjDetener(); window._carreraBienes(); return;
     case 'tablas':       vjDetener(); if(G._tablasData) window._verTablas('pos'); else vjFlash('Todavía no jugaste una temporada completa.'); return;
