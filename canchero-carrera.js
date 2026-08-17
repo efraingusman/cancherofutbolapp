@@ -8942,7 +8942,7 @@ function mundoRender(){
   const hud = vjHud();
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
-  <div style="height:100dvh;max-height:100dvh;overflow:hidden;background:#05070a;display:flex;flex-direction:column;">
+  <div style="height:100%;max-height:100%;overflow:hidden;background:#05070a;display:flex;flex-direction:column;">
     <div style="position:sticky;top:0;z-index:6;background:linear-gradient(180deg,rgba(5,7,10,.97),rgba(5,7,10,.86));backdrop-filter:blur(8px);border-bottom:1px solid #1a2230;padding:8px 12px;">
       <div style="max-width:720px;margin:0 auto;display:flex;align-items:center;gap:10px;padding-right:118px;">
         <div style="flex:1;min-width:0;">
@@ -9345,12 +9345,18 @@ function vjAjustarEscala(){
   // En PC el zoom por ancho llegaba a 2.4 y la escena se comía hasta 600px de
   // alto, dejando el panel de acciones fuera de la pantalla. Ahora el alto tiene
   // tope (46% del viewport) y el zoom se recalcula para respetarlo.
-  const topeAlto = Math.max(150, Math.round((window.innerHeight || 700) * 0.46));
-  let s = clamp(VW / W, 1, 2.4);
-  if (H * s > topeAlto) s = topeAlto / H;
-  view.style.height = Math.round(H * s) + 'px';
+  const topeAlto = Math.max(150, Math.round((window.innerHeight || 700) * 0.56));
+  // El zoom lo manda SIEMPRE el ancho: si se lo bajaba para respetar el tope de
+  // alto, la escena dejaba de llegar al borde y quedaba un rectangulo negro a la
+  // derecha en PC. Ahora el ancho se cubre igual y lo que sobra de alto se
+  // recorta ARRIBA (cielo), anclando la capa abajo: el piso nunca se pierde.
+  const s = clamp(VW / W, 1, 2.4);
+  view.style.height = Math.min(Math.round(H * s), topeAlto) + 'px';
+  capa.style.transformOrigin = 'left bottom';
   capa.style.transform = 'scale(' + s.toFixed(3) + ')';
   capa.style.left = '0px';
+  capa.style.top = 'auto';
+  capa.style.bottom = '0px';
   VJ.escala = s;
 }
 function vjCambiarEscena(nueva, entrarPor){
