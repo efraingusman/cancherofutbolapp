@@ -512,6 +512,7 @@ function epocaEtiqueta(a){
 function esStandalone(){ return !!window.CANCHERO_LEYENDA_STANDALONE; }
 window._carreraSalir = function(){
   try { vjDetener(); } catch(e){}
+  try { window._lyAuto(false); } catch(e){}   // el automático no sobrevive a salir
   try { if (G) save(); } catch(e){}
   // En la página propia no hay app detrás: salir del juego es volver a SU portada,
   // no dejar la pantalla en negro.
@@ -3041,6 +3042,78 @@ const JUVENILES_POOL = [
 function juvenilesDeCarrera(){ return shuffle(JUVENILES_POOL).slice(0,3); }
 // Edad de retiro: la duración elegida se cuenta desde el DEBUT (17 o 18), no desde 16.
 function edadRetiro(){ return ((G&&G.debutEdad)||16) + ((G&&G.years)||10); }
+// ── SE VIENE EL RETIRO ───────────────────────────────────────────────────────
+// El final llegaba de golpe: jugabas una temporada mas y de golpe se acababa
+// todo. Ahora los ultimos años se avisan, para que la despedida se sienta venir
+// y puedas decidir como querés cerrarla.
+function anosParaRetiro(){ return edadRetiro() - ((G&&G.edad)||0); }
+// ── EL PARTIDO HOMENAJE ──────────────────────────────────────────────────────
+// El club donde MAS temporadas jugaste te despide, y del otro lado está tu
+// selección. Es la escena que le faltaba al final: la carrera no termina en una
+// planilla de numeros, termina con el estadio de pie.
+function clubMasJugado(){
+  const c = {};
+  (G && G.timeline || []).forEach(t=>{ if(t.club) c[t.club] = (c[t.club]||0) + 1; });
+  let mejor = null, max = 0;
+  Object.keys(c).forEach(k=>{ if(c[k] > max){ max = c[k]; mejor = k; } });
+  return { club: mejor || (G && G.club) || '—', temporadas: max };
+}
+function homenajeHTML(){
+  if(!G || !G.tot) return '';
+  const H = clubMasJugado();
+  const sel = 'Selección de ' + (G.pais || 'Uruguay');
+  const publico = clamp(28000 + (G.titulos||0)*6000 + Math.round((G.nivelMax||G.nivel||60)*280), 12000, 85000);
+  const idolo = ((G.idolatria||{})[H.club]||0) >= 40;
+  return `
+  <div class="cr-fade cr-fade-d1" style="margin-top:16px;background:linear-gradient(165deg,rgba(250,204,21,.1),rgba(10,13,8,.72));border:1.5px solid rgba(250,204,21,.36);border-radius:18px;padding:17px;">
+    <div style="font-size:9.5px;font-weight:900;letter-spacing:2px;color:#facc15;margin-bottom:9px;">TU PARTIDO DESPEDIDA</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:13px;margin-bottom:13px;">
+      <div style="text-align:center;flex:1;min-width:0;">
+        ${clubBadge(H.club, 44)}
+        <div style="font-size:11px;font-weight:900;color:#e9efe2;margin-top:6px;line-height:1.25;">${esc(H.club)}</div>
+      </div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:15px;color:#facc15;flex-shrink:0;">VS</div>
+      <div style="text-align:center;flex:1;min-width:0;">
+        <div style="display:flex;justify-content:center;">${flagImg(G.pais, 40) || clubBadge(sel, 44)}</div>
+        <div style="font-size:11px;font-weight:900;color:#e9efe2;margin-top:6px;line-height:1.25;">${esc(sel)}</div>
+      </div>
+    </div>
+    <div style="font-size:13px;color:#d8dfcd;line-height:1.65;">
+      ${esc(H.club)} te despidió con un amistoso contra ${esc(sel)}. ${publico.toLocaleString('es')} personas, la camiseta con tu apellido colgada del alambrado y tus hijos en el círculo central.
+      ${idolo ? 'Saliste a los veinte minutos y el estadio entero se puso de pie hasta que llegaste al túnel.' : 'Jugaste veinte minutos. Los que fueron, fueron por vos.'}
+      Cuando levantaste la mano para saludar, ya no eras un jugador: eras un recuerdo.
+    </div>
+    <div style="display:flex;gap:7px;margin-top:12px;">
+      <div style="flex:1;background:rgba(0,0,0,.3);border-radius:10px;padding:9px 4px;text-align:center;">
+        <div style="font-size:15px;font-weight:900;color:#facc15;line-height:1;">${publico.toLocaleString('es')}</div>
+        <div style="font-size:8px;color:#8a9280;font-weight:900;letter-spacing:1px;margin-top:4px;">EN EL ESTADIO</div>
+      </div>
+      <div style="flex:1;background:rgba(0,0,0,.3);border-radius:10px;padding:9px 4px;text-align:center;">
+        <div style="font-size:15px;font-weight:900;color:#facc15;line-height:1;">${H.temporadas || 1}</div>
+        <div style="font-size:8px;color:#8a9280;font-weight:900;letter-spacing:1px;margin-top:4px;">TEMP. EN EL CLUB</div>
+      </div>
+    </div>
+  </div>`;
+}
+function avisoRetiroHTML(){
+  if(!G) return '';
+  const faltan = anosParaRetiro();
+  if (faltan > 3 || faltan < 0) return '';
+  const txt = faltan <= 0
+    ? 'Esta es tu última temporada. Lo que hagas ahora es lo último que van a recordar.'
+    : faltan === 1
+      ? 'Te queda una temporada más. En el vestuario ya hablan de tu despedida.'
+      : faltan === 2
+        ? 'El cuerpo ya no responde como antes. Quedan dos temporadas, y la prensa lo sabe.'
+        : 'Empezaron a preguntarte en cada nota hasta cuándo vas a jugar. Quedan tres temporadas.';
+  return `<div style="margin-top:12px;display:flex;align-items:flex-start;gap:10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.34);border-radius:13px;padding:12px 13px;">
+    <i class='bx bx-hourglass' style="font-size:19px;color:#f59e0b;flex-shrink:0;margin-top:1px;"></i>
+    <div style="min-width:0;">
+      <div style="font-size:9px;font-weight:900;letter-spacing:1.5px;color:#f59e0b;">EL FINAL SE ACERCA</div>
+      <div style="font-size:12.5px;color:#e2d9c4;line-height:1.5;margin-top:4px;">${txt}</div>
+    </div>
+  </div>`;
+}
 window._carreraJuveniles = function(paso){
   paso = paso || 0;
   if(!G){ G=load(); if(!G){ window._carreraStart(); return; } }
@@ -3275,11 +3348,13 @@ window._carreraHub = function(){
         ${(function(){ const R=G.rival; if(!R||!(R.ganados+R.perdidos)) return ''; const rel=R.relacion||0; const relTxt=rel<=-40?'Te odia':rel<=-15?'Rivalidad picante':rel>=30?'Respeto mutuo':'Rivalidad'; return `<div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.03);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:8px 12px;"><div style="font-size:11px;color:#8a8f96;font-weight:800;"><i class='bx bx-target-lock' style="color:#ef4444;"></i> Duelo con ${esc(R.nombre)} · ${relTxt}</div><div style="font-size:12px;font-weight:900;color:#fff;"><span style="color:#22c55e;">${R.ganados}</span>—<span style="color:#ef4444;">${R.perdidos}</span></div></div>`; })()}
         ${(function(){ const F=G.flags||{}; const badges=[]; if(F.marcado) badges.push(['En el banco','#ef4444']); if(F.pidioSalida) badges.push(['Pidió salida','#f59e0b']); if(F.rechazoRenov) badges.push(['Transferible','#f59e0b']); if(F.traidor) badges.push(['Traidor','#ef4444']); if(F.dopado&&!F.suspendido) badges.push(['Zona gris','#f59e0b']); if(F.suspendido) badges.push(['Sancionado','#ef4444']); if(F.ludopata) badges.push(['Ludopatía','#f59e0b']); if(F.deudaMafia) badges.push(['Deuda peligrosa','#dc2626']); if(F.arreglo) badges.push(['Amaño','#dc2626']); if(F.filantropo) badges.push(['Filántropo','#22c55e']); if(F.limpio) badges.push(['Limpio','#22c55e']); if(F.redimido) badges.push(['Redimido','#4fc3f7']); if(F.doblenac) badges.push(['Doble nacionalidad','#a78bfa']); if(F.villano) badges.push(['Villano','#ef4444']); if(!badges.length) return ''; return `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;">${badges.map(b=>`<span style="background:${b[1]}18;border:1px solid ${b[1]}55;color:${b[1]};border-radius:20px;padding:3px 9px;font-size:10px;font-weight:800;">${b[0]}</span>`).join('')}</div>`; })()}
         ${(function(){ const v=(G.idolatria&&G.idolatria[G.club])||0; const lbl=v>=70?'ÍDOLO ETERNO':v>=40?'Ídolo':v>=15?'Querido':v>=-10?'Uno más':v>=-40?'Cuestionado':'Odiado'; const col=v>=40?A:v>=15?'#4fc3f7':v>=-10?'#aaa':v>=-40?'#f59e0b':'#ef4444'; return `<div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.03);border:1px solid ${col}44;border-radius:10px;padding:8px 12px;"><div style="font-size:11px;color:#8a8f96;font-weight:800;"><i class='bx bx-heart' style="color:${col};"></i> Hinchada de ${esc(G.club)}</div><div style="font-size:12px;font-weight:900;color:${col};">${lbl} · ${v>0?'+':''}${v}</div></div>`; })()}
+        ${avisoRetiroHTML()}
         <button onclick="window._carreraTemporada()" style="width:100%;margin-top:14px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:12px;padding:14px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">${G.edad>=edadRetiro()?'VER RETIRO':'JUGAR TEMPORADA '+G.temporada}  <i class='bx bx-right-arrow-alt'></i></button>
         <div style="display:flex;gap:8px;margin-top:8px;">
           <button onclick="window._carreraPedirSalida()" style="flex:1;background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:12px;padding:11px;font-weight:800;font-size:12px;cursor:pointer;"><i class='bx bx-log-out'></i> Pedir salida</button>
           <button onclick="window._carreraBienes()" style="flex:1;background:rgba(250,204,21,.08);color:#facc15;border:1px solid rgba(250,204,21,.3);border-radius:12px;padding:11px;font-weight:800;font-size:12px;cursor:pointer;"><i class='bx bx-wallet'></i> Mis bienes</button>
         </div>
+        <button onclick="window._lyAuto(true)" style="width:100%;margin-top:8px;background:rgba(167,139,250,.1);color:#c4b5fd;border:1px solid rgba(167,139,250,.35);border-radius:12px;padding:11px;font-weight:800;font-size:12px;cursor:pointer;"><i class='bx bx-play-circle'></i> Ver la carrera en automático</button>
         <button onclick="window._lyIntensidad()" style="width:100%;margin-top:8px;background:rgba(255,255,255,.04);color:#9aa48f;border:1px solid #262c22;border-radius:12px;padding:11px;font-weight:800;font-size:12px;cursor:pointer;"><i class='bx bx-slider-alt'></i> Ritmo: ${esc((DIF_INFO.find(d=>d[0]===(G.dif||'normal'))||DIF_INFO[1])[1])} — cambiar</button>
         ${ancestros().length?`<button onclick="window._verAncestros()" style="width:100%;margin-top:8px;background:rgba(167,139,250,.08);color:#c4b5fd;border:1px solid rgba(167,139,250,.3);border-radius:12px;padding:11px;font-weight:800;font-size:12px;cursor:pointer;"><i class='bx bx-sitemap'></i> Ver la carrera de mi ${esc((ancestros()[ancestros().length-1]||{}).parentesco||'padre')}</button>`:''}
         <div style="display:none;">
@@ -5834,6 +5909,8 @@ function retiro(){
         <div style="font-size:12.5px;color:#c4ccc0;margin-top:4px;display:inline-flex;align-items:center;gap:6px;">${flagImg(G.pais,18)} ${esc(G.pais)} · <span style="color:#888;">${anios} temp. · ${anios+16-G.years+G.years}—</span></div>
       </div>
     </div>
+
+    ${homenajeHTML()}
 
     <!-- STATS TOTALES -->
     <div class="cr-fade cr-fade-d1" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px;">
@@ -10855,6 +10932,74 @@ window._lyFichaCompartir = function(){
     }).catch(soloTexto);
   }catch(e){ soloTexto(); }
 };
+// ══════════════════════════════════════════════════════════════════════════════
+// MODO AUTOMÁTICO ("play")
+// Apretás play y la vida se juega sola: el personaje decide, juega las
+// temporadas y avanza los años mientras vos mirás. En cuanto tocás Pausa (o
+// cualquier cosa de la pantalla) el control vuelve a ser tuyo, en el punto exacto
+// donde estaba. Se puede prender y apagar todas las veces que quieras.
+//
+// No simula por dentro: MANEJA LA MISMA INTERFAZ que usarías vos. Asi no hay dos
+// motores que se puedan desincronizar, y lo que ves es lo que hubiera pasado.
+// ══════════════════════════════════════════════════════════════════════════════
+let AUTO = { on:false, timer:null, pasos:0 };
+// Botones que el automático NUNCA toca: sacan del juego o borran la partida.
+const AUTO_PROHIBIDO = /(salir|volver|atr[áa]s|nueva carrera|cerrar|ranking|idioma|c[óo]mo se juega|saltar|compartir|ritmo|listo|logros|ir a canchero)/i;
+// Botones que hacen AVANZAR el juego: tienen prioridad sobre las decisiones.
+const AUTO_AVANZA = /(continuar|seguir|jugar temporada|ver retiro|empezar|dale|siguiente|entrar|confirmar|aceptar|firmar)/i;
+function autoBotones(){
+  const m = document.getElementById('carrera-modal'); if(!m) return [];
+  return Array.prototype.slice.call(m.querySelectorAll('button'))
+    .filter(b=>{
+      if (b.disabled) return false;
+      const t = (b.textContent||'').trim();
+      if (!t) return false;                       // botones de solo icono (X, flechas)
+      if (AUTO_PROHIBIDO.test(t)) return false;
+      return true;
+    });
+}
+function autoPaso(){
+  if (!AUTO.on) return;
+  try{
+    // 1) Si estás caminando por el mundo, el personaje va solo a lo importante.
+    if (VJ && VJ.activo && !document.getElementById('carrera-modal')){
+      const destacado = (VJ.hotspots||[]).filter(h=>h.destacado && !h.bloqueado && h.accion!=='nada');
+      const obj = destacado.length ? destacado[0] : null;
+      if (obj){ VJ.hot = obj; vjInteractuar(); }
+      return;
+    }
+    // 2) En pantalla: primero lo que hace avanzar, si no una decisión al azar.
+    const btns = autoBotones();
+    if (!btns.length) return;
+    const avanzar = btns.filter(b=>AUTO_AVANZA.test((b.textContent||'').trim()));
+    const elegido = avanzar.length ? avanzar[avanzar.length-1] : pick(btns);
+    AUTO.pasos++;
+    elegido.click();
+  }catch(e){ /* si algo falla, el automático no puede romper la partida */ }
+}
+window._lyAuto = function(encender){
+  AUTO.on = (encender == null) ? !AUTO.on : !!encender;
+  clearInterval(AUTO.timer); AUTO.timer = null;
+  if (AUTO.on){
+    AUTO.pasos = 0;
+    // Ritmo tranquilo: se tiene que poder LEER lo que va pasando.
+    AUTO.timer = setInterval(autoPaso, 1800);
+  }
+  autoIndicador();
+};
+// Cartelito flotante: siempre se ve si está en automático, y se apaga desde ahí.
+function autoIndicador(){
+  let d = document.getElementById('carrera-auto');
+  if (!AUTO.on){ if(d) d.remove(); return; }
+  if (!d){
+    d = document.createElement('div');
+    d.id = 'carrera-auto';
+    d.style.cssText = 'position:fixed;z-index:100071;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom, 0px) + 14px);display:flex;align-items:center;gap:9px;background:rgba(10,12,10,.92);backdrop-filter:blur(8px);border:1.5px solid '+A+'88;border-radius:22px;padding:9px 15px;box-shadow:0 6px 24px rgba(0,0,0,.6);cursor:pointer;';
+    d.innerHTML = "<i class='bx bx-pause-circle' style=\"font-size:19px;color:"+A+";\"></i><span style=\"font-size:12px;font-weight:900;letter-spacing:.6px;color:"+A+";\">AUTOMÁTICO — tocá para retomar</span>";
+    d.onclick = function(){ window._lyAuto(false); };
+    document.body.appendChild(d);
+  }
+}
 // ── SECCIÓN PLEGABLE (para que el resumen final no sea un muro infinito) ──────
 // Por defecto cerrada salvo que se pida abierta. Guarda el estado en G._abiertas.
 function seccion(id, icono, titulo, color, contenido, abierta, badge){
