@@ -75,6 +75,18 @@ async function charlaNPC(req, res) {
         hilo.map(m => ({ role: m.yo ? 'user' : 'assistant', content: String(m.t || '').slice(0, 300) }))
     );
 
+    // Un 204 mudo no dejaba saber si faltaba la key o si el proveedor rechazaba.
+    // Con ?debug=1 se consulta el estado. Nunca se devuelve el valor de una key.
+    if (req.query && req.query.debug === '1') {
+        const prueba = await pensarIA(messages);
+        return res.status(200).json({ diagnostico: {
+            groq: !!process.env.GROQ_API_KEY,
+            openrouter: !!process.env.OPENROUTER_API_KEY,
+            gemini: !!process.env.GEMINI_API_KEY,
+            openai: !!process.env.OPENAI_API_KEY,
+            resultado: prueba ? ('respondio: ' + prueba.slice(0, 80)) : 'ningun proveedor devolvio texto'
+        }});
+    }
     const txt = await pensarIA(messages);
     if (!txt) return res.status(204).end();
     res.setHeader('Cache-Control', 'no-store');
