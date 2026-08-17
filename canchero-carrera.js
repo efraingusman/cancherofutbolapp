@@ -10655,9 +10655,22 @@ function vjCharlable(h){
 // ══════════════════════════════════════════════════════════════════════════════
 function vjBurbujaEn(x, texto, ms){
   const world = document.getElementById('vj-world'); if(!world) return;
+  // Dos personajes cerca hablaban a la misma altura y los globos se pisaban: no
+  // se leía ninguno de los dos. Si hay otro globo cerca en X, este sube.
+  let piso = Math.round(250*(1-vjPisoPct())+96);
+  const otros = Array.prototype.slice.call(world.querySelectorAll('.vj-amb'));
+  for (let intentos = 0; intentos < 4; intentos++){
+    const choca = otros.some(o=>{
+      const ox = parseFloat(o.style.left) || 0;
+      const ob = parseFloat(o.style.bottom) || 0;
+      return Math.abs(ox - x) < 150 && Math.abs(ob - piso) < 34;
+    });
+    if (!choca) break;
+    piso += 38;
+  }
   const d = document.createElement('div');
   d.className = 'vj-amb';
-  d.style.cssText = 'position:absolute;left:'+x+'px;bottom:'+Math.round(250*(1-vjPisoPct())+96)+'px;'+
+  d.style.cssText = 'position:absolute;left:'+x+'px;bottom:'+piso+'px;'+
     'transform:translateX(-50%) scale('+(1/Math.max(1,(VJ.escala||1))).toFixed(3)+');transform-origin:50% 100%;'+
     'max-width:190px;background:rgba(8,11,16,.94);border:1px solid #35506b;'+
     'color:#e8eef5;border-radius:11px;padding:6px 9px;font-size:11px;font-weight:600;line-height:1.35;'+
