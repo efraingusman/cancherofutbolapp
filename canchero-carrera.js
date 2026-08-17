@@ -7514,6 +7514,54 @@ const VIDA_SUCESOS = {
       { txt:'Sacarme la foto y seguir', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+2; return 'Foto, sonrisa y a seguir. Para él fue el mejor día del año igual.'; } } ] }
   ]
 };
+// ══════════════════════════════════════════════════════════════════════════════
+// LAS LEYENDAS
+// Se los VE. Cada uno tiene su semilla fija, asi que siempre se dibuja igual: el
+// mismo pelo, la misma ropa, la misma cara. Aparecen solo cuando tu fama alcanza,
+// porque a un desconocido no lo invita nadie a su jet.
+// Los nombres son parecidos pero inventados — nadie es nadie de verdad.
+// ══════════════════════════════════════════════════════════════════════════════
+const LEYENDAS = [
+  { id:'ronaldino', n:'Ronaldino',  semilla:'leyRonaldino', ropa:'calle', edad:44, gen:'m', fama:55,
+    t:'Ronaldino te invita a jugar en la playa',
+    d:'Te llega un audio de dos minutos, medio en portugués y medio riéndose. Es Ronaldino: armó un picadito en la playa y quiere que vayas.',
+    opts:[
+      { txt:'Ir y jugar descalzo hasta que se haga de noche', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+18; s.soledad=(s.soledad||40)-14; g._vidaFlags=g._vidaFlags||{}; g._vidaFlags.playa=true; return 'Cuatro horas de arena, caños y carcajadas. Te hizo un sombrero y te abrazó como si te conociera de toda la vida. Volviste a los diez años por una tarde.'; } },
+      { txt:'Agradecer, estoy en pretemporada', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)-4; return 'Dijiste que no. Después viste los videos y te quisiste morir.'; } } ] },
+  { id:'lessi', n:'Lessi', semilla:'leyLessi', ropa:'calle', edad:38, gen:'m', fama:65,
+    t:'Lessi te invita a comer a su casa',
+    d:'Un mensaje de tres palabras: "¿Venís a comer?". Es Lessi. Nunca en tu vida pensaste que ibas a leer eso.',
+    opts:[
+      { txt:'Ir con la familia', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+22; s.soledad=(s.soledad||40)-16; g._vidaFlags=g._vidaFlags||{}; g._vidaFlags.leyendaAmiga=true; return 'Asado, mate y un perro del tamaño de un ternero que se llevó puesta a media mesa. Habla bajito y escucha más de lo que dice. Tus hijos no lo van a olvidar nunca.'; } },
+      { txt:'Ir solo, sin hacer ruido', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+14; return 'Comieron los dos solos, hablando de fútbol y de hijos. Se despidieron con un abrazo largo.'; } } ] },
+  { id:'cr9', n:'CR9', semilla:'leyCR9', ropa:'traje', edad:40, gen:'m', fama:70,
+    t:'CR9 te lleva en su jet privado',
+    d:'Coincidieron en una gala. Al final de la noche te dice que al otro día vuela a una isla y que hay un asiento libre.',
+    opts:[
+      { txt:'Subirme al jet', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+16; g.fama=clamp((g.fama||0)+6,0,100); g._vidaFlags=g._vidaFlags||{}; g._vidaFlags.jet=true; return 'Cuero blanco, agua mineral y una charla de tres horas sobre disciplina. No tomó una gota de alcohol y se levantó a las cinco a entrenar. Entendiste por qué llegó donde llegó.'; } },
+      { txt:'Prefiero volar en línea, gracias', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+4; return 'Te reíste y dijiste que no. Él también se rió. Quedaron bien igual.'; } } ] },
+  { id:'neimar', n:'Neimar', semilla:'leyNeimar', ropa:'calle', edad:36, gen:'m', fama:58,
+    t:'Neimar te invita a jugar al póker',
+    d:'Una mesa en un piso altísimo, doce personas que reconocés de la tele y fichas que valen más que tu primer contrato.',
+    opts:[
+      { txt:'Sentarme y jugar en serio', ef:(s,g)=>{ const b=Math.random()<0.45; g.dinero=(g.dinero||0)+(b?ri(40000,260000):-ri(30000,180000)); s.felicidad=(s.felicidad||50)+(b?14:-10); return b?'Te levantaste de la mesa a las seis de la mañana con más plata de la que llevaste y una anécdota para toda la vida.':'Perdiste una barbaridad en cuatro manos. Él te palmeó la espalda y te dijo que a él le pasó peor.'; } },
+      { txt:'Mirar, charlar y no apostar', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+10; s.soledad=(s.soledad||40)-8; return 'No pusiste una ficha y te reíste toda la noche. Ganancia igual.'; } } ] },
+  { id:'bail', n:'Bail', semilla:'leyBail', ropa:'calle', edad:37, gen:'m', fama:52,
+    t:'Bail te lleva a jugar al golf',
+    d:'Te manda la ubicación de un campo de golf a las siete de la mañana. Vos nunca agarraste un palo en tu vida.',
+    opts:[
+      { txt:'Ir y hacer el ridículo con ganas', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+14; s.soledad=(s.soledad||40)-10; return 'Erraste doce veces seguidas y él se cagó de risa las doce. Al final te enseñó a agarrar el palo y metiste una. Terminaron tomando cerveza a las once de la mañana.'; } },
+      { txt:'El golf no es lo mío', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+2; return 'Le dijiste que preferías una canchita de fútbol cinco. Te contestó que él también, pero que ya no le da el cuerpo.'; } } ] }
+];
+// Las leyendas entran al banco de sucesos como una categoria mas, pero con el
+// `npc` cargado: por eso vjDialogo las DIBUJA en vez de mostrar un cartel.
+function leyendasComoSucesos(){
+  return LEYENDAS.map(L=>({
+    t: L.t, d: L.d, opts: L.opts,
+    npc: { semilla:L.semilla, ropa:L.ropa, edad:L.edad, gen:L.gen },
+    req: g => (g.fama || 0) >= L.fama
+  }));
+}
 // Sucesos propios de la etapa de JUGADOR: pasan mientras todavía competís, y por
 // eso chocan con el fútbol (una final el día del velorio, un hijo que nace en
 // pleno campeonato, un juicio que te come la cabeza).
@@ -7601,6 +7649,10 @@ const SUCESOS_JUGADOR = {
       d:'Los del club de tu infancia te invitan a la inauguración de algo.' }
   ]
 };
+// Las leyendas viven en los DOS bancos: te pueden invitar mientras seguís jugando
+// o ya retirado. Se agregan una sola vez, al cargar el archivo.
+VIDA_SUCESOS.leyendas = leyendasComoSucesos();
+SUCESOS_JUGADOR.leyendas = leyendasComoSucesos();
 // Elige un suceso disponible. En la carrera usa el repertorio del jugador; después
 // del retiro, el de la segunda vida.
 function vjSucesoDisponible(catPreferida){
@@ -10423,11 +10475,7 @@ function vjDormir(){
     ${fondoEscenaHTML()}
     <div style="position:relative;max-width:520px;margin:0 auto;padding:24px 20px;text-align:center;">
       <div style="font-size:10px;font-weight:900;letter-spacing:3px;color:#5d6879;margin-bottom:10px;">PASARON CINCO AÑOS</div>
-      <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(`
-        <div style="position:relative;width:180px;height:96px;">
-          <div style="position:absolute;left:0;bottom:0;line-height:0;">${vjObjSVG('cama',2.1)}</div>
-          <div style="position:absolute;left:44px;bottom:30px;transform:rotate(-90deg);transform-origin:50% 100%;line-height:0;">${avatarSprite(G.avatar,{edad:G.vidaEdad,escala:2,pose:'idle',ropa:vjRopa()||undefined,num:'',apellido:''})}</div>
-        </div>`, '14px 20px', 'casa')}</div>
+      <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(camaConPersonaHTML(), '14px 20px', 'casa')}</div>
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;">${G.vidaEdad} años</div>
       <div style="font-size:13px;color:#8a9280;margin:6px 0 20px;">${esc(L ? L.t : '')}</div>
       <button onclick="window._vidaJugable()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px 30px;font-weight:900;font-size:14.5px;cursor:pointer;">SEGUIR VIVIENDO <i class='bx bx-right-arrow-alt'></i></button>
@@ -10435,6 +10483,35 @@ function vjDormir(){
   </div>`;
 }
 
+// ── ACOSTADO EN LA CAMA ──────────────────────────────────────────────────────
+// Antes se agarraba el muñeco PARADO y se lo rotaba 90° con el origen abajo: el
+// cuerpo quedaba corrido de la cama y se leía como una persona de pie volcada,
+// no como alguien durmiendo. Ahora la escala está calculada contra el colchón, la
+// rotación gira sobre el CENTRO (que es predecible) y un acolchado le tapa las
+// piernas, que es lo que termina de venderlo como "está acostado".
+function camaConPersonaHTML(){
+  const S = 2.1;                       // misma escala que el SVG de la cama
+  const W = Math.round(88 * S), H = Math.round(50 * S);
+  // Colchón útil dentro del dibujo de la cama (coords base × escala).
+  const colchonX = 8 * S, colchonW = 74 * S;
+  const almohadaCx = (15 + 17/2) * S;  // centro de la almohada: ahí va la cabeza
+  const colchonY = 16 * S;
+  // El cuerpo entra a lo largo del colchón: se elige la escala para que quepa.
+  const escala = 1.35;
+  const cuerpoLargo = 72 * escala;     // alto del sprite = largo al acostarse
+  // Centro del cuerpo: arranca en la almohada y se extiende hacia los pies.
+  const cx = almohadaCx + cuerpoLargo / 2 - 8;
+  const cy = colchonY + 10;
+  return `
+  <div style="position:relative;width:${W}px;height:${H}px;">
+    <div style="position:absolute;left:0;bottom:0;line-height:0;">${vjObjSVG('cama', S)}</div>
+    <div style="position:absolute;left:${cx}px;top:${cy}px;transform:translate(-50%,-50%) rotate(-90deg);transform-origin:50% 50%;line-height:0;">
+      ${avatarSprite(G.avatar, { edad:G.vidaEdad, escala, pose:'idle', ropa:vjRopa()||undefined, num:'', apellido:'' })}
+    </div>
+    <!-- Acolchado por encima: tapa de la cintura a los pies -->
+    <div style="position:absolute;left:${colchonX + colchonW*0.42}px;top:${colchonY + 2}px;width:${colchonW*0.56}px;height:${26}px;background:linear-gradient(180deg,#7d5a8c,#54395f);border-radius:3px;box-shadow:inset 0 2px 0 rgba(255,255,255,.18);"></div>
+  </div>`;
+}
 window._carreraSegundaVida = function(rol){
   if (!G) G = load(); if (!G) return;
   if (!VIDA_ROLES[rol]) rol = 'disfrutar';
