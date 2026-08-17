@@ -3154,24 +3154,37 @@ function anosParaRetiro(){ return edadRetiro() - ((G&&G.edad)||0); }
 // título; si no, se te escapa. Simular sigue estando para el que no quiera.
 window._lyFinal = function(cfg){
   // cfg: { titulo, rival, onGana, onPierde }
+  // El MODO no se elige: lo decide la final. Algunas se juegan en la cancha y
+  // se resuelven solas, otras se definen al truco y otras las jugás vos. Tener
+  // que elegir cada vez volvía el minijuego un menú, y quitaba la sorpresa.
+  const modos = [];
+  if (window._platAbrir) modos.push('plat');
+  if (window._trucoAbrir) modos.push('truco');
+  modos.push('simular', 'simular');            // la mitad se juegan solas
+  cfg.modo = cfg.modo || pick(modos);
   G._finalPend = cfg;
+  const D = {
+    plat:   { t:'La jugás vos', d:'Salí a la cancha y llegá al final sin quedarte sin vidas. Cada pelota es un gol.', b:'SALIR A LA CANCHA', ic:'bx-football' },
+    truco:  { t:'Se define al truco', d:'Antes del partido, la interna se juega en el vestuario. El que gana la mano, gana la cabeza.', b:'AGARRAR LAS CARTAS', ic:'bx-been-here' },
+    simular:{ t:'Se juega en la cancha', d:'Esta se define adentro, con la pelota y nada más. Vos ya hiciste tu parte toda la temporada.', b:'JUGAR LA FINAL', ic:'bx-play-circle' }
+  }[cfg.modo];
   const m = document.getElementById('carrera-modal') || overlay();
-  m.innerHTML = `
-  <div style="min-height:100%;background:radial-gradient(120% 80% at 50% 0%, #241a06 0%, #05070a 62%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:26px 18px calc(28px + env(safe-area-inset-bottom));box-sizing:border-box;text-align:center;">
-    <div style="font-size:10px;font-weight:900;letter-spacing:2.6px;color:#facc15;margin-bottom:8px;">LA FINAL</div>
-    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:27px;color:#fff;line-height:1.15;margin-bottom:8px;">${esc(cfg.titulo||'La final')}</div>
-    <div style="font-size:13.5px;color:#b9c4ad;line-height:1.6;max-width:420px;margin-bottom:22px;">
-      ${cfg.rival?('Enfrente está '+esc(cfg.rival)+'. '):''}Podés jugártela vos o dejar que se resuelva en la cancha.
-    </div>
-    <div style="width:100%;max-width:380px;display:flex;flex-direction:column;gap:9px;">
-      ${window._platAbrir?`<button onclick="window._lyFinalJugar('plat')" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;"><i class='bx bx-game'></i> JUGARLA YO — llegá al final sin quedarte sin vidas</button>`:''}
-      ${window._trucoAbrir?`<button onclick="window._lyFinalJugar('truco')" style="background:rgba(250,204,21,.14);border:1.5px solid rgba(250,204,21,.5);color:#facc15;border-radius:14px;padding:14px;font-weight:900;font-size:14px;cursor:pointer;">Definirla al truco (a 15)</button>`:''}
-      <button onclick="window._lyFinalJugar('simular')" style="background:rgba(255,255,255,.05);border:1px solid #2a3222;color:#cfd8c6;border-radius:14px;padding:14px;font-weight:900;font-size:13.5px;cursor:pointer;">Que se juegue sola</button>
-    </div>
-  </div>`;
+  m.innerHTML = ''
+    + '<div style="min-height:100%;background:radial-gradient(120% 80% at 50% 0%, #241a06 0%, #05070a 62%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:26px 18px calc(28px + env(safe-area-inset-bottom));box-sizing:border-box;text-align:center;">'
+    +   '<div style="font-size:10px;font-weight:900;letter-spacing:2.6px;color:#facc15;margin-bottom:8px;">LA FINAL</div>'
+    +   '<div style="font-family:Outfit,sans-serif;font-weight:900;font-size:27px;color:#fff;line-height:1.15;margin-bottom:6px;">' + esc(cfg.titulo||'La final') + '</div>'
+    +   (cfg.rival ? '<div style="font-size:13px;color:#8d9782;font-weight:800;margin-bottom:18px;">Enfrente está ' + esc(cfg.rival) + '</div>' : '<div style="height:12px;"></div>')
+    +   '<div style="display:inline-flex;align-items:center;gap:8px;background:rgba(250,204,21,.12);border:1px solid rgba(250,204,21,.4);border-radius:20px;padding:6px 14px;margin-bottom:12px;">'
+    +     '<i class="bx ' + D.ic + '" style="font-size:16px;color:#facc15;"></i>'
+    +     '<span style="font-size:11.5px;font-weight:900;letter-spacing:1px;color:#facc15;">' + D.t.toUpperCase() + '</span>'
+    +   '</div>'
+    +   '<div style="font-size:13.5px;color:#b9c4ad;line-height:1.6;max-width:420px;margin-bottom:24px;">' + D.d + '</div>'
+    +   '<button onclick="window._lyFinalJugar()" style="width:100%;max-width:360px;background:linear-gradient(135deg,#16a34a,' + A + ');color:#000;border:none;border-radius:14px;padding:16px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">' + D.b + ' <i class="bx bx-right-arrow-alt"></i></button>'
+    + '</div>';
 };
 window._lyFinalJugar = function(modo){
   const cfg = G && G._finalPend; if(!cfg) return;
+  modo = modo || cfg.modo || 'simular';
   const cerrar = (gano)=>{
     G._finalPend = null;
     try { (gano ? cfg.onGana : cfg.onPierde)(); } catch(e){}
