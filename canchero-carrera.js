@@ -10085,16 +10085,29 @@ function vjInteractuar(){
       'Mirando el partido en la tele...','Repetición del gol, por décima vez...',
       'Programa de debate futbolero de fondo...','Un rato de tele y nada más...'
     ]), onDone:()=>{
-      const s = G.vidaStats; s.salud = clamp((s.salud||70) + ri(2,6), 0, 100);
-      if (s.felicidad != null) s.felicidad = clamp(s.felicidad + ri(1,4), 0, 100);
+      const s = G.vidaStats; s.salud = clamp((s.salud||70) + ri(1,3), 0, 100);
+      if (s.felicidad != null) s.felicidad = clamp(s.felicidad + ri(1,3), 0, 100);
+      // Mirar futbol SIRVE, y sirve distinto segun lo que seas. Antes daba salud
+      // y nada mas, y por eso se sentia relleno.
+      const _r = G.vidaRol;
+      let _msg = '';
+      if (_r === 'dt'){
+        s.resultados = clamp((s.resultados||50) + ri(2,5), 0, 100);
+        _msg = 'Estudiaste al rival tres veces. Le viste una cosa que te va a servir el domingo.';
+      } else if (_r === 'comentarista'){
+        s.credibilidad = clamp((s.credibilidad||50) + ri(2,5), 0, 100);
+        _msg = 'Tomaste apuntes de todo. Mañana al aire vas a hablar con la cancha vista, no de memoria.';
+      } else if (_r === 'escuela'){
+        s.prestigio = clamp((s.prestigio||50) + ri(1,4), 0, 100);
+        _msg = 'Le copiaste dos movimientos al equipo que mejor juega. El lunes los entrenás con los pibes.';
+      } else {
+        s.soledad = clamp((s.soledad||30) - ri(2,5), 0, 100);
+        _msg = 'Te acordaste de cuando lo veías con tu viejo. Llamaste a alguien apenas terminó.';
+      }
       (G._vjHechos = G._vjHechos || {}).descanso = true;
       if ((s.salud||100) >= 55) G._vjHechos.cuidoSalud = true;
       save(); mundoRender();
-      vjFlash(pick([
-        'Te quedaste dormido en el sillón con el partido puesto. Descansaste.',
-        'Nada del otro mundo, pero el cuerpo lo agradeció.',
-        'Dos horas de tele y la cabeza quedó en cero. Hacía falta.'
-      ]));
+      vjFlash(_msg);
     }});
     return;
   }
@@ -10328,9 +10341,16 @@ function vjDescansarCasa(){
     'Sin apuro, por una vez...','Mirando la fecha en la tele de casa...'
   ]), onDone:()=>{
     const s = personalAsegurar();
-    s.salud = clamp((s.salud||80) + ri(1,4), 0, 100);
-    s.felicidad = clamp((s.felicidad||55) + ri(2,5), 0, 100);
-    s.soledad = clamp((s.soledad||30) - ri(1,4), 0, 100);
+    s.salud = clamp((s.salud||80) + ri(1,3), 0, 100);
+    s.felicidad = clamp((s.felicidad||55) + ri(1,4), 0, 100);
+    s.soledad = clamp((s.soledad||30) - ri(3,6), 0, 100);
+    // Salir por el barrio te cruza con gente, y eso rinde: a la escuela le
+    // llegan pibes, al comentarista le llega calle, al DT le llega el humor real
+    // de la hinchada.
+    const vs = G.vidaStats || {};
+    if (G.vidaRol === 'escuela') vs.pibes = clamp((vs.pibes||50) + ri(2,5), 0, 100);
+    else if (G.vidaRol === 'comentarista') vs.rating = clamp((vs.rating||50) + ri(1,4), 0, 100);
+    else if (G.vidaRol === 'dt') vs.presion = clamp((vs.presion||45) - ri(2,5), 0, 100);
     save();
     mundoRender();
     vjFlash(pick([
