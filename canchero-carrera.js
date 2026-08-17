@@ -3759,6 +3759,9 @@ function _finTemporada(ctx){
   const idBase = 4 + (titulosGanados.length*10) + (pos===1?6:pos<=3?3:0) + (rend>0.5?4:rend<0.15?-3:0);
   G.idolatria[G.club] = clamp((G.idolatria[G.club]||0) + idBase, -100, 100);
   G.temporada++; G.edad++; G.anio = (G.anio||2026) + 1;
+  // La temporada retro dura eso: una temporada. Después el mundo vuelve a ser el
+  // que era, con su año y su tecnología.
+  if (G._retro != null) G._retro = null;
   G.nivelMax = Math.max(G.nivelMax||0, Math.round(G.nivel||0));
   try { legadoChequear(); } catch(e){}
   // El cuerpo acusa el paso del tiempo: entradas, canas, anteojos.
@@ -7004,7 +7007,10 @@ function casaNivel(){
 }
 // Vista por la ventana: dice DÓNDE estás viviendo, no sólo cuánto tenés.
 // Época del juego: cambia lo que se ve en las casas y en la calle.
+// Si estás viviendo la temporada retro, el mundo entero se dibuja como esa época:
+// no alcanza con contarlo en un texto, se tiene que VER.
 function epoca(){
+  if (G && G._retro != null) return 0;
   const a = (G && G.anio) || 2026;
   // 0 hoy · 1 digital · 2 holo · 3 robots · 4 orbital (se viaja al espacio)
   return a >= 2075 ? 4 : a >= 2062 ? 3 : a >= 2048 ? 2 : a >= 2035 ? 1 : 0;
@@ -7837,6 +7843,27 @@ SUCESOS_JUGADOR.leyendas = leyendasComoSucesos();
 // ── VOLVER AL CLUB QUE TRAICIONASTE ──────────────────────────────────────────
 // Irte al clásico rival tenía consecuencias en un número (la idolatría) pero no
 // se veía nunca. Ahora la hinchada te lo cobra en la cara.
+// ── LA TEMPORADA QUE NO EXISTIÓ ──────────────────────────────────────────────
+// Una vez por carrera, y solo entrada la vida, aparece la rareza: jugar un año
+// en otra época. Mientras dura, el mundo se dibuja como entonces (lo maneja
+// epoca()), y al terminar volvés como si nada. Nadie te va a creer.
+SUCESOS_JUGADOR.rareza = [
+  { t:'Una temporada en otro tiempo', edadMin:26,
+    req:g=>!g._retroHecho && (g.temporada||0) >= 6,
+    d:'Un dirigente viejísimo te invita a jugar un torneo de exhibición en un club que ya no existe. Aceptás sin entender del todo. Cuando entrás al vestuario los botines son de cuero, no hay un solo teléfono y el año que figura en la pizarra no es este.',
+    opts:[
+      { txt:'Jugar la temporada entera ahí', ef:(s,g)=>{
+          g._retro = g.anio; g._retroHecho = true;
+          g.nivel = clamp((g.nivel||60)+3,30,99); g.moral = clamp((g.moral||60)+14,0,100);
+          g.flags = g.flags||{}; g.flags.viajero = true;
+          return 'Jugaste un año entero con canchas de barro, sin cámaras y con gente que fumaba en la tribuna. Aprendiste a pararte de otra manera. Cuando volviste no habían pasado ni dos horas.'; } },
+      { txt:'Jugar un partido y volverme', ef:(s,g)=>{
+          g._retroHecho = true; g.moral = clamp((g.moral||60)+7,0,100);
+          return 'Jugaste noventa minutos y te fuiste. Te quedó la camiseta de lana, que todavía guardás y no le mostrás a nadie.'; } },
+      { txt:'No entrar a esa cancha', ef:(s,g)=>{
+          g._retroHecho = true;
+          return 'Diste media vuelta. Cada tanto te preguntás qué había del otro lado.'; } } ] }
+];
 SUCESOS_JUGADOR.exclub = [
   { t:'Volvés al estadio del que te fuiste', edadMin:20,
     req:g=>!!(g.flags && g.flags.traidor && g.flags.exClub && g.flags.exClub !== g.club),
