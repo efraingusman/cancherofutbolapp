@@ -84,7 +84,21 @@ async function charlaNPC(req, res) {
             openrouter: !!process.env.OPENROUTER_API_KEY,
             gemini: !!process.env.GEMINI_API_KEY,
             openai: !!process.env.OPENAI_API_KEY,
-            resultado: prueba ? ('respondio: ' + prueba.slice(0, 80)) : 'ningun proveedor devolvio texto'
+            resultado: prueba ? ('respondio: ' + prueba.slice(0, 80)) : 'ningun proveedor devolvio texto',
+            // Qué contesta Groq exactamente: sin esto no hay forma de saber si el
+            // problema es la key, el modelo dado de baja o la cuota.
+            groqDice: await (async () => {
+                if (!process.env.GROQ_API_KEY) return 'sin key';
+                try {
+                    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${process.env.GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 10, messages: [{ role: 'user', content: 'hola' }] })
+                    });
+                    const t = await r.text();
+                    return r.status + ' ' + t.slice(0, 220);
+                } catch (e) { return 'error de red: ' + e.message; }
+            })()
         }});
     }
     const txt = await pensarIA(messages);
