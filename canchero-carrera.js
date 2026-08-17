@@ -515,8 +515,7 @@ function montarSalida(){
   b.onclick = function(){ window._carreraSalir(); };
   document.body.appendChild(b);
   // Cartel del AÑO: visible durante todo el juego, pero no antes de empezarlo.
-  montarAnio();
-  lyChrome(LY_JUGANDO);
+  lyChrome(LY_JUGANDO);   // el año y la edad ya están en la barra de arriba
   // Traductor: a partir de acá cada pantalla se traduce sola al idioma elegido.
   try { lyObservar(); } catch(e){}
 }
@@ -588,7 +587,7 @@ window._carreraStart = function(){
   lyChrome(false);
   const m=overlay(); const saved=load();
   // Primera vez que alguien abre el juego: se le explica antes de tirarlo adentro.
-  if (!saved && !tutoVisto()){ window._lyComoSeJuega(0); return; }
+  // (el tutorial ya no se abre solo: está en 'Cómo se juega')
   m.innerHTML=`
   <div style="position:relative;min-height:100%;background:#0a0c0a;">
     <!-- Fondo del juego (Maradona/Pelé/Messi/Ronaldinho/CR7): tapa toda la intro con
@@ -2770,6 +2769,8 @@ window._carreraPotrero = function(paso){
   const _draftGet = () => _draft;
   const d = _draftGet();
   if (!d) { window._carreraLen(); return; }
+  // "Solo la carrera": se arranca directo en el club, sin infancia ni potrero.
+  if (d.alcance === 'carrera'){ window._carreraOfertas(); return; }
   if (!d._potHist) d._potHist = [];
   // Elegí 3 eventos AL AZAR al inicio de la carrera (no siempre los mismos).
   if (!d._potSet) d._potSet = potreroEventosDeCarrera();
@@ -6007,7 +6008,7 @@ function retiro(){
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;color:#fff;text-align:center;">Se acabó el fútbol. Ahora, ¿qué?</div>
       <div style="font-size:12.5px;color:#c4ccc0;text-align:center;margin:6px 0 14px;line-height:1.55;">Elegí un camino y vivilo hasta los ${VIDA_LAPSOS[VIDA_LAPSOS.length-1].a}: caminás tu casa, tu barrio y tu laburo, hablás con la gente y decidís.</div>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        ${['dt','comentarista','dirigente','empresario','escuela','disfrutar'].map(id=>{
+        ${['dt','comentarista','escuela','disfrutar'].map(id=>{
           const R = VIDA_ROLES[id];
           const mide = R.barras.filter(b=>b[1]!=='salud').map(b=>b[0].toLowerCase()).join(' · ');
           return `<button onclick="window._carreraSegundaVida('${id}')" style="width:100%;display:flex;align-items:center;gap:12px;background:linear-gradient(160deg,${R.color}12,rgba(13,16,13,.7));border:1.5px solid ${R.color}3a;border-radius:14px;padding:13px 14px;color:#fff;cursor:pointer;text-align:left;" onmouseover="this.style.borderColor='${R.color}'" onmouseout="this.style.borderColor='${R.color}3a'">
@@ -6503,8 +6504,8 @@ const VIDA_EVENTOS = {
       { txt:'Aceptar sin dudar', ef:(s,g)=>{ s.presion+=25; s.resultados+=6; g._vidaFlags.seleccionador=true; return 'Dirigiste a tu país. Ese escudo en el pecho no se compara con nada.'; } },
       { txt:'Terminar lo que empecé', ef:(s)=>{ s.plantel+=18; s.resultados+=8; return 'Elegiste la lealtad. El club te hizo un mural en el estadio.'; } } ] },
     { t:'Final del torneo', d:'Llegaste a la final. Enfrente está el equipo que te echó hace tres años.', opts:[
-      { txt:'Salir a ganarla', ef:(s,g)=>{ const b=Math.random()<.5+(s.resultados-50)/220; s.resultados+=b?20:-10; s.presion+=b?-20:15; if(b){ g.titulos=(g.titulos||0)+1; g._vidaFlags.campeonDT=true; if(!g.vitrina)g.vitrina=[]; g.vitrina.push({nombre:'Título como DT',edad:g.vidaEdad,club:'Como DT'}); } return b?'CAMPEÓN. Y en la cara de los que no te bancaron.':'Se te escapó en el último minuto. Dolió como jugador y dolió más como técnico.'; } },
-      { txt:'Especular y jugar al empate', ef:(s,g)=>{ const b=Math.random()<.35; s.resultados+=b?15:-6; if(b){ g.titulos=(g.titulos||0)+1; if(!g.vitrina)g.vitrina=[]; g.vitrina.push({nombre:'Título como DT',edad:g.vidaEdad,club:'Como DT'}); } return b?'Ganaste por penales. Feo, pero campeón es campeón.':'Te metiste atrás y te comieron. La gente no te lo perdonó.'; } } ] },
+      { txt:'Salir a ganarla', ef:(s,g)=>{ const b=Math.random()<.5+(s.resultados-50)/220; s.resultados+=b?20:-10; s.presion+=b?-20:15; if(b){ g.titulos=(g.titulos||0)+1; g._vidaFlags.campeonDT=true; if(!g.vitrina)g.vitrina=[]; g.vitrina.push({comoDT:true,nombre:'Título como DT',edad:g.vidaEdad,club:'Como DT'}); } return b?'CAMPEÓN. Y en la cara de los que no te bancaron.':'Se te escapó en el último minuto. Dolió como jugador y dolió más como técnico.'; } },
+      { txt:'Especular y jugar al empate', ef:(s,g)=>{ const b=Math.random()<.35; s.resultados+=b?15:-6; if(b){ g.titulos=(g.titulos||0)+1; if(!g.vitrina)g.vitrina=[]; g.vitrina.push({comoDT:true,nombre:'Título como DT',edad:g.vidaEdad,club:'Como DT'}); } return b?'Ganaste por penales. Feo, pero campeón es campeón.':'Te metiste atrás y te comieron. La gente no te lo perdonó.'; } } ] },
     { t:'Un dirigente te pide poner a alguien', d:'El presidente te "sugiere" que pongas de titular al hijo de un sponsor.', opts:[
       { txt:'Ni loco, yo elijo el equipo', ef:(s)=>{ s.presion+=18; s.plantel+=12; return 'Te la jugaste. El plantel supo que sos de fiar.'; } },
       { txt:'Ponerlo un partido para no pelear', ef:(s)=>{ s.plantel-=15; s.presion-=8; return 'El vestuario se enteró en dos horas. Perdiste autoridad.'; } } ] },
@@ -6676,7 +6677,7 @@ const VIDA_EVENTOS_EXTRA = {
       { txt:'Tomar el proceso juvenil', ef:(s,g)=>{ s.presion-=12; g._vidaFlags.juveniles=true; return 'Trabajaste con una camada entera. Diez de esos pibes llegaron a Europa.'; } },
       { txt:'Seguir en clubes', ef:(s)=>{ s.resultados+=6; return 'Te quedaste donde se juega todas las semanas.'; } } ] },
     { t:'Copa internacional', minLapso:1, d:'Clasificaste a la copa continental. Es la vitrina más grande a la que llegaste como técnico.', opts:[
-      { txt:'Poner todo en la copa', ef:(s,g)=>{ const b=Math.random()<.45; s.resultados+=b?18:-8; if(b){ g.titulos=(g.titulos||0)+1; if(!g.vitrina)g.vitrina=[]; g.vitrina.push({nombre:'Copa internacional (DT)',edad:g.vidaEdad,club:'Como DT'}); } return b?'Levantaste la copa afuera. Entraste en la historia grande del club.':'Quedaste en semis. Doloroso, pero el club creció.'; } },
+      { txt:'Poner todo en la copa', ef:(s,g)=>{ const b=Math.random()<.45; s.resultados+=b?18:-8; if(b){ g.titulos=(g.titulos||0)+1; if(!g.vitrina)g.vitrina=[]; g.vitrina.push({comoDT:true,nombre:'Copa internacional (DT)',edad:g.vidaEdad,club:'Como DT'}); } return b?'Levantaste la copa afuera. Entraste en la historia grande del club.':'Quedaste en semis. Doloroso, pero el club creció.'; } },
       { txt:'Priorizar la liga local', ef:(s)=>{ s.resultados+=10; s.presion-=6; return 'Cuidaste el torneo doméstico. Menos épica, más puntos.'; } } ] },
     { t:'Un referente te pide salir del equipo', d:'El capitán, ídolo del club, ya no rinde. Todos lo ven menos él.', opts:[
       { txt:'Sentarlo y bancar el quilombo', ef:(s)=>{ s.resultados+=12; s.plantel-=14; s.presion+=10; return 'Lo sacaste del once. Media hinchada te puteó, pero el equipo mejoró.'; } },
@@ -8122,7 +8123,7 @@ window._vjEscritorio = function(tab){
           </div>`).join('')}
       </div>`;
   } else {
-    const v = G.vitrina || [];
+    const v = (G.vitrina || []).filter(t=>t.comoDT);   // acá va lo del banco, no lo de jugador
     cuerpo = v.length ? `
       <div style="display:flex;flex-direction:column;gap:8px;">
         ${v.slice().reverse().map(t=>`
@@ -8204,7 +8205,7 @@ function _gtitulo(g, G, nombre){
   g.titulos = (g.titulos||0) + 1;
   G.titulos = (G.titulos||0) + 1;
   if(!G.vitrina) G.vitrina = [];
-  G.vitrina.push({ nombre: nombre || 'Título como ' + (VIDA_ROLES[G.vidaRol]||{n:'dirigente'}).n,
+  G.vitrina.push({ comoDT:true, nombre: nombre || 'Título como ' + (VIDA_ROLES[G.vidaRol]||{n:'dirigente'}).n,
     edad: G.vidaEdad, club: g.club || '' });
   return g;
 }
@@ -8877,7 +8878,7 @@ function vjPatioHTML(W, H, pisoPct){
   const base = Math.round(H*(1-pisoPct));
   const tiene = id => (G.bienes||[]).some(b=>b.id===id);
   const afuera = BIENES_AFUERA.filter(tiene);
-  const adentro = ['restaurante','escuela','fundacion','reloj'].filter(tiene);
+  const adentro = ['reloj'].filter(tiene);   // lo unico que puede estar adentro
   let o = '';
   if (adentro.length)
     o += `<div style="position:absolute;left:${Math.round(W*0.62)}px;bottom:${base-4}px;transform:translateX(-50%);line-height:0;display:flex;align-items:flex-end;gap:9px;">${adentro.map(id=>_propSVG(id,2.2)).join('')}</div>`;
@@ -8984,9 +8985,12 @@ function mundoRender(){
     <!-- LAS OPCIONES, COMO SIEMPRE. El personaje se mueve solo por la escena;
          vos elegis de esta lista. Nunca hace falta caminar hasta nada. -->
     <div style="flex:1 1 auto;min-height:0;background:linear-gradient(180deg,#080b0f,#05070a);border-top:1px solid #161d28;padding:14px 14px calc(20px + env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch;">
-      <div style="max-width:560px;margin:0 auto;">
+      <!-- En PC las acciones van en COLUMNAS: en una sola fila por accion, con
+           pantalla ancha, sobraba lugar a los costados y faltaba abajo, y habia
+           que usar la barra de scroll para ver las ultimas opciones. -->
+      <div style="max-width:1100px;margin:0 auto;">
         <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#5d6879;margin-bottom:9px;">¿QUÉ HACÉS?</div>
-        <div style="display:flex;flex-direction:column;gap:9px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px;align-items:start;">
           ${VJ.hotspots.map((h,i)=>`<div style="display:flex;gap:7px;">
             <button onclick="window._vjAccion(${i})" ${h.bloqueado?'disabled':''} style="flex:1;min-width:0;display:flex;align-items:center;gap:11px;background:${h.destacado?'rgba(186,255,0,.13)':'rgba(255,255,255,.04)'};border:1.5px solid ${h.destacado?A:'#242a20'};color:${h.bloqueado?'#5d6879':(h.destacado?A:'#e0e4dc')};border-radius:13px;padding:13px 14px;font-weight:800;font-size:13.5px;text-align:left;cursor:${h.bloqueado?'default':'pointer'};opacity:${h.bloqueado?.55:1};line-height:1.3;"><i class='bx ${h.icono}' style="font-size:20px;flex-shrink:0;"></i><span>${h.lbl}</span></button>
             ${vjCharlable(h) ? `<button onclick="window._vjHablar(${i})" title="Escribirle" style="flex:0 0 auto;background:rgba(125,211,252,.10);border:1.5px solid rgba(125,211,252,.35);color:#7dd3fc;border-radius:13px;padding:13px 12px;font-size:18px;cursor:pointer;line-height:1;"><i class='bx bx-message-rounded-dots'></i></button>` : ''}
@@ -11022,6 +11026,15 @@ window._tomarDestino = function(i){
   G.vidaLugar = o.id; G.vidaLugarSub = o.sub || '';
   if (rol === 'dt' || rol === 'dirigente'){
     G.vidaClubStr = o.str || 60;
+    // SINCRONIZAR con el club que usa la gestión. Había dos ideas distintas de
+    // "tu equipo": elegías Flamengo acá y el escritorio te seguía mostrando el
+    // club random que se había inventado al empezar el rol.
+    const g = gestionAsegurar();
+    if (g){
+      g.club = o.id; g.str = o.str || g.str; g.liga = o.sub || g.liga; g.pais = o.pais || g.pais;
+      g.anios = 0; g.sinTrabajo = false;
+      g.plantel = []; g._plantelDe = null; g.mercado = null; g._tabla = null;  // plantel nuevo
+    }
     // Un club grande sube la exigencia; uno chico da aire.
     if (rol === 'dt'){ s.presion = clamp((s.presion||45) + (o.str>=82?18:o.str>=70?6:-10), 0, 100); }
     else { s.poder = clamp((s.poder||40) + (o.str>=78?-8:8), 0, 100); }
