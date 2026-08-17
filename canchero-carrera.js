@@ -2792,7 +2792,63 @@ const POTRERO_POOL = [
   { t:'Elección de posición', edad:12, d:'El técnico infantil te pregunta dónde te sentís cómodo. Es tu edad de definir.', opts:[
     { txt:'Donde el equipo me necesite', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Multifunción desde chico. El DT te ama.'; } },
     { txt:'De 10, siempre', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Elegiste el número mágico. Ahora hay que bancarlo.'; } }
-  ] }
+  ] },
+  { t:'El potrero se inunda', edad:10, d:'Llovió tres días y la canchita es un barrial. Los pibes igual están ahí.', opts:[
+    { txt:'Jugar en el barro como si nada', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Volviste irreconocible y feliz. En el barro aprendiste a pisarla distinto.'; } },
+    { txt:'Buscar una cancha de cemento', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Terminaron jugando en el playón. Más rápido, más golpes, otra escuela.'; } }
+  ] },
+  { t:'Tu viejo no te puede llevar', edad:11, d:'El club queda a cuarenta minutos y en casa no hay auto ni plata para el micro todos los días.', opts:[
+    { txt:'Ir caminando y en lo que venga', ef:g=>{ g._potBonus=(g._potBonus||0)+3; return 'Una hora de ida y una de vuelta, tres veces por semana. Nadie te regaló nada y eso te forjó.'; } },
+    { txt:'Entrenar en el barrio y esperar', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Te quedaste cerca de casa. Menos nivel, pero seguiste jugando todos los días.'; } }
+  ] },
+  { t:'El botín prestado', edad:10, d:'Te prestan unos botines dos números más grandes para la final del barrio.', opts:[
+    { txt:'Jugar con medias de más', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Te bailaban en el pie y metiste dos. Los devolviste lustrados.'; } },
+    { txt:'Jugar descalzo, como siempre', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Descalzo la tocás distinto y todos lo saben. Ganaron igual.'; } }
+  ] },
+  { t:'Un técnico te quiere cambiar la pegada', edad:12, d:'Dice que le pegás mal, con el empeine cruzado. A vos siempre te salió así.', opts:[
+    { txt:'Corregirla aunque cueste', ef:g=>{ g._potBonus=(g._potBonus||0)+3; return 'Tres meses de sentirte torpe y después la pelota empezó a ir donde vos querías.'; } },
+    { txt:'Seguir con lo mío', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Le dijiste que así metías goles. Tenía razón él, pero también tenías razón vos.'; } }
+  ] },
+  { t:'La final del campeonato infantil', edad:13, d:'Penales. El técnico busca con la mirada quién patea el quinto.', opts:[
+    { txt:'Levantar la mano', ef:g=>{ const b=Math.random()<.55; g._potBonus=(g._potBonus||0)+(b?4:0); return b?'La clavaste abajo. Te llevaron en andas y no lo olvidás más.':'Te la atajaron. Lloraste toda la noche y al otro día pediste patear de nuevo.'; } },
+    { txt:'Que patee otro', ef:g=>{ g._potBonus=(g._potBonus||0)+0; return 'Miraste desde el círculo. Ganaron igual, pero te quedó una espina.'; } }
+  ] },
+  { t:'Te ofrecen plata por jugar', edad:13, d:'Un club de un pueblo vecino te ofrece unos pesos por fecha para reforzarlos el domingo.', opts:[
+    { txt:'Aceptar y llevar plata a casa', ef:g=>{ g._potBonus=(g._potBonus||0)+1; g.flags=g.flags||{}; g.flags.aportoEnCasa=true; return 'Cobraste tu primer sueldo de futbolista a los trece. Se lo diste entero a tu vieja.'; } },
+    { txt:'No, quiero jugar donde me formé', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Te quedaste. En el club te lo devolvieron con lugar en el equipo.'; } }
+  ] },
+  { t:'El pibe nuevo juega mejor que vos', edad:12, d:'Llegó uno del interior y en dos entrenamientos ya es el mejor del grupo. Te sacó el puesto.', opts:[
+    { txt:'Hacerme amigo y aprenderle', ef:g=>{ g._potBonus=(g._potBonus||0)+3; return 'Terminaron inseparables y jugando juntos de memoria. Los dos crecieron el doble.'; } },
+    { txt:'Ponerme a entrenar el doble', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Te quedabas una hora más, solo. En seis meses le recuperaste el puesto.'; } }
+  ] },
+  { t:'La escuela o la pelota', edad:13, d:'Repetiste una materia y en casa te dicen que si no aprobás, no hay más fútbol.', opts:[
+    { txt:'Ponerme con los libros', ef:g=>{ g._potBonus=(g._potBonus||0)+1; g.flags=g.flags||{}; g.flags.estudioso=true; return 'Aprobaste raspando y no perdiste un solo entrenamiento. Aprendiste a organizarte.'; } },
+    { txt:'Faltar a clase para entrenar', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Ganaste horas de cancha y te ganaste un problema en casa que tardó años en cerrarse.'; } }
+  ] },
+  { t:'Un partido bajo la lluvia con la tribuna llena', edad:14, d:'Es la primera vez que jugás con gente de verdad mirando, y son doscientas personas gritando.', opts:[
+    { txt:'Pedir la pelota siempre', ef:g=>{ g._potBonus=(g._potBonus||0)+3; return 'Cuanto más gritaban, más la querías. Ahí supiste que la presión no te iba a asustar nunca.'; } },
+    { txt:'Jugar simple y no arriesgar', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Cumpliste sin brillar. La próxima ya no te tembló.'; } }
+  ] },
+  { t:'El arquero de tu barrio', edad:11, d:'Hay un pibe que te ataja todo. Se pasa las tardes atajando y no le entra una.', opts:[
+    { txt:'Quedarme a patearle hasta que oscurezca', ef:g=>{ g._potBonus=(g._potBonus||0)+3; return 'Cincuenta pelotas por tarde durante un año. Le empezaste a hacer goles y no dejaste nunca de definir bien.'; } },
+    { txt:'Buscar otro arco más fácil', ef:g=>{ g._potBonus=(g._potBonus||0)+0; return 'Metiste muchos goles fáciles. No te sirvieron de nada.'; } }
+  ] },
+  { t:'Tu abuelo te lleva a la cancha', edad:10, d:'Primera vez en un estadio de verdad. Sesenta mil personas y el pasto más verde que viste en tu vida.', opts:[
+    { txt:'Prometerle que algún día voy a jugar ahí', ef:g=>{ g._potBonus=(g._potBonus||0)+2; g.flags=g.flags||{}; g.flags.promesaAbuelo=true; return 'Se lo dijiste al oído y él te apretó la mano. Cada vez que pisaste ese césped te acordaste.'; } },
+    { txt:'Quedarme callado, mirando todo', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'No dijiste una palabra en noventa minutos. Volviste distinto.'; } }
+  ] },
+  { t:'Te cortan del equipo', edad:12, d:'El técnico lee la lista de los que siguen y tu nombre no está.', opts:[
+    { txt:'Pedirle que me explique', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Te dijo que te faltaba físico y compromiso. Te dolió, era cierto, y lo usaste.'; } },
+    { txt:'Irme sin decir nada y probar en otro lado', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Al mes estabas en otro club jugando de titular. A veces mudarse es la respuesta.'; } }
+  ] },
+  { t:'El campeonato de fútbol cinco', edad:11, d:'Un torneo relámpago en cancha chica, todo el fin de semana, seis partidos.', opts:[
+    { txt:'Jugarlos todos aunque no den las piernas', ef:g=>{ g._potBonus=(g._potBonus||0)+3; return 'Terminaste destruido y campeón. En la cancha chica te agarraste una pegada y una gambeta corta que no se enseñan.'; } },
+    { txt:'Dosificarme y jugar algunos', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Llegaste entero al domingo. Aprendiste algo que a esa edad casi nadie sabe: cuidarse.'; } }
+  ] },
+  { t:'Un video tuyo se hace conocido', edad:14, d:'Alguien filmó una jugada tuya y la pasan de teléfono en teléfono por todo el barrio.', opts:[
+    { txt:'Aprovecharlo para que me vean', ef:g=>{ g._potBonus=(g._potBonus||0)+2; g.fama=clamp((g.fama||0)+4,0,100); return 'Un captador lo vio y preguntó por vos. A veces la suerte también hay que dejarla entrar.'; } },
+    { txt:'No darle bola y seguir entrenando', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Dijiste que una gambeta no es una carrera. Tenías catorce años y ya lo entendías.'; } }
+  ] },
 ];
 // 3 eventos al azar del pool (no repetidos), la carrera se siente distinta cada vez.
 // Van ORDENADOS por la edad propia de cada evento: como el pool se baraja, antes
@@ -8813,7 +8869,27 @@ function vjHotspots(){
     const otras = lista.filter(h => h.accion !== pr.accion);
     lista = [pr].concat(otras);
   }
-  return lista;
+  return vjAcotar(lista);
+}
+// ── MENOS OPCIONES, MEJORES ──────────────────────────────────────────────────
+// En cada escena se juntaban doce cosas para hacer y la mitad eran variantes de
+// lo mismo (mirar tele, descansar, tomarte un rato). Con esa lista uno termina
+// sin usar casi ninguna y todas se sienten iguales. Ahora entran las que
+// importan: lo que hace avanzar, la gente, y unos pocos objetos que rotan.
+function vjAcotar(lista){
+  const TOPE = 7;
+  if (lista.length <= TOPE) return lista;
+  const clave = h => h.destacado || h.tipo === 'npc' || h.accion === 'dormir'
+                  || h.accion === 'gestion' || h.accion === 'rol' || h.accion === 'escritorio';
+  const fijas = lista.filter(clave);
+  const sueltas = lista.filter(h => !clave(h));
+  // Los objetos rotan por tramo: no ves siempre los mismos, pero tampoco cambian
+  // en cada repintado (eso marearía).
+  const sem = (G ? (G.vidaLapso || 0) + (G.temporada || 0) * 3 : 0);
+  const hueco = Math.max(0, TOPE - fijas.length);
+  const rotados = sueltas.slice(sem % Math.max(1, sueltas.length))
+                         .concat(sueltas.slice(0, sem % Math.max(1, sueltas.length)));
+  return fijas.concat(rotados.slice(0, hueco));
 }
 function vjHotspotsBase(){
   if (VJ.mundo === 'potrero')   return vjHotspotsPotrero();
