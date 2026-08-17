@@ -8517,7 +8517,12 @@ window._dtResumen = function(){
   <div style="max-width:520px;margin:0 auto;padding:24px 16px calc(28px + env(safe-area-inset-bottom));">
     <div style="text-align:center;margin-bottom:16px;">
       <div style="font-size:10px;font-weight:900;letter-spacing:2.4px;color:${col};">TEMPORADA ${G.anio||''}</div>
-      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;margin-top:5px;">${esc(g.club)}</div>
+      <div style="display:flex;align-items:flex-end;justify-content:center;gap:10px;margin:10px 0 8px;">
+        ${clubBadge(g.club, 42)}
+        ${avatarBox(avatarSprite(G.avatar||avatarDefault(), { edad:(G.vidaEdad||50), escala:2.3, ropa:'dt', num:'', apellido:'',
+          pose: A_.titulo ? 'festejo' : (A_.pos <= 3 ? 'orgullo' : 'taparse') }), '10px 14px', A_.titulo ? 'estadio' : (A_.pos >= (A_.total||14)-2 ? 'vestuario' : 'cancha'))}
+      </div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:24px;color:#fff;">${esc(g.club)}</div>
     </div>
     ${A_.titulo ? `
     <div style="text-align:center;background:linear-gradient(160deg,rgba(250,204,21,.14),rgba(20,22,18,.5));border:1.5px solid rgba(250,204,21,.45);border-radius:16px;padding:18px;margin-bottom:14px;">
@@ -8573,19 +8578,27 @@ window._dtVenderFigura = function(){
   window._vidaJugable();
 };
 window._dtOfertas = function(){
-  const cand = clubesParaDirigir();
+  const cand = clubesParaDirigir().map(c=>Object.assign({}, c, {
+    // Lo que te ofrecen: sale de la categoria del club y de tus titulos.
+    sueldo: Math.round((c.str - 45) * 26000 * (1 + ((G.gestion&&G.gestion.titulos)||0) * 0.12)),
+    anios: c.str >= 80 ? 2 : 3
+  }));
   const m = document.getElementById('carrera-modal') || overlay();
   const g = gestionAsegurar();
   m.innerHTML = `
   <div style="max-width:480px;margin:0 auto;padding:26px 16px calc(28px + env(safe-area-inset-bottom));">
-    <div style="font-size:10px;font-weight:900;letter-spacing:2.2px;color:#7dd3fc;margin-bottom:8px;">EL MERCADO DE TÉCNICOS</div>
-    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:23px;color:#fff;margin-bottom:16px;">¿Dónde seguís?</div>
+    <div style="text-align:center;margin-bottom:14px;">
+      <div style="font-size:10px;font-weight:900;letter-spacing:2.2px;color:#7dd3fc;margin-bottom:9px;">EL MERCADO DE TÉCNICOS</div>
+      <div style="display:flex;justify-content:center;margin-bottom:10px;">${avatarBox(avatarSprite(G.avatar||avatarDefault(), { edad:(G.vidaEdad||50), escala:2.2, pose:'pensando', ropa:'traje', num:'', apellido:'' }), '10px 16px', 'oficina')}</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:23px;color:#fff;">¿Dónde seguís?</div>
+    </div>
     <div style="display:flex;flex-direction:column;gap:9px;">
       ${cand.map((c,i)=>`<button onclick="window._dtFirmar(${i})" style="display:flex;align-items:center;gap:11px;background:rgba(255,255,255,.04);border:1.5px solid #262c22;border-radius:14px;padding:13px;cursor:pointer;text-align:left;">
         ${clubBadge(c.name,38)}
         <div style="flex:1;min-width:0;">
           <div style="font-size:14.5px;font-weight:900;color:#fff;">${esc(c.name)}</div>
           <div style="font-size:11px;color:#79836f;font-weight:700;">${esc(c.liga)} · nivel ${c.str}</div>
+          <div style="font-size:11.5px;font-weight:900;color:#facc15;margin-top:4px;">${eur(c.sueldo)} por año · contrato de ${c.anios}</div>
         </div>
       </button>`).join('')}
       <button onclick="window._vidaJugable()" style="background:rgba(255,255,255,.05);border:1px solid #2a3222;color:#cfd8c6;border-radius:13px;padding:13px;font-weight:900;font-size:13px;cursor:pointer;">Quedarme en ${esc(g.club)}</button>
@@ -9004,21 +9017,21 @@ function metaHTML(){
   const pct = Math.round((M.hechos / M.total) * 100);
   const falta = M.hitos.find(h=>!h.ok);
   return `
-  <div style="margin-top:14px;background:linear-gradient(160deg,${R.color}14,rgba(255,255,255,.03));border:1.5px solid ${R.color}44;border-radius:14px;padding:13px;">
+  <div style="margin-top:14px;background:linear-gradient(160deg,${R.color}14,rgba(255,255,255,.03));border:1.5px solid ${R.color}44;border-radius:14px;padding:11px 12px;">
     <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
       <div style="font-size:9.5px;font-weight:900;letter-spacing:1.6px;color:${R.color};">TU OBJETIVO</div>
       <div style="font-size:11px;font-weight:900;color:${R.color};">${M.hechos}/${M.total}</div>
     </div>
-    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:15px;color:#fff;margin:5px 0 3px;">${esc(M.n)}</div>
-    <div style="font-size:11.5px;color:#9aa48f;line-height:1.5;margin-bottom:9px;">${esc(M.d)}</div>
-    <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;margin-bottom:10px;">
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:14px;color:#fff;margin:4px 0 2px;">${esc(M.n)}</div>
+    <div style="font-size:11px;color:#9aa48f;line-height:1.4;margin-bottom:7px;">${esc(M.d)}</div>
+    <div style="height:5px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;margin-bottom:8px;">
       <div style="height:100%;width:${pct}%;background:${R.color};border-radius:3px;transition:width .4s;"></div>
     </div>
-    ${M.hitos.map(h=>`<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:${h.ok?'#4ade80':'#9aa4b2'};margin-bottom:5px;">
+    ${M.hitos.map(h=>`<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:${h.ok?'#4ade80':'#9aa4b2'};margin-bottom:3px;">
       <i class='bx ${h.ok?'bx-check-circle':'bx-circle'}' style="font-size:14px;flex-shrink:0;"></i>
       <span style="${h.ok?'text-decoration:line-through;opacity:.7;':''}">${esc(h.t)}</span>
     </div>`).join('')}
-    ${falta ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:11.5px;color:${R.color};font-weight:800;">
+    ${falta ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:${R.color};font-weight:800;">
       <i class='bx bx-right-arrow-alt'></i> Ahora: ${esc(falta.t.toLowerCase())}</div>` : `
     <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:#facc15;font-weight:900;">
       <i class='bx bxs-trophy'></i> Lo lograste. Lo que venga ahora es de regalo.</div>`}
@@ -9644,30 +9657,38 @@ function mundoRender(){
       <!-- En PC las acciones van en COLUMNAS: en una sola fila por accion, con
            pantalla ancha, sobraba lugar a los costados y faltaba abajo, y habia
            que usar la barra de scroll para ver las ultimas opciones. -->
-      <div style="max-width:1100px;margin:0 auto;">
+      <!-- DOS COLUMNAS en PC: las acciones a la izquierda y el objetivo a la
+           derecha. Apiladas, el objetivo quedaba abajo de todo y habia que
+           scrollear para verlo, que era justo lo que no queriamos. -->
+      <div style="max-width:1240px;margin:0 auto;display:grid;gap:14px;grid-template-columns:${(VJ.mundo === 'vida' && G && G.vidaRol) ? 'minmax(0,1.55fr) minmax(0,1fr)' : 'minmax(0,1fr)'};align-items:start;" class="ly-panel">
+      <div style="min-width:0;">
         <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#5d6879;margin-bottom:9px;">¿QUÉ HACÉS?</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px;align-items:start;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;align-items:start;">
           ${VJ.hotspots.map((h,i)=>`<div style="display:flex;gap:7px;">
             <button onclick="window._vjAccion(${i})" ${h.bloqueado?'disabled':''} style="flex:1;min-width:0;display:flex;align-items:center;gap:11px;background:${h.destacado?'rgba(186,255,0,.13)':'rgba(255,255,255,.04)'};border:1.5px solid ${h.destacado?A:'#242a20'};color:${h.bloqueado?'#5d6879':(h.destacado?A:'#e0e4dc')};border-radius:13px;padding:13px 14px;font-weight:800;font-size:13.5px;text-align:left;cursor:${h.bloqueado?'default':'pointer'};opacity:${h.bloqueado?.55:1};line-height:1.3;"><i class='bx ${h.icono}' style="font-size:20px;flex-shrink:0;"></i><span>${h.lbl}</span></button>
             ${vjCharlable(h) ? `<button onclick="window._vjHablar(${i})" title="Escribirle" style="flex:0 0 auto;background:rgba(125,211,252,.10);border:1.5px solid rgba(125,211,252,.35);color:#7dd3fc;border-radius:13px;padding:13px 12px;font-size:18px;cursor:pointer;line-height:1;"><i class='bx bx-message-rounded-dots'></i></button>` : ''}
           </div>`).join('')}
         </div>
-        ${(VJ.mundo === 'vida' && G && G.vidaRol) ? metaHTML() : ''}
-        ${(VJ.mundo === 'vida' && G && G.vidaRol) ? (function(){ const pend = vjPendientesTramo(); return `
-        <div style="margin-top:16px;background:rgba(255,255,255,.03);border:1px solid #1e2632;border-radius:13px;padding:12px 13px;">
-          <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#5d6879;margin-bottom:8px;">ESTE TRAMO DE TU VIDA</div>
-          ${pend.map(x=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:${x.hecho?'#4ade80':'#9aa4b2'};margin-bottom:5px;">
-            <i class='bx ${x.hecho?'bx-check-circle':'bx-circle'}' style="font-size:15px;flex-shrink:0;"></i>
-            <span style="${x.hecho?'text-decoration:line-through;opacity:.7;':''}">${esc(x.txt)}${x.obliga?'':' <span style="font-size:9px;color:#5d6879;">(opcional)</span>'}</span>
-          </div>`).join('')}
-        </div>`; })() : ''}
         <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#5d6879;margin:16px 0 9px;">IR A OTRO LADO</div>
         <div style="display:flex;gap:9px;flex-wrap:wrap;">
           ${['izq','der'].filter(k=>E.sale[k]).map(k=>`<button onclick="window._vjIr('${E.sale[k]}')" style="flex:1;min-width:140px;background:rgba(125,211,252,.10);border:1.5px solid rgba(125,211,252,.4);color:#7dd3fc;border-radius:13px;padding:13px 14px;font-weight:900;font-size:13px;cursor:pointer;">${k==='izq'?'◀ ':''}${esc(escenas[E.sale[k]].n)}${k==='der'?' ▶':''}</button>`).join('')}
         </div>
       </div>
+      <div style="min-width:0;">
+        ${(VJ.mundo === 'vida' && G && G.vidaRol) ? metaHTML() : ''}
+        ${(VJ.mundo === 'vida' && G && G.vidaRol) ? (function(){ const pend = vjPendientesTramo(); return `
+        <div style="margin-top:10px;background:rgba(255,255,255,.03);border:1px solid #1e2632;border-radius:13px;padding:10px 12px;">
+          <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#5d6879;margin-bottom:8px;">ESTE TRAMO DE TU VIDA</div>
+          ${pend.map(x=>`<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:${x.hecho?'#4ade80':'#9aa4b2'};margin-bottom:3px;">
+            <i class='bx ${x.hecho?'bx-check-circle':'bx-circle'}' style="font-size:15px;flex-shrink:0;"></i>
+            <span style="${x.hecho?'text-decoration:line-through;opacity:.7;':''}">${esc(x.txt)}${x.obliga?'':' <span style="font-size:9px;color:#5d6879;">(opcional)</span>'}</span>
+          </div>`).join('')}
+        </div>`; })() : ''}
+      </div>
+      </div>
     </div>
-  </div>`;
+  </div>
+  <style>@media (max-width: 900px){ .ly-panel{ grid-template-columns:minmax(0,1fr) !important; } }</style>`;
   vjArrancarLoop();
   vjChequearMudanza();
   // La gente empieza a hablar sola al ratito de entrar, y sigue cada tanto.
@@ -10006,7 +10027,8 @@ function vjAjustarEscala(){
   // En PC el zoom por ancho llegaba a 2.4 y la escena se comía hasta 600px de
   // alto, dejando el panel de acciones fuera de la pantalla. Ahora el alto tiene
   // tope (46% del viewport) y el zoom se recalcula para respetarlo.
-  const topeAlto = Math.max(150, Math.round((window.innerHeight || 700) * 0.56));
+  const conPanelLargo = (VJ.mundo === 'vida' && G && G.vidaRol);
+  const topeAlto = Math.max(150, Math.round((window.innerHeight || 700) * (conPanelLargo ? 0.36 : 0.56)));
   // El zoom lo manda SIEMPRE el ancho: si se lo bajaba para respetar el tope de
   // alto, la escena dejaba de llegar al borde y quedaba un rectangulo negro a la
   // derecha en PC. Ahora el ancho se cubre igual y lo que sobra de alto se
