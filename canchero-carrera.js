@@ -7787,6 +7787,138 @@ const LEYENDAS = [
       { txt:'Quedarme a charlar como si nada', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+10; s.soledad=(s.soledad||40)-8; g._vidaFlags=g._vidaFlags||{}; g._vidaFlags.tordo=true; return 'Dos horas de charla y ni una lástima. Te contó jugadas de hace treinta años como si fueran ayer. Cuando te ibas te dijo: "Yo te vi debutar, eh". Y se le llenaron los ojos.'; } },
       { txt:'Ofrecerle trabajo en mi escuela', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+16; g.dinero=Math.max(0,(g.dinero||0)-ri(8000,30000)); return 'Le ofreciste dirigir una categoría. Aceptó llorando. Resultó el mejor formador que pasó por ahí: sabía exactamente qué se siente quedarse afuera.'; } } ] }
 ];
+// ── 18 LEYENDAS MÁS, Y UNA CARA PROPIA PARA CADA UNA ─────────────────────────
+// Con doce se repetían dentro de una misma carrera. Con treinta, cada partida
+// cruza gente distinta. Cada una lleva su `av`: piel, pelo, barba y contextura
+// definidos a mano, así son inconfundibles entre sí y siempre se dibujan igual.
+// Son personajes originales: arquetipos de crack, no copias de nadie.
+const LEYENDAS_MAS = [
+  { id:'talamo', n:'Aldo Tálamo', apodo:'El Zurdo', semilla:'leyAldoTalamo', ropa:'calle', edad:57, gen:'m', fama:20,
+    av:{gen:'m',piel:'clara',pelo:'largo',peloColor:'canoso',barba:2,acc:'nada',peso:1},
+    t:'El Zurdo te corrige la pegada', d:'Aldo Tálamo tenía la zurda más fina que se recuerde. Te ve patear en el entrenamiento, se acerca y te dice que estás perfilando mal hace veinte años.',
+    opts:[
+      { txt:'Dejarme corregir', ef:(s,g)=>{ g.nivel=clamp((g.nivel||60)+2,30,99); return 'Media hora, cincuenta pelotas y un detalle mínimo del pie de apoyo. Nunca más erraste un tiro libre igual.'; } },
+      { txt:'Yo pateo como sé', ef:(s,g)=>{ g.moral=clamp((g.moral||60)+3,0,100); return 'Se rió y te dijo que él contestaba lo mismo a los sesenta. Quedaron en paz.'; } } ] },
+  { id:'bakari', n:'Ousmane Bakari', apodo:'La Muralla', semilla:'leyOusmaneBakari', ropa:'calle', edad:44, gen:'m', fama:22,
+    av:{gen:'m',piel:'oscura',pelo:'rapado',peloColor:'negro',barba:1,acc:'nada',peso:1},
+    t:'La Muralla te invita a entrenar con él', d:'Ousmane Bakari fue el defensor más duro de su época y hoy entrena a las cinco de la mañana igual que siempre. Te dice que vayas.',
+    opts:[
+      { txt:'Ir a las cinco', ef:(s,g)=>{ g.nivel=clamp((g.nivel||60)+2,30,99); g.moral=clamp((g.moral||60)-3,0,100); return 'Vomitaste a los cuarenta minutos. Él ni transpiraba. Volviste ocho semanas seguidas.'; } },
+      { txt:'A esa hora duermo', ef:(s)=>{ return 'Te miró sin decir nada. Ese silencio te quedó dando vueltas un mes.'; } } ] },
+  { id:'kovac', n:'Marko Kovacic', apodo:'El Relojero', semilla:'leyMarkoKovacic', ropa:'traje', edad:49, gen:'m', fama:24,
+    av:{gen:'m',piel:'clara',pelo:'corto',peloColor:'rubio',barba:0,acc:'lentes',peso:0},
+    t:'El Relojero te explica dónde pararte', d:'Marko Kovacic manejaba los tiempos de un partido como nadie. Te para en un pasillo con una servilleta y una birome.',
+    opts:[
+      { txt:'Escucharlo hasta el final', ef:(s,g)=>{ g.nivel=clamp((g.nivel||60)+2,30,99); return 'Te dibujó tres movimientos en una servilleta. La guardaste. Todavía la tenés.'; } },
+      { txt:'Agradecerle e irme', ef:(s)=>{ return 'Guardó la servilleta en el bolsillo sin ofenderse. Ya estaba acostumbrado.'; } } ] },
+  { id:'ferraz', n:'Tiago Ferraz', apodo:'O Fantasma', semilla:'leyTiagoFerraz', ropa:'calle', edad:41, gen:'m', fama:26,
+    av:{gen:'m',piel:'trigena',pelo:'afro',peloColor:'negro',barba:0,acc:'nada',peso:-1},
+    t:'O Fantasma aparece en tu entrenamiento', d:'Nadie lo vio llegar, como siempre. Tiago Ferraz se metió en el predio, miró veinte minutos y ahora quiere hablarte del desmarque.',
+    opts:[
+      { txt:'Pedirle que me enseñe', ef:(s,g)=>{ g.nivel=clamp((g.nivel||60)+3,30,99); return '"No corras al espacio: corré al espacio que va a existir en dos segundos." Tardaste un año en entenderlo y otro en hacerlo.'; } },
+      { txt:'Invitarlo a comer', ef:(s)=>{ s.soledad=(s.soledad||40)-8; return 'Comieron, se rieron y no hablaron de fútbol ni una vez. Se hicieron amigos.'; } } ] },
+  { id:'sandoval', n:'Beto Sandoval', apodo:'El Loco', semilla:'leyBetoSandoval', ropa:'calle', edad:53, gen:'m', fama:21,
+    av:{gen:'m',piel:'media',pelo:'largo',peloColor:'castano',barba:3,acc:'nada',peso:1},
+    t:'El Loco te arrastra a un partido de barrio', d:'Beto Sandoval jugó tres mundiales y hoy organiza picados en un descampado. Te llama un domingo a las nueve de la mañana.',
+    opts:[
+      { txt:'Ir sin avisarle a nadie', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+16; g.moral=clamp((g.moral||60)+8,0,100); return 'Jugaste dos horas con tipos que van a contarlo toda la vida. Nadie sacó una foto. Fue perfecto.'; } },
+      { txt:'Mandar botines de regalo', ef:(s,g)=>{ g.dinero=Math.max(0,(g.dinero||0)-ri(2000,9000)); s.felicidad=(s.felicidad||50)+6; return 'Llegaron veinte pares. Jugaron con tu nombre en los pies todo el año.'; } } ] },
+  { id:'okonkwo', n:'Chidi Okonkwo', apodo:'El Rayo', semilla:'leyChidiOkonkwo', ropa:'calle', edad:35, gen:'m', fama:23,
+    av:{gen:'m',piel:'oscura',pelo:'rastas',peloColor:'negro',barba:1,acc:'nada',peso:-1},
+    t:'El Rayo te desafía a una picada', d:'Chidi Okonkwo fue el hombre más rápido que pisó una cancha. Te desafía a cien metros delante de todo el plantel.',
+    opts:[
+      { txt:'Correrle', ef:(s,g)=>{ const b=Math.random()<0.3; g.moral=clamp((g.moral||60)+(b?12:4),0,100); return b?'Le ganaste por un pecho. El vestuario se vino abajo. Él te abrazó riéndose.':'Te sacó cinco metros y ya no tiene treinta años. Igual valió la pena.'; } },
+      { txt:'Ni loco corro contra vos', ef:(s)=>{ return 'Dijo que sos el primero honesto en veinte años.'; } } ] },
+  { id:'brancati', n:'Gennaro Brancati', apodo:'Il Capitano', semilla:'leyGennaroBrancati', ropa:'traje', edad:60, gen:'m', fama:25,
+    av:{gen:'m',piel:'media',pelo:'corto',peloColor:'canoso',barba:0,acc:'nada',peso:0},
+    t:'Il Capitano te habla de la cinta', d:'Gennaro Brancati llevó la cinta veinte años. Te ve puesta la de capitán por primera vez y se sienta al lado tuyo.',
+    opts:[
+      { txt:'Preguntarle cómo se hace', ef:(s,g)=>{ g.moral=clamp((g.moral||60)+10,0,100); g._vidaFlags=g._vidaFlags||{}; g._vidaFlags.capitanFormado=true; return '"El capitán no es el que grita. Es el que se queda cuando todos se van." Lo aplicaste el resto de tu carrera.'; } },
+      { txt:'Ya sé lo que tengo que hacer', ef:(s)=>{ return 'Asintió y se fue. Tres meses después le pediste el consejo igual.'; } } ] },
+  { id:'delgado', n:'Ramiro Delgado', apodo:'El Cirujano', semilla:'leyRamiroDelgado', ropa:'calle', edad:46, gen:'m', fama:22,
+    av:{gen:'m',piel:'clara',pelo:'corto',peloColor:'castano',barba:1,acc:'nada',peso:0},
+    t:'El Cirujano y la asistencia imposible', d:'Ramiro Delgado dio más asistencias que nadie en la historia de tu liga. Quiere mostrarte un pase que nunca nadie le copió.',
+    opts:[
+      { txt:'Aprenderlo', ef:(s,g)=>{ g.nivel=clamp((g.nivel||60)+2,30,99); g.tot.a=(g.tot.a||0); return 'Tres tardes hasta que salió. Después lo diste veinte veces y siempre te acordaste de él.'; } },
+      { txt:'Yo defino, no asisto', ef:(s,g)=>{ g.moral=clamp((g.moral||60)+4,0,100); return '"Los que definen se retiran solos", te dijo. No entendiste hasta muchos años después.'; } } ] },
+  { id:'aramburu', n:'Chichi Aramburu', apodo:'La Dama de Hierro', semilla:'leyChichiAramburu', ropa:'traje', edad:55, gen:'f', fama:24,
+    av:{gen:'f',piel:'media',pelo:'colita',peloColor:'canoso',barba:0,acc:'nada',peso:0},
+    t:'La primera técnica campeona te ofrece algo', d:'Chichi Aramburu fue la primera mujer en dirigir un equipo campeón en tu país. Te llama a su oficina.',
+    opts:[
+      { txt:'Escuchar la propuesta', ef:(s,g)=>{ g._vidaFlags=g._vidaFlags||{}; g._vidaFlags.chichi=true; return 'Te ofreció ser la cara de su fundación de fútbol femenino. Aceptaste. Es de las mejores cosas que hiciste.'; } },
+      { txt:'No tengo tiempo', ef:(s)=>{ return 'Te agradeció la honestidad. Diez años después lo lamentaste.'; } } ] },
+  { id:'stefanov', n:'Ivo Stefanov', apodo:'El Muro del Este', semilla:'leyIvoStefanov', ropa:'calle', edad:51, gen:'m', fama:20,
+    av:{gen:'m',piel:'clara',pelo:'rapado',peloColor:'canoso',barba:2,acc:'nada',peso:1},
+    t:'El arquero que atajó tres penales en una final', d:'Ivo Stefanov quiere enseñarte a patear penales estudiando al arquero, no la pelota.',
+    opts:[
+      { txt:'Estudiar con él', ef:(s,g)=>{ g.nivel=clamp((g.nivel||60)+2,30,99); g.flags=g.flags||{}; g.flags.penalero=true; return 'Te enseñó a leer la cadera del arquero medio segundo antes. No volviste a errar uno importante.'; } },
+      { txt:'Yo la reviento y listo', ef:(s)=>{ return 'Se encogió de hombros: "También funciona. Hasta que no."'; } } ] },
+  { id:'mbeki', n:'Sipho Mbeki', apodo:'El Bailarín', semilla:'leySiphoMbeki', ropa:'calle', edad:39, gen:'m', fama:26,
+    av:{gen:'m',piel:'oscura',pelo:'afro',peloColor:'negro',barba:0,acc:'nada',peso:0},
+    t:'El Bailarín y la gambeta que nadie entendió', d:'Sipho Mbeki inventó un movimiento que los rivales todavía no saben cómo defender. Está dispuesto a mostrártelo.',
+    opts:[
+      { txt:'Que me lo enseñe', ef:(s,g)=>{ g.nivel=clamp((g.nivel||60)+3,30,99); return 'Te lo mostró seis veces y a la séptima te salió. La usaste en un clásico y quedó en todos lados.'; } },
+      { txt:'Prefiero mi juego', ef:(s,g)=>{ g.moral=clamp((g.moral||60)+5,0,100); return '"Bien. El que copia nunca es el mejor en nada." Te palmeó y se fue bailando.'; } } ] },
+  { id:'larrain', n:'Nacho Larraín', apodo:'El Notario', semilla:'leyNachoLarrain', ropa:'traje', edad:63, gen:'m', fama:21,
+    av:{gen:'m',piel:'clara',pelo:'corto',peloColor:'canoso',barba:0,acc:'lentes',peso:1},
+    t:'El que se fundió te quiere avisar algo', d:'Nacho Larraín ganó todo y perdió todo. Hoy vive de una pensión. Pidió hablar con vos.',
+    opts:[
+      { txt:'Escucharlo con atención', ef:(s,g)=>{ g.flags=g.flags||{}; g.flags.prudente=true; return 'Te contó cada error, con nombres y fechas, sin ahorrarse la vergüenza. Te salvó de firmar dos cosas que ibas a firmar.'; } },
+      { txt:'A mí no me va a pasar', ef:(s)=>{ return 'Te dijo que él pensaba exactamente igual a tu edad.'; } } ] },
+  { id:'moretto', n:'Sandro Moretto', apodo:'El Rey del Área', semilla:'leySandroMoretto', ropa:'calle', edad:58, gen:'m', fama:23,
+    av:{gen:'m',piel:'media',pelo:'largo',peloColor:'canoso',barba:1,acc:'nada',peso:1},
+    t:'El goleador histórico te mira entrenar', d:'Sandro Moretto hizo cuatrocientos goles y dice que todos salieron del mismo lugar: dos metros del segundo palo.',
+    opts:[
+      { txt:'Practicar eso mil veces', ef:(s,g)=>{ g.nivel=clamp((g.nivel||60)+2,30,99); return '"El gol no se inventa, se espera en el lugar correcto." Empezaste a llegar siempre ahí.'; } },
+      { txt:'Yo hago goles de otra manera', ef:(s)=>{ return 'Te dijo que estaba bien, pero que contara al final de la carrera cuántos hiciste desde ahí.'; } } ] },
+  { id:'fujita', n:'Kenji Fujita', apodo:'El Metrónomo', semilla:'leyKenjiFujita', ropa:'traje', edad:47, gen:'m', fama:22,
+    av:{gen:'m',piel:'clara',pelo:'corto',peloColor:'negro',barba:0,acc:'nada',peso:-1},
+    t:'El Metrónomo te habla de la disciplina', d:'Kenji Fujita jugó cuatrocientos partidos seguidos sin faltar a uno solo. Quiere saber cómo dormís.',
+    opts:[
+      { txt:'Contarle la verdad', ef:(s,g)=>{ g.nivel=clamp((g.nivel||60)+1,30,99); g.moral=clamp((g.moral||60)+6,0,100); return 'Te armó una rutina de sueño y comida en una hoja. La seguiste ocho años y no te lesionaste nunca.'; } },
+      { txt:'Duermo bárbaro (mentira)', ef:(s)=>{ return 'Te miró a los ojos y dijo "no". No insistió, pero los dos supieron.'; } } ] },
+  { id:'quiroga', n:'Tito Quiroga', apodo:'El Relator', semilla:'leyTitoQuiroga', ropa:'tv', edad:66, gen:'m', fama:20,
+    av:{gen:'m',piel:'media',pelo:'corto',peloColor:'canoso',barba:2,acc:'nada',peso:1},
+    t:'El relator de siempre quiere tu historia', d:'Tito Quiroga relató todos los goles importantes del país durante cuarenta años. Quiere hacerte una nota larga, de las que ya no se hacen.',
+    opts:[
+      { txt:'Darle dos horas', ef:(s,g)=>{ g.fama=clamp((g.fama||0)+6,0,100); return 'Salió el mejor perfil que te hicieron nunca. Tus hijos lo van a poder escuchar cuando vos no estés.'; } },
+      { txt:'Quince minutos y listo', ef:(s)=>{ return 'Hizo lo que pudo. Quedó correcto y olvidable.'; } } ] },
+  { id:'bekele', n:'Dawit Bekele', apodo:'El Maratonista', semilla:'leyDawitBekele', ropa:'calle', edad:42, gen:'m', fama:21,
+    av:{gen:'m',piel:'oscura',pelo:'corto',peloColor:'negro',barba:0,acc:'nada',peso:-1},
+    t:'El que corría más que nadie', d:'Dawit Bekele promediaba catorce kilómetros por partido. Te propone acompañarlo en su entrenamiento de fondo.',
+    opts:[
+      { txt:'Ir y aguantar lo que pueda', ef:(s,g)=>{ g.nivel=clamp((g.nivel||60)+2,30,99); return 'Duraste la mitad. Volviste todas las semanas hasta durar entero. El físico te cambió para siempre.'; } },
+      { txt:'Mi juego no es ese', ef:(s)=>{ return '"El mío tampoco era, hasta que decidí que fuera."'; } } ] },
+  { id:'salgado', n:'Pipo Salgado', apodo:'El Utilero', semilla:'leyPipoSalgado', ropa:'calle', edad:71, gen:'m', fama:18,
+    av:{gen:'m',piel:'media',pelo:'calvo',peloColor:'canoso',barba:1,acc:'nada',peso:1},
+    t:'El utilero que vio pasar a todos', d:'Pipo Salgado lavó las camisetas de cuatro generaciones de cracks. Se sabe todas las historias y nunca contó ninguna.',
+    opts:[
+      { txt:'Sentarme a escucharlo', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+12; g.moral=clamp((g.moral||60)+6,0,100); return 'Te contó cosas de ídolos tuyos que no están en ningún lado, y te pidió que no las repitas. No las repetiste.'; } },
+      { txt:'Regalarle mi camiseta firmada', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+8; return 'La colgó en su casa entre las de los más grandes de la historia. "Acá estás vos ahora", te dijo.'; } } ] },
+  { id:'volkov', n:'Yuri Volkov', apodo:'El Zar', semilla:'leyYuriVolkov', ropa:'traje', edad:54, gen:'m', fama:27,
+    av:{gen:'m',piel:'clara',pelo:'corto',peloColor:'rubio',barba:0,acc:'nada',peso:1},
+    t:'El Zar te ofrece un negocio', d:'Yuri Volkov pasó de ser el mejor mediocampista del este a dueño de medio fútbol de su país. Te propone entrar en algo.',
+    opts:[
+      { txt:'Escuchar y pedir ver los papeles', ef:(s,g)=>{ const b=Math.random()<0.6; g.dinero=(g.dinero||0)+(b?ri(80000,400000):0); return b?'Los papeles estaban impecables y el negocio salió. Ganaste bien y aprendiste a leer un contrato.':'Los papeles no cerraban. Dijiste que no y él te respetó más por eso.'; } },
+      { txt:'No me meto con ese tipo de gente', ef:(s,g)=>{ g.flags=g.flags||{}; g.flags.limpio=true; return 'Te fuiste tranquilo. Años después salió todo a la luz y dormiste bárbaro.'; } } ] }
+];
+// Caras a mano para las doce primeras, así las treinta son inconfundibles.
+const LEY_LOOK = {
+  zeca:     {gen:'m',piel:'trigena',pelo:'largo',peloColor:'negro',barba:1,acc:'nada',peso:0},
+  duende:   {gen:'m',piel:'clara',pelo:'largo',peloColor:'castano',barba:2,acc:'nada',peso:0},
+  maquina:  {gen:'m',piel:'media',pelo:'tupe',peloColor:'negro',barba:0,acc:'nada',peso:0},
+  palmeira: {gen:'m',piel:'trigena',pelo:'mohawk',peloColor:'rubio',barba:0,acc:'bling',peso:-1},
+  craddock: {gen:'m',piel:'clara',pelo:'colita',peloColor:'castano',barba:1,acc:'nada',peso:0},
+  mariscal: {gen:'m',piel:'media',pelo:'corto',peloColor:'canoso',barba:2,acc:'nada',peso:1},
+  sylla:    {gen:'m',piel:'oscura',pelo:'rapado',peloColor:'negro',barba:0,acc:'nada',peso:-1},
+  fioravanti:{gen:'m',piel:'clara',pelo:'calvo',peloColor:'canoso',barba:3,acc:'nada',peso:1},
+  haaren:   {gen:'m',piel:'clara',pelo:'corto',peloColor:'canoso',barba:0,acc:'lentes',peso:0},
+  asante:   {gen:'m',piel:'oscura',pelo:'calvo',peloColor:'canoso',barba:1,acc:'nada',peso:1},
+  valente:  {gen:'f',piel:'media',pelo:'largo',peloColor:'negro',barba:0,acc:'nada',peso:-1},
+  tordo:    {gen:'m',piel:'media',pelo:'corto',peloColor:'castano',barba:2,acc:'nada',peso:1}
+};
+LEYENDAS.forEach(L=>{ if (!L.av && LEY_LOOK[L.id]) L.av = LEY_LOOK[L.id]; });
+LEYENDAS_MAS.forEach(L=> LEYENDAS.push(L));
 // Las leyendas entran al banco de sucesos como una categoria mas, pero con el
 // `npc` cargado: por eso vjDialogo las DIBUJA en vez de mostrar un cartel.
 // ── ENCONTRARSE CON UNA LEYENDA ──────────────────────────────────────────────
@@ -7802,7 +7934,7 @@ function leyendaDisponible(){
   // Siempre la misma mientras no la resuelvas, para que no cambie al repintar.
   const fijada = G._leyActual && libres.find(L=>L.id===G._leyActual);
   const L = fijada || pick(libres);
-  G._leyActual = L.id;
+  if (G._leyActual !== L.id){ G._leyActual = L.id; try{ save(); }catch(e){} }
   return L;
 }
 function vjLeyendaEncuentro(h){
@@ -7811,7 +7943,7 @@ function vjLeyendaEncuentro(h){
   (G._leyVistas = G._leyVistas || []).push(L.id);
   G._leyActual = null;
   G._vjSuc = { cat:'leyendas', ev:{ t:L.t, d:L.d, opts:L.opts,
-    npc:{ semilla:L.semilla, ropa:L.ropa, edad:L.edad, gen:L.gen,
+    npc:{ semilla:L.semilla, ropa:L.ropa, edad:L.edad, gen:L.gen, av:L.av,
           nombre: L.apodo ? (L.n + ' · ' + L.apodo) : L.n } }, clave:'ley|'+L.id };
   save();
   vjDialogo(G._vjSuc.ev, 'suceso', G._vjSuc.ev.npc.nombre, h);
@@ -7820,7 +7952,7 @@ function leyendasComoSucesos(){
   return LEYENDAS.map(L=>({
     t: L.t, d: L.d, opts: L.opts,
     // `nombre` es lo que se lee arriba del diálogo: "ZECA ANDRADE · O SORRISO".
-    npc: { semilla:L.semilla, ropa:L.ropa, edad:L.edad, gen:L.gen,
+    npc: { semilla:L.semilla, ropa:L.ropa, edad:L.edad, gen:L.gen, av:L.av,
            nombre: L.apodo ? (L.n + ' · ' + L.apodo) : L.n },
     req: g => (g.fama || 0) >= L.fama
   }));
@@ -8729,7 +8861,7 @@ function vjHotspotsClub(){
       lbl:'Hablar con un hincha', accion:'charlaClub', icono:'bx-group', rol:'hincha' });
     // Si hay una leyenda esperándote, se la VE parada en la cancha.
     const _L = leyendaDisponible();
-    if (_L) out.push({ x:520, tipo:'npc', semilla:_L.semilla, ropa:_L.ropa, edad:_L.edad, gen:_L.gen,
+    if (_L) out.push({ x:520, tipo:'npc', semilla:_L.semilla, ropa:_L.ropa, edad:_L.edad, gen:_L.gen, av:_L.av,
       leyId:_L.id, lbl:_L.n + ' te está esperando', accion:'leyenda', icono:'bx-star',
       destacado:true, nombre:_L.n, rol:_L.apodo || 'leyenda' });
     // TU RIVAL DE TODA LA VIDA, en carne y hueso. Existía desde el principio pero
@@ -10351,7 +10483,7 @@ function vjDialogo(ev, tipo, quien, h){
           // texto dice "un nene te espera", tiene que verse un nene — antes salía
           // el vecino de 46 con barba porque el retrato lo ponía el hotspot.
           const N = (ev && ev.npc) || null;
-          if (N) return `<div style="line-height:0;">${vjSpriteNPC(N.semilla || ('ev'+ev.t), N.ropa || 'calle', N.edad || 40, 'pensando', N.gen)}</div>`;
+          if (N) return `<div style="line-height:0;">${vjSpriteNPC(N.semilla || ('ev'+ev.t), N.ropa || 'calle', N.edad || 40, 'pensando', N.gen, N.av)}</div>`;
           // Tu pareja se dibuja SIEMPRE por su propia vía. Sin esto, caminando por
           // la casa se veía la que elegiste, pero al hablarle el retrato salía del
           // hash: era otra mujer, y encima cambiaba de una charla a otra.
