@@ -430,7 +430,48 @@ function save(){
   // desde cada evento suelto.
   try{ logrosChequear(); }catch(e){}
 }
-function load(){ try{ return JSON.parse(localStorage.getItem(LS)||'null'); }catch(e){ return null; } }
+function load(){
+  try{ return sanear(JSON.parse(localStorage.getItem(LS)||'null')); }catch(e){ return null; }
+}
+// SANEO DE PARTIDAS VIEJAS. El juego fue creciendo y cada tanto se sumó un campo
+// nuevo; un save hecho antes no lo tiene, y el código que lo lee sin preguntar
+// revienta. Ya pasó con el rival sin estadísticas, que rompía la pantalla de
+// retiro entera después de quince temporadas. En vez de poner un guard en cada
+// uno de los cincuenta lugares donde se leen, se completan acá una sola vez.
+function sanear(g){
+  if (!g || typeof g !== 'object') return g;
+  const num = (v, d) => (typeof v === 'number' && isFinite(v)) ? v : d;
+  g.tot = Object.assign({ pj:0, g:0, a:0 }, g.tot || {});
+  g.tot.pj = num(g.tot.pj,0); g.tot.g = num(g.tot.g,0); g.tot.a = num(g.tot.a,0);
+  g.familia = g.familia || {};
+  g.familia.hijos = g.familia.hijos || [];
+  g.familia.nietos = g.familia.nietos || [];
+  g.vitrina = g.vitrina || [];
+  g.timeline = g.timeline || [];
+  g.flags = g.flags || {};
+  g.idolatria = g.idolatria || {};
+  g.idiomas = g.idiomas || [];
+  g.titulos = num(g.titulos, 0);
+  g.nivel = num(g.nivel, 60);
+  g.dinero = num(g.dinero, 0);
+  g.moral = num(g.moral, 60);
+  g.fama = num(g.fama, 0);
+  if (g.rival){
+    g.rival.tot = Object.assign({ pj:0, g:0, a:0 }, g.rival.tot || {});
+    g.rival.ganados = num(g.rival.ganados, 0);
+    g.rival.perdidos = num(g.rival.perdidos, 0);
+    g.rival.nivel = num(g.rival.nivel, 60);
+    g.rival.titulos = num(g.rival.titulos, 0);
+    g.rival.vitrina = g.rival.vitrina || [];
+    g.rival.hist = g.rival.hist || [];
+  }
+  if (g.gestion){
+    g.gestion.plantel = g.gestion.plantel || [];
+    g.gestion.titulos = num(g.gestion.titulos, 0);
+  }
+  if (g.vidaStats) Object.keys(g.vidaStats).forEach(k=>{ g.vidaStats[k] = num(g.vidaStats[k], 50); });
+  return g;
+}
 function overlay(){
   let m=document.getElementById('carrera-modal'); if(m) m.remove();
   m=document.createElement('div'); m.id='carrera-modal';
