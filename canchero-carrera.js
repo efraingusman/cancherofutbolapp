@@ -9035,6 +9035,19 @@ function metaHTML(){
       <i class='bx bx-right-arrow-alt'></i> Ahora: ${esc(falta.t.toLowerCase())}</div>` : `
     <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:#facc15;font-weight:900;">
       <i class='bx bxs-trophy'></i> Lo lograste. Lo que venga ahora es de regalo.</div>`}
+    ${(function(){
+      // Lo del tramo va DENTRO de la misma tarjeta: eran dos listas de tildes,
+      // una encima de la otra, y parecian lo mismo repetido dos veces.
+      const pend = vjPendientesTramo();
+      if (!pend.length) return '';
+      return `<div style="margin-top:9px;padding-top:9px;border-top:1px solid rgba(255,255,255,.08);">
+        <div style="font-size:9px;font-weight:900;letter-spacing:1.5px;color:#5d6879;margin-bottom:6px;">PARA CERRAR ESTE TRAMO</div>
+        ${pend.map(x=>`<div style="display:flex;align-items:center;gap:7px;font-size:11px;color:${x.hecho?'#4ade80':'#9aa4b2'};margin-bottom:3px;">
+          <i class='bx ${x.hecho?'bx-check-circle':'bx-circle'}' style="font-size:13px;flex-shrink:0;"></i>
+          <span style="${x.hecho?'text-decoration:line-through;opacity:.7;':''}">${esc(x.txt)}${x.obliga?'':' <span style="font-size:9px;color:#5d6879;">(opcional)</span>'}</span>
+        </div>`).join('')}
+      </div>`;
+    })()}
   </div>`;
 }
 function vjPendientesTramo(){
@@ -9676,14 +9689,6 @@ function mundoRender(){
       </div>
       <div style="min-width:0;">
         ${(VJ.mundo === 'vida' && G && G.vidaRol) ? metaHTML() : ''}
-        ${(VJ.mundo === 'vida' && G && G.vidaRol) ? (function(){ const pend = vjPendientesTramo(); return `
-        <div style="margin-top:10px;background:rgba(255,255,255,.03);border:1px solid #1e2632;border-radius:13px;padding:10px 12px;">
-          <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#5d6879;margin-bottom:8px;">ESTE TRAMO DE TU VIDA</div>
-          ${pend.map(x=>`<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:${x.hecho?'#4ade80':'#9aa4b2'};margin-bottom:3px;">
-            <i class='bx ${x.hecho?'bx-check-circle':'bx-circle'}' style="font-size:15px;flex-shrink:0;"></i>
-            <span style="${x.hecho?'text-decoration:line-through;opacity:.7;':''}">${esc(x.txt)}${x.obliga?'':' <span style="font-size:9px;color:#5d6879;">(opcional)</span>'}</span>
-          </div>`).join('')}
-        </div>`; })() : ''}
       </div>
       </div>
     </div>
@@ -10020,27 +10025,37 @@ function vjAjustarEscala(){
   if(!view || !capa) return;
   const VW = view.clientWidth;
   const W = vjEscena().ancho, H = 250;
-  // El zoom lo manda el ANCHO: la escena tiene que llenar la pantalla de lado a
-  // lado siempre. En el celular queda en 1 y la camara acompana al personaje; en
-  // PC se agranda hasta cubrir todo. El alto se deduce del zoom, asi no quedan
-  // franjas negras ni arriba ni a los costados.
-  // En PC el zoom por ancho llegaba a 2.4 y la escena se comía hasta 600px de
-  // alto, dejando el panel de acciones fuera de la pantalla. Ahora el alto tiene
-  // tope (46% del viewport) y el zoom se recalcula para respetarlo.
+  // El alto disponible depende de lo que ocupe el panel de abajo.
   const conPanelLargo = (VJ.mundo === 'vida' && G && G.vidaRol);
-  const topeAlto = Math.max(150, Math.round((window.innerHeight || 700) * (conPanelLargo ? 0.36 : 0.56)));
-  // El zoom lo manda SIEMPRE el ancho: si se lo bajaba para respetar el tope de
-  // alto, la escena dejaba de llegar al borde y quedaba un rectangulo negro a la
-  // derecha en PC. Ahora el ancho se cubre igual y lo que sobra de alto se
-  // recorta ARRIBA (cielo), anclando la capa abajo: el piso nunca se pierde.
-  const s = clamp(VW / W, 1, 2.4);
-  view.style.height = Math.min(Math.round(H * s), topeAlto) + 'px';
-  capa.style.transformOrigin = 'left bottom';
+  const alto = Math.max(190, Math.round((window.innerHeight || 700) * (conPanelLargo ? 0.34 : 0.5)));
+  // EL MUNDO ENTRA ENTERO. Antes el zoom lo mandaba el ancho y lo que sobraba de
+  // alto se recortaba de arriba: se llenaba la pantalla pero los personajes y sus
+  // nombres quedaban cortados por la mitad. Ahora manda el ALTO —nadie sale
+  // cortado— y el ancho sobrante se rellena con el propio color de la escena,
+  // centrando el mundo. Ni personajes cortados ni rectangulos negros.
+  const s = clamp(alto / H, 1, 2.4);
+  view.style.height = alto + 'px';
+  const anchoMundo = W * s;
+  capa.style.transformOrigin = 'left top';
   capa.style.transform = 'scale(' + s.toFixed(3) + ')';
-  capa.style.left = '0px';
-  capa.style.top = 'auto';
-  capa.style.bottom = '0px';
+  capa.style.top = '0px';
+  capa.style.bottom = 'auto';
+  // Si el mundo no llega a cubrir el ancho, se centra y el fondo del view toma
+  // el color del piso de la escena para que el borde no se lea como un hueco.
+  capa.style.left = anchoMundo < VW ? Math.round((VW - anchoMundo) / 2) + 'px' : '0px';
+  view.style.background = vjColorFondo();
   VJ.escala = s;
+  VJ.margen = anchoMundo < VW ? Math.round((VW - anchoMundo) / 2) : 0;
+}
+// Color de relleno de los costados: el del piso de la escena, para que se lea
+// como continuacion del mundo y no como un vacio.
+function vjColorFondo(){
+  const e = VJ.escena;
+  if (e === 'casa') return '#151a12';
+  if (e === 'cancha' || e === 'predio') return '#122a12';
+  if (e === 'estadio') return '#0d1a24';
+  if (e === 'vestuario' || e === 'trabajo') return '#141a20';
+  return '#101510';
 }
 function vjCambiarEscena(nueva, entrarPor){
   VJ.escena = nueva;
