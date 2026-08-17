@@ -1108,7 +1108,30 @@ function nombresEnCasa(){
 // Crea una persona (hijo/nieto) con género y nombre coherentes.
 function nacePersona(gen, extra){
   gen = gen || (Math.random() < 0.5 ? 'f' : 'm');
-  return Object.assign({ nombre: nombreNuevo(gen, nombresEnCasa()), gen, edad:0 }, extra||{});
+  return Object.assign({ nombre: nombreNuevo(gen, nombresEnCasa()), gen, edad:0, av: avHijo(gen) }, extra||{});
+}
+// La cara de un hijo SALE DE LOS PADRES. Antes cada hijo se dibujaba a partir del
+// hash de su nombre: nacía un pelirrojo de piel clara de dos morochos y no había
+// forma de creerse que fueran familia. Ahora cada rasgo se sortea entre el de la
+// madre y el del padre, con una chance chica de variar (los genes hacen eso).
+function avHijo(gen){
+  const mio = (G && G.avatar) || avatarDefault();
+  const dela = (G && G.familia && G.familia.parejaAv) || null;
+  const de = (a, b, campo, alterno) => {
+    const opciones = [a && a[campo], b && b[campo]].filter(v=>v != null);
+    if (!opciones.length) return alterno;
+    // 12% de las veces sale algo que no tiene ninguno de los dos: pasa en la vida.
+    if (alterno !== undefined && Math.random() < 0.12) return alterno;
+    return pick(opciones);
+  };
+  return {
+    gen,
+    piel: de(mio, dela, 'piel', pick(AV_PIELES).id),
+    peloColor: de(mio, dela, 'peloColor', pick(AV_COLORES_PELO).id),
+    pelo: gen === 'f' ? pick(['largo','colita','afro','rastas']) : pick(AV_PELOS).id,
+    barba: 0, acc:'nada', calvicie:0, canas:0, cicatriz:0,
+    peso: de(mio, dela, 'peso', 0) || 0, tatus:0, bling:0
+  };
 }
 // A quién querés al lado: se elige una vez y el juego lo respeta toda la partida.
 // Por defecto, mujer. La pareja se DIBUJA con ese género, no con uno al azar.
@@ -6779,11 +6802,21 @@ function vjSpriteHab(h, pose){
   // La pareja NO se genera por hash: se dibuja con el avatar exacto que elegiste,
   // si no cambiaba de cara entre la escena de la boda y la de la casa.
   if (h && h._pareja) return vjSpritePareja(pose||'idle', false, 2.2);
-  return vjSpriteNPC(h.semilla, h.ropa, h.edad, pose||'idle', vjGen(h));
+  return vjSpriteNPC(h.semilla, h.ropa, h.edad, pose||'idle', vjGen(h), h.av);
 }
-function vjSpriteNPC(semilla, ropa, edad, pose, gen){
+function vjSpriteNPC(semilla, ropa, edad, pose, gen, avFijo){
   edad = edad || 40;
   let h = 0; for(let i=0;i<String(semilla).length;i++) h = (h*31 + String(semilla).charCodeAt(i)) >>> 0;
+  // Si el personaje TRAE su propia cara (los hijos y nietos, que heredan rasgos
+  // de los padres), se respeta y no se inventa nada por hash.
+  if (avFijo){
+    const g2 = gen || avFijo.gen || generoDeSemilla(semilla) || 'm';
+    const av2 = Object.assign({}, avFijo, { gen:g2,
+      barba: (g2 === 'f' || edad < 20) ? 0 : (avFijo.barba || 0),
+      canas: edad >= 45 ? (avFijo.canas || ((h>>>13)%2)) : 0,
+      calvicie: (g2 !== 'f' && edad >= 30) ? (avFijo.calvicie || 0) : 0 });
+    return avatarSprite(av2, { edad, escala:2.2, pose: pose||'idle', ropa: ropa||'calle', num:'', apellido:'', bebeGen:g2 });
+  }
   // Antes esto era un 50/50 por hash: por eso un representante o un amigo salían
   // dibujados como mujer. Ahora manda el rol/nombre de la semilla.
   if (gen == null) gen = generoDeSemilla(semilla);
@@ -7712,6 +7745,42 @@ const SUCESOS_JUGADOR = {
 // o ya retirado. Se agregan una sola vez, al cargar el archivo.
 VIDA_SUCESOS.leyendas = leyendasComoSucesos();
 SUCESOS_JUGADOR.leyendas = leyendasComoSucesos();
+// ── VOLVER AL CLUB QUE TRAICIONASTE ──────────────────────────────────────────
+// Irte al clásico rival tenía consecuencias en un número (la idolatría) pero no
+// se veía nunca. Ahora la hinchada te lo cobra en la cara.
+SUCESOS_JUGADOR.exclub = [
+  { t:'Volvés al estadio del que te fuiste', edadMin:20,
+    req:g=>!!(g.flags && g.flags.traidor && g.flags.exClub && g.flags.exClub !== g.club),
+    d:'Se juega en la cancha de ' + '' + 'tu ex club. Desde que baja el micro es un solo insulto. Hay banderas con tu nombre y una palabra al lado que no se puede repetir.',
+    opts:[
+      { txt:'Salir a la cancha como si nada', ef:(s,g)=>{ const b=Math.random()<0.5;
+          g.moral=clamp((g.moral||60)+(b?8:-12),0,100);
+          if(b){ g.fama=clamp((g.fama||0)+7,0,100); return 'Aguantaste noventa minutos de silbidos y jugaste uno de tus mejores partidos. Al final aplaudieron hasta los que te puteaban.'; }
+          return 'No pudiste con la presión. Errante todo el partido, te sacaron a los sesenta y salió peor: se burlaron hasta que entraste al túnel.'; } },
+      { txt:'Festejarles el gol en la cara', ef:(s,g)=>{
+          g.flags=g.flags||{}; g.flags.villano=true;
+          g.idolatria=g.idolatria||{}; g.idolatria[g.flags.exClub]=clamp((g.idolatria[g.flags.exClub]||0)-30,-100,100);
+          g.fama=clamp((g.fama||0)+12,0,100);
+          return 'Metiste el gol y corriste a festejarles debajo de la tribuna. Volaron monedas, un encendedor y de todo. Te quedaste ahí igual. Esa foto la van a usar treinta años.'; } },
+      { txt:'Meter el gol y pedir disculpas', ef:(s,g)=>{
+          g.moral=clamp((g.moral||60)+10,0,100);
+          g.idolatria=g.idolatria||{}; g.idolatria[g.flags.exClub]=clamp((g.idolatria[g.flags.exClub]||0)+18,-100,100);
+          return 'Lo festejaste con las manos abiertas, pidiendo perdón. Media tribuna se calló. Con el tiempo esa imagen les ablandó el rencor.'; } } ] },
+  { t:'El clásico de tu vida', edadMin:21,
+    req:g=>!!(g.rival && g.rival.nombre && (g.temporada||0) >= 3),
+    d:'Se cruzan otra vez, y esta vez hay un título en juego. Enfrente está el que te viene marcando desde juveniles.',
+    opts:[
+      { txt:'Salir a comérmelo', ef:(s,g)=>{ const b=Math.random()<0.5+((g.nivel||60)-70)/220;
+          if(!g.rival.ganados) g.rival.ganados=0; if(!g.rival.perdidos) g.rival.perdidos=0;
+          if(b){ g.rival.ganados++; g.moral=clamp((g.moral||60)+14,0,100); g.fama=clamp((g.fama||0)+8,0,100);
+            return 'Le ganaste el duelo y el partido. Al final se abrazaron largo, sin decirse nada. Los dos sabían lo que había sido.'; }
+          g.rival.perdidos++; g.moral=clamp((g.moral||60)-12,0,100);
+          return 'Te ganó él. Te dio la mano y te dijo "la próxima". Odiás que sea buen tipo.'; } },
+      { txt:'Jugar para el equipo y olvidarme de él', ef:(s,g)=>{
+          g.moral=clamp((g.moral||60)+6,0,100);
+          if(g.rival) g.rival.relacion=clamp((g.rival.relacion||0)+12,-100,100);
+          return 'Te sacaste la personal de la cabeza y jugaste para los once. Salió bien, y encima dejaste de vivir pendiente de él.'; } } ] }
+];
 // Elige un suceso disponible. En la carrera usa el repertorio del jugador; después
 // del retiro, el de la segunda vida.
 function vjSucesoDisponible(catPreferida){
@@ -8295,12 +8364,23 @@ function vjHotspotsBase(){
     if (fam.pareja) out.push({ x:250, tipo:'npc', _pareja:true, semilla:'pareja'+fam.pareja, ropa:'calle', edad:(G.vidaEdad||40)-2,
       gen: fam.parejaGen || parejaGen(),
       lbl:'Hablar con ' + esc(fam.pareja), accion:'suceso', cat:'familia', icono:'bx-heart', nombre:esc(fam.pareja), rol:'tu pareja' });
+    // EL ABUELO. Si estás jugando el legado y el viejo llegó vivo, está en la casa:
+    // se lo ve, se le habla y te cuenta lo suyo. Antes el ancestro era solo un
+    // número a superar en un cartel.
+    const _L = G.legado;
+    if (_L && _L.vivo && (_L.parentesco === 'abuelo' || _L.parentesco === 'padre'))
+      out.push({ x:262, tipo:'npc', semilla:'ancestro'+(_L.padre||''), ropa:'jubilado',
+        edad: _L.edadAncestro || 74, gen:'m', av: _L.avAncestro,
+        lbl:'Hablar con tu ' + esc(_L.parentesco), accion:'abuelo', icono:'bx-conversation',
+        nombre: esc(_L.padre || 'tu ' + _L.parentesco), rol:'tu ' + _L.parentesco });
+    // `av` viaja con el hotspot: así el hijo se dibuja con los rasgos que heredó
+    // de sus padres y no con una cara sorteada por el hash de su nombre.
     (fam.hijos||[]).slice(0,2).forEach((h,i)=> out.push({ x:318+i*62, tipo:'npc', semilla:'hijo'+h.nombre, ropa:'calle',
-      edad: (h.edad != null ? h.edad : ((G.vidaEdad||40) - 30 + i*3)), gen: genDe(h),
+      edad: (h.edad != null ? h.edad : ((G.vidaEdad||40) - 30 + i*3)), gen: genDe(h), av: h.av,
       lbl:'Estar con ' + esc(h.nombre), accion:'suceso', cat:'familia', icono:'bx-child', nombre:esc(h.nombre),
       rol:'tu ' + palabraHijo(genDe(h)) }));
     (fam.nietos||[]).slice(0,2).forEach((n,i)=> out.push({ x:452+i*60, tipo:'npc', semilla:'nieto'+n.nombre, ropa:'calle',
-      edad: (n.edad != null ? n.edad : 3), gen: genDe(n),
+      edad: (n.edad != null ? n.edad : 3), gen: genDe(n), av: n.av,
       lbl: (n.edad||0) <= 2 ? ('Alzar a ' + esc(n.nombre)) : ('Jugar con ' + esc(n.nombre)),
       accion:'suceso', cat:'familia', icono:'bx-child',
       nombre:esc(n.nombre), rol:'tu ' + palabraNieto(genDe(n)) }));
@@ -9156,6 +9236,7 @@ function vjInteractuar(){
       window._trucoVolverA = function(){ window._vidaJugable(); };  // al salir, volvés a tu casa
       window._trucoAbrir();
       return;
+    case 'abuelo':       vjAbuelo(h); return;
     case 'videojuego':
       if (!window._platAbrir){ vjFlash('El videojuego no está disponible acá.'); return; }
       vjDetener();
@@ -9284,6 +9365,46 @@ function vjEntrenar(cuanto, txt){
     mundoRender();
     vjFlash(txt + ' (+' + cuanto + ' nivel, −2 moral)');
   }});
+}
+// ── HABLAR CON EL ABUELO ─────────────────────────────────────────────────────
+// Lo que dice depende de dónde estás parado respecto a él: si todavía te falta,
+// te empuja; si lo pasaste, te lo reconoce. Es el cierre del legado.
+function vjAbuelo(h){
+  if(!G || !G.legado) return;
+  const L = G.legado, E = legadoEstado();
+  const quien = L.padre || 'tu ' + (L.parentesco||'abuelo');
+  let frases;
+  if (E && E.superado){
+    frases = [
+      'Ya me pasaste, pibe. Y te lo digo con la cara alta: no hay orgullo más grande que ese.',
+      'Toda la vida me compararon con otros. A vos ya no te comparan con nadie.',
+      'Yo llegué hasta donde pude. Vos llegaste más lejos, y encima jugando lindo.'
+    ];
+  } else if (E && (E.nivel >= E.techoN - 6)){
+    frases = [
+      'Estás ahí nomás. Lo que falta no se entrena: se aguanta.',
+      'Te falta poco. Yo en tu lugar no cambiaría nada, seguí como venís.',
+      'Cuando yo tenía tu edad estaba peor parado que vos, te lo juro.'
+    ];
+  } else {
+    frases = [
+      'No mires lo que hice yo. Mirá lo que podés hacer vos, que es otra cosa.',
+      'A mí me tocó otra época. Vos tenés cosas que yo ni soñaba. Usalas.',
+      'El apellido abre la puerta una vez. Después la tenés que sostener solo.',
+      'Entrená los días que no tenés ganas. Los otros no cuentan.'
+    ];
+  }
+  const extra = [];
+  if (L.club) extra.push('En ' + esc(L.club) + ' me hicieron hombre. Andá alguna vez, aunque sea a mirar.');
+  if (L.rival) extra.push('Mi rival de toda la vida fue ' + esc(L.rival) + '. Terminamos amigos, mirá vos.');
+  if ((L.vitrina||[]).length) extra.push('Lo que más me llené el pecho fue ganar ' + esc(L.vitrina[0]) + '.');
+  vjBurbujaEn(h.x, pick(frases.concat(extra)), 5200);
+  const s = personalAsegurar();
+  if (s){
+    s.felicidad = clamp((s.felicidad||55) + ri(1,4), 0, 100);
+    s.soledad = clamp((s.soledad||30) - ri(2,5), 0, 100);
+    save();
+  }
 }
 // Un rato en casa: recupera salud y felicidad, y baja la soledad.
 function vjDescansarCasa(){
@@ -9929,7 +10050,7 @@ function vjDialogo(ev, tipo, quien, h){
           // el vecino de 46 con barba porque el retrato lo ponía el hotspot.
           const N = (ev && ev.npc) || null;
           if (N) return `<div style="line-height:0;">${vjSpriteNPC(N.semilla || ('ev'+ev.t), N.ropa || 'calle', N.edad || 40, 'pensando', N.gen)}</div>`;
-          if (h && h.tipo==='npc') return `<div style="line-height:0;">${vjSpriteNPC(h.semilla, h.ropa, h.edad, 'pensando', vjGen(h))}</div>`;
+          if (h && h.tipo==='npc') return `<div style="line-height:0;">${vjSpriteNPC(h.semilla, h.ropa, h.edad, 'pensando', vjGen(h), h.av)}</div>`;
           return `<div style="line-height:0;">${vjObjSVG(h?h.obj:'cartel')}</div>`;
         })()}
         <div style="line-height:0;transform:scaleX(-1);">${vjSpriteJugador('pensando')}</div>
@@ -10307,7 +10428,7 @@ window._legadoOferta = function(){
     <div style="font-size:13.5px;color:#c4ccc0;line-height:1.6;margin-bottom:20px;">La posta la toma tu sangre. Arranca de cero, en su propio potrero, en su propia época — pero cargando tu apellido y la sombra de todo lo que hiciste.</div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       ${cand.map((h,i)=>`<button onclick="window._legadoJugar(${i})" style="display:flex;align-items:center;gap:12px;background:rgba(186,255,0,.08);border:1.5px solid rgba(186,255,0,.35);border-radius:15px;padding:14px;cursor:pointer;text-align:left;">
-        <div style="line-height:0;flex-shrink:0;">${vjSpriteNPC(h._rel+h.nombre,'calle',Math.max(12,h.edad||16),'idle',genDe(h))}</div>
+        <div style="line-height:0;flex-shrink:0;">${vjSpriteNPC(h._rel+h.nombre,'calle',Math.max(12,h.edad||16),'idle',genDe(h),h.av)}</div>
         <div><div style="font-size:16px;font-weight:900;color:#fff;">${esc(h.nombre)} ${esc(G.apellido||'')}</div>
         <div style="font-size:11.5px;color:#9aa294;">Tu ${h._rel==='nieto'?palabraNieto(genDe(h)):palabraHijo(genDe(h))} · ${h.futbol?'Ya juega. ':'Nunca pisó una cancha en serio. '}${(h.edad||0)} años</div></div>
       </button>`).join('')}
@@ -10337,7 +10458,12 @@ window._legadoJugar = function(i){
     techoNombre: ((previo.techoNivel||0) > Math.round(padre.nivel||60)) ? (previo.techoNombre || padre.apellido) : padre.apellido,
     // Donde nacio: si la familia emigro, el chico puede elegir donde jugar.
     paisNac: padre.clubPais || padre.pais,
-    paisOrigen: padre.pais
+    paisOrigen: padre.pais,
+    // La CARA del ancestro viaja con el legado: así el abuelo se puede dibujar en
+    // la casa tal como era, y no como un viejo genérico cualquiera.
+    avAncestro: padre.avatar || null,
+    edadAncestro: Math.min(88, (padre.vidaEdad || padre.edad || 70) + 6),
+    vivo: (padre.vidaEdad || 0) < 84
   };
   try { localStorage.setItem('canchero_legado', JSON.stringify(legado)); } catch(e){}
   // Archivo de ancestros: se guarda la partida entera para poder REVISARLA despues.
