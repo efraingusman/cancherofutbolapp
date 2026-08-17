@@ -3088,6 +3088,32 @@ function edadRetiro(){ return ((G&&G.debutEdad)||16) + ((G&&G.years)||10); }
 // todo. Ahora los ultimos años se avisan, para que la despedida se sienta venir
 // y puedas decidir como querés cerrarla.
 function anosParaRetiro(){ return edadRetiro() - ((G&&G.edad)||0); }
+// ── LOS ESTADIOS ─────────────────────────────────────────────────────────────
+// Los grandes partidos no se juegan "en una cancha": se juegan en un lugar con
+// nombre, y ese nombre es parte del recuerdo. Son estadios inventados, con el
+// aire del país que les toca.
+const ESTADIOS = {
+  'Uruguay':      ['el Coloso del Prado','el Estadio de los Cien Años','el Gigante de la Rambla'],
+  'Argentina':    ['la Bombonera del Sur','el Coloso de Núñez','el Cilindro de Avellaneda'],
+  'Brasil':       ['el Templo de Río','el Coloso de Ipiranga','la Catedral del Mineiro'],
+  'España':       ['el Coliseo Blanco','la Catedral del Norte','el Estadio de la Alameda'],
+  'Inglaterra':   ['el Templo de Wembley Park','el Coliseo del Támesis','Old Common Ground'],
+  'Italia':       ['la Scala del Calcio','el Olímpico del Tíber','el Coloso de Turín'],
+  'Francia':      ['el Parque de los Príncipes Nuevos','el Vélodrome del Sur','el Estadio de la República'],
+  'Alemania':     ['el Muro Amarillo','el Coliseo de Baviera','el Olímpico del Spree'],
+  'México':       ['el Coloso de Santa Úrsula','el Volcán del Norte','el Estadio de la Sultana'],
+  'Portugal':     ['la Catedral de la Luz','el Dragón de Oporto','el Estadio del Tajo'],
+  'Países Bajos': ['la Arena del Ámsterdam','el Coloso del Rin'],
+  'Colombia':     ['el Campín de la Montaña','el Coloso del Atlántico'],
+  'Chile':        ['el Monumental de la Cordillera','el Coloso del Pacífico']
+};
+function estadioDe(pais, semilla){
+  const L = ESTADIOS[pais] || ['el estadio más grande del país','el coliseo de la capital'];
+  if (semilla == null) return pick(L);
+  let h = 0; const t = String(semilla);
+  for (let i=0;i<t.length;i++) h = (h*31 + t.charCodeAt(i)) >>> 0;
+  return L[h % L.length];       // el mismo partido siempre en el mismo estadio
+}
 // ── EL PARTIDO HOMENAJE ──────────────────────────────────────────────────────
 // El club donde MAS temporadas jugaste te despide, y del otro lado está tu
 // selección. Es la escena que le faltaba al final: la carrera no termina en una
@@ -3120,7 +3146,7 @@ function homenajeHTML(){
       </div>
     </div>
     <div style="font-size:13px;color:#d8dfcd;line-height:1.65;">
-      ${esc(H.club)} te despidió con un amistoso contra ${esc(sel)}. ${publico.toLocaleString('es')} personas, la camiseta con tu apellido colgada del alambrado y tus hijos en el círculo central.
+      ${esc(H.club)} te despidió con un amistoso contra ${esc(sel)}, en ${esc(estadioDe(G.pais, G.apellido))}. ${publico.toLocaleString('es')} personas, la camiseta con tu apellido colgada del alambrado y tus hijos en el círculo central.
       ${idolo ? 'Saliste a los veinte minutos y el estadio entero se puso de pie hasta que llegaste al túnel.' : 'Jugaste veinte minutos. Los que fueron, fueron por vos.'}
       Cuando levantaste la mano para saludar, ya no eras un jugador: eras un recuerdo.
     </div>
@@ -6037,7 +6063,7 @@ function retiro(){
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
           <div style="flex:1;text-align:center;"><div style="font-size:10px;color:#8a8f96;font-weight:800;">VOS</div><div style="font-size:22px;font-weight:900;color:#fff;">${G.tot.g}</div><div style="font-size:9px;color:#666;">GOLES · Nv ${nivelF} · ${G.titulos} tít.</div></div>
           <div style="font-size:26px;font-weight:900;color:${col};flex-shrink:0;">${R.ganados}—${R.perdidos}</div>
-          <div style="flex:1;text-align:center;"><div style="font-size:10px;color:#8a8f96;font-weight:800;">${esc(R.nombre).toUpperCase()}</div><div style="font-size:22px;font-weight:900;color:#fff;">${R.tot.g}</div><div style="font-size:9px;color:#666;">GOLES · Nv ${Math.round(R.nivel)} · ${R.titulos} tít.</div></div>
+          <div style="flex:1;text-align:center;"><div style="font-size:10px;color:#8a8f96;font-weight:800;">${esc(R.nombre).toUpperCase()}</div><div style="font-size:22px;font-weight:900;color:#fff;">${(R.tot&&R.tot.g)||0}</div><div style="font-size:9px;color:#666;">GOLES · Nv ${Math.round(R.nivel||60)} · ${R.titulos||0} tít.</div></div>
         </div>
         <div style="font-size:12.5px;color:#c4ccc0;text-align:center;line-height:1.5;font-style:italic;">${veredicto}</div>
       </div>`, false); })() : ''}
@@ -7773,7 +7799,7 @@ SUCESOS_JUGADOR.leyendas = leyendasComoSucesos();
 SUCESOS_JUGADOR.exclub = [
   { t:'Volvés al estadio del que te fuiste', edadMin:20,
     req:g=>!!(g.flags && g.flags.traidor && g.flags.exClub && g.flags.exClub !== g.club),
-    d:'Se juega en la cancha de ' + '' + 'tu ex club. Desde que baja el micro es un solo insulto. Hay banderas con tu nombre y una palabra al lado que no se puede repetir.',
+    d:'Se juega en la cancha de tu ex club. Desde que baja el micro es un solo insulto. Hay banderas con tu nombre y una palabra al lado que no se puede repetir.',
     opts:[
       { txt:'Salir a la cancha como si nada', ef:(s,g)=>{ const b=Math.random()<0.5;
           g.moral=clamp((g.moral||60)+(b?8:-12),0,100);
@@ -7790,7 +7816,7 @@ SUCESOS_JUGADOR.exclub = [
           return 'Lo festejaste con las manos abiertas, pidiendo perdón. Media tribuna se calló. Con el tiempo esa imagen les ablandó el rencor.'; } } ] },
   { t:'El clásico de tu vida', edadMin:21,
     req:g=>!!(g.rival && g.rival.nombre && (g.temporada||0) >= 3),
-    d:'Se cruzan otra vez, y esta vez hay un título en juego. Enfrente está el que te viene marcando desde juveniles.',
+    d:'Se cruzan otra vez, y esta vez hay un título en juego, en el estadio más grande del país. Enfrente está el que te viene marcando desde juveniles.',
     opts:[
       { txt:'Salir a comérmelo', ef:(s,g)=>{ const b=Math.random()<0.5+((g.nivel||60)-70)/220;
           if(!g.rival.ganados) g.rival.ganados=0; if(!g.rival.perdidos) g.rival.perdidos=0;
@@ -8549,6 +8575,15 @@ function vjHotspotsClub(){
       accion:'jugar', icono:'bx-play-circle', destacado: !pend, bloqueado: pend });
     out.push({ x:860, tipo:'npc', semilla:'hincha'+G.club, ropa:'calle', edad:38,
       lbl:'Hablar con un hincha', accion:'charlaClub', icono:'bx-group', rol:'hincha' });
+    // TU RIVAL DE TODA LA VIDA, en carne y hueso. Existía desde el principio pero
+    // sólo como una fila de números en una pantalla: nunca se lo veía ni se le
+    // podía hablar. Ahora aparece antes de los partidos, con SU cara (la que tiene
+    // guardada desde que se cruzaron en juveniles), y envejece con vos.
+    if (G.rival && G.rival.nombre && (G.temporada||0) >= 2)
+      out.push({ x:700, tipo:'npc', semilla:'rival'+G.rival.nombre, ropa:null,
+        edad:(G.edad||24), gen:'m', av:G.rival.avatar,
+        lbl:'Cruzarte con ' + esc(G.rival.nombre), accion:'rival', icono:'bx-target-lock',
+        nombre:esc(G.rival.nombre), rol:'tu rival' });
   } else {
     const _rp = repreDeG();
     out.push({ x:230, tipo:'npc', semilla:'repre'+(_rp?_rp.id:'x'), ropa:(_rp&&_rp.id==='joven')?'tv':'traje', edad:(_rp?_rp.edad:47),
@@ -9259,6 +9294,7 @@ function vjInteractuar(){
       window._trucoAbrir();
       return;
     case 'abuelo':       vjAbuelo(h); return;
+    case 'rival':        vjRival(h); return;
     case 'videojuego':
       if (!window._platAbrir){ vjFlash('El videojuego no está disponible acá.'); return; }
       vjDetener();
@@ -9387,6 +9423,48 @@ function vjEntrenar(cuanto, txt){
     mundoRender();
     vjFlash(txt + ' (+' + cuanto + ' nivel, −2 moral)');
   }});
+}
+// ── CRUZARTE CON TU RIVAL ────────────────────────────────────────────────────
+// Lo que te dice sale del historial real del duelo: cuántas le ganaste, cuántas
+// te ganó, y cómo quedó la relación entre ustedes después de tantos años.
+function vjRival(h){
+  if(!G || !G.rival) return;
+  const R = G.rival;
+  const g = R.ganados || 0, p = R.perdidos || 0;
+  const rel = R.relacion || 0;
+  const miNivel = G.nivel || 60, suNivel = R.nivel || 60;
+  let frases;
+  if (rel <= -35){
+    frases = [
+      'Ni me saludes. Nos vemos en la cancha.',
+      'Todavía me acuerdo de lo que dijiste en esa nota. No se te olvida a vos tampoco, ¿no?',
+      'Vos y yo no tenemos nada que hablar. Noventa minutos y listo.'
+    ];
+  } else if (rel >= 35){
+    frases = [
+      'Che, ¿te acordás cuando nos echaron a los dos en juveniles? Éramos dos pendejos.',
+      'Me alegro de verte, en serio. Después en la cancha te reviento igual.',
+      'Cuando esto se termine tenemos que juntarnos a comer, sin cámaras.'
+    ];
+  } else {
+    frases = [
+      'Otra vez vos. Ya perdí la cuenta de las veces que nos cruzamos.',
+      'Suerte hoy. Pero suerte de la justa, eh.',
+      'Nos siguen comparando. Van veinte años y no aflojan.'
+    ];
+  }
+  const datos = [];
+  if (g + p > 0) datos.push('Vamos ' + g + ' a ' + p + '. Los llevo contados, no te hagás el que no.');
+  if (suNivel > miNivel + 5) datos.push('Este año ando mejor que vos y los dos lo sabemos.');
+  else if (miNivel > suNivel + 5) datos.push('Estás en un momento bárbaro. Me da bronca reconocerlo.');
+  if ((R.titulos||0) > (G.titulos||0)) datos.push('Te falta una vitrina como la mía, eh.');
+  else if ((G.titulos||0) > (R.titulos||0)) datos.push('Ganaste más que yo. Es lo único que no te voy a discutir.');
+  vjBurbujaEn(h.x, pick(frases.concat(datos)), 5000);
+  // Cruzárselo y bancarle la mirada te deja algo: o se calienta la cosa, o se
+  // ablanda. Nunca queda igual.
+  R.relacion = clamp(rel + ri(-4, 6), -100, 100);
+  G.moral = clamp((G.moral||60) + ri(0, 3), 0, 100);
+  save();
 }
 // ── HABLAR CON EL ABUELO ─────────────────────────────────────────────────────
 // Lo que dice depende de dónde estás parado respecto a él: si todavía te falta,
