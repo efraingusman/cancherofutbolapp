@@ -123,7 +123,13 @@ function cargarNivel(i){
     for (let x=0;x<ancho;x++){
       const c = mapa[y][x];
       if (c === 'o'){ pelotas.push({ x:x*TILE+TILE/2, y:y*TILE+TILE/2, tomada:false }); mapa[y][x] = ' '; }
-      else if (c === 'e'){ enemigos.push({ x:x*TILE, y:y*TILE, vx:1.15, vivo:true, w:18, h:18 }); mapa[y][x] = ' '; }
+      else if (c === 'e'){
+        // Se apoya en el piso: y = tope del tile + (TILE - alto).
+        const tipo = ['camina','rapido','salta'][enemigos.length % 3];
+        enemigos.push({ x:x*TILE, y:y*TILE + (TILE-18), vy:0, base:y*TILE + (TILE-18),
+          vx: tipo==='rapido' ? 1.9 : 1.15, vivo:true, w:18, h:18, tipo, fase: Math.random()*6 });
+        mapa[y][x] = ' ';
+      }
       else if (c === 'P'){ inicio = { x:x*TILE, y:y*TILE }; mapa[y][x] = ' '; }
       else if (c === 'F'){ meta = { x:x*TILE, y:y*TILE }; mapa[y][x] = ' '; }
       else if (c === '^'){ pinches.push({ x:x*TILE, y:y*TILE }); }
@@ -277,9 +283,14 @@ function paso(){
     if (!e.vivo) continue;
     // Camina y se da vuelta contra una pared o al borde de la plataforma.
     let ex = e.x + e.vx;
-    const hayPiso = solido(ex + (e.vx>0 ? e.w : 0), e.y + e.h + 2);
-    if (chocaCaja(ex, e.y, e.w, e.h) || !hayPiso){ e.vx = -e.vx; }
+    const hayPiso = solido(ex + (e.vx>0 ? e.w : 0), e.base + e.h + 2);
+    if (chocaCaja(ex, e.base, e.w, e.h) || !hayPiso){ e.vx = -e.vx; }
     else e.x = ex;
+    // Cada rival se mueve a su manera: uno trota, otro pica, otro va saltando.
+    if (e.tipo === 'salta'){
+      e.fase += 0.07;
+      e.y = e.base - Math.abs(Math.sin(e.fase)) * 26;
+    } else e.y = e.base;
     // Le caen encima: muere. De costado: perdés vida.
     const chocan = j.x + j.w > e.x && j.x < e.x + e.w && j.y + j.h > e.y && j.y < e.y + e.h;
     if (chocan){
