@@ -3148,6 +3148,49 @@ function edadRetiro(){ return ((G&&G.debutEdad)||16) + ((G&&G.years)||10); }
 // todo. Ahora los ultimos años se avisan, para que la despedida se sienta venir
 // y puedas decidir como querés cerrarla.
 function anosParaRetiro(){ return edadRetiro() - ((G&&G.edad)||0); }
+// ── LA FINAL SE PUEDE JUGAR ──────────────────────────────────────────────────
+// Los minijuegos existían aparte, como un entretenimiento suelto. Ahora sirven:
+// cuando hay una final, podés jugártela vos. Si ganás el minijuego, ganás el
+// título; si no, se te escapa. Simular sigue estando para el que no quiera.
+window._lyFinal = function(cfg){
+  // cfg: { titulo, rival, onGana, onPierde }
+  G._finalPend = cfg;
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="min-height:100%;background:radial-gradient(120% 80% at 50% 0%, #241a06 0%, #05070a 62%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:26px 18px calc(28px + env(safe-area-inset-bottom));box-sizing:border-box;text-align:center;">
+    <div style="font-size:10px;font-weight:900;letter-spacing:2.6px;color:#facc15;margin-bottom:8px;">LA FINAL</div>
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:27px;color:#fff;line-height:1.15;margin-bottom:8px;">${esc(cfg.titulo||'La final')}</div>
+    <div style="font-size:13.5px;color:#b9c4ad;line-height:1.6;max-width:420px;margin-bottom:22px;">
+      ${cfg.rival?('Enfrente está '+esc(cfg.rival)+'. '):''}Podés jugártela vos o dejar que se resuelva en la cancha.
+    </div>
+    <div style="width:100%;max-width:380px;display:flex;flex-direction:column;gap:9px;">
+      ${window._platAbrir?`<button onclick="window._lyFinalJugar('plat')" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;"><i class='bx bx-game'></i> JUGARLA YO — llegá al final sin quedarte sin vidas</button>`:''}
+      ${window._trucoAbrir?`<button onclick="window._lyFinalJugar('truco')" style="background:rgba(250,204,21,.14);border:1.5px solid rgba(250,204,21,.5);color:#facc15;border-radius:14px;padding:14px;font-weight:900;font-size:14px;cursor:pointer;">Definirla al truco (a 15)</button>`:''}
+      <button onclick="window._lyFinalJugar('simular')" style="background:rgba(255,255,255,.05);border:1px solid #2a3222;color:#cfd8c6;border-radius:14px;padding:14px;font-weight:900;font-size:13.5px;cursor:pointer;">Que se juegue sola</button>
+    </div>
+  </div>`;
+};
+window._lyFinalJugar = function(modo){
+  const cfg = G && G._finalPend; if(!cfg) return;
+  const cerrar = (gano)=>{
+    G._finalPend = null;
+    try { (gano ? cfg.onGana : cfg.onPierde)(); } catch(e){}
+  };
+  if (modo === 'simular'){ cerrar(Math.random() < (cfg.chance != null ? cfg.chance : 0.5)); return; }
+  if (modo === 'truco' && window._trucoAbrir){
+    window._trucoVolverA = null;
+    window._trucoAbrir();
+    setTimeout(()=>{ try { window._trucoNueva(15, true, cerrar); } catch(e){ cerrar(false); } }, 60);
+    return;
+  }
+  if (window._platAbrir){
+    window._platVolverA = null;
+    window._platAbrir({ apellido:G.apellido, num:G.num, colores:kitOf(G.pais||'Uruguay'),
+      desafio:true, titulo:cfg.titulo, onFin:cerrar });
+    return;
+  }
+  cerrar(Math.random() < 0.5);
+};
 // ── LOS ESTADIOS ─────────────────────────────────────────────────────────────
 // Los grandes partidos no se juegan "en una cancha": se juegan en un lugar con
 // nombre, y ese nombre es parte del recuerdo. Son estadios inventados, con el
@@ -8094,6 +8137,12 @@ SUCESOS_JUGADOR.exclub = [
     req:g=>!!(g.rival && g.rival.nombre && (g.temporada||0) >= 3),
     d:'Se cruzan otra vez, y esta vez hay un título en juego, en el estadio más grande del país. Enfrente está el que te viene marcando desde juveniles.',
     opts:[
+      { txt:'Jugármela yo (minijuego)', ef:(s,g)=>{
+          setTimeout(()=>window._lyFinal({ titulo:'La final contra ' + (g.rival&&g.rival.nombre||'tu rival'), rival:(g.rival&&g.rival.nombre)||null,
+            chance:0.5,
+            onGana:()=>{ g.rival.ganados=(g.rival.ganados||0)+1; g.titulos=(g.titulos||0)+1; (g.vitrina=g.vitrina||[]).push({nombre:'Final ganada',club:g.club,edad:g.edad}); g.moral=clamp((g.moral||60)+16,0,100); save(); window._clubMundo&&window._clubMundo(); },
+            onPierde:()=>{ g.rival.perdidos=(g.rival.perdidos||0)+1; g.moral=clamp((g.moral||60)-12,0,100); save(); window._clubMundo&&window._clubMundo(); } }), 60);
+          return 'La final se define ahora, y la jugás vos.'; } },
       { txt:'Salir a comérmelo', ef:(s,g)=>{ const b=Math.random()<0.5+((g.nivel||60)-70)/220;
           if(!g.rival.ganados) g.rival.ganados=0; if(!g.rival.perdidos) g.rival.perdidos=0;
           if(b){ g.rival.ganados++; g.moral=clamp((g.moral||60)+14,0,100); g.fama=clamp((g.fama||0)+8,0,100);

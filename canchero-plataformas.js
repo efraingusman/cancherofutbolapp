@@ -255,13 +255,13 @@ function paso(){
 }
 function perderVida(){
   P.vidas--;
-  if (P.vidas < 0){ P.fin = 'perdiste'; dibujar(); return; }
+  if (P.vidas < 0){ P.fin = 'perdiste'; avisarDesafio(false); dibujar(); return; }
   reubicar();
   P.j.inv = 70;
 }
 function siguienteNivel(){
   if (!P) return;
-  if (P.nivel + 1 >= NIVELES.length){ P.fin = 'ganaste'; dibujar(); return; }
+  if (P.nivel + 1 >= NIVELES.length){ P.fin = 'ganaste'; avisarDesafio(true); dibujar(); return; }
   cargarNivel(P.nivel + 1);
   dibujar();
 }
@@ -484,6 +484,14 @@ function teclado(e, abajo){
 }
 
 // ── ENTRADA ───────────────────────────────────────────────────────────────────
+// Modo DESAFIO: el juego decide algo de la carrera (una final, un titulo). Se
+// avisa el resultado UNA sola vez y de ahi el juego se cierra solo.
+function avisarDesafio(gano){
+  if (!P || !P.desafio || P._avisado) return;
+  P._avisado = true;
+  const cb = P.onFin;
+  setTimeout(function(){ try { window._platSalir(); } catch(e){} try { cb && cb(gano); } catch(e){} }, 1900);
+}
 window._platAbrir = function(opts){
   opts = opts || {};
   P = {
@@ -492,7 +500,8 @@ window._platAbrir = function(opts){
     apellido: opts.apellido || 'CANCHERO',
     num: opts.num || 10,
     colores: opts.colores || ['#4aa3df','#ffffff'],
-    zoom: 2
+    zoom: 2,
+    desafio: !!opts.desafio, onFin: opts.onFin || null, titulo: opts.titulo || null
   };
   cargarNivel(0);
   montarCanvas();

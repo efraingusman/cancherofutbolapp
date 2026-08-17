@@ -77,6 +77,14 @@ function nombreCarta(c){
 let T = null;
 const LS = 'canchero_truco_v1';
 
+// Modo DESAFIO: la partida decide algo de la carrera. Se avisa el resultado una
+// sola vez y el truco se cierra solo.
+function avisarDesafio(gano){
+  if (!T || !T.desafio || T._avisado) return;
+  T._avisado = true;
+  const cb = T.onFin;
+  setTimeout(function(){ try { window._trucoSalir(); } catch(e){} try { cb && cb(gano); } catch(e){} }, 2200);
+}
 function nuevaPartida(meta){
   T = {
     meta: meta || 30,
@@ -209,7 +217,7 @@ function terminarMano(ganador){
 function sumar(quien, pts, motivo){
   if (quien === 0) T.ptsYo += pts; else T.ptsEl += pts;
   log(motivo + ' (+' + pts + ').');
-  if (T.ptsYo >= T.meta || T.ptsEl >= T.meta) T.fin = T.ptsYo >= T.meta ? 0 : 1;
+  if (T.ptsYo >= T.meta || T.ptsEl >= T.meta){ T.fin = T.ptsYo >= T.meta ? 0 : 1; avisarDesafio(T.fin === 0); }
   guardar();
 }
 function siguienteMano(){
@@ -548,8 +556,9 @@ window._trucoAbrir = function(){
     </div>
   </div>`;
 };
-window._trucoNueva = function(meta){
+window._trucoNueva = function(meta, desafio, onFin){
   nuevaPartida(meta);
+  if (desafio){ T.desafio = true; T.onFin = onFin || null; }
   if (T.turno === 1) setTimeout(turnoIA, 800);
   render();
 };
