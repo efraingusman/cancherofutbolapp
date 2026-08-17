@@ -8972,35 +8972,26 @@ const METAS_ROL = {
   dt: { n:'Ser el técnico que todos quieren', d:'Que tu nombre valga tanto en el banco como valió en la cancha.',
     hitos:[
       { t:'Ganar tu primer título dirigiendo', ok:(g)=>((g.gestion&&g.gestion.titulos)||0) >= 1 },
-      { t:'Dirigir tres años el mismo club',   ok:(g)=>((g.gestion&&g.gestion.anios)||0) >= 3 },
-      { t:'Armar un plantel de media 70+',     ok:(g)=>{ const p=(g.gestion&&g.gestion.plantel)||[]; if(p.length<11) return false;
-          return Math.round(p.slice(0,11).reduce((a,b)=>a+b.nivel,0)/11) >= 70; } },
       { t:'Llegar a dirigir la selección',     ok:(g)=>!!(g.gestion&&g.gestion.esSeleccion) },
-      { t:'Ganar tres títulos en total',       ok:(g)=>((g.gestion&&g.gestion.titulos)||0) >= 3 }
+      { t:'Ganar tres títulos dirigiendo',     ok:(g)=>((g.gestion&&g.gestion.titulos)||0) >= 3 }
     ] },
   comentarista: { n:'Ser la voz que la gente cree', d:'Que cuando vos decís algo, el fútbol entero se dé vuelta a escuchar.',
     hitos:[
       { t:'Llegar a 60 de credibilidad', ok:(g,s)=>(s.credibilidad||0) >= 60 },
-      { t:'Llegar a 60 de rating',       ok:(g,s)=>(s.rating||0) >= 60 },
       { t:'Tener tu propio programa',    ok:(g)=>!!(g._vidaFlags&&(g._vidaFlags.podcast||g._vidaFlags.programa)) },
-      { t:'Cubrir un Mundial',           ok:(g)=>!!(g._vidaFlags&&g._vidaFlags.mundialCubierto) },
       { t:'Aguantar sin venderte',       ok:(g,s)=>(s.credibilidad||0) >= 75 }
     ] },
   escuela: { n:'Sacar jugadores de tu barrio', d:'Que el próximo que llegue lejos haya empezado en tu canchita.',
     hitos:[
       { t:'Llenar la escuela de chicos',   ok:(g,s)=>(s.pibes||0) >= 60 },
       { t:'Descubrir tu primer talento',   ok:(g)=>!!(g._vidaFlags&&(g._vidaFlags.becoPibe||g._vidaFlags.descubrio)) },
-      { t:'Que la escuela se sostenga sola',ok:(g,s)=>(s.economia||0) >= 55 },
-      { t:'Abrir la rama femenina',        ok:(g)=>!!(g._vidaFlags&&g._vidaFlags.abrioFemenino) },
       { t:'Llegar a 70 de prestigio',      ok:(g,s)=>(s.prestigio||0) >= 70 }
     ] },
   disfrutar: { n:'Llegar entero al final', d:'Que la vida que te queda valga tanto como la que jugaste.',
     hitos:[
       { t:'Estar en paz (felicidad 65+)',  ok:(g,s)=>(s.felicidad||0) >= 65 },
       { t:'No quedarte solo (soledad -40)',ok:(g,s)=>(s.soledad||100) <= 40 },
-      { t:'Tener a los tuyos cerca',       ok:(g,s)=>(s.familia||0) >= 60 },
-      { t:'Ver crecer a un nieto',         ok:(g)=>(((g.familia||{}).nietos)||[]).some(n=>(n.edad||0) >= 5) },
-      { t:'Cuidarte: llegar con salud 55+',ok:(g,s)=>(s.salud||0) >= 55 }
+      { t:'Ver crecer a un nieto',         ok:(g)=>(((g.familia||{}).nietos)||[]).some(n=>(n.edad||0) >= 5) }
     ] }
 };
 function metaDelRol(){
@@ -9023,7 +9014,7 @@ function metaHTML(){
       <div style="font-size:11px;font-weight:900;color:${R.color};">${M.hechos}/${M.total}</div>
     </div>
     <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:14px;color:#fff;margin:4px 0 2px;">${esc(M.n)}</div>
-    <div style="font-size:11px;color:#9aa48f;line-height:1.4;margin-bottom:7px;">${esc(M.d)}</div>
+
     <div style="height:5px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;margin-bottom:8px;">
       <div style="height:100%;width:${pct}%;background:${R.color};border-radius:3px;transition:width .4s;"></div>
     </div>
@@ -10043,19 +10034,29 @@ function vjAjustarEscala(){
   // Si el mundo no llega a cubrir el ancho, se centra y el fondo del view toma
   // el color del piso de la escena para que el borde no se lea como un hueco.
   capa.style.left = anchoMundo < VW ? Math.round((VW - anchoMundo) / 2) + 'px' : '0px';
-  view.style.background = vjColorFondo();
+  const pp = Math.round(vjPisoPct() * 100);
+  const C = vjColoresEscena();
+  view.style.background = 'linear-gradient(180deg, ' + C.cielo + ' 0%, ' + C.cielo2 + ' ' + pp + '%, ' + C.piso + ' ' + pp + '%, ' + C.piso2 + ' 100%)';
   VJ.escala = s;
   VJ.margen = anchoMundo < VW ? Math.round((VW - anchoMundo) / 2) : 0;
 }
-// Color de relleno de los costados: el del piso de la escena, para que se lea
-// como continuacion del mundo y no como un vacio.
-function vjColorFondo(){
+// Cielo y piso de cada escena, para continuar el mundo hacia los costados.
+function vjColoresEscena(){
   const e = VJ.escena;
-  if (e === 'casa') return '#151a12';
-  if (e === 'cancha' || e === 'predio') return '#122a12';
-  if (e === 'estadio') return '#0d1a24';
-  if (e === 'vestuario' || e === 'trabajo') return '#141a20';
-  return '#101510';
+  const M = {
+    casa:     { cielo:'#2a2f38', cielo2:'#1d2129', piso:'#4a3a28', piso2:'#31261a' },
+    barrio:   { cielo:'#2b3b52', cielo2:'#1b2637', piso:'#3b4a2a', piso2:'#25301b' },
+    esquina:  { cielo:'#2b2f3a', cielo2:'#12151c', piso:'#33383f', piso2:'#22262b' },
+    trabajo:  { cielo:'#1a2029', cielo2:'#12161c', piso:'#2a3038', piso2:'#1b2026' },
+    oficina:  { cielo:'#1a2029', cielo2:'#12161c', piso:'#2a3038', piso2:'#1b2026' },
+    vestuario:{ cielo:'#1c2430', cielo2:'#131922', piso:'#2c3540', piso2:'#1d232b' },
+    cancha:   { cielo:'#3f6f9e', cielo2:'#26506f', piso:'#2c6b2c', piso2:'#1c4a1c' },
+    predio:   { cielo:'#3f6f9e', cielo2:'#26506f', piso:'#2c6b2c', piso2:'#1c4a1c' },
+    baldio:   { cielo:'#5a6b7a', cielo2:'#3a4653', piso:'#5c4321', piso2:'#3e2d16' },
+    pension:  { cielo:'#232a33', cielo2:'#171c23', piso:'#3a3128', piso2:'#26201a' },
+    extra:    { cielo:'#252b33', cielo2:'#171b21', piso:'#333a42', piso2:'#22272d' }
+  };
+  return M[e] || M.casa;
 }
 function vjCambiarEscena(nueva, entrarPor){
   VJ.escena = nueva;
