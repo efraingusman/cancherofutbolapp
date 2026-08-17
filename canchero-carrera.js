@@ -7213,7 +7213,15 @@ function vjEscenas(){
   }
   return m;
 }
-function vjEscena(){ return vjEscenas()[VJ.escena] || Object.values(vjEscenas())[0]; }
+function vjEscena(){
+  const base = vjEscenas()[VJ.escena] || Object.values(vjEscenas())[0];
+  // EL ESCENARIO SE ESTIRA HASTA LLENAR LA PANTALLA. Antes el mundo tenia un
+  // ancho fijo y en PC sobraban dos franjas a los costados que se leian como
+  // bloques vacios. Ahora, si la pantalla es mas ancha que el mundo, el mundo
+  // crece: mas barrio, mas cancha, mas lugar para caminar.
+  const min = VJ.anchoMin || 0;
+  return (min > base.ancho) ? Object.assign({}, base, { ancho: min }) : base;
+}
 // ══════════════════════════════════════════════════════════════════════════════
 // DÓNDE VIVÍS
 // La casa no es un decorado fijo: sube y BAJA con tu patrimonio. Empezás en la
@@ -8972,12 +8980,14 @@ const METAS_ROL = {
   dt: { n:'Ser el técnico que todos quieren', d:'Que tu nombre valga tanto en el banco como valió en la cancha.',
     hitos:[
       { t:'Ganar tu primer título dirigiendo', ok:(g)=>((g.gestion&&g.gestion.titulos)||0) >= 1 },
+      { t:'Sostener tres años en un club',      ok:(g)=>((g.gestion&&g.gestion.anios)||0) >= 3 },
       { t:'Llegar a dirigir la selección',     ok:(g)=>!!(g.gestion&&g.gestion.esSeleccion) },
       { t:'Ganar tres títulos dirigiendo',     ok:(g)=>((g.gestion&&g.gestion.titulos)||0) >= 3 }
     ] },
   comentarista: { n:'Ser la voz que la gente cree', d:'Que cuando vos decís algo, el fútbol entero se dé vuelta a escuchar.',
     hitos:[
       { t:'Llegar a 60 de credibilidad', ok:(g,s)=>(s.credibilidad||0) >= 60 },
+      { t:'Llegar a 60 de rating',       ok:(g,s)=>(s.rating||0) >= 60 },
       { t:'Tener tu propio programa',    ok:(g)=>!!(g._vidaFlags&&(g._vidaFlags.podcast||g._vidaFlags.programa)) },
       { t:'Aguantar sin venderte',       ok:(g,s)=>(s.credibilidad||0) >= 75 }
     ] },
@@ -8985,12 +8995,14 @@ const METAS_ROL = {
     hitos:[
       { t:'Llenar la escuela de chicos',   ok:(g,s)=>(s.pibes||0) >= 60 },
       { t:'Descubrir tu primer talento',   ok:(g)=>!!(g._vidaFlags&&(g._vidaFlags.becoPibe||g._vidaFlags.descubrio)) },
+      { t:'Abrir la rama femenina',        ok:(g)=>!!(g._vidaFlags&&g._vidaFlags.abrioFemenino) },
       { t:'Llegar a 70 de prestigio',      ok:(g,s)=>(s.prestigio||0) >= 70 }
     ] },
   disfrutar: { n:'Llegar entero al final', d:'Que la vida que te queda valga tanto como la que jugaste.',
     hitos:[
       { t:'Estar en paz (felicidad 65+)',  ok:(g,s)=>(s.felicidad||0) >= 65 },
       { t:'No quedarte solo (soledad -40)',ok:(g,s)=>(s.soledad||100) <= 40 },
+      { t:'Tener a los tuyos cerca',       ok:(g,s)=>(s.familia||0) >= 60 },
       { t:'Ver crecer a un nieto',         ok:(g)=>(((g.familia||{}).nietos)||[]).some(n=>(n.edad||0) >= 5) }
     ] }
 };
@@ -9602,6 +9614,14 @@ function vjLugarLibre(x, ancho, ocupados){
 function mundoRender(){
   vjDetener();
   VJ.activo = true;
+  // El ancho del mundo se decide ANTES de dibujar: si se calculara despues, el
+  // primer cuadro saldria con el mundo corto y los costados vacios.
+  (function(){
+    const conPanelLargo = (VJ.mundo === 'vida' && G && G.vidaRol);
+    const alto = Math.max(190, Math.round((window.innerHeight || 700) * (conPanelLargo ? 0.34 : 0.5)));
+    const s = clamp(alto / 250, 1, 2.4);
+    VJ.anchoMin = Math.ceil((window.innerWidth || 900) / s) + 20;
+  })();
   VJ.hotspots = vjHotspots();
   const E = vjEscena();
   const escenas = vjEscenas();
@@ -9666,13 +9686,32 @@ function mundoRender(){
            scrollear para verlo, que era justo lo que no queriamos. -->
       <div style="max-width:1240px;margin:0 auto;display:grid;gap:14px;grid-template-columns:${(VJ.mundo === 'vida' && G && G.vidaRol) ? 'minmax(0,1.55fr) minmax(0,1fr)' : 'minmax(0,1fr)'};align-items:start;" class="ly-panel">
       <div style="min-width:0;">
-        <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#5d6879;margin-bottom:9px;">¿QUÉ HACÉS?</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;align-items:start;">
-          ${VJ.hotspots.map((h,i)=>`<div style="display:flex;gap:7px;">
-            <button onclick="window._vjAccion(${i})" ${h.bloqueado?'disabled':''} style="flex:1;min-width:0;display:flex;align-items:center;gap:11px;background:${h.destacado?'rgba(186,255,0,.13)':'rgba(255,255,255,.04)'};border:1.5px solid ${h.destacado?A:'#242a20'};color:${h.bloqueado?'#5d6879':(h.destacado?A:'#e0e4dc')};border-radius:13px;padding:13px 14px;font-weight:800;font-size:13.5px;text-align:left;cursor:${h.bloqueado?'default':'pointer'};opacity:${h.bloqueado?.55:1};line-height:1.3;"><i class='bx ${h.icono}' style="font-size:20px;flex-shrink:0;"></i><span>${h.lbl}</span></button>
-            ${vjCharlable(h) ? `<button onclick="window._vjHablar(${i})" title="Escribirle" style="flex:0 0 auto;background:rgba(125,211,252,.10);border:1.5px solid rgba(125,211,252,.35);color:#7dd3fc;border-radius:13px;padding:13px 12px;font-size:18px;cursor:pointer;line-height:1;"><i class='bx bx-message-rounded-dots'></i></button>` : ''}
-          </div>`).join('')}
-        </div>
+        ${(function(){
+          // ORDENADO POR TIPO. Antes iban todos los botones mezclados en una
+          // grilla y quedaba un amontonamiento donde lo importante no se
+          // distinguía de cambiarte de ropa.
+          const hs = VJ.hotspots;
+          const idx = h => hs.indexOf(h);
+          const grupos = [
+            { t:'LO QUE HAY QUE HACER', c:A,        items: hs.filter(h=>h.destacado) },
+            { t:'LA GENTE',             c:'#7dd3fc',items: hs.filter(h=>!h.destacado && h.tipo === 'npc') },
+            { t:'EN TU RATO',           c:'#8d9782',items: hs.filter(h=>!h.destacado && h.tipo !== 'npc') }
+          ].filter(g=>g.items.length);
+          const boton = (h)=>{
+            const i = idx(h);
+            return `<div style="display:flex;gap:6px;">
+              <button onclick="window._vjAccion(${i})" ${h.bloqueado?'disabled':''} style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:${h.destacado?'rgba(186,255,0,.13)':'rgba(255,255,255,.04)'};border:1.5px solid ${h.destacado?A:'#242a20'};color:${h.bloqueado?'#5d6879':(h.destacado?A:'#e0e4dc')};border-radius:12px;padding:${h.destacado?'14px':'11px'} 13px;font-weight:${h.destacado?900:800};font-size:${h.destacado?14:13}px;text-align:left;cursor:${h.bloqueado?'default':'pointer'};opacity:${h.bloqueado?.55:1};line-height:1.3;"><i class='bx ${h.icono}' style="font-size:${h.destacado?21:18}px;flex-shrink:0;"></i><span>${h.lbl}</span></button>
+              ${vjCharlable(h) ? `<button onclick="window._vjHablar(${i})" title="Escribirle" style="flex:0 0 auto;background:rgba(125,211,252,.10);border:1.5px solid rgba(125,211,252,.35);color:#7dd3fc;border-radius:12px;padding:0 12px;font-size:17px;cursor:pointer;line-height:1;"><i class='bx bx-message-rounded-dots'></i></button>` : ''}
+            </div>`;
+          };
+          return grupos.map(g=>`
+            <div style="margin-bottom:12px;">
+              <div style="font-size:9px;font-weight:900;letter-spacing:1.6px;color:${g.c};margin-bottom:7px;">${g.t}</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(${g.items.length===1?'100%':'215px'},1fr));gap:7px;align-items:start;">
+                ${g.items.map(boton).join('')}
+              </div>
+            </div>`).join('');
+        })()}
         <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#5d6879;margin:16px 0 9px;">IR A OTRO LADO</div>
         <div style="display:flex;gap:9px;flex-wrap:wrap;">
           ${['izq','der'].filter(k=>E.sale[k]).map(k=>`<button onclick="window._vjIr('${E.sale[k]}')" style="flex:1;min-width:140px;background:rgba(125,211,252,.10);border:1.5px solid rgba(125,211,252,.4);color:#7dd3fc;border-radius:13px;padding:13px 14px;font-weight:900;font-size:13px;cursor:pointer;">${k==='izq'?'◀ ':''}${esc(escenas[E.sale[k]].n)}${k==='der'?' ▶':''}</button>`).join('')}
@@ -10026,6 +10065,8 @@ function vjAjustarEscala(){
   // centrando el mundo. Ni personajes cortados ni rectangulos negros.
   const s = clamp(alto / H, 1, 2.4);
   view.style.height = alto + 'px';
+  // Cuanto mundo hace falta para cubrir el ancho con este zoom.
+  VJ.anchoMin = Math.ceil(VW / s) + 20;
   const anchoMundo = W * s;
   capa.style.transformOrigin = 'left top';
   capa.style.transform = 'scale(' + s.toFixed(3) + ')';
