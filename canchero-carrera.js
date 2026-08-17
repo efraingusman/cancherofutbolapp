@@ -3186,6 +3186,9 @@ window._lyFinalJugar = function(modo){
   if (window._platAbrir){
     window._platVolverA = null;
     window._platAbrir({ apellido:G.apellido, num:G.num, colores:kitOf(G.pais||'Uruguay'),
+      piel:(AV_PIELES.find(x=>x.id===((G.avatar||{}).piel))||AV_PIELES[1]).c,
+      pelo:(AV_COLORES_PELO.find(x=>x.id===((G.avatar||{}).peloColor))||AV_COLORES_PELO[0]).c,
+      rival:(G.rival&&G.rival.nombre)||null, rivalCol:kitOf((G.rival&&G.rival.pais)||'Argentina'),
       desafio:true, titulo:cfg.titulo, onFin:cerrar });
     return;
   }
@@ -9218,7 +9221,7 @@ function mundoRender(){
         ${VJ.hotspots.map((h,i)=>`
           <div id="vj-hs-${i}" style="position:absolute;left:${h.x}px;bottom:${Math.round(H*(1-pisoPct)) - (h.tipo==='npc'?14:2)}px;transform:translateX(-50%);line-height:0;${h.bloqueado?'opacity:.45;':''}">
             ${h.tipo==='npc' ? vjSpriteHab(h,'idle') : vjObjSVG(h.obj, h.escala, h.bebe ? genDe(h.bebe) : null)}
-            ${h.tipo==='npc' ? `<div style="position:absolute;left:50%;top:-26px;transform:translateX(-50%);white-space:nowrap;text-align:center;line-height:1.15;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.9);">
+            ${h.tipo==='npc' ? `<div style="position:absolute;left:50%;top:-30px;transform:translateX(-50%) scale(${(1/Math.max(1,(VJ.escala||1))).toFixed(3)});transform-origin:50% 100%;white-space:nowrap;text-align:center;line-height:1.15;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.9);">
               <div style="font-size:9px;font-weight:900;color:#e8eef5;">${esc(h.nombre || vjNombreNPC(h.semilla, vjGen(h)))}</div>
               <div style="font-size:7.5px;font-weight:800;color:${h.destacado?A:'#8fa0b4'};letter-spacing:.4px;">${esc((h.rol||'').toUpperCase())}</div>
             </div>` : ''}
@@ -9533,7 +9536,7 @@ function vjBurbuja(txt){
   const world = document.getElementById('vj-world'); if(!world || !txt) return;
   let b = document.getElementById('vj-burbuja'); if(b) b.remove();
   b = document.createElement('div'); b.id = 'vj-burbuja';
-  b.style.cssText = 'position:absolute;bottom:'+(Math.round(250*(1-vjPisoPct()))+96)+'px;transform:translateX(-50%);background:rgba(240,244,248,.94);color:#12161c;border-radius:12px;padding:5px 10px;font-size:11px;font-weight:700;line-height:1.35;max-width:190px;text-align:center;pointer-events:none;box-shadow:0 3px 10px rgba(0,0,0,.5);transition:opacity .4s;';
+  b.style.cssText = 'position:absolute;bottom:'+(Math.round(250*(1-vjPisoPct()))+96)+'px;transform:translateX(-50%) scale('+(1/Math.max(1,(VJ.escala||1))).toFixed(3)+');transform-origin:50% 100%;background:rgba(240,244,248,.94);color:#12161c;border-radius:12px;padding:5px 10px;font-size:11px;font-weight:700;line-height:1.35;max-width:190px;text-align:center;pointer-events:none;box-shadow:0 3px 10px rgba(0,0,0,.5);transition:opacity .4s;';
   b.textContent = txt;
   b.style.left = VJ.x + 'px';
   world.appendChild(b);
@@ -9650,7 +9653,10 @@ function vjInteractuar(){
       if (!window._platAbrir){ vjFlash('El videojuego no está disponible acá.'); return; }
       vjDetener();
       window._platVolverA = function(){ window._vidaJugable(); };
-      window._platAbrir({ apellido:G.apellido, num:G.num, colores:kitOf(G.pais||'Uruguay') });
+      window._platAbrir({ apellido:G.apellido, num:G.num, colores:kitOf(G.pais||'Uruguay'),
+      piel:(AV_PIELES.find(x=>x.id===((G.avatar||{}).piel))||AV_PIELES[1]).c,
+      pelo:(AV_COLORES_PELO.find(x=>x.id===((G.avatar||{}).peloColor))||AV_COLORES_PELO[0]).c,
+      rival:(G.rival&&G.rival.nombre)||null, rivalCol:kitOf((G.rival&&G.rival.pais)||'Argentina') });
       return;
     case 'cambiarRepre': vjDetener(); window._elegirRepre('cambio'); return;
     case 'bienes':       vjDetener(); window._carreraBienes(); return;
@@ -10096,7 +10102,8 @@ function vjBurbujaEn(x, texto, ms){
   const d = document.createElement('div');
   d.className = 'vj-amb';
   d.style.cssText = 'position:absolute;left:'+x+'px;bottom:'+Math.round(250*(1-vjPisoPct())+96)+'px;'+
-    'transform:translateX(-50%);max-width:190px;background:rgba(8,11,16,.94);border:1px solid #35506b;'+
+    'transform:translateX(-50%) scale('+(1/Math.max(1,(VJ.escala||1))).toFixed(3)+');transform-origin:50% 100%;'+
+    'max-width:190px;background:rgba(8,11,16,.94);border:1px solid #35506b;'+
     'color:#e8eef5;border-radius:11px;padding:6px 9px;font-size:11px;font-weight:600;line-height:1.35;'+
     'text-align:center;pointer-events:none;z-index:5;box-shadow:0 3px 12px rgba(0,0,0,.6);opacity:0;transition:opacity .25s;';
   d.textContent = texto;

@@ -25,9 +25,9 @@ const A = '#baff00';
 //    no es sólido: si se pusiera en la fila del piso, sería un pozo disfrazado.
 const NIVELES_SPEC = [
   { n:'El potrero', cielo:['#5fb8e8','#bfe6ff'], fondo:'barrio', ancho:56, bloque:10, plats:2, enemigos:2, pinches:0 },
-  { n:'La cantera', cielo:['#4aa3df','#a8dcff'], fondo:'club',   ancho:62, bloque:9,  plats:3, enemigos:3, pinches:2 },
-  { n:'El estadio', cielo:['#2b4a7a','#6f9fd0'], fondo:'estadio',ancho:70, bloque:8,  plats:4, enemigos:4, pinches:3 },
-  { n:'La final',   cielo:['#1a1030','#4a2f7a'], fondo:'noche',  ancho:78, bloque:8,  plats:5, enemigos:5, pinches:4 }
+  { n:'La cantera', cielo:['#4aa3df','#a8dcff'], fondo:'club',   ancho:62, bloque:10, plats:3, enemigos:3, pinches:0 },
+  { n:'El estadio', cielo:['#2b4a7a','#6f9fd0'], fondo:'estadio',ancho:70, bloque:8,  plats:4, enemigos:5, pinches:0 },
+  { n:'La final',   cielo:['#1a1030','#4a2f7a'], fondo:'noche',  ancho:78, bloque:8,  plats:5, enemigos:7, pinches:0 }
 ];
 // Los niveles se ARMAN por código en vez de dibujarse a mano en strings. Escritos
 // a mano se colaban errores invisibles —una plataforma justo encima de un pozo
@@ -79,12 +79,12 @@ function construirNivel(cfg){
   }
   // 3) Enemigos, sobre piso firme y lejos del arranque.
   for (let e=0; e<cfg.enemigos; e++){
-    const c = ventana(12 + e*paso, 3, 4);   // 4 tiles de aire entre un enemigo y cualquier pozo
+    const c = ventana(12 + e*paso, 3, 2);   // 4 tiles de aire entre un enemigo y cualquier pozo
     if (c >= 0 && filas[pisoY-1][c+1] === ' ') filas[pisoY-1][c+1] = 'e';
   }
   // 4) Pinches, apoyados sobre '#' y nunca pegados al arranque ni a la meta.
   for (let s=0; s<cfg.pinches; s++){
-    const c = ventana(18 + s*paso, 2, 4);   // idem para los pinches
+    const c = ventana(18 + s*paso, 2, 2);   // idem para los pinches
     if (c > 6 && c < W-10 && filas[pisoY-1][c] === ' ') filas[pisoY-1][c] = '^';
   }
   // 5) Pelotas sueltas a nivel del piso.
@@ -102,7 +102,7 @@ const NIVELES = NIVELES_SPEC.map(construirNivel);
 const TILE = 22;
 const GRAV = 0.62;
 const VEL = 2.9;
-const SALTO = -10.4;
+const SALTO = -12.2;   // el salto llegaba justo al borde del pozo de 44px y todo dependia del cuadro exacto
 const CAIDA_MAX = 11;          // menor que TILE: nunca se atraviesa un piso
 const PASO = 1000/60;          // el mundo avanza a 60 pasos por segundo
 
@@ -139,6 +139,7 @@ function reubicar(){
   P.j = { x:P.inicio.x, y:P.inicio.y, vx:0, vy:0, w:15, h:20, piso:false, dir:1, inv:0, paso:0 };
   P.cam = 0;
   P.ganado = false;
+  P.tiros = [];
 }
 // ¿El tile de esa coordenada es sólido?
 function solido(px, py){
@@ -225,7 +226,29 @@ function paso(){
     }
   }
 
-  // Enemigos
+  // ── PELOTAZOS ──
+  // Los rivales no solo caminan: te tiran pelotas y hay que esquivarlas.
+  P.tiros = P.tiros || [];
+  for (const e of P.enemigos){
+    if (!e.vivo) continue;
+    const cerca = Math.abs(e.x - j.x) < 120 && Math.abs(e.y - j.y) < 24 && j.piso;
+    e.recarga = (e.recarga || 0) - 1;
+    if (cerca && e.recarga <= 0){
+      e.recarga = 260 + Math.floor(Math.random()*140);
+      P.tiros.push({ x:e.x + e.w/2, y:e.y + 6, vx: (j.x < e.x ? -1.9 : 1.9), r:5, vida:70 });
+    }
+  }
+  for (let i=P.tiros.length-1; i>=0; i--){
+    const t = P.tiros[i];
+    t.x += t.vx;
+    t.giro = (t.giro || 0) + 0.25;
+    if (--t.vida <= 0){ P.tiros.splice(i,1); continue; }
+    if (t.x < P.cam - 200 || t.x > P.cam + 1400){ P.tiros.splice(i,1); continue; }
+    if (j.x + j.w > t.x - t.r && j.x < t.x + t.r && j.y + j.h > t.y - t.r && j.y < t.y + t.r){
+      P.tiros.splice(i,1);
+      if (j.inv <= 0){ perderVida(); return; }
+    }
+  }
   for (const e of P.enemigos){
     if (!e.vivo) continue;
     // Camina y se da vuelta contra una pared o al borde de la plataforma.
@@ -310,9 +333,16 @@ function dibujar(){
   });
   // Meta
   const m = P.meta;
-  c.fillStyle = '#e8e8e0'; c.fillRect(m.x+8, m.y-TILE, 3, TILE*2+TILE);
-  c.fillStyle = P.ganado ? A : '#e23b3b';
-  c.beginPath(); c.moveTo(m.x+11, m.y-TILE); c.lineTo(m.x+30, m.y-TILE+8); c.lineTo(m.x+11, m.y-TILE+16); c.closePath(); c.fill();
+  // Un ARCO con red: es un juego de futbol, la meta no puede ser una banderita.
+  const aY = m.y + TILE, aH = 44, aW = 54;
+  c.fillStyle = 'rgba(255,255,255,.10)'; c.fillRect(m.x, aY-aH, aW, aH);
+  c.strokeStyle = 'rgba(255,255,255,.30)'; c.lineWidth = 1;
+  for (let k=4;k<aW;k+=7){ c.beginPath(); c.moveTo(m.x+k, aY-aH); c.lineTo(m.x+k, aY); c.stroke(); }
+  for (let k=6;k<aH;k+=7){ c.beginPath(); c.moveTo(m.x, aY-k); c.lineTo(m.x+aW, aY-k); c.stroke(); }
+  c.fillStyle = P.ganado ? A : '#f2f2ea';
+  c.fillRect(m.x-3, aY-aH-4, aW+6, 5);          // travesano
+  c.fillRect(m.x-3, aY-aH-4, 5, aH+4);          // palo izq
+  c.fillRect(m.x+aW-2, aY-aH-4, 5, aH+4);       // palo der
 
   // Pelotas
   P.pelotas.forEach(b=>{
@@ -326,10 +356,22 @@ function dibujar(){
   P.enemigos.forEach(e=>{
     if (!e.vivo) return;
     if (e.x < P.cam-TILE*2 || e.x > P.cam + W/Z + TILE*2) return;
-    c.fillStyle = '#8a3ab0'; c.fillRect(e.x, e.y+4, e.w, e.h-4);
-    c.fillStyle = '#5f2680'; c.fillRect(e.x, e.y+e.h-4, e.w, 4);
-    c.fillStyle = '#fff'; c.fillRect(e.x+4, e.y+8, 4, 4); c.fillRect(e.x+e.w-8, e.y+8, 4, 4);
-    c.fillStyle = '#111'; c.fillRect(e.x+5+(e.vx>0?1:0), e.y+9, 2, 2); c.fillRect(e.x+e.w-7+(e.vx>0?1:0), e.y+9, 2, 2);
+    const rc = P.rivalCol || ['#b02a2a','#ffffff'];
+    c.fillStyle = '#1a1a2a'; c.fillRect(e.x+3, e.y+13, 4, 5); c.fillRect(e.x+e.w-7, e.y+13, 4, 5);
+    c.fillStyle = rc[0]; c.fillRect(e.x+1, e.y+5, e.w-2, 9);
+    c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(e.x+1, e.y+11, e.w-2, 3);
+    c.fillStyle = rc[0]; c.fillRect(e.x-1, e.y+6, 3, 6); c.fillRect(e.x+e.w-2, e.y+6, 3, 6);
+    c.fillStyle = '#d9a07a'; c.fillRect(e.x+5, e.y-1, 8, 7);
+    c.fillStyle = '#20140c'; c.fillRect(e.x+5, e.y-1, 8, 3);
+    c.fillStyle = '#111'; c.fillRect(e.vx>0? e.x+10 : e.x+6, e.y+3, 2, 2);
+  });
+  // Pelotazos en el aire
+  (P.tiros||[]).forEach(t=>{
+    if (t.x < P.cam-30 || t.x > P.cam + W/Z + 30) return;
+    c.fillStyle = '#fff'; c.beginPath(); c.arc(t.x, t.y, t.r, 0, Math.PI*2); c.fill();
+    c.strokeStyle = '#222'; c.lineWidth = 1; c.stroke();
+    c.fillStyle = '#222';
+    c.beginPath(); c.arc(t.x + Math.cos(t.giro)*2, t.y + Math.sin(t.giro)*2, 1.6, 0, Math.PI*2); c.fill();
   });
   // Jugador
   dibujarJugador(c);
@@ -362,8 +404,8 @@ function dibujarJugador(c){
   c.fillStyle = col[1]; c.font = 'bold 6px Outfit, Arial'; c.textAlign = 'center';
   c.fillText(String(P.num||10), x+7.5, y+13);
   // cabeza
-  c.fillStyle = '#e0a878'; c.fillRect(x+3, y, 9, 7);
-  c.fillStyle = '#2b1b10'; c.fillRect(x+3, y, 9, 3);
+  c.fillStyle = P.piel || '#e0a878'; c.fillRect(x+3, y, 9, 7);
+  c.fillStyle = P.pelo || '#2b1b10'; c.fillRect(x+3, y, 9, 3);
   c.fillStyle = '#111';
   c.fillRect(j.dir > 0 ? x+9 : x+4, y+4, 2, 2);
   c.textAlign = 'left';
@@ -501,7 +543,14 @@ window._platAbrir = function(opts){
     num: opts.num || 10,
     colores: opts.colores || ['#4aa3df','#ffffff'],
     zoom: 2,
-    desafio: !!opts.desafio, onFin: opts.onFin || null, titulo: opts.titulo || null
+    desafio: !!opts.desafio, onFin: opts.onFin || null, titulo: opts.titulo || null,
+    piel: opts.piel || null, pelo: opts.pelo || null,
+    rivalCol: (function(){
+      const mio = (opts.colores||['#4aa3df'])[0], suyo = (opts.rivalCol||['#b02a2a'])[0];
+      const dist = (a,b)=>{ const h=x=>parseInt(x.slice(1),16); const A=h(a),B=h(b);
+        return Math.abs((A>>16)-(B>>16)) + Math.abs(((A>>8)&255)-((B>>8)&255)) + Math.abs((A&255)-(B&255)); };
+      return dist(mio,suyo) < 120 ? ['#b02a2a','#ffffff'] : (opts.rivalCol||['#b02a2a','#ffffff']);
+    })(), rival: opts.rival || null
   };
   cargarNivel(0);
   montarCanvas();
