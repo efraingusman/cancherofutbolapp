@@ -11121,7 +11121,12 @@ function vjDialogo(ev, tipo, quien, h){
         })()}
         <div style="line-height:0;transform:scaleX(-1);">${vjSpriteJugador('pensando')}</div>
       </div>
-      <div style="background:linear-gradient(160deg,${R.color}14,rgba(10,13,8,.75));border:1.5px solid ${R.color}55;border-radius:18px;padding:16px;">
+      <!-- GLOBO DE DIALOGO: lo que dice el personaje sale de EL, con su pico
+           apuntando arriba. Antes era un panel rectangular suelto y el texto
+           parecia flotar en el aire sin dueño. -->
+      <div style="position:relative;background:linear-gradient(160deg,${R.color}14,rgba(10,13,8,.92));border:1.5px solid ${R.color}55;border-radius:18px;padding:16px;">
+        <div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;border-bottom:11px solid ${R.color}55;"></div>
+        <div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:9px solid #0d1109;"></div>
         <div style="font-size:10px;font-weight:900;letter-spacing:1.5px;color:${R.color};margin-bottom:7px;">${esc(String(quien||'').toUpperCase())}</div>
         <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:18px;color:#fff;margin-bottom:7px;line-height:1.2;">${esc(ev.t)}</div>
         <div style="font-size:13.5px;color:#c4ccc0;line-height:1.6;margin-bottom:14px;">${esc(ev.d)}</div>
@@ -11299,7 +11304,12 @@ window._vjGestion = function(){
         <div style="line-height:0;">${vjSpriteNPC('jefe'+rol,'traje',58,'pensando')}</div>
         <div style="line-height:0;transform:scaleX(-1);">${vjSpriteJugador('pensando')}</div>
       </div>
-      <div style="background:linear-gradient(160deg,${R.color}14,rgba(10,13,8,.75));border:1.5px solid ${R.color}55;border-radius:18px;padding:16px;">
+      <!-- GLOBO DE DIALOGO: lo que dice el personaje sale de EL, con su pico
+           apuntando arriba. Antes era un panel rectangular suelto y el texto
+           parecia flotar en el aire sin dueño. -->
+      <div style="position:relative;background:linear-gradient(160deg,${R.color}14,rgba(10,13,8,.92));border:1.5px solid ${R.color}55;border-radius:18px;padding:16px;">
+        <div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;border-bottom:11px solid ${R.color}55;"></div>
+        <div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:9px solid #0d1109;"></div>
         <div style="font-size:10px;font-weight:900;letter-spacing:1.5px;color:${R.color};margin-bottom:6px;">${esc(R.n.toUpperCase())}${g.club?(' · '+esc(g.club)):''}</div>
         <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;color:#fff;margin-bottom:7px;line-height:1.2;">${esc(titulo)}</div>
         <div style="font-size:13.5px;color:#c4ccc0;line-height:1.6;margin-bottom:14px;">${texto}</div>
