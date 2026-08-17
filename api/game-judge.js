@@ -75,38 +75,6 @@ async function charlaNPC(req, res) {
         hilo.map(m => ({ role: m.yo ? 'user' : 'assistant', content: String(m.t || '').slice(0, 300) }))
     );
 
-    // Un 204 mudo no dejaba saber si faltaba la key o si el proveedor rechazaba.
-    // Con ?debug=1 se consulta el estado. Nunca se devuelve el valor de una key.
-    if (req.query && req.query.debug === '1') {
-        const prueba = await pensarIA(messages);
-        return res.status(200).json({ diagnostico: {
-            groq: !!process.env.GROQ_API_KEY,
-            openrouter: !!process.env.OPENROUTER_API_KEY,
-            gemini: !!process.env.GEMINI_API_KEY,
-            openai: !!process.env.OPENAI_API_KEY,
-            resultado: prueba ? ('respondio: ' + prueba.slice(0, 80)) : 'ningun proveedor devolvio texto',
-            // Qué contesta Groq exactamente: sin esto no hay forma de saber si el
-            // problema es la key, el modelo dado de baja o la cuota.
-            groqDice: await (async () => {
-                if (!process.env.GROQ_API_KEY) return 'sin key';
-                try {
-                    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${process.env.GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ model: 'llama-3.1-8b-instant', max_tokens: 10, messages: [{ role: 'user', content: 'hola' }] })
-                    });
-                    const t = await r.text();
-                    let lista = '';
-                    try {
-                        const lm = await fetch('https://api.groq.com/openai/v1/models', { headers: { 'Authorization': 'Bearer ' + process.env.GROQ_API_KEY } });
-                        const dj = await lm.json();
-                        lista = lm.status + ' modelos: ' + ((dj.data||[]).map(m=>m.id).slice(0,8).join(', ') || JSON.stringify(dj).slice(0,120));
-                    } catch(e){ lista = 'no se pudo listar: ' + e.message; }
-                    return 'chat ' + r.status + ' ' + t.slice(0,120) + ' || ' + lista;
-                } catch (e) { return 'error de red: ' + e.message; }
-            })()
-        }});
-    }
     const txt = await pensarIA(messages);
     if (!txt) return res.status(204).end();
     res.setHeader('Cache-Control', 'no-store');
@@ -146,7 +114,7 @@ async function openaiCompat(messages, opt = {}) {
         // cada proveedor lleva VARIOS modelos y se prueba el siguiente si el
         // anterior ya no esta.
         { key: process.env.GROQ_API_KEY,       url: 'https://api.groq.com/openai/v1/chat/completions',
-          modelos: ['llama-3.1-8b-instant', 'openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'llama-3.3-70b-versatile'] },
+          modelos: ['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.6-27b', 'llama-3.1-8b-instant'] },
         { key: process.env.OPENROUTER_API_KEY, url: 'https://openrouter.ai/api/v1/chat/completions',
           modelos: ['meta-llama/llama-3.3-70b-instruct:free', 'google/gemma-2-9b-it:free'] },
         { key: process.env.OPENAI_API_KEY,     url: 'https://api.openai.com/v1/chat/completions',
