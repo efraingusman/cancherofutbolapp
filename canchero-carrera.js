@@ -10961,6 +10961,30 @@ window._vjTomarLicencia = function(tramos){
   window._vidaJugable();
 };
 // ── DORMIR: pasan cinco años ─────────────────────────────────────────────────
+// ── QUE EL LEGADO NO SE CORTE ────────────────────────────────────────────────
+// El nieto dependía de que salieran los eventos justos: si no aparecían, llegabas
+// al final de la vida sin nadie que tomara la posta y el legado —que es medio
+// juego— no existía. Ahora la sangre sigue igual: con el tiempo aparece un hijo,
+// y cuando ese hijo es grande, un nieto.
+function asegurarDescendencia(fam){
+  if (!G) return;
+  const yo = G.vidaEdad || 40;
+  fam.hijos = fam.hijos || []; fam.nietos = fam.nietos || [];
+  // Pasados los 45 sin hijos, nace uno (siempre hay un varón en la línea).
+  if (yo >= 45 && !fam.hijos.length){
+    fam.hijos.push(nacePersona('m', { edad: Math.max(1, Math.min(18, yo - 42)) }));
+    G._momentoVisual = G._momentoVisual || 'bebe';
+  }
+  // Con un hijo de 22+ y vos pasados los 58, llega el nieto.
+  const grande = fam.hijos.some(h => (h.edad||0) >= 22);
+  // Recién pasados los 72: si nace antes, al final de tu vida ya tiene 20 y no
+  // puede empezar una carrera, que es justo lo que rompía el legado.
+  if (yo >= 72 && grande && !fam.nietos.length){
+    const padre = (fam.hijos.find(h=>(h.edad||0)>=22)||{}).nombre;
+    fam.nietos.push(nacePersona('m', { edad:0, de:padre }));
+    G._momentoVisual = G._momentoVisual || 'bebe';
+  }
+}
 function vjDormir(){
   const s = G.vidaStats;
   s.salud = clamp((s.salud||70) - ri(3,8), 0, 100);
@@ -10971,6 +10995,7 @@ function vjDormir(){
   const fam = G.familia = G.familia || {};
   (fam.hijos||[]).forEach(h=> h.edad = (h.edad||0) + 5);
   (fam.nietos||[]).forEach(n=> n.edad = (n.edad||0) + 5);
+  asegurarDescendencia(fam);
   const L = VIDA_LAPSOS[G.vidaLapso];
   G.vidaEdad = L ? L.de : (G.vidaEdad || 40) + 5;
   G.anio = (G.anio || 2026) + 5;      // el calendario tambien avanza: el futuro llega
