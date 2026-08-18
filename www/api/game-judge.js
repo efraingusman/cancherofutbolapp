@@ -15,12 +15,254 @@ function heuristic(team) {
     return Math.min(99, Math.round((s / (11 * 10)) * 99));
 }
 
+
+// ── CHARLA CON LOS NPC DE CANCHERO LEYENDA ───────────────────────────────────
+// Vive acá adentro y no en su propio archivo a propósito: el plan tiene un tope
+// de 12 serverless functions y agregar una decimotercera hacía FALLAR el build
+// entero (el deploy se quedaba en la versión anterior sin avisar).
+// Se entra con { modo:'chat', ... }.
+async function charlaNPC(req, res) {
+
+    const b = req.body || {};
+    const hilo = Array.isArray(b.hilo) ? b.hilo.slice(-10) : [];
+    if (!hilo.length) return res.status(400).json({ error: 'hilo vacío' });
+
+    // Ficha del personaje: quién es y cómo habla.
+    const quien = [
+        `Sos ${b.nombre || 'alguien del entorno'}, ${b.rol || 'un conocido'} de ${b.apellido || 'el jugador'}.`,
+        b.edadNPC ? `Tenés ${b.edadNPC} años.` : ''
+    ].filter(Boolean).join(' ');
+
+    // Estado real de la partida: esto hace que la charla sea SOBRE la partida.
+    const ctx = [
+        b.anio ? `Estamos en ${b.anio}.` : '',
+        b.era ? `El mundo está en la ${String(b.era).toLowerCase()}.` : '',
+        b.edad ? `${b.apellido || 'El jugador'} tiene ${b.edad} años.` : '',
+        b.club ? `Juega/trabaja en ${b.club}${b.liga ? ` (${b.liga})` : ''}.` : '',
+        b.etapa ? `Etapa: ${b.etapa}.` : '',
+        b.nivel ? `Nivel ${b.nivel}.` : '',
+        b.titulos != null ? `Ganó ${b.titulos} títulos.` : '',
+        b.moral != null ? `Ánimo: ${b.moral}/100.` : '',
+        b.dinero != null ? `Plata: ${b.dinero}.` : '',
+        b.pareja ? `Su pareja se llama ${b.pareja}.` : '',
+        b.hijos ? `Hijos: ${b.hijos}.` : '',
+        b.nietos ? `Nietos: ${b.nietos}.` : '',
+        b.lugar ? `Están hablando en: ${b.lugar}.` : ''
+    ].filter(Boolean).join(' ');
+
+    const system = [
+        quien,
+        'Estás conversando cara a cara con él/ella dentro de un juego de fútbol.',
+        '',
+        'CONTEXTO DE LA PARTIDA (usalo solo si viene al caso, no lo recites):',
+        ctx,
+        '',
+        'CÓMO RESPONDER:',
+        '- Respondé EXACTAMENTE lo que te dijo. Si te hace una pregunta, contestala.',
+        '  Si te cuenta algo, reaccioná a eso. Nunca cambies de tema por tu cuenta.',
+        '- Acordate de lo que ya se habló en esta charla y seguí el hilo.',
+        '- Hablá en español rioplatense (vos, tenés, querés), natural y coloquial.',
+        '- 1 o 2 oraciones. Máximo 200 caracteres. Nada de listas ni emojis.',
+        '- Mantené tu personaje: un DT no habla como un nieto de 8 años ni como un',
+        '  representante. Tu edad, tu rol y tu vínculo mandan.',
+        '- Podés preguntar de vuelta, discutir, hacer un chiste o quedarte callado si',
+        '  corresponde. Sos una persona, no un cartel de ayuda.',
+        '- Si te dicen algo agresivo, respondé como respondería alguien así tratado.',
+        '- No hables de que sos una IA ni menciones el juego.'
+    ].join('\n');
+
+    const messages = [{ role: 'system', content: system }].concat(
+        hilo.map(m => ({ role: m.yo ? 'user' : 'assistant', content: String(m.t || '').slice(0, 300) }))
+    );
+
+    const txt = await pensarIA(messages);
+    if (!txt) return res.status(204).end();
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({ texto: txt.slice(0, 240) });
+}
+
+// ── MOTOR DE IA: gratis y sin depender de una sola cuenta ────────────────────
+// Se prueban los proveedores en orden y se usa el primero que conteste. Todos son
+// gratuitos; el ÚLTIMO no necesita registrarse ni configurar nada, así que el
+// juego habla con IA aunque no haya ninguna variable de entorno cargada.
+// Si mañana cargás una key gratuita de Gemini o de Groq, pasa a usarla sola.
+async function pensarIA(messages, opt) {
+    const conTiempo = (pr, ms) => Promise.race([
+        pr, new Promise(r => setTimeout(() => r(null), ms))
+    ]);
+    // Hay 10 segundos de límite para toda la función: 4 por proveedor y se corta.
+    const hayKey = !!(process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY ||
+                      process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY);
+    // Pollinations sólo se intenta si NO hay ninguna key: es el último recurso y
+    // hoy suele responder 402 (dejó de ser gratis para anónimos). Se deja en la
+    // cadena porque no cuesta nada y si vuelve a abrirse funciona solo.
+    const cadena = hayKey ? [openaiCompat, gemini] : [pollinations];
+    for (const intento of cadena) {
+        try {
+            const t = await conTiempo(intento(messages, opt || {}), 8000);
+            if (t && t.trim()) return t.trim();
+        } catch (e) { /* se prueba el siguiente */ }
+    }
+    return null;
+}
+
+// Saca el razonamiento interno y deja SOLO lo que diria el personaje.
+function limpiarRespuesta(t) {
+    let s = String(t || '');
+    s = s.replace(/<think>[\s\S]*?<\/think>/gi, '');   // razonamiento cerrado
+    s = s.replace(/<think>[\s\S]*$/i, '');             // razonamiento sin cerrar
+    s = s.replace(/^\s*(assistant|respuesta)\s*:\s*/i, '');
+    s = s.replace(/^["']+|["']+$/g, '');
+    return s.trim();
+}
+
+// Groq, OpenRouter y OpenAI hablan el mismo formato. Se usa el que tenga key.
+async function openaiCompat(messages, opt = {}) {
+    const opciones = [
+        // Groq da de baja modelos seguido: el que estaba fijo dejo de existir y la
+        // IA de los dialogos quedo muda sin que nadie se enterara. Por eso ahora
+        // cada proveedor lleva VARIOS modelos y se prueba el siguiente si el
+        // anterior ya no esta.
+        { key: process.env.GROQ_API_KEY,       url: 'https://api.groq.com/openai/v1/chat/completions',
+          modelos: ['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.6-27b', 'llama-3.1-8b-instant'] },
+        { key: process.env.OPENROUTER_API_KEY, url: 'https://openrouter.ai/api/v1/chat/completions',
+          modelos: ['meta-llama/llama-3.3-70b-instruct:free', 'google/gemma-2-9b-it:free'] },
+        { key: process.env.OPENAI_API_KEY,     url: 'https://api.openai.com/v1/chat/completions',
+          modelos: ['gpt-4o-mini'] }
+    ].filter(o => o.key);
+    for (const o of opciones) {
+      for (const modelo of o.modelos) {
+        const r = await fetch(o.url, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${o.key}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: modelo, temperature: opt.temp ?? 0.9, presence_penalty: 0.6, frequency_penalty: 0.4, max_tokens: opt.max ?? 90, messages })
+        });
+        if (!r.ok) continue;                 // modelo dado de baja o sin cuota: probar el siguiente
+        const d = await r.json();
+        let t = d?.choices?.[0]?.message?.content;
+        // Algunos modelos escupen su razonamiento en <think>...</think> antes de la
+        // respuesta. Eso no lo tiene que leer el jugador.
+        if (t) t = limpiarRespuesta(String(t));
+        if (t) return t;
+      }
+    }
+    return null;
+}
+
+// Google Gemini: tiene capa gratuita generosa. Usa GEMINI_API_KEY.
+async function gemini(messages, opt = {}) {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) return null;
+    const sys = messages.filter(m => m.role === 'system').map(m => m.content).join('\n');
+    const turnos = messages.filter(m => m.role !== 'system')
+        .map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            systemInstruction: { parts: [{ text: sys }] },
+            contents: turnos,
+            generationConfig: { temperature: opt.temp ?? 0.9, maxOutputTokens: opt.max ?? 120 }
+        })
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+}
+
+// Pollinations: gratis y SIN key. Es el que hace que esto funcione de una.
+async function pollinations(messages, opt = {}) {
+    const r = await fetch('https://text.pollinations.ai/openai', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'openai', temperature: 0.9, max_tokens: 90, private: true, messages })
+    });
+    if (r.ok) {
+        const cuerpo = await r.text();
+        try {
+            const d = JSON.parse(cuerpo);
+            const t = d?.choices?.[0]?.message?.content;
+            if (t) return String(t);
+        } catch (e) { if (cuerpo && cuerpo.length < 600) return cuerpo; }
+    }
+    // Plan B del plan B: la variante por URL, que devuelve texto pelado.
+    const sys = messages.filter(m => m.role === 'system').map(m => m.content).join(' ');
+    const ult = [...messages].reverse().find(m => m.role === 'user');
+    if (!ult) return null;
+    const prompt = encodeURIComponent(sys + '\n\nTe dicen: "' + ult.content + '"\nContestá:');
+    const r2 = await fetch(`https://text.pollinations.ai/${prompt}?model=openai&private=true`);
+    if (!r2.ok) return null;
+    const t2 = await r2.text();
+    return (t2 && t2.length < 600) ? t2 : null;
+}
+
+
+// ── DOS PERSONAJES HABLANDO ENTRE ELLOS ──────────────────────────────────────
+// No hace falta que el jugador escriba nada: el mundo tiene que sonar vivo. Se
+// piden las DOS líneas en una sola llamada para no gastar el doble.
+async function charlaAmbiente(req, res) {
+    const b = req.body || {};
+    const A = b.a || {}, B = b.b || {};
+    const ctx = [
+        b.anio ? `Estamos en ${b.anio}.` : '',
+        b.lugar ? `Están en ${b.lugar}.` : '',
+        b.apellido ? `Cerca anda ${b.apellido}${b.edad ? `, de ${b.edad} años` : ''}${b.club ? `, de ${b.club}` : ''}. NO hace falta que hablen de él; mencionalo solo si viene al caso.` : '',
+        b.tema ? `Tema del que están hablando: ${b.tema}.` : ''
+    ].filter(Boolean).join(' ');
+
+    const system = [
+        `Escribí un intercambio MUY corto entre dos personas de un juego de fútbol.`,
+        `PERSONA A: ${A.nombre || 'Alguien'}, ${A.rol || 'un conocido'}${A.edad ? `, ${A.edad} años` : ''}.`,
+        `PERSONA B: ${B.nombre || 'Alguien'}, ${B.rol || 'un conocido'}${B.edad ? `, ${B.edad} años` : ''}.`,
+        ctx,
+        '',
+        'REGLAS:',
+        '- A dice algo y B le contesta. Dos líneas, nada más.',
+        '- Español rioplatense (vos, tenés, querés), natural, como se habla de verdad.',
+        '- ENTRE 45 Y 100 CARACTERES CADA UNO. Ni telegramas ni discursos.',
+        '- La respuesta de B tiene que APORTAR algo: una opinión, un dato, una queja,',
+        '  una cargada. Prohibido contestar "sí", "claro", "todo bien" y nada más.',
+        '- NO empieces con "Che". Variá el arranque; que no suene a plantilla.',
+        '- Sin comillas y sin poner el nombre adelante.',
+        '- Que se note quién es cada uno: un nene de 6 no habla como un DT de 55,',
+        '  y un médico no habla como un hincha.',
+        '- Que hablen de algo concreto, no en abstracto.',
+        '- La mayoría de las veces NO hablen del jugador: hablá del tema y listo.',
+        '- Los familiares no lo llaman por el apellido: es "papá", "tu padre", "él".',
+        '- Español CORRECTO. No inventes palabras ni conjugaciones raras.',
+        '- Respondé SOLO JSON: {"a":"...","b":"..."}'
+    ].join('\n');
+
+    const txt = await pensarIA([
+        { role: 'system', content: system },
+        // Ejemplos de cómo tiene que sonar. Con la instrucción sola el modelo
+        // devolvía frases cortadas o con palabras inventadas.
+        { role: 'user', content: 'Ejemplo: un DT de 55 y su capitán de 29, en el vestuario, sobre el partido que viene.' },
+        { role: 'assistant', content: '{"a":"Si salimos a presionarlos arriba nos comen los espacios","b":"Yo los aguanto atrás, pero alguien tiene que correr por afuera"}' },
+        { role: 'user', content: 'Ejemplo: una madre de 34 y su hija de 6, en casa, sobre los chicos.' },
+        { role: 'assistant', content: '{"a":"Terminá la leche que hoy hay que salir temprano","b":"¿Y podemos pasar por la plaza a la vuelta?"}' },
+        { role: 'user', content: 'Ahora la de verdad. Solo el JSON.' }
+    ], { temp: 0.55, max: 120 });
+    if (!txt) return res.status(204).end();
+    try {
+        const limpio = txt.replace(/```json|```/g, '').trim();
+        const d = JSON.parse(limpio.slice(limpio.indexOf('{'), limpio.lastIndexOf('}') + 1));
+        if (d && d.a && d.b) {
+            res.setHeader('Cache-Control', 'no-store');
+            return res.status(200).json({ a: String(d.a).slice(0, 110), b: String(d.b).slice(0, 110) });
+        }
+    } catch (e) { /* si no vino JSON limpio, mejor nada */ }
+    return res.status(204).end();
+}
+
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+    // Charla con un NPC de Canchero Leyenda (misma función, otro modo).
+    if (req.body && req.body.modo === 'chat') return charlaNPC(req, res);
+    if (req.body && req.body.modo === 'ambiente') return charlaAmbiente(req, res);
 
     const { teamA, teamB, nameA, nameB } = req.body || {};
     if (!Array.isArray(teamA) || !Array.isArray(teamB)) return res.status(400).json({ error: 'teamA y teamB requeridos' });

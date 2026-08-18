@@ -43,7 +43,7 @@
     <div style="margin-bottom:14px;"><label class="form-label">CONTRASEÑA</label><input id="crm-pass" type="password" class="form-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button class="btn" onclick="doLogin()">ENTRAR A MI PANEL</button>
     <div id="login-err">Email o contraseña incorrectos</div>
-    <div style="text-align:center;margin-top:16px;"><a href="https://canchero-app.vercel.app" style="color:var(--muted);font-size:12px;text-decoration:none;">← Volver a Canchero</a></div>
+    <div style="text-align:center;margin-top:16px;"><a href="https://cancherofutbolapp.vercel.app" style="color:var(--muted);font-size:12px;text-decoration:none;">← Volver a Canchero</a></div>
   </div>
 
   <!-- ESTADO: PENDIENTE -->
@@ -133,7 +133,7 @@ async function _crmBootstrap() {
       const { data: biz } = await sb.from('business_requests').select('*').eq('email', email).order('created_at',{ascending:false}).limit(1).maybeSingle();
       if (biz) { _bizData = biz; sessionStorage.setItem('crm_biz', JSON.stringify(biz)); return routeByStatus(biz); }
       // tiene sesión pero no es negocio → volver a la app
-      window.location.href = 'https://canchero-app.vercel.app'; return;
+      window.location.href = 'https://cancherofutbolapp.vercel.app'; return;
     }
   } catch(e) {}
   showScreen('login-form');
@@ -158,7 +158,7 @@ async function doLogin() {
   const { data: biz } = await sb.from('business_requests').select('*').eq('email', email).order('created_at', { ascending: false }).limit(1).maybeSingle();
   if (!biz) {
     // Verificar si es un usuario común (jugador/club) y redirigir
-    window.location.href = 'https://canchero-app.vercel.app';
+    window.location.href = 'https://cancherofutbolapp.vercel.app';
     return;
   }
   _bizData = biz;

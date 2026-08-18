@@ -466,7 +466,7 @@ const bookings = {
 };
 
 // ════════════════════════════════════════════════════════════════════════
-// SUBSCRIPTIONS / GATING — ligas/torneos solo Profesional/Organización
+// SUBSCRIPTIONS / GATING — ligas/torneos solo Profesional/Ligas
 // ════════════════════════════════════════════════════════════════════════
 const subs = {
   PAID_TIERS: ['profesional','organizacion','complejo','tienda'],
@@ -491,7 +491,7 @@ const subs = {
   // Bloqueo UI con mensaje claro
   gateLeagueCreation(){
     if(this.canCreateLeague()) return true;
-    alert('⛔ Solo Profesionales y Organizaciones con suscripción activa pueden crear ligas o torneos.\n\nSi querés crear ligas/torneos:\n1. Registrate como Profesional u Organización\n2. Activá tu suscripción mensual\n\n¿Querés ver los planes?');
+    alert('⛔ Solo Profesionales y Ligas con suscripción activa pueden crear ligas o torneos.\n\nSi querés crear ligas/torneos:\n1. Registrate como Profesional u Ligas\n2. Activá tu suscripción mensual\n\n¿Querés ver los planes?');
     if(window.cancheroFeatures && window.cancheroFeatures.subs.openPlans) window.cancheroFeatures.subs.openPlans();
     return false;
   },
@@ -505,8 +505,8 @@ const subs = {
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
             ${[
               { tier:'profesional', name:'PROFESIONAL', price:'UYU 1.200/mes', perks:['Crear ligas y torneos','Recibir contrataciones','Stats avanzadas','Verificación oficial'] },
-              { tier:'organizacion', name:'ORGANIZACIÓN', price:'UYU 2.500/mes', perks:['Todo Profesional','Multi-admin','Branding propio','Reportes detallados'] },
-              { tier:'complejo', name:'COMPLEJO', price:'UYU 1.800/mes', perks:['Listado en directorio','Reservas online','Pagos integrados','Estadísticas'] },
+              { tier:'organizacion', name:'LIGAS', price:'UYU 2.500/mes', perks:['Todo Profesional','Multi-admin','Branding propio','Reportes detallados'] },
+              { tier:'complejo', name:'CANCHAS', price:'UYU 1.800/mes', perks:['Listado en directorio','Reservas online','Pagos integrados','Estadísticas'] },
               { tier:'tienda', name:'TIENDA', price:'UYU 900/mes', perks:['Productos en feed','Sponsor visibility','Promos a usuarios'] }
             ].map(p => `
               <div style="background:#111;border:1px solid #333;border-radius:12px;padding:16px;">
@@ -702,7 +702,7 @@ const playerNeeded = {
         <div style="background:#0a0c0a;border:2px solid #baff00;border-radius:14px;padding:24px;max-width:420px;width:100%;">
           <h3 style="color:#baff00;margin-bottom:6px;">🚨 BUSCAR JUGADORES</h3>
           <p style="color:#888;font-size:12px;margin-bottom:16px;">Notificá a todos los jugadores activos que te faltan personas</p>
-          <label style="color:#fff;font-size:11px;font-weight:700;display:block;margin-bottom:4px;">COMPLEJO / CANCHA</label>
+          <label style="color:#fff;font-size:11px;font-weight:700;display:block;margin-bottom:4px;">CANCHAS / CANCHA</label>
           <input id="pn-venue" placeholder="Ej: Cancha El Galpón" style="width:100%;padding:10px;background:#111;border:1px solid #222;color:#fff;border-radius:8px;margin-bottom:10px;">
           <label style="color:#fff;font-size:11px;font-weight:700;display:block;margin-bottom:4px;">¿CUÁNTOS FALTAN?</label>
           <input id="pn-missing" type="number" value="2" min="1" max="11" style="width:100%;padding:10px;background:#111;border:1px solid #222;color:#fff;border-radius:8px;margin-bottom:10px;">

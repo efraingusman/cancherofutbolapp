@@ -24,8 +24,11 @@ function _cgTop(){
   return '0px';
 }
 
+// Tiros Libres retirado (2026-08-01). Se agregan Trivia (tipo Preguntados de fútbol) y
+// Modo Carrera (tipo Copero, más adictivo) — implementación nativa en progreso.
 const GAMES = [
-  { id:'tiros-libres', name:'Tiros Libres', emoji:'⚽', desc:'El clásico de tiros libres. Superá al arquero.', badges:['Jugable','Embebido'], type:'embed' },
+  { id:'trivia', name:'Trivia Futbolera', emoji:'🧠', desc:'Preguntados de fútbol: escudos, jugadores y datos. Niveles y ranking.', badges:['Nuevo','Online'], type:'native' },
+  { id:'carrera', name:'Canchero Leyenda', emoji:'🌟', desc:'Empezá en el potrero y llegá a lo más alto. Decisiones, fichajes y títulos.', badges:['Nuevo','Online'], type:'native' },
   { id:'adivina', name:'Adivina el Jugador', emoji:'🕵️', desc:'¿Quién es? Adiviná por las pistas. Duelo de conocimiento.', badges:['Jugable','Solo / Presencial'], type:'native' },
   { id:'impostor', name:'Impostor Futbolero', emoji:'🎭', desc:'Encontrá al impostor. Mínimo 4 jugadores (presencial).', badges:['Beta','Presencial'], type:'native' },
   { id:'once-ideal', name:'11 Ideal', emoji:'📋', desc:'Armá tu once ideal y compará.', badges:['Beta','Presencial'], type:'native' },
@@ -49,13 +52,12 @@ function _coverImg(file, fallbackGrad, icon, title, sub){
   return `<div style="width:100%;height:100%;background:#0a0a0a url('img/games/${file}') center/cover no-repeat;"></div>`;
 }
 const GAME_ART = {
-  'tiros-libres': _coverImg('tiros-libres.jpg'),
-  'adivina': _coverImg('adivina.jpg'),
-  'impostor': _coverImg('impostor.jpg'),
-  'once-ideal': _coverImg('once-ideal.jpg'),
-  // Portada diseñada (gradiente + icono, estilo de los demás juegos). Si dejás una foto en
-  // img/games/higher-lower.jpg se usa esa; si no existe, queda la portada diseñada.
-  'higher-lower': `<div style="width:100%;height:100%;position:relative;">${_cover('linear-gradient(135deg,#0f3443,#123a1e)','bx-trending-up','MÁS O MENOS','FÚTBOL')}<img src="img/games/higher-lower.jpg" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" onerror="this.remove()"></div>`
+  'trivia': _coverImg('trivia.webp'),
+  'carrera': _coverImg('carrera.webp'),
+  'adivina': _coverImg('adivina.webp'),
+  'impostor': _coverImg('impostor.webp'),
+  'once-ideal': _coverImg('once-ideal.webp'),
+  'higher-lower': _coverImg('higher-lower.webp')
 };
 
 const EMBED_URLS = {
@@ -70,9 +72,10 @@ window._renderGamesHub = function(container){
   if (m) m.remove();
   m = document.createElement('div'); m.id='games-hub';
   if (container){
-    m.style.cssText='background:#0a0a0a;min-height:60vh;padding-bottom:calc(90px + env(safe-area-inset-bottom));';
+    // padding-top para que no quede cortado detrás del header/nav sticky.
+    m.style.cssText='background:#0a0a0a;min-height:60vh;padding-top:12px;padding-bottom:calc(90px + env(safe-area-inset-bottom));';
   } else {
-    m.style.cssText='position:fixed;left:0;right:0;bottom:0;top:'+_cgTop()+';z-index:9900;background:#0a0a0a;overflow-y:auto;';
+    m.style.cssText='position:fixed;left:0;right:0;bottom:0;top:'+_cgTop()+';z-index:9900;background:#0a0a0a;overflow-y:auto;padding-top:8px;';
   }
   const badgeColor = b => b==='Jugable'?'#00e676':b==='Embebido'?'#64b4ff':b==='Beta'?'#ffaa00':b.includes('Online')?'#9c88ff':'#aaa';
   m.innerHTML = `
@@ -138,8 +141,30 @@ window._launchCancheroGame = function(id){
     else _onceStart();
   } else if (id==='higher-lower'){
     if (window._higherLowerStart){ document.getElementById('games-hub')?.remove(); window._higherLowerStart(); }
+  } else if (id==='trivia'){
+    if (window._triviaStart){ document.getElementById('games-hub')?.remove(); window._triviaStart(); }
+    else _gameComingSoon('Trivia Futbolera', '🧠', 'Preguntados de fútbol: adiviná escudos y jugadores por foto, subí de nivel y competí en el ranking. ¡Muy pronto!');
+  } else if (id==='carrera'){
+    if (window._carreraStart){ document.getElementById('games-hub')?.remove(); window._carreraStart(); }
+    else _gameComingSoon('Modo Carrera', '🌟', 'Empezá en un club de barrio o jugando en la calle, hacete ver por un ojeador y escalá hasta la elite. Decisiones futbolísticas, económicas y sociales. ¡En construcción!');
   }
 };
+
+// Pantalla "Próximamente" para juegos en construcción (Trivia, Carrera).
+function _gameComingSoon(name, emoji, desc){
+  let m = document.getElementById('game-soon-modal'); if (m) m.remove();
+  m = document.createElement('div'); m.id = 'game-soon-modal';
+  m.style.cssText = 'position:fixed;inset:0;z-index:9970;background:rgba(0,0,0,0.9);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:24px;';
+  m.innerHTML = `<div style="max-width:380px;text-align:center;background:linear-gradient(160deg,#101410,#0a0a0a);border:1px solid rgba(186,255,0,0.25);border-radius:22px;padding:32px 24px;box-shadow:0 20px 60px rgba(0,0,0,0.7);">
+    <div style="font-size:52px;line-height:1;margin-bottom:12px;">${emoji}</div>
+    <div style="font-family:'Outfit',sans-serif;font-size:22px;font-weight:900;color:#fff;margin-bottom:8px;">${name}</div>
+    <div style="display:inline-block;font-size:10px;font-weight:900;letter-spacing:2px;color:var(--accent);background:rgba(186,255,0,0.1);border:1px solid rgba(186,255,0,0.3);padding:4px 12px;border-radius:20px;margin-bottom:16px;">PRÓXIMAMENTE</div>
+    <div style="font-size:13.5px;color:#aaa;line-height:1.55;margin-bottom:22px;">${desc}</div>
+    <button onclick="document.getElementById('game-soon-modal').remove();window.openGamesModal&&window.openGamesModal()" style="background:var(--accent);color:#000;border:none;border-radius:14px;padding:12px 26px;font-weight:900;font-size:14px;cursor:pointer;">← Volver a Juegos</button>
+  </div>`;
+  m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+  document.body.appendChild(m);
+}
 
 function _embedGame(id, name){
   let p = document.getElementById('cg-player'); if(p)p.remove();

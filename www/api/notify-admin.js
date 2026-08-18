@@ -39,7 +39,7 @@ module.exports = async function handler(req, res) {
           ${row('Teléfono', phone)}
           ${row('Fecha', new Date().toLocaleString('es-UY', { timeZone: 'America/Montevideo' }))}
         </table>
-        <a href="https://canchero-app.vercel.app/?goto=admin-negocios" style="display:block;text-align:center;background:#baff00;color:#000;font-weight:900;font-size:14px;text-decoration:none;border-radius:10px;padding:13px;margin-top:18px;">ABRIR PANEL DE ADMIN</a>
+        <a href="https://cancherofutbolapp.vercel.app/?goto=admin-negocios" style="display:block;text-align:center;background:#baff00;color:#000;font-weight:900;font-size:14px;text-decoration:none;border-radius:10px;padding:13px;margin-top:18px;">ABRIR PANEL DE ADMIN</a>
         <p style="font-size:11px;color:#999;margin:14px 0 0;">Al aprobar se genera el código; envíaselo por WhatsApp o email y el negocio activa su cuenta ingresándolo al iniciar sesión.</p>
       </div>
     </div>`;
@@ -52,7 +52,7 @@ module.exports = async function handler(req, res) {
                 from: 'Canchero <onboarding@resend.dev>',
                 to: [ADMIN_EMAIL],
                 subject: (code_request ? 'PEDIDO DE CODIGO: ' : 'Nueva solicitud de negocio: ') + name + ' (' + (role || 'negocio') + ')',
-                text: 'Nueva solicitud de negocio en Canchero. Negocio: ' + name + ' / Email: ' + email + ' / Tipo: ' + (role || '-') + '. Aprobala desde https://canchero-app.vercel.app/?goto=admin-negocios',
+                text: 'Nueva solicitud de negocio en Canchero. Negocio: ' + name + ' / Email: ' + email + ' / Tipo: ' + (role || '-') + '. Aprobala desde https://cancherofutbolapp.vercel.app/?goto=admin-negocios',
                 html
             })
         });

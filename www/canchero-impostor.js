@@ -19,12 +19,12 @@ window._launchCancheroGame = function(id){ if(id==='impostor'){ document.getElem
 
 function shell(html){
   let m=document.getElementById('imp-pro'); if(m)m.remove();
-  m=document.createElement('div'); m.id='imp-pro'; m.style.cssText='position:fixed;inset:0;z-index:9960;background:#0a0a0a;display:flex;flex-direction:column;overflow-y:auto;';
+  m=document.createElement('div'); m.id='imp-pro'; m.style.cssText="position:fixed;inset:0;z-index:9960;background:linear-gradient(rgba(10,10,10,0.75),rgba(10,10,10,0.92)),url('img/games-bg/impostor.webp') center/cover no-repeat;display:flex;flex-direction:column;overflow-y:auto;";
   m.innerHTML=html; document.body.appendChild(m);
   ['player-bottom-nav','club-bottom-nav'].forEach(n=>document.getElementById(n)?.style.setProperty('display','none','important'));
 }
 window._impClose=function(){ clearInterval(window._impPoll); const m=document.getElementById('imp-pro'); if(m)m.remove(); ['player-bottom-nav','club-bottom-nav'].forEach(n=>document.getElementById(n)?.style.removeProperty('display')); if(window.openGamesModal)window.openGamesModal(); };
-const back=`<button onclick="window._impClose()" style="background:rgba(255,255,255,0.06);border:none;border-radius:50%;width:36px;height:36px;color:#fff;font-size:18px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button>`;
+const back=`<button class="cg-back" onclick="window._impClose()"><i class='bx bx-arrow-back'></i> Juegos</button>`;
 
 window._impStart=function(){
   shell(`<div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:max(8px,env(safe-area-inset-top)) 14px 8px;">${back}<div style="font-size:18px;font-weight:900;color:#fff;">🎭 Impostor Futbolero</div></div>

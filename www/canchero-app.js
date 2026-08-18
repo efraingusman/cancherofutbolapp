@@ -328,7 +328,7 @@ const BizDash = {
   _html(u){
     const role = u.role;
     const sub = u.subType || '';
-    const roleLabels = { club:'COMPLEJO', profesional:'PROFESIONAL', organizacion:'ORGANIZACIÓN', tienda:'TIENDA', sponsor:'SPONSOR' };
+    const roleLabels = { club:'CANCHAS', profesional:'PROFESIONAL', organizacion:'LIGAS', tienda:'TIENDA', sponsor:'SPONSOR' };
     const subLabels = { arbitro:'Árbitro', tecnico:'Técnico/DT', preparador:'Preparador Físico', nutricionista:'Nutricionista', medico:'Médico', scout:'Ojeador',
                         club:'Club Deportivo', liga:'Liga', escuela:'Escuela de Fútbol', eventos:'Org. de Eventos' };
     const tabs = this._tabsFor(role);

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'canchero-v339';
+const CACHE_NAME = 'canchero-v459';
 const RUNTIME_CACHE = 'canchero-runtime'; // persistente entre deploys (media/JS/CSS cacheados)
 const assets = [
   './',
@@ -20,12 +20,17 @@ const assets = [
   './canchero-geo.js',
   './canchero-live-v2.js',
   './canchero-debates.js',
+  './canchero-hinchada.js',
+  './canchero-rating.js',
+  './canchero-racha.js',
   './canchero-games-core.js',
   './canchero-games.js',
   './canchero-once-ideal.js',
   './canchero-adivina.js',
   './canchero-impostor.js',
   './canchero-higher-lower.js',
+  './canchero-trivia.js',
+  './canchero-carrera.js',
   './canchero-momentos.js',
   './canchero-momentos-editor.js',
   './canchero-match-feed.js',
@@ -56,6 +61,18 @@ self.addEventListener('activate', event => {
       const rc = await caches.open(RUNTIME_CACHE);
       const reqs = await rc.keys();
       await Promise.all(reqs.filter(r => /\.(mp4|webm|mov|m4v|m3u8)(\?|$)/i.test(new URL(r.url).pathname)).map(r => rc.delete(r)));
+      // El JS/CSS PROPIO también se purga en cada deploy. RUNTIME_CACHE sobrevive entre
+      // versiones a propósito (para no re-bajar imágenes), pero eso dejaba congelada para
+      // siempre cualquier copia vieja o a medio bajar de un script del sitio: el celular
+      // quedaba con una mezcla de código nuevo y viejo imposible de recuperar.
+      // Las imágenes y el storage NO se tocan, así que el ahorro de datos se mantiene.
+      const propios = (await rc.keys()).filter(r => {
+        try {
+          const u = new URL(r.url);
+          return u.origin === self.location.origin && /\.(js|css)(\?|$)/i.test(u.pathname);
+        } catch(e) { return false; }
+      });
+      await Promise.all(propios.map(r => rc.delete(r)));
     } catch(e){}
     await self.clients.claim();
     // NOTA: ya NO forzamos c.navigate() de todas las ventanas. Ese reload en caliente
@@ -140,7 +157,7 @@ self.addEventListener('push', event => {
     icon: data.icon || '/logo-oficial.png',
     badge: '/logo-oficial.png',
     vibrate: [100, 50, 100],
-    data: { url: data.url || 'https://canchero-app.vercel.app', notif: data.notif || null },
+    data: { url: data.url || 'https://cancherofutbolapp.vercel.app', notif: data.notif || null },
     actions: [
       { action: 'open', title: 'Abrir' },
       { action: 'close', title: 'Cerrar' }
@@ -164,14 +181,14 @@ self.addEventListener('notificationclick', event => {
   const notif = d.notif || null;
   // Si hay datos de la notificación, viajar con ellos en la URL (app cerrada)
   const url = notif
-    ? (d.url || 'https://canchero-app.vercel.app/') + '?notif=' + encodeURIComponent(JSON.stringify(notif))
-    : (d.url || 'https://canchero-app.vercel.app/');
+    ? (d.url || 'https://cancherofutbolapp.vercel.app/') + '?notif=' + encodeURIComponent(JSON.stringify(notif))
+    : (d.url || 'https://cancherofutbolapp.vercel.app/');
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
       // Si hay una ventana abierta con la app, enfocarla y mandarle el deep-link
       for (const client of clientList) {
-        if (client.url.includes('canchero-app.vercel.app') && 'focus' in client) {
+        if (client.url.includes('cancherofutbolapp.vercel.app') && 'focus' in client) {
           client.postMessage({ type: 'OPEN_NOTIF', notif: notif || d });
           return client.focus();
         }

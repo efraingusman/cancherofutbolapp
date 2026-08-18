@@ -26,13 +26,13 @@ export default async function handler(req, res){
       }],
       payer: { email, name },
       back_urls: {
-        success: `https://canchero-app.vercel.app/?payment=success&tier=${tier}`,
-        pending: `https://canchero-app.vercel.app/?payment=pending`,
-        failure: `https://canchero-app.vercel.app/?payment=failure`
+        success: `https://cancherofutbolapp.vercel.app/?payment=success&tier=${tier}`,
+        pending: `https://cancherofutbolapp.vercel.app/?payment=pending`,
+        failure: `https://cancherofutbolapp.vercel.app/?payment=failure`
       },
       auto_return: 'approved',
       external_reference: `${email}|${tier}|${Date.now()}`,
-      notification_url: `https://canchero-app.vercel.app/api/payment-webhook`
+      notification_url: `https://cancherofutbolapp.vercel.app/api/payment-webhook`
     };
 
     const r = await fetch('https://api.mercadopago.com/checkout/preferences', {

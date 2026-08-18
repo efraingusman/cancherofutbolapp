@@ -977,7 +977,7 @@ function closeViewer() {
 function shareStream() {
     const id = _viewStreamId;
     if (!id) return;
-    const url = `https://canchero-app.vercel.app/?live=${id}`;
+    const url = `https://cancherofutbolapp.vercel.app/?live=${id}`;
     if (navigator.share) {
         navigator.share({ title: 'Partido en Vivo — Canchero', url }).then(undefined, ()=>{});
     } else if (navigator.clipboard) {

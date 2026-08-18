@@ -4,8 +4,35 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Canchero · Admin CRM</title>
-<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+<!-- Gate de admin: oculta la página HASTA verificar sesión admin en Supabase. Sin sesión
+     válida se redirige al home. La seguridad real está en RLS del backend; esto evita que
+     el HTML del panel quede expuesto públicamente (antes: cualquiera veía todo el layout). -->
+<style>html,body{background:#070907;color:#070907;}body{visibility:hidden !important;}</style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+  const ADMIN_EMAIL = 'neurovidstudioia@gmail.com';
+  const SB_URL = 'https://dofbxgqzcvfjpnvcvdjb.supabase.co';
+  const SB_KEY = 'sb_publishable_gPwLXkMHk3HvFz9nm9hgKA_1D0IJBKA';
+  function kick(){ location.replace('/'); }
+  function wait(){
+    if (!window.supabase || !window.supabase.createClient) return setTimeout(wait, 40);
+    try {
+      const sb = window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'canchero-auth' } });
+      sb.auth.getSession().then(function(r){
+        const u = r && r.data && r.data.session && r.data.session.user;
+        const email = (u && u.email || '').toLowerCase();
+        if (email !== ADMIN_EMAIL) return kick();
+        // OK: mostrar la página
+        document.documentElement.style.background = '';
+        document.body.style.color = ''; document.body.style.visibility = 'visible';
+      }).catch(kick);
+    } catch(e) { kick(); }
+  }
+  wait();
+})();
+</script>
+<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Inter:wght@400;500;600&display=swap');
   :root {
@@ -384,7 +411,7 @@
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
           <div>
             <h1 style="font-family:var(--font); font-size:22px; font-weight:900;">Negocios activos</h1>
-            <p style="color:var(--muted); font-size:13px;">Complejos, tiendas, organizaciones, profesionales y sponsors aprobados</p>
+            <p style="color:var(--muted); font-size:13px;">Canchas, tiendas, organizaciones, profesionales y sponsors aprobados</p>
           </div>
           <input class="search-input" placeholder="Buscar..." oninput="filterTable('negocios-body', this.value)">
         </div>
@@ -635,7 +662,7 @@
         <div class="table-card" style="margin-top:16px; padding:0;">
           <div class="table-header"><span class="table-title">Acceso admin a la app principal</span></div>
           <div style="padding:20px;">
-            <p style="font-size:13px; color:var(--muted); margin-bottom:12px;">Para entrar como admin en la app principal, usá tu cuenta de Supabase con rol <code style="background:rgba(255,255,255,0.05);padding:1px 6px;border-radius:4px;">admin</code> en el login de <a href="https://canchero-app.vercel.app" target="_blank" style="color:var(--accent);">canchero-app.vercel.app</a>.</p>
+            <p style="font-size:13px; color:var(--muted); margin-bottom:12px;">Para entrar como admin en la app principal, usá tu cuenta de Supabase con rol <code style="background:rgba(255,255,255,0.05);padding:1px 6px;border-radius:4px;">admin</code> en el login de <a href="https://cancherofutbolapp.vercel.app" target="_blank" style="color:var(--accent);">cancherofutbolapp.vercel.app</a>.</p>
             <div style="background:rgba(186,255,0,0.05); border:1px solid rgba(186,255,0,0.2); border-radius:8px; padding:14px; font-size:12px;">
               Las credenciales se gestionan en Supabase Auth · ningún password queda hardcodeado en el código.
             </div>
@@ -709,7 +736,7 @@
             <div class="chart-title">Nuevo Partido Oficial</div>
             <div style="display:flex;flex-direction:column;gap:10px;">
               <input id="cp-adm-name" type="text" placeholder="Nombre del partido" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none;box-sizing:border-box;">
-              <input id="cp-adm-venue" type="text" placeholder="Cancha / Complejo" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none;box-sizing:border-box;">
+              <input id="cp-adm-venue" type="text" placeholder="Cancha / Canchas" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none;box-sizing:border-box;">
               <input id="cp-adm-city" type="text" placeholder="Ciudad" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none;box-sizing:border-box;">
               <div style="display:flex;gap:8px;"><input id="cp-adm-fecha" type="date" style="flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none;"><input id="cp-adm-hora" type="time" style="flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none;"></div>
               <button class="btn-sm btn-accent" onclick="createAdminPartido()"><i class='bx bx-football'></i> Crear Partido</button>
@@ -808,10 +835,10 @@
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;">
             <div><label class="form-label">LINK MERCADOPAGO</label><input id="cfg-mp" type="url" class="form-input" placeholder="https://mpago.la/..."></div>
             <div><label class="form-label">LINK STRIPE</label><input id="cfg-stripe" type="url" class="form-input" placeholder="https://buy.stripe.com/..."></div>
-            <div><label class="form-label">PRECIO COMPLEJO/MES (USD)</label><input id="price-club" type="number" class="form-input" value="50" min="0"></div>
+            <div><label class="form-label">PRECIO CANCHAS/MES (USD)</label><input id="price-club" type="number" class="form-input" value="50" min="0"></div>
             <div><label class="form-label">PRECIO TIENDA/MES (USD)</label><input id="price-tienda" type="number" class="form-input" value="30" min="0"></div>
             <div><label class="form-label">PRECIO PROFESIONAL/MES (USD)</label><input id="price-prof" type="number" class="form-input" value="20" min="0"></div>
-            <div><label class="form-label">PRECIO ORGANIZACIÓN/MES (USD)</label><input id="price-org" type="number" class="form-input" value="40" min="0"></div>
+            <div><label class="form-label">PRECIO LIGAS/MES (USD)</label><input id="price-org" type="number" class="form-input" value="40" min="0"></div>
           </div>
           <p style="font-size:11px;color:#555;margin-top:10px;">Estos precios se sugieren automáticamente al aprobar un negocio en Solicitudes.</p>
         </div>
@@ -825,7 +852,7 @@
 <div id="agenda-modal" style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;padding:20px;">
   <div style="background:var(--bg2);border:1px solid var(--accent);border-radius:16px;width:100%;max-width:420px;padding:24px;">
     <h3 style="font-family:var(--font);font-weight:900;margin-bottom:16px;">Nueva tarea</h3>
-    <div class="form-group"><label class="form-label">TÍTULO</label><input id="ag-title" type="text" class="form-input" placeholder="Ej: Cobrar a Complejo X"></div>
+    <div class="form-group"><label class="form-label">TÍTULO</label><input id="ag-title" type="text" class="form-input" placeholder="Ej: Cobrar a Canchas X"></div>
     <div style="display:flex;gap:10px;margin-bottom:12px;">
       <div style="flex:1;"><label class="form-label">FECHA</label><input id="ag-date" type="date" class="form-input"></div>
       <div style="flex:1;"><label class="form-label">HORA</label><input id="ag-time" type="time" class="form-input"></div>
@@ -1013,7 +1040,7 @@ async function loadEstadisticas() {
     // Tipos de negocio
     const bt = { club:0, profesional:0, organizacion:0, tienda:0 };
     bizActive.forEach(b => { if(bt[b.role]!==undefined) bt[b.role]++; });
-    renderDoughnut('chart-biz-types',['Complejos','Profesionales','Orgs.','Tiendas'],[bt.club,bt.profesional,bt.organizacion,bt.tienda],['#4CAF50','#9C88FF','#FFD600','#FF9800']);
+    renderDoughnut('chart-biz-types',['Canchas','Profesionales','Orgs.','Tiendas'],[bt.club,bt.profesional,bt.organizacion,bt.tienda],['#4CAF50','#9C88FF','#FFD600','#FF9800']);
 
     // Jugadores por departamento
     const cc = {};
@@ -1364,7 +1391,7 @@ function renderRequests(reqs) {
     tbody.innerHTML = `<tr><td colspan="8" class="empty-state"><i class='bx bx-time'></i><p>Sin solicitudes en este estado.</p></td></tr>`;
     return;
   }
-  const roleNames = { club:'Complejo', profesional:'Profesional', organizacion:'Organización', tienda:'Tienda', sponsor:'Sponsor' };
+  const roleNames = { club:'Canchas', profesional:'Profesional', organizacion:'Ligas', tienda:'Tienda', sponsor:'Sponsor' };
   const planLabels = { basico:'Básico $9', pro:'Pro $19', premium:'Premium $39' };
   tbody.innerHTML = reqs.map(r => `
     <tr data-search="${(r.name||'').toLowerCase()} ${(r.email||'').toLowerCase()}">
@@ -1399,7 +1426,7 @@ function renderRecentRequests(reqs) {
     tbody.innerHTML = `<tr><td colspan="6" class="empty-state"><i class='bx bx-time'></i><p>Sin solicitudes recientes.</p></td></tr>`;
     return;
   }
-  const roleNames = { club:'Complejo', profesional:'Profesional', organizacion:'Organización', tienda:'Tienda', sponsor:'Sponsor' };
+  const roleNames = { club:'Canchas', profesional:'Profesional', organizacion:'Ligas', tienda:'Tienda', sponsor:'Sponsor' };
   tbody.innerHTML = reqs.map(r => `
     <tr>
       <td><strong>${r.name||'—'}</strong></td>
@@ -1491,7 +1518,7 @@ async function deleteRequest(id) {
 function viewDetail(id) {
   const r = allRequests.find(x => x.id === id);
   if (!r) return;
-  const roleNames = { club:'Complejo', profesional:'Profesional', organizacion:'Organización', tienda:'Tienda', sponsor:'Sponsor' };
+  const roleNames = { club:'Canchas', profesional:'Profesional', organizacion:'Ligas', tienda:'Tienda', sponsor:'Sponsor' };
   document.getElementById('modal-title').textContent = 'Detalle — ' + (r.name || r.email);
   document.getElementById('modal-body').innerHTML = `
     <div class="detail-row"><span class="detail-label">Nombre</span><span class="detail-value">${r.name||'—'}</span></div>
@@ -1518,7 +1545,7 @@ async function loadNegocios() {
     const { data } = await sb.from('business_requests').select('*').eq('status', 'APROBADO').order('approved_at', {ascending: false});
     const items = data || [];
     const tbody = document.getElementById('negocios-body');
-    const roleNames = { club:'Complejo', profesional:'Profesional', organizacion:'Organización', tienda:'Tienda', sponsor:'Sponsor' };
+    const roleNames = { club:'Canchas', profesional:'Profesional', organizacion:'Ligas', tienda:'Tienda', sponsor:'Sponsor' };
     const roleToUrl = { club:'crm-complejo', profesional:'crm-profesional', organizacion:'crm-organizacion', tienda:'crm-tienda' };
     if (!items.length) {
       tbody.innerHTML = `<tr><td colspan="7" class="empty-state"><i class='bx bx-buildings'></i><p>Sin negocios aprobados aún.</p></td></tr>`;
@@ -1832,7 +1859,7 @@ async function loadComprobantes() {
   tbody.innerHTML = `<tr><td colspan="7" class="empty-state"><i class='bx bx-loader-alt bx-spin'></i><p>Cargando...</p></td></tr>`;
   const { data } = await sb.from('business_requests').select('*').not('comprobante_url', 'is', null).order('created_at', { ascending: false });
   const items = data || [];
-  const roleNames = { club:'Complejo', profesional:'Profesional', organizacion:'Organización', tienda:'Tienda', sponsor:'Sponsor' };
+  const roleNames = { club:'Canchas', profesional:'Profesional', organizacion:'Ligas', tienda:'Tienda', sponsor:'Sponsor' };
   if (!items.length) { tbody.innerHTML = `<tr><td colspan="7" class="empty-state"><i class='bx bx-receipt'></i><p>Sin comprobantes subidos aún.</p></td></tr>`; return; }
   tbody.innerHTML = items.map(r => `<tr>
     <td><strong>${r.name||'—'}</strong></td>

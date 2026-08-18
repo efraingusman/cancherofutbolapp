@@ -29,7 +29,7 @@ window._onceStart = function(challenge){
   if (!challenge && !window.__onceModePicked){
     let mm=document.getElementById('once-mode'); if(mm)mm.remove();
     mm=document.createElement('div'); mm.id='once-mode';
-    mm.style.cssText='position:fixed;left:0;right:0;bottom:0;top:'+(window._navH?window._navH():0)+'px;z-index:9958;background:#0a0a0a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:12px;';
+    mm.style.cssText="position:fixed;left:0;right:0;bottom:0;top:"+(window._navH?window._navH():0)+"px;z-index:9958;background:linear-gradient(rgba(10,10,10,0.75),rgba(10,10,10,0.92)),url('img/games-bg/once-ideal.webp') center/cover no-repeat;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:12px;";
     mm.innerHTML='<div style="font-size:11px;color:var(--accent);font-weight:900;letter-spacing:2px;">11 IDEAL</div>'+
       '<div style="font-size:19px;font-weight:900;color:#fff;margin-bottom:8px;">¿Cómo querés jugar?</div>'+
       '<button onclick="this.parentElement.remove();window.__onceModePicked=1;window._onceStart();window.__onceModePicked=0;" style="width:100%;max-width:320px;background:var(--accent);color:#000;border:none;border-radius:14px;padding:16px;font-weight:900;font-size:15px;cursor:pointer;font-family:inherit;">🎮 JUGAR SOLO (vs IA)</button>'+
@@ -54,7 +54,7 @@ function _onceRender(){
   const filled=G.placed.filter(Boolean).length;
   m.innerHTML=`
     <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:max(8px,env(safe-area-inset-top)) 14px 8px;background:#0a0a0a;border-bottom:1px solid #1a1a1a;">
-      <button onclick="window._onceClose()" style="background:rgba(255,255,255,0.06);border:none;border-radius:50%;width:36px;height:36px;color:#fff;font-size:18px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button>
+      <button class="cg-back" onclick="window._onceClose()"><i class='bx bx-arrow-back'></i> Juegos</button>
       <div style="flex:1;"><div style="font-size:16px;font-weight:900;color:#fff;">📋 11 Ideal</div><div style="font-size:11px;color:#888;">Armá tu once · ${filled}/11</div></div>
       <button onclick="window.CGCore&&CGCore.openRanking('once-ideal')" title="Ranking" style="background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.35);border-radius:50%;width:34px;height:34px;color:#FFD700;cursor:pointer;font-size:16px;"><i class='bx bx-trophy'></i></button>
     </div>

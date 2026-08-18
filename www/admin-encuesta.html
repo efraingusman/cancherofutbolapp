@@ -5,8 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Canchero · Resultados Encuesta</title>
 <link rel="icon" type="image/png" href="logo.png">
-<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+<!-- Gate de admin: sin sesión admin la página no se muestra y se redirige al home. -->
+<style>html,body{background:#070907;color:#070907;}body{visibility:hidden !important;}</style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+  const ADMIN_EMAIL = 'neurovidstudioia@gmail.com';
+  function kick(){ location.replace('/'); }
+  function wait(){
+    if (!window.supabase || !window.supabase.createClient) return setTimeout(wait, 40);
+    try {
+      const sb = window.supabase.createClient('https://dofbxgqzcvfjpnvcvdjb.supabase.co','sb_publishable_gPwLXkMHk3HvFz9nm9hgKA_1D0IJBKA',{auth:{persistSession:true,autoRefreshToken:true,storageKey:'canchero-auth'}});
+      sb.auth.getSession().then(function(r){
+        const email = ((r&&r.data&&r.data.session&&r.data.session.user||{}).email||'').toLowerCase();
+        if (email !== ADMIN_EMAIL) return kick();
+        document.documentElement.style.background=''; document.body.style.color=''; document.body.style.visibility='visible';
+      }).catch(kick);
+    } catch(e){ kick(); }
+  }
+  wait();
+})();
+</script>
+<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Inter:wght@400;500;600&display=swap');

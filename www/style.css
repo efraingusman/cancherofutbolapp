@@ -263,6 +263,146 @@ ul { list-style: none; }
 }
 
 /* ══════════════════════════════════
+   REDISEÑO HOME (v405+): descripciones bajo cada acceso, botón JUGADOR destacado,
+   bloque "¿Qué es Canchero?" con liquid glass, scroll natural del home.
+══════════════════════════════════ */
+/* Home SIN scroll: el bloque "¿Qué es Canchero?" quedaba invisible abajo y confundía,
+   así que se sacó (ver .home-what-is display:none más abajo) y en su lugar hay una
+   sub-frase corta + contador de jugadores estilo redes sociales, siempre visible. */
+.home-viewport-wrap { overflow: hidden !important; height: 100vh !important; }
+.landing-hero-full { min-height: unset; flex: 1; min-height: 0; }
+/* Ocultar el bloque grande "¿Qué es Canchero?" (no se veía y rompía el hero). */
+.home-what-is { display: none !important; }
+/* Hero CTA en flow normal (no absolute). El wrap ocupa el alto del hero y ubica la
+   tagline+contador arriba y los 4 botones en la parte baja, todo sin scroll. */
+.home-viewport-wrap .hero-cta-wrap {
+    position: absolute !important; left: 0 !important; right: 0 !important;
+    bottom: 0 !important; top: 0 !important; transform: none !important;
+    margin: 0; padding: 0 16px;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+}
+/* Tagline social + contador (estilo home de red social). */
+.hero-tagline { text-align: center; margin-bottom: auto; padding-top: 12vh; max-width: 340px; }
+.hero-tagline-txt {
+    font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 900; color: #fff;
+    line-height: 1.2; text-shadow: 0 2px 14px rgba(0,0,0,0.85); letter-spacing: -0.3px;
+}
+.hero-tagline-txt span { color: var(--accent); }
+.hero-counter {
+    display: inline-flex; align-items: center; gap: 7px; margin-top: 12px;
+    background: rgba(0,0,0,0.42); backdrop-filter: blur(8px);
+    border: 1px solid rgba(186,255,0,0.28); border-radius: 22px; padding: 6px 14px;
+}
+.hero-counter i { color: var(--accent); font-size: 15px; }
+.hero-counter #home-user-count { color: var(--accent); font-weight: 900; font-size: 14px; }
+.hero-counter-lbl { color: rgba(255,255,255,0.8); font-size: 12px; font-weight: 600; }
+
+@media (max-width: 640px) {
+    /* Botones más chicos y ubicados un poco más ARRIBA (no pegados al fondo). Home sin scroll. */
+    .home-viewport-wrap .hero-cta-wrap { padding: 0 14px calc(11vh + env(safe-area-inset-bottom)); justify-content: flex-end !important; }
+    .hero-tagline { padding-top: 4vh; margin-bottom: 16px !important; max-width: 340px; }
+    .hero-tagline-txt { font-size: 23px; line-height: 1.2; }
+    .hero-tagline-txt span { font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.72); display:inline-block; margin-top:5px; }
+    .hero-counter { margin-top: 10px; padding: 5px 12px; }
+    /* Botones más CORTOS en celular: no ocupan todo el ancho, centrados. */
+    .home-viewport-wrap .btn-fs-action { padding: 7px 12px !important; border-radius: 12px !important; gap: 9px !important; margin-left:auto !important; margin-right:auto !important; }
+    .home-viewport-wrap .btn-fs-action i { font-size: 17px !important; }
+    .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 13.5px !important; line-height: 1.05; }
+    .btn-fs-action .fs-btn-desc { font-size: 9px !important; max-width: 185px; margin-top: 1px; line-height: 1.18; }
+    .home-viewport-wrap .fs-side-actions { gap: 6px !important; width: 100%; max-width: 240px !important; margin-left:auto !important; margin-right:auto !important; align-items:center !important; }
+    .home-viewport-wrap .fs-side-actions .btn-fs-action { width: 100% !important; max-width: 240px !important; }
+}
+@media (min-width: 641px) {
+    .home-viewport-wrap .hero-cta-wrap { padding: 0 16px 4vh; justify-content: flex-end !important; }
+    .hero-tagline { padding-top: 10vh; max-width: 400px; margin-bottom: 20px !important; }
+    .hero-tagline-txt { font-size: 24px; }
+    .home-viewport-wrap .fs-side-actions { max-width: 340px !important; gap: 9px !important; }
+    .home-viewport-wrap .btn-fs-action { width: 100% !important; padding: 11px 18px !important; }
+    .home-viewport-wrap .btn-fs-action .fs-btn-title { font-size: 17px !important; }
+    .home-viewport-wrap .btn-fs-action i { font-size: 23px !important; }
+    .btn-fs-action .fs-btn-desc { font-size: 11.5px !important; }
+}
+
+/* Descripción bajo el título de cada acceso (línea explicativa). */
+.btn-fs-action .fs-btn-desc {
+    font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.7);
+    margin-top: 4px; line-height: 1.35; max-width: 240px;
+    white-space: normal; letter-spacing: 0;
+}
+/* JUGADOR = principal: aro de acento + halo, más grande que el resto. */
+.btn-fs-action.btn-fs-primary {
+    background: linear-gradient(135deg, rgba(186,255,0,0.14), rgba(186,255,0,0.05)) !important;
+    border: 1.5px solid rgba(186,255,0,0.55) !important;
+    box-shadow: 0 4px 24px rgba(186,255,0,0.18);
+}
+.btn-fs-action.btn-fs-primary:hover {
+    background: linear-gradient(135deg, rgba(186,255,0,0.22), rgba(186,255,0,0.08)) !important;
+    box-shadow: 0 4px 32px rgba(186,255,0,0.28);
+    transform: translateY(-1px);
+}
+.btn-fs-action.btn-fs-primary i { color: var(--accent) !important; }
+.btn-fs-action.btn-fs-primary .fs-btn-title { color: var(--accent) !important; }
+
+/* Bloque "¿Qué es Canchero?" con vidrio esmerilado sobre fondo oscuro. */
+.home-what-is {
+    max-width: 1080px; margin: 40px auto 20px; padding: 32px 20px;
+    text-align: center; color: #fff; position: relative;
+}
+.home-what-is .hw-badge {
+    display: inline-block; font-size: 10px; font-weight: 900; letter-spacing: 3px;
+    color: var(--accent); background: rgba(186,255,0,0.10);
+    border: 1px solid rgba(186,255,0,0.30); padding: 5px 12px; border-radius: 20px;
+    margin-bottom: 14px;
+}
+.home-what-is .hw-title {
+    font-family: 'Outfit', sans-serif; font-size: 30px; font-weight: 900;
+    line-height: 1.15; margin: 0 0 12px; letter-spacing: -0.5px;
+}
+.home-what-is .hw-accent { color: var(--accent); }
+.home-what-is .hw-sub {
+    font-size: 15px; color: rgba(255,255,255,0.65); max-width: 640px;
+    margin: 0 auto 28px; line-height: 1.5;
+}
+.home-what-is .hw-cards {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px; text-align: left;
+}
+.home-what-is .hw-card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 18px; padding: 20px 18px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
+    transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.home-what-is .hw-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(186,255,0,0.35);
+    box-shadow: 0 12px 36px rgba(186,255,0,0.12), inset 0 1px 0 rgba(255,255,255,0.10);
+}
+.home-what-is .hw-card i {
+    font-size: 26px; color: var(--accent); margin-bottom: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; border-radius: 12px;
+    background: rgba(186,255,0,0.10); border: 1px solid rgba(186,255,0,0.20);
+}
+.home-what-is .hw-card-title {
+    font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 800;
+    color: #fff; margin: 6px 0 4px; letter-spacing: 0.2px;
+}
+.home-what-is .hw-card-text {
+    font-size: 12.5px; color: rgba(255,255,255,0.62); line-height: 1.45;
+}
+@media (max-width: 640px) {
+    .home-what-is { padding: 24px 14px; margin: 24px auto 12px; }
+    .home-what-is .hw-title { font-size: 24px; }
+    .home-what-is .hw-sub { font-size: 13.5px; margin-bottom: 20px; }
+    .home-what-is .hw-cards { grid-template-columns: 1fr; gap: 10px; }
+    .home-what-is .hw-card { padding: 16px 14px; }
+}
+
+/* ══════════════════════════════════
    HERO CTA WRAP — base
 ══════════════════════════════════ */
 .hero-cta-wrap {
@@ -288,18 +428,50 @@ ul { list-style: none; }
         align-items: unset !important;
         padding: 0 !important;
     }
+    /* PC: panel a la IZQUIERDA, centrado vertical — deja ver la cara del jugador
+       (antes iba pegado a la derecha y los textos tapaban la cara). Se necesita
+       especificidad + !important porque `.home-viewport-wrap .hero-cta-wrap` usa
+       inset:0 !important, que ganaba. */
+    .home-viewport-wrap .hero-cta-wrap,
     .hero-cta-wrap {
-        right: 6%;
-        bottom: 24%;
+        top: 50% !important;
+        left: 7% !important;
+        right: auto !important;
+        bottom: auto !important;
+        transform: translateY(-50%) !important;
+        max-width: 440px !important;
+        width: min(440px, 44vw) !important;
+        justify-content: flex-start !important;
+        align-items: stretch !important;
     }
+    /* Scrim para que el texto se lea sobre la foto sin taparla del todo */
+    .home-viewport-wrap .landing-hero-full::before {
+        content: '';
+        position: absolute; inset: 0;
+        background: linear-gradient(90deg, rgba(7,9,7,0.92) 0%, rgba(7,9,7,0.7) 34%, rgba(7,9,7,0.15) 62%, transparent 82%);
+        z-index: 0; pointer-events: none;
+    }
+    .home-viewport-wrap .hero-cta-wrap { z-index: 2; }
+    .hero-tagline {
+        text-align: left !important;
+        padding-top: 0 !important;
+        margin-bottom: 22px !important;
+        max-width: 440px !important;
+    }
+    .hero-tagline-txt { font-size: 30px !important; line-height: 1.12 !important; white-space: normal !important; }
+    .hero-tagline-txt span { font-size: 15px !important; }
+    .hero-counter { justify-content: flex-start !important; }
     .home-viewport-wrap .fs-side-actions {
         display: flex !important;
         flex-direction: column !important;
-        gap: 12px !important;
-        max-width: 320px !important;
+        gap: 11px !important;
+        max-width: 380px !important;
+        align-items: stretch !important;
+        margin: 0 !important;
     }
     .home-viewport-wrap .btn-fs-action {
-        width: 300px !important;
+        width: 100% !important;
+        max-width: 380px !important;
     }
 }
 
@@ -1108,9 +1280,19 @@ select option:hover {
 /* AVAILABILITY GRID */
 .availability-grid {
     display: grid;
-    grid-template-columns: auto 1fr 1fr 1fr;
+    /* minmax(0,1fr) en las franjas: 1fr solo no baja de su contenido mínimo y la
+       columna NOCHE se salía por la derecha en el modal angosto de celular. */
+    grid-template-columns: minmax(52px, max-content) repeat(3, minmax(0, 1fr));
     gap: 4px;
+    width: 100%;
     max-width: 400px;
+    box-sizing: border-box;
+}
+/* Celular: la grilla nunca debe exceder el ancho del modal (si no, se corta NOCHE). */
+@media (max-width: 599px) {
+    .availability-grid { max-width: 100%; gap: 3px; }
+    .availability-grid .availability-header { font-size: 9px; padding: 6px 2px; letter-spacing: 0; white-space: nowrap; }
+    .availability-grid .avail-cell { padding: 9px 2px; font-size: 10px; }
 }
 .availability-header {
     font-size: 10px;
@@ -1229,7 +1411,14 @@ select option:hover {
 .fanatico-profile #p-avail-dot,
 .fanatico-profile #player-profile-badges,
 .fanatico-profile #info-pos-card,
-.fanatico-profile #p-stat-blocks { display: none !important; }
+.fanatico-profile #p-stat-blocks,
+/* Equipos y Logros son de JUGADOR: un fanático no tiene plantel ni logros de cancha. */
+.fanatico-profile .profile-tab.jugador-only,
+.fanatico-profile #jugador-profile-equipos,
+.fanatico-profile #jugador-profile-logros { display: none !important; }
+/* Hinchada: al reves que las de arriba — solo existe en el perfil de FANATICO. */
+.profile-tab.fanatico-only { display: none; }
+.fanatico-profile .profile-tab.fanatico-only { display: flex !important; align-items: center !important; justify-content: center !important; }
 .fanatico-profile #fanatico-extra { display: block !important; }
 
 /* ── FASE 0 — Modo NEGOCIO (tienda/complejo/organización/sponsor/profesional) ──
@@ -1324,6 +1513,14 @@ body.is-biz #p-stat-blocks { display: none !important; }
 /* Nombre centrado + botones (guardar/editar) absolutos a la derecha en su misma línea */
 .fanatico-profile .profile-display-name {
   position: relative; width: 100%; justify-content: center; flex-wrap: nowrap; font-size: 20px;
+  /* Los botones (guardados/editar) van absolutos a la derecha: el nombre les reserva
+     ese lugar a AMBOS lados para seguir centrado. Sin esto, en pantallas angostas
+     (Samsung A12, 360px) un nombre largo se metía debajo de los botones. */
+  padding: 0 74px; box-sizing: border-box;
+}
+@media (max-width: 380px) {
+  /* Pantalla muy angosta: el nombre puede partirse en dos líneas antes que encimarse. */
+  .fanatico-profile .profile-display-name { flex-wrap: wrap; font-size: 18px; }
 }
 .fanatico-profile .fan-inline-actions {
   position: absolute; right: 0; top: 50%; transform: translateY(-50%);
@@ -1343,6 +1540,30 @@ body.is-biz #p-stat-blocks { display: none !important; }
 .buscar-card > i { font-size:26px; color:var(--accent); display:block; margin-bottom:8px; }
 .buscar-card .bc-t { color:#fff; font-size:13px; font-weight:800; }
 .buscar-card .bc-s { color:#666; font-size:11px; margin-top:3px; }
+/* Card con PORTADA de fondo (foto en --cover) + degradado para leer el texto abajo. */
+.buscar-card.has-cover {
+    position:relative; overflow:hidden; padding:0; min-height:112px;
+    background:#0d0d0d var(--cover) center/cover no-repeat; border-color:#242424;
+    display:flex; flex-direction:column; justify-content:flex-end;
+}
+.buscar-card.has-cover::before {
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(7,9,7,0) 30%, rgba(7,9,7,0.55) 62%, rgba(7,9,7,0.94) 100%);
+}
+.buscar-card.has-cover:hover { border-color:var(--accent); }
+.buscar-card.has-cover .bc-t { position:relative; z-index:1; padding:0 12px; font-size:14px; text-shadow:0 1px 6px rgba(0,0,0,0.9); display:flex; align-items:center; gap:7px; }
+.buscar-card.has-cover .bc-t i { color:var(--accent); font-size:17px; flex-shrink:0; filter:drop-shadow(0 1px 3px rgba(0,0,0,0.8)); }
+.buscar-card.has-cover .bc-t svg { color:var(--accent); }
+.buscar-card.has-cover .bc-s { position:relative; z-index:1; padding:0 12px 12px; color:#c8d0c2; text-shadow:0 1px 5px rgba(0,0,0,0.9); }
+@media (max-width:640px){ .buscar-card.has-cover { min-height:96px; } .buscar-card.has-cover .bc-t { font-size:13px; } }
+/* Banner DESAFIAR con portada de fondo. */
+.desafiar-cover {
+    position:relative; overflow:hidden; border-radius:16px; cursor:pointer; min-height:150px;
+    background:#0d0d0d var(--cover) center 28%/cover no-repeat; border:1px solid rgba(186,255,0,0.4);
+    display:flex; align-items:flex-end; padding:16px 18px; transition:border-color .15s;
+}
+.desafiar-cover::before { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(7,9,7,0) 35%,rgba(7,9,7,0.9) 100%); }
+.desafiar-cover:hover { border-color:var(--accent); }
 
 .social-profile[data-biz-role] .profile-header-row .biz-cta-btn,
 .social-profile[data-biz-role] .profile-btn-row > button,
@@ -1413,10 +1634,10 @@ body.is-biz #p-stat-blocks { display: none !important; }
 .profile-follow-row span { color: var(--text-muted); }
 .profile-tabs-bar { display: flex; border-bottom: 1px solid var(--border-color); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .profile-tabs-bar::-webkit-scrollbar { display: none; }
-.profile-tab { flex: 1; text-align: center; padding: 12px 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: var(--transition); position: relative; white-space: nowrap; min-width: 0; }
+.profile-tab { flex: 1 1 0; min-width: 0; text-align: center; padding: 12px 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: var(--transition); position: relative; white-space: nowrap; min-width: 0; }
 .profile-tab:hover { color: #fff; background: rgba(255,255,255,0.03); }
 .profile-tab.active { color: var(--accent); }
-.profile-tab.active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 50px; height: 3px; background: var(--accent); border-radius: 3px; }
+.profile-tab.active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: min(50px, 60%); height: 3px; background: var(--accent); border-radius: 3px; }
 .post-composer { padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; gap: 12px; }
 .post-composer-avatar { width: 40px; height: 40px; border-radius: 50%; background-size: cover; background-position: center; border: 2px solid var(--accent); flex-shrink: 0; }
 .post-composer-input { flex: 1; display: flex; flex-direction: column; gap: 10px; }
@@ -5694,7 +5915,9 @@ body.r2-wheel-open { overflow: hidden !important; touch-action: none !important;
   body.is-internal .dashboard-content { padding-top: 0; }
 }
 /* Tabs del perfil sólo-ícono */
-.profile-tabs-icons .profile-tab { font-size: 0 !important; padding: 12px 4px !important; }
+/* Todas las celdas del mismo ancho → iconos con separación idéntica (aun en mobile,
+   donde .profile-tab usa flex:1 0 auto y cada glyph de boxicons mide distinto). */
+.profile-tabs-icons .profile-tab { flex: 1 1 0 !important; min-width: 0 !important; font-size: 0 !important; padding: 12px 4px !important; }
 .profile-tabs-icons .profile-tab i { font-size: 22px !important; line-height: 1; }
 .profile-tabs-icons .profile-tab.active i { color: var(--accent); }
 /* Bloques embebidos (estadísticas / logros) bajo la bio */
@@ -6550,3 +6773,45 @@ i.bx.bx-cancha::before, i.bx-cancha::before { content: ''; }
 }
 .cp-dt-input:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 2px rgba(186,255,0,0.15); }
 .cp-dt .form-label { display: flex; align-items: center; gap: 6px; }
+
+/* ══════════════════════════════════════════════════════════════════
+   HEADER SIEMPRE VISIBLE en torneos / partidos (2026-08-02)
+   Los overlays full-screen de torneo/partido usaban inset:0;z-index:99999 y
+   tapaban la barra superior (logo, switcher de rol, ajustes, campana). Se los
+   baja por DEBAJO del nav (z-index 1000) y se les da un offset superior = alto
+   del nav, así el header queda siempre visible y clickeable mientras se navega
+   el torneo o el partido. El contenido del overlay scrollea por debajo.
+════════════════════════════════════════════════════════════════════ */
+/* Header visible en torneos/partidos: los overlays mantienen su z-index ALTO (abren sobre
+   todo, como siempre) pero arrancan por DEBAJO del nav (top = alto del nav). Como el modal
+   ya no ocupa los primeros 70px, el nav (fijo arriba) queda visible ahí sin tocar su
+   z-index → el torneo abre bien Y el header se ve. Sin efectos colaterales en el switcher. */
+/* Torneos/partidos Y juegos arrancan por debajo del header (que queda visible, sin
+   cortarse). El offset = alto del nav para que ni el header ni el contenido se corten. */
+#ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal,
+#games-hub, #trivia-modal, #carrera-modal, #adivina-modal, #impostor-modal, #once-modal, #hl-modal, #game-soon-modal {
+    top: 74px !important;
+}
+@media (max-width: 640px) {
+    #ctp-modal, #ctm-modal, #ct-modal, #cmd-modal, #cmdlive-modal, #cme-modal, #cti-modal,
+    #games-hub, #trivia-modal, #carrera-modal, #adivina-modal, #impostor-modal, #once-modal, #hl-modal, #game-soon-modal {
+        top: 62px !important;
+    }
+}
+/* Header (nav) apenas más abajo del borde: respeta el notch/safe-area y da aire arriba. */
+#main-nav { padding-top: calc(env(safe-area-inset-top, 0px) + 4px) !important; }
+
+/* ── BOTÓN VOLVER A JUEGOS — CONSISTENTE EN LOS 6 JUEGOS ─────────────────────
+   Arriba a la izquierda, mismo estilo pill glass en Leyenda / Trivia / Adivina /
+   Impostor / 11 Ideal / Higher-Lower. Antes cada juego tenía su variante. */
+.cg-back{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.14);
+  color:#cfd6cc;font-family:'Outfit',sans-serif;font-weight:800;font-size:13px;
+  border-radius:22px;padding:8px 14px;cursor:pointer;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  transition:.15s;line-height:1;flex-shrink:0;
+}
+.cg-back:hover{ background:rgba(186,255,0,0.14);border-color:rgba(186,255,0,0.35);color:#fff; }
+.cg-back i{ font-size:16px; }
+.cg-back-wrap{ position:sticky;top:0;z-index:5;padding:10px 14px;display:flex;justify-content:flex-start; }

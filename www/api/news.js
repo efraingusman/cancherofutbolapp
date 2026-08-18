@@ -21,7 +21,60 @@ const RSS_FEEDS = [
   { url:'https://e00-marca.uecdn.es/rss/futbol/primera-division.xml', source:'Marca' },
   { url:'https://www.ole.com.ar/rss/futbol-internacional/', source:'Olé' },
   { url:'https://www.espn.com.ar/espn/rss/soccer/news', source:'ESPN' },
+  // Prensa uruguaya: sin ella los clubes locales casi no aparecian en el feed.
+  { url:'https://www.elobservador.com.uy/rss/pages/referi.xml', source:'Referí' },
+  { url:'https://www.ovaciondigital.com.uy/rss/', source:'Ovación' },
 ];
+
+
+// ── Alias por club (para /api/news?club=<slug>) ───────────────────────────
+// Cada club tiene varias formas de nombrarse en la prensa. Se exige una de ellas
+// como palabra completa para no traer ruido (ej: 'nacional' suelto aparece en
+// cualquier nota, por eso pide el contexto del club).
+const CLUB_RX = {
+  'penarol':      /pe(ñ|n)arol|manya|carbonero/i,
+  // 'nacional' suelto aparece en cualquier nota ("seleccionado nacional de Brasil"),
+  // por eso pide nombre completo, apodo o contexto. En prensa uruguaya alcanza con el
+  // nombre: ahí "Nacional" es el club (ver CLUB_RX_LOCAL).
+  'nacional':     /(club )?nacional de football|bols(o|ill)|tricolor|nacional\b(?=.*(uruguay|campeonato|apertura|clausura|torneo|copa|libertadores|sudamericana|auf))/i,
+  'danubio':      /danubio/i,
+  'defensor':     /defensor sporting|violeta/i,
+  'liverpool-uy': /liverpool (de )?montevideo|liverpool f\.?c\.? uruguay/i,
+  'boca':         /boca juniors|xeneize/i,
+  'river':        /river plate|millonario/i,
+  'racing':       /racing club|la academia/i,
+  'independiente':/independiente\b/i,
+  'san-lorenzo':  /san lorenzo|ciclon/i,
+  'barcelona':    /barcelona|bar(ç|c)a|blaugrana|cul(é|e)/i,
+  'real-madrid':  /real madrid|merengue|blanco de chamart(í|i)n/i,
+  'atletico':     /atl(é|e)tico de madrid|atleti|colchoner/i,
+  'sevilla':      /sevilla f|sevillista/i,
+  'man-united':   /manchester united|man united|red devils|diablos rojos/i,
+  'man-city':     /manchester city|man city|citizens/i,
+  'liverpool':    /liverpool (fc|f\.c\.)|anfield|reds\b/i,
+  'arsenal':      /arsenal|gunners/i,
+  'chelsea':      /chelsea|blues\b/i,
+  'tottenham':    /tottenham|spurs/i,
+  'juventus':     /juventus|juve\b|bianconeri/i,
+  'milan':        /(ac |a\.c\. )?milan\b|rossoneri/i,
+  'inter':        /inter de mil(á|a)n|internazionale|nerazzurri/i,
+  'napoli':       /napoli|n(á|a)poles/i,
+  'roma':         /(as |a\.s\. )?roma\b|giallorossi/i,
+  'bayern':       /bayern|munich/i,
+  'dortmund':     /dortmund|borussia/i,
+  'psg':          /psg|paris saint|par(í|i)s sg/i,
+  'flamengo':     /flamengo|mengao/i,
+  'palmeiras':    /palmeiras|verd(ã|a)o/i,
+};
+
+// Nombre simple del club, válido SOLO dentro de prensa uruguaya (ahí no hay ambigüedad).
+const CLUB_RX_LOCAL = {
+  'penarol':      /pe(ñ|n)arol/i,
+  'nacional':     /nacional/i,
+  'danubio':      /danubio/i,
+  'defensor':     /defensor/i,
+  'liverpool-uy': /liverpool/i,
+};
 
 const FOOT_RX = /(f[uú]tbol|football|soccer|gol(?:es)?|mundial|world cup|champions|liga|copa|partid|jugador|delanter|arquer|portero|messi|cristiano|ronaldo|neymar|peñarol|nacional|boca|river|barcelona|madrid|flamengo|palmeiras|brasil|argentina|uruguay|selecci[oó]n)/i;
 const BLOCK_RX = /(lotería|loter[ií]a|quini|powerball|quiniela|tenis|tennis|baloncesto|basketball|nba|f[oó]rmula 1|formula 1|\bf1\b|automovilismo|pol[ií]tic|elecci[oó]n|narco)/i;
@@ -101,6 +154,7 @@ module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 's-maxage=1200, stale-while-revalidate=3600');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   const country = _envClean((req.query && req.query.country) || '').slice(0, 40);
+  const club = _envClean((req.query && req.query.club) || '').slice(0, 40).toLowerCase();
 
   try {
     // Traer RSS (todas en paralelo) + GNews
@@ -127,6 +181,26 @@ module.exports = async (req, res) => {
 
     // Ordenar por fecha desc
     all.sort((a,b) => new Date(b.publishedAt||0) - new Date(a.publishedAt||0));
+
+    // Filtro por CLUB: solo las notas que lo nombran. Si el club no da resultados se
+    // devuelve la lista vacia a proposito — es mas honesto que mostrar noticias de otro
+    // equipo como si fueran del suyo.
+    if (club) {
+      const rx = CLUB_RX[club];
+      if (!rx) { res.status(200).json({ source:'club', club: club, articles: [] }); return; }
+      // En una fuente URUGUAYA, el nombre del club local no necesita contexto: si Referí
+      // dice "Nacional" está hablando del club, no de una selección nacional. Sin esto se
+      // perdían casi todas las notas locales, que son justo las que le importan al hincha.
+      const rxLocal = CLUB_RX_LOCAL[club];
+      const esFuenteUY = (a) => /^(referí|referi|ovación|ovacion)$/i.test(String(a.source||''));
+      const delClub = all.filter(a => {
+        const txt = (a.title||'') + ' ' + (a.description||'');
+        if (rxLocal && esFuenteUY(a) && rxLocal.test(txt)) return true;
+        return rx.test(txt);
+      });
+      res.status(200).json({ source:'club', club: club, articles: delClub.slice(0, 30) });
+      return;
+    }
 
     if (!all.length) { res.status(200).json({ source:'fallback', articles: FALLBACK }); return; }
     res.status(200).json({ source:'mix', articles: all.slice(0, 40) });

@@ -1168,7 +1168,8 @@ function nombresEnCasa(){
 }
 // Crea una persona (hijo/nieto) con género y nombre coherentes.
 function nacePersona(gen, extra){
-  gen = gen || (Math.random() < 0.5 ? 'f' : 'm');
+  // La linea del apellido sigue siempre por un varon: es lo que pidio el juego.
+  gen = 'm';
   return Object.assign({ nombre: nombreNuevo(gen, nombresEnCasa()), gen, edad:0, av: avHijo(gen) }, extra||{});
 }
 // La cara de un hijo SALE DE LOS PADRES. Antes cada hijo se dibujaba a partir del
@@ -1301,6 +1302,7 @@ window._vjPareja = function(i){
     res = c.res;
   }
   G._parejaOpts = null; G._elegirPareja = false;
+  if (G._resParejaPend){ res = G._resParejaPend + ' ' + res; G._resParejaPend = null; }
   Object.keys(s).forEach(k=>{ if(typeof s[k]==='number') s[k]=clamp(s[k],0,100); });
   save();
   window._vjParejaSeguir(res);
@@ -1315,7 +1317,7 @@ window._vjParejaSeguir = function(res){
     <div style="position:relative;max-width:520px;margin:0 auto;padding:24px 20px;text-align:center;">
       ${(G.familia||{}).pareja ? `<div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(`<div style="display:flex;align-items:flex-end;gap:2px;line-height:0;">
         <div style="line-height:0;">${vjSpriteJugador('orgullo')}</div>
-        <div style="line-height:0;">${vjSpritePareja('orgullo', false, 3)}</div>
+        <div style="line-height:0;">${vjSpritePareja('orgullo', false, 2.4)}</div>
       </div>`, '14px 20px', 'casa')}</div>` : ''}
       <div style="font-size:15px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:18px;">${esc(res)}</div>
       <button onclick="${VJ.mundo === 'vida' ? 'window._vidaJugable()' : "window._clubMundo('"+VJ.escena+"')"}" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px 30px;font-weight:900;font-size:14.5px;cursor:pointer;">SEGUIR <i class='bx bx-right-arrow-alt'></i></button>
@@ -3281,7 +3283,8 @@ window._lyFinal = function(cfg){
     + '</div>';
 };
 // Pantalla de resultado: se ve el trofeo y dice de QUÉ saliste campeón.
-window._lyResultadoFinal = function(gano, titulo, rival){
+window._lyResultadoFinal = function(gano, titulo, rival, despues){
+  window._lyFinalSeguir = (typeof despues === 'function') ? despues : function(){ window._carreraHub(); };
   const m = document.getElementById('carrera-modal') || overlay();
   const col = gano ? '#facc15' : '#ef4444';
   m.innerHTML = `
@@ -3296,7 +3299,7 @@ window._lyResultadoFinal = function(gano, titulo, rival){
         ? ('Con ' + esc(G.club||'tu club') + '. Ya son ' + (G.titulos||1) + ' título' + ((G.titulos||1)===1?'':'s') + ' en tu vitrina.' + (rival?(' Y se lo ganaste a ' + esc(rival) + '.'):''))
         : ('Se define en detalles. ' + (rival?('Esta vez fue para ' + esc(rival) + '. '):'') + 'Va a haber revancha.')}
     </div>
-    <button onclick="window._carreraHub()" style="width:100%;max-width:360px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">SEGUIR <i class='bx bx-right-arrow-alt'></i></button>
+    <button onclick="window._lyFinalSeguir()" style="width:100%;max-width:360px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">SEGUIR <i class='bx bx-right-arrow-alt'></i></button>
   </div>`;
 };
 window._lyFinalJugar = function(modo){
@@ -3304,6 +3307,13 @@ window._lyFinalJugar = function(modo){
   modo = modo || cfg.modo || 'simular';
   const cerrar = (gano)=>{
     G._finalPend = null;
+    // Si la final la disparó el cierre de temporada, el título lo pone el
+    // resumen: acá sólo se muestra el resultado, para no contarlo dos veces.
+    if (cfg.sinTitulo){
+      setTimeout(()=>{ try { window._lyResultadoFinal(gano, cfg.titulo, cfg.rival,
+        ()=>{ try { (gano ? cfg.onGana : cfg.onPierde)(); } catch(e){} }); } catch(e){} }, 120);
+      return;
+    }
     // GANAR SUMA EL TITULO. Antes la final se resolvia y el trofeo dependia de
     // que el evento se acordara de agregarlo: se podia ganar una final y no
     // aparecer nada en la vitrina.
@@ -3814,7 +3824,81 @@ window._momentoSeguir = function(pos){
 };
 // ── FIN DE TEMPORADA (títulos, premios, ascensos, valor, timeline, rival) ─────
 // (al cerrar el año se revisa si ya superaste al ancestro del legado)
+// ── LA VIDA FAMILIAR CORRE SOLA ─────────────────────────────────────────────
+// Antes, si no entrabas a tu casa, tu pareja nunca te decia nada y no tenias
+// hijos en toda la carrera. Ahora el embarazo y el nacimiento pasan igual, y te
+// enteras apenas termina la temporada.
+function familiaTick(){
+  if(!G) return;
+  const fam = G.familia = G.familia || {};
+  if(!fam.pareja) return;
+  const edad = G.edad || 25;
+  if (fam.embarazada){
+    // Nueve meses entran cómodos en una temporada: el año que viene ya está.
+    fam.embarazada = false;
+    const bebe = nacePersona('m');
+    (fam.hijos = fam.hijos || []).push(bebe);
+    G._bebePend = true;
+    G._pedirNombreHijo = true;
+    G._momentoVisual = 'bebe';
+    return;
+  }
+  if (edad >= 21 && edad <= 41 && (fam.hijos||[]).length < 3 &&
+      Math.random() < (fam.casado ? 0.30 : 0.14)){
+    fam.embarazada = true;
+    G._avisoEmbarazo = true;
+  }
+}
+// "Estoy embarazada". Te lo dice ella, con la cara que elegiste.
+window._lyEmbarazo = function(){
+  if(!G) return;
+  G._avisoEmbarazo = false; save();
+  const fam = G.familia || {};
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="min-height:100%;background:#05070a;display:flex;align-items:center;position:relative;">
+    ${fondoEscenaHTML()}
+    <div style="position:relative;max-width:520px;margin:0 auto;padding:24px 20px;text-align:center;width:100%;box-sizing:border-box;">
+      <div style="font-size:10px;font-weight:900;letter-spacing:2.4px;color:#f9a8d4;margin-bottom:12px;">EN TU CASA</div>
+      <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(`<div style="display:flex;align-items:flex-end;justify-content:center;gap:2px;line-height:0;">
+        <div style="line-height:0;">${vjSpritePareja('orgullo', true, 2.4)}</div>
+        <div style="line-height:0;">${avatarSprite(G.avatar||avatarDefault(), { edad:(G.edad||25), escala:2.4, pose:'festejo', ropa:'calle', num:'', apellido:'' })}</div>
+      </div>`, '14px 18px', 'casa')}</div>
+      <div style="font-size:16px;color:#fff;font-weight:800;line-height:1.6;margin-bottom:18px;">
+        ${esc(fam.pareja||'Tu pareja')} te esperó despierta.<br>Está embarazada.</div>
+      <button onclick="window._carreraContinuar()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px 30px;font-weight:900;font-size:14.5px;cursor:pointer;">SEGUIR <i class='bx bx-right-arrow-alt'></i></button>
+    </div>
+  </div>`;
+};
+// El nacimiento: se ve, y le ponés el nombre.
+window._lyNacimiento = function(){
+  if(!G) return;
+  G._bebePend = false; G._nombreDesdeCarrera = true; save();
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="min-height:100%;background:#05070a;display:flex;align-items:center;position:relative;">
+    ${fondoEscenaHTML()}
+    <div style="position:relative;max-width:520px;margin:0 auto;padding:24px 20px calc(24px + env(safe-area-inset-bottom));text-align:center;width:100%;box-sizing:border-box;">
+      <div style="font-size:10px;font-weight:900;letter-spacing:2.4px;color:#f9a8d4;margin-bottom:12px;">NACIÓ TU HIJO</div>
+      <div style="display:flex;justify-content:center;margin-bottom:14px;">${vjEscenaEspecial()}</div>
+      ${vjElegirNombreHTML()}
+    </div>
+  </div>`;
+};
 function _finTemporada(ctx){
+  // ── SI SALÍS CAMPEÓN, ES PORQUE GANASTE UNA FINAL ──────────────────────────
+  // Antes el título aparecía solo en el resumen y nunca jugabas nada. Ahora,
+  // cuando terminás primero, se juega la final: el minijuego (o la simulación)
+  // decide si levantás la copa o si se te escapa sobre la hora.
+  if (ctx.pos === 1 && !ctx._finalHecha && typeof window._lyFinal === 'function'){
+    const _T = trofeosDe(G.liga) || {};
+    window._lyFinal({ titulo: _T.local || 'el campeonato',
+      rival: (G.rival && G.rival.club) || null, sinTitulo:true,
+      chance: clamp(0.42 + ((G.nivel||60) - 60) / 120, 0.25, 0.82),
+      onGana:  function(){ ctx._finalHecha = true; _finTemporada(ctx); },
+      onPierde:function(){ ctx._finalHecha = true; ctx.pos = 2; _finTemporada(ctx); } });
+    return;
+  }
   // `pos` se reasigna más abajo (anti-dinastía puede bajarte del 1º puesto),
   // por eso va con let y no con const.
   const { pj, g, a, dN, rend, totalEq, momento } = ctx;
@@ -3979,6 +4063,7 @@ function _finTemporada(ctx){
   try { legadoChequear(); } catch(e){}
   // El cuerpo acusa el paso del tiempo: entradas, canas, anteojos.
   avEnvejecer(G.edad);
+  familiaTick();
   // Los chicos crecen un año por temporada, no solo después del retiro.
   const _fam = G.familia || {};
   (_fam.hijos||[]).forEach(h=> h.edad = (h.edad||0) + 1);
@@ -4227,6 +4312,10 @@ function pantallaDecision(cuerpo, etiqueta, color){
 // Tras resolver una decisión: si quedan decisiones, otra. Si no, MERCADO forzado
 // (siempre que haya clubes que te quieran o el actual quiera renovar), y luego hub.
 window._carreraContinuar = function(){
+  // Un hijo no espera a que vayas a casa: si nació, la pantalla aparece igual y
+  // le ponés el nombre ahí mismo.
+  if (G && G._bebePend){ window._lyNacimiento(); return; }
+  if (G && G._avisoEmbarazo){ window._lyEmbarazo(); return; }
   // Si acaba de haber una primera convocatoria, elegís número de selección.
   if(G && G._pedirNumSel){ G._pedirNumSel = false; save(); window._elegirNumero('seleccion'); return; }
   if(G && G._evLeft>0){ mostrarEvento(); return; }
@@ -6230,7 +6319,7 @@ function retiro(){
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;color:#fff;text-align:center;">Se acabó el fútbol. Ahora, ¿qué?</div>
       <div style="font-size:12.5px;color:#c4ccc0;text-align:center;margin:6px 0 14px;line-height:1.55;">Elegí un camino y vivilo hasta los ${VIDA_LAPSOS[VIDA_LAPSOS.length-1].a}: caminás tu casa, tu barrio y tu laburo, hablás con la gente y decidís.</div>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        ${['dt','comentarista','escuela','disfrutar'].map(id=>{
+        ${['dt','empresario'].map(id=>{
           const R = VIDA_ROLES[id];
           const mide = R.barras.filter(b=>b[1]!=='salud').map(b=>b[0].toLowerCase()).join(' · ');
           return `<button onclick="window._carreraSegundaVida('${id}')" style="width:100%;display:flex;align-items:center;gap:12px;background:linear-gradient(160deg,${R.color}12,rgba(13,16,13,.7));border:1.5px solid ${R.color}3a;border-radius:14px;padding:13px 14px;color:#fff;cursor:pointer;text-align:left;" onmouseover="this.style.borderColor='${R.color}'" onmouseout="this.style.borderColor='${R.color}3a'">
@@ -7135,7 +7224,7 @@ function generoDeSemilla(semilla){
 function vjSpriteHab(h, pose){
   // La pareja NO se genera por hash: se dibuja con el avatar exacto que elegiste,
   // si no cambiaba de cara entre la escena de la boda y la de la casa.
-  if (h && h._pareja) return vjSpritePareja(pose||'idle', false, 2.2);
+  if (h && h._pareja) return vjSpritePareja(pose||'idle', !!(G&&G.familia&&G.familia.embarazada), 2.2);
   return vjSpriteNPC(h.semilla, h.ropa, h.edad, pose||'idle', vjGen(h), h.av);
 }
 function vjSpriteNPC(semilla, ropa, edad, pose, gen, avFijo){
@@ -8486,6 +8575,194 @@ function dtFiguras(g){
   const fig = p[0];
   return { goleador: gol, figura: fig, distintos: gol !== fig };
 }
+// ── TU RIVAL DE SIEMPRE, DEL OTRO LADO DE LA RAYA ───────────────────────────
+// El que te persiguió toda la carrera no se retira y ya: agarra un equipo y te
+// sigue peleando los títulos. Cada temporada tuya, él juega la suya.
+function rivalDTTick(){
+  if(!G || !G.rival) return null;
+  const R = G.rival;
+  if (!R.dt){
+    R.dt = true;
+    const pool = todosClubs().filter(c=>c.pais===(R.pais||G.pais));
+    R.dtClub = R.club || (pool.length ? pick(pool).name : 'su club');
+    R.dtTitulos = 0; R.dtAnios = 0;
+  }
+  R.dtAnios = (R.dtAnios||0) + 1;
+  // Le va parecido a como le fue jugando: los buenos jugadores no siempre son
+  // buenos técnicos, pero el nombre abre puertas.
+  const chance = clamp(0.10 + ((R.nivel||70) - 60) / 220, 0.06, 0.34);
+  const gano = Math.random() < chance;
+  if (gano) R.dtTitulos = (R.dtTitulos||0) + 1;
+  return { nombre:R.nombre, club:R.dtClub, titulos:R.dtTitulos||0, ganoEste:gano };
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LA FICHA DE LA SEGUNDA VIDA
+// Como jugador tenías tu ficha: temporada por temporada, la vitrina, los premios.
+// Al retirarte todo eso desaparecía y quedabas eligiendo opciones sueltas. Esta
+// es la misma ficha, para lo que hagas después: DT o empresario.
+// ══════════════════════════════════════════════════════════════════════════════
+window._lyFichaVida = function(){
+  if(!G || !G.vidaRol){ window._vidaJugable(); return; }
+  const R = VIDA_ROLES[G.vidaRol] || VIDA_ROLES.disfrutar;
+  const g = G.gestion || {};
+  const hist = (g.hist || []).slice().reverse();
+  const trof = (G.vitrina || []).filter(v=>v.comoDT);
+  const grup = {};
+  trof.forEach(v=>{ grup[v.nombre] = grup[v.nombre] || { n:v.nombre, count:0 }; grup[v.nombre].count++; });
+  const trofArr = Object.keys(grup).map(k=>grup[k]).sort((a,b)=>b.count-a.count);
+  const st = G.vidaStats || {};
+  const mejor = hist.reduce((m,h)=> (!m || (h.pos||99) < (m.pos||99)) ? h : m, null);
+  const esDT0 = G.vidaRol === 'dt';
+  const R2 = (esDT0 && G.rival && G.rival.dt) ? G.rival : null;
+  const esDT = G.vidaRol === 'dt';
+  const celda = (l,v,c)=>`<div style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:11px 4px;text-align:center;">
+      <div style="font-size:20px;font-weight:900;color:${c||'#fff'};line-height:1;">${esc(v)}</div>
+      <div style="font-size:9px;color:#666;font-weight:800;letter-spacing:1px;margin-top:5px;">${l}</div></div>`;
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:560px;margin:0 auto;padding:24px 16px calc(28px + env(safe-area-inset-bottom));">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:10px;font-weight:900;letter-spacing:2.4px;color:${R.color};margin-bottom:10px;">TU CARRERA COMO ${esc(R.n.toUpperCase())}</div>
+      <div style="display:flex;justify-content:center;margin-bottom:10px;">${avatarBox(avatarSprite(G.avatar||avatarDefault(), { edad:(G.vidaEdad||50), escala:2.6, pose: trof.length ? 'orgullo' : 'idle', ropa:(esDT?'dt':'traje'), num:'', apellido:'' }), '12px 18px', esDT ? 'cancha' : 'oficina')}</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:24px;color:#fff;">${esc(G.apellido||'')}</div>
+      <div style="font-size:12px;color:#8a9280;font-weight:800;margin-top:3px;">${G.vidaEdad||''} años${g.club?(' · '+esc(g.club)):''}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;">
+      ${celda('AÑOS', hist.length || (g.anios||0))}
+      ${celda('TÍTULOS', trof.length, '#facc15')}
+      ${celda(esDT?'MEJOR':'AÑO TOP', mejor ? (mejor.pos + 'º') : '—', R.color)}
+      ${celda('SALUD', Math.round(st.salud||0), '#22c55e')}
+    </div>
+    ${trofArr.length ? `
+    <div style="background:rgba(250,204,21,.06);border:1px solid rgba(250,204,21,.28);border-radius:16px;padding:14px;margin-bottom:16px;">
+      <div style="font-size:9.5px;font-weight:900;letter-spacing:1.8px;color:#facc15;margin-bottom:11px;">LA VITRINA</div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;">
+        ${trofArr.map(t=>`<div style="text-align:center;width:88px;">
+          ${trofeoRender(t.n, 54)}
+          <div style="font-size:10px;font-weight:800;color:#e2d9c4;margin-top:5px;line-height:1.25;">${esc(t.n)}</div>
+          ${t.count>1?`<div style="font-size:11px;font-weight:900;color:#facc15;">×${t.count}</div>`:''}
+        </div>`).join('')}
+      </div>
+    </div>` : `
+    <div style="background:rgba(255,255,255,.03);border:1px solid #1e1e1e;border-radius:14px;padding:16px;text-align:center;font-size:12.5px;color:#79836f;margin-bottom:16px;">
+      La vitrina está vacía. Todavía no ganaste nada de este lado.</div>`}
+    ${R2 ? `
+    <div style="background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.3);border-radius:16px;padding:14px;margin-bottom:16px;">
+      <div style="font-size:9.5px;font-weight:900;letter-spacing:1.8px;color:#ef4444;margin-bottom:9px;">EL RIVAL DE TU VIDA TAMBIÉN DIRIGE</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div style="text-align:center;flex:1;">
+          <div style="font-size:12px;font-weight:900;color:#fff;">${esc(G.apellido||'Vos')}</div>
+          <div style="font-size:26px;font-weight:900;color:${trof.length >= (R2.dtTitulos||0) ? '#facc15' : '#79836f'};line-height:1.1;">${trof.length}</div>
+        </div>
+        <div style="font-size:11px;font-weight:900;color:#79836f;">TÍTULOS</div>
+        <div style="text-align:center;flex:1;">
+          <div style="font-size:12px;font-weight:900;color:#fff;">${esc(R2.nombre||'Tu rival')}</div>
+          <div style="font-size:26px;font-weight:900;color:${(R2.dtTitulos||0) > trof.length ? '#ef4444' : '#79836f'};line-height:1.1;">${R2.dtTitulos||0}</div>
+        </div>
+      </div>
+      <div style="font-size:11.5px;color:#c4ccc0;text-align:center;margin-top:8px;line-height:1.45;">
+        Dirige ${esc(R2.dtClub||'su equipo')}. ${trof.length > (R2.dtTitulos||0) ? 'Seguís arriba.' : (trof.length === (R2.dtTitulos||0) ? 'Están iguales.' : 'Te está ganando otra vez.')}</div>
+    </div>` : ''}
+    ${hist.length ? `
+    <div style="background:rgba(255,255,255,.03);border:1px solid #1e1e1e;border-radius:16px;padding:6px 12px;margin-bottom:16px;">
+      <div style="font-size:9.5px;font-weight:900;letter-spacing:1.8px;color:${R.color};margin:10px 0 4px;">${esDT?'TEMPORADA POR TEMPORADA':'AÑO POR AÑO'}</div>
+      ${hist.map(h=>`<div style="display:flex;align-items:center;gap:11px;padding:10px 2px;border-bottom:1px solid #141614;">
+        ${clubBadge(h.club, 36)}
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:10px;color:#666;font-weight:800;">${h.anio||''}</span>
+            <span style="font-size:13.5px;color:#fff;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(h.club)}</span>
+          </div>
+          <div style="font-size:11px;color:#aaa;margin-top:2px;">${h.pos}º de ${h.total} · media ${h.media}${h.goleador?(' · '+esc(h.goleador)+' '+h.goles+'G'):''}</div>
+          ${h.titulo?`<div style="display:inline-flex;align-items:center;gap:4px;background:rgba(250,204,21,.14);border:1px solid rgba(250,204,21,.35);color:#facc15;border-radius:8px;padding:2px 8px;font-size:10px;font-weight:800;margin-top:3px;"><i class='bx bx-trophy'></i>${esc(h.titulo)}</div>`:''}
+        </div>
+      </div>`).join('')}
+    </div>` : ''}
+    <div style="display:flex;flex-direction:column;gap:9px;">
+      <button onclick="window._lyMiCarrera()" style="background:rgba(255,255,255,.05);border:1px solid #2a3222;color:#cfd8c6;border-radius:13px;padding:13px;font-weight:900;font-size:13px;cursor:pointer;">Ver lo que hiciste como jugador</button>
+      <button onclick="window._vidaJugable()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px;font-weight:900;font-size:14.5px;cursor:pointer;">VOLVER AL MUNDO <i class='bx bx-right-arrow-alt'></i></button>
+    </div>
+  </div>`;
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// EL AÑO DEL EMPRESARIO
+// Ser empresario eran decisiones sueltas y nada más: no había un año que cerrar,
+// ni números que mirar, ni nada que ganar. Ahora funciona como la temporada del
+// DT: se juega el año, se ve el balance y queda anotado en la ficha.
+// ══════════════════════════════════════════════════════════════════════════════
+const EMP_PREMIOS = ['Empresario del Año', 'Marca del Año', 'Premio a la Innovación'];
+window._empAno = function(){
+  const g = gestionAsegurar(); if(!g) return;
+  const s = G.vidaStats || {};
+  const rubro = G.vidaLugar || g.club || 'tu empresa';
+  // El año va según el riesgo que estés tomando y los contactos que tengas.
+  const riesgo = s.riesgo || 40, contactos = s.contactos || 50;
+  const suerte = Math.random() * 100;
+  const bueno = suerte < (42 + contactos * 0.3 - riesgo * 0.15);
+  const bomba = bueno && Math.random() < 0.18;
+  const delta = bomba ? ri(18, 30) : bueno ? ri(5, 14) : -ri(4, 16);
+  s.patrimonio = clamp((s.patrimonio||50) + delta, 0, 100);
+  s.riesgo = clamp(riesgo + (bomba ? 12 : bueno ? -3 : 9), 0, 100);
+  s.contactos = clamp(contactos + (bueno ? ri(2,6) : -ri(1,4)), 0, 100);
+  const plata = Math.round((delta / 10) * ri(80000, 260000));
+  G.dinero = Math.max(0, (G.dinero||0) + plata);
+  // Un año enorme se premia, y el premio va a la vitrina como cualquier título.
+  let titulo = null;
+  if (bomba && s.patrimonio >= 70){
+    titulo = pick(EMP_PREMIOS.filter(p=>!(G.vitrina||[]).some(v=>v.nombre===p && v.anio===G.anio)) || EMP_PREMIOS);
+    _gtitulo(g, G, titulo);
+  }
+  const prensa = bomba ? pick(['"El ex jugador que se convirtió en un caso de estudio."','"Compró barato, vendió caro y nadie lo vio venir."'])
+    : bueno ? pick(['"Un año sólido. Crece despacio y sin ruido."','"Los números lo acompañan."'])
+    : pick(['"Se le complicó el año. Dicen que apostó de más."','"Perdió plata y algo de prestigio."']);
+  g.hist = g.hist || [];
+  g.anios = (g.anios || 0) + 1;
+  g.hist.push({ anio:(G.anio||2026) + (g.hist.length % 5), edad:G.vidaEdad, club:rubro,
+    pos: bomba?1:(bueno?ri(2,4):ri(6,10)), total:10, titulo: titulo, media: Math.round(s.patrimonio) });
+  G._empAnoRes = { delta, plata, titulo, prensa, bueno, bomba, rubro, patrimonio: Math.round(s.patrimonio) };
+  save();
+  window._empResumen();
+};
+window._empResumen = function(){
+  const R = VIDA_ROLES.empresario; const r = G._empAnoRes || {};
+  const col = R.color;
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:24px 16px calc(28px + env(safe-area-inset-bottom));">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:10px;font-weight:900;letter-spacing:2.4px;color:${col};">EL AÑO ${(G.gestion&&G.gestion.hist&&G.gestion.hist.length ? G.gestion.hist[G.gestion.hist.length-1].anio : (G.anio||''))}</div>
+      <div style="display:flex;justify-content:center;margin:10px 0 8px;">
+        ${avatarBox(avatarSprite(G.avatar||avatarDefault(), { edad:(G.vidaEdad||50), escala:2.4, ropa:'traje', num:'', apellido:'',
+          pose: r.titulo ? 'festejo' : (r.bueno ? 'orgullo' : 'taparse') }), '10px 14px', r.titulo ? 'estadio' : 'oficina')}
+      </div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;color:#fff;">${esc(r.rubro||'')}</div>
+    </div>
+    ${r.titulo ? `
+    <div style="text-align:center;background:linear-gradient(160deg,rgba(250,204,21,.14),rgba(20,22,18,.5));border:1.5px solid rgba(250,204,21,.45);border-radius:16px;padding:18px;margin-bottom:14px;">
+      <div style="margin-bottom:8px;">${trofeoRender(r.titulo, 68)}</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;color:#facc15;">${esc(r.titulo.toUpperCase())}</div>
+      <div style="font-size:13px;color:#e2d9c4;margin-top:4px;">Lo levantaste vos. Va derecho a la vitrina.</div>
+    </div>` : ''}
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">
+      ${[['PATRIMONIO', r.patrimonio], ['VARIACIÓN', (r.delta>0?'+':'')+r.delta], ['CAJA', eur(r.plata||0)]].map(c=>`
+        <div style="background:rgba(255,255,255,.04);border:1px solid #232a1f;border-radius:12px;padding:12px 4px;text-align:center;">
+          <div style="font-size:18px;font-weight:900;color:${c[0]==='VARIACIÓN'?((r.delta||0)>0?'#4ade80':'#ef4444'):'#fff'};line-height:1;">${esc(c[1])}</div>
+          <div style="font-size:8px;color:#79836f;font-weight:900;letter-spacing:1px;margin-top:5px;">${c[0]}</div>
+        </div>`).join('')}
+    </div>
+    <div style="background:rgba(0,0,0,.35);border-left:3px solid ${col};border-radius:8px;padding:11px 13px;margin-bottom:16px;">
+      <div style="font-size:9px;font-weight:900;letter-spacing:1.5px;color:#79836f;margin-bottom:5px;">LA PRENSA</div>
+      <div style="font-size:13px;color:#dfe7d6;line-height:1.5;font-style:italic;">${esc(r.prensa||'')}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:9px;">
+      <button onclick="window._lyFichaVida()" style="background:rgba(255,255,255,.05);border:1px solid #2a3222;color:#cfd8c6;border-radius:13px;padding:13px;font-weight:900;font-size:13px;cursor:pointer;">Ver tu ficha</button>
+      <button onclick="window._vidaJugable()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px;font-weight:900;font-size:14.5px;cursor:pointer;">SEGUIR <i class='bx bx-right-arrow-alt'></i></button>
+    </div>
+  </div>`;
+};
+
 window._dtTemporada = function(){
   const g = dtPlantelAsegurar(); if(!g) return;
   const s = G.vidaStats || {};
@@ -8512,7 +8789,14 @@ window._dtTemporada = function(){
     : pos <= 3 ? pick(['"Peleó hasta la última fecha con la mitad de presupuesto."','"Un año serio. Le faltó poco."'])
     : pos >= tabla.length-2 ? pick(['"El equipo no juega a nada. Se le terminó el crédito."','"La gente pide su salida."'])
     : pick(['"Cumplió, nada más. En este club eso no alcanza."','"Un año gris que nadie va a recordar."']);
-  G._dtAno = { pos, total:tabla.length, titulo, prensa, goleador: F ? F.goleador : null, goles, media, echado: s.presion >= 88 };
+  // El rival de tu vida tambien dirige: sigue compitiendo con vos por quien gana
+  // mas. Sin esto, despues del retiro desaparecia de la historia.
+  const rivDT = rivalDTTick();
+  g.hist = g.hist || [];
+  g.hist.push({ anio:(G.anio || 2026) + (g.hist.length % 5), edad:G.vidaEdad, club:g.club, liga:g.liga,
+    pos, total:tabla.length, titulo: titulo || null, media, goleador: F ? F.goleador.n : null, goles });
+  G._dtAno = { pos, total:tabla.length, titulo, prensa, goleador: F ? F.goleador : null, goles, media,
+    echado: s.presion >= 88, rival: rivDT };
   save();
   window._dtResumen();
 };
@@ -8566,6 +8850,10 @@ window._dtResumen = function(){
     </div>
     <div style="display:flex;flex-direction:column;gap:9px;">
       ${gol ? `<button onclick="window._dtVenderFigura()" style="background:rgba(250,204,21,.1);border:1.5px solid rgba(250,204,21,.4);color:#facc15;border-radius:13px;padding:13px;font-weight:900;font-size:13px;cursor:pointer;text-align:left;">Vender a ${esc(gol.n)} por ${eur(gol.valor)} — el club necesita la plata</button>` : ''}
+      ${A_.rival ? `<div style="background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.28);border-radius:13px;padding:12px;font-size:12.5px;color:#e6ecdf;line-height:1.5;">
+        <b style="color:#ef4444;">${esc(A_.rival.nombre)}</b> dirige ${esc(A_.rival.club)}. ${A_.rival.ganoEste ? 'Salió campeón este año.' : 'Este año se volvió con las manos vacías.'} Lleva ${A_.rival.titulos} título${A_.rival.titulos===1?'':'s'} como técnico.
+      </div>` : ''}
+      <button onclick="window._lyFichaVida()" style="background:rgba(250,204,21,.08);border:1.5px solid rgba(250,204,21,.32);color:#facc15;border-radius:13px;padding:13px;font-weight:900;font-size:13px;cursor:pointer;text-align:left;">Ver tu ficha: vitrina y temporada por temporada</button>
       <button onclick="window._dtOfertas()" style="background:rgba(125,211,252,.1);border:1.5px solid rgba(125,211,252,.4);color:#7dd3fc;border-radius:13px;padding:13px;font-weight:900;font-size:13px;cursor:pointer;text-align:left;">Escuchar a otros clubes</button>
       <button onclick="window._vidaJugable()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px;font-weight:900;font-size:14.5px;cursor:pointer;">SEGUIR EN ${esc(g.club).toUpperCase()} <i class='bx bx-right-arrow-alt'></i></button>
     </div>
@@ -8977,6 +9265,13 @@ function asuntoDeRol(){
 // que se ven, se tachan y le dan sentido a lo que hacés todos los días.
 // ══════════════════════════════════════════════════════════════════════════════
 const METAS_ROL = {
+  empresario: { n:'Que tu apellido valga más que tu carrera', d:'Que el negocio que armaste te sobreviva.',
+    hitos:[
+      { t:'Cerrar tu primer año en verde',   ok:(g)=>((g.gestion&&(g.gestion.hist||[]).length)||0) >= 1 },
+      { t:'Llegar a 70 de patrimonio',       ok:(g,s)=>(s.patrimonio||0) >= 70 },
+      { t:'Ganar un premio del rubro',       ok:(g)=>((g.vitrina||[]).filter(v=>v.comoDT).length) >= 1 },
+      { t:'Aguantar diez años sin fundirte', ok:(g)=>((g.gestion&&(g.gestion.hist||[]).length)||0) >= 10 }
+    ] },
   dt: { n:'Ser el técnico que todos quieren', d:'Que tu nombre valga tanto en el banco como valió en la cancha.',
     hitos:[
       { t:'Ganar tu primer título dirigiendo', ok:(g)=>((g.gestion&&g.gestion.titulos)||0) >= 1 },
@@ -9097,6 +9392,7 @@ function vjPuede(h){
     case 'suceso': {
       if(!G) return false;
       const enCarrera = VJ.mundo !== 'vida';
+      if (h.siempre) return true;   // a la gente de tu casa siempre se le puede hablar
       if (enCarrera){
         const temp = G.temporada || 1;
         const hechos = (G._sucTemp === temp) ? (G._sucHechos || 0) : 0;
@@ -9146,7 +9442,8 @@ function vjAcotar(lista){
   const TOPE = 7;
   if (lista.length <= TOPE) return lista;
   const clave = h => h.destacado || h.tipo === 'npc' || h.accion === 'dormir'
-                  || h.accion === 'gestion' || h.accion === 'rol' || h.accion === 'escritorio';
+                  || h.accion === 'gestion' || h.accion === 'rol' || h.accion === 'escritorio'
+                  || h.accion === 'fichaVida' || h.accion === 'empAno' || h.accion === 'dtTemporada';
   const fijas = lista.filter(clave);
   const sueltas = lista.filter(h => !clave(h));
   // Los objetos rotan por tramo: no ves siempre los mismos, pero tampoco cambian
@@ -9168,7 +9465,9 @@ function vjHotspotsBase(){
   if (VJ.escena === 'casa'){
     if (fam.pareja) out.push({ x:250, tipo:'npc', _pareja:true, semilla:'pareja'+fam.pareja, ropa:'calle', edad:(G.vidaEdad||40)-2,
       gen: fam.parejaGen || parejaGen(),
-      lbl:'Hablar con ' + esc(fam.pareja), accion:'suceso', cat:'familia', icono:'bx-heart', nombre:esc(fam.pareja), rol:'tu pareja' });
+      lbl: fam.embarazada ? ('Hablar con ' + esc(fam.pareja) + ' — está embarazada') : ('Hablar con ' + esc(fam.pareja)),
+      accion:'suceso', cat:'familia', icono:'bx-heart', nombre:esc(fam.pareja), rol:'tu pareja', siempre:true,
+      destacado: !!fam.embarazada });
     // EL ABUELO. Si estás jugando el legado y el viejo llegó vivo, está en la casa:
     // se lo ve, se le habla y te cuenta lo suyo. Antes el ancestro era solo un
     // número a superar en un cartel.
@@ -9189,7 +9488,6 @@ function vjHotspotsBase(){
       lbl: (n.edad||0) <= 2 ? ('Alzar a ' + esc(n.nombre)) : ('Jugar con ' + esc(n.nombre)),
       accion:'suceso', cat:'familia', icono:'bx-child',
       nombre:esc(n.nombre), rol:'tu ' + palabraNieto(genDe(n)) }));
-    out.push({ x:452, tipo:'obj', obj:'tele', lbl:'Ver fútbol', accion:'descansar', icono:'bx-tv' });
     // La mesa del truco: partida completa contra la máquina, con envido y todo.
     out.push({ x:392, tipo:'obj', obj:'trabajo', escala:1.1, lbl:'La mesa — jugar al truco', accion:'truco', icono:'bx-joystick' });
     // Si licenciaste tu imagen, el videojuego existe de verdad y se puede jugar.
@@ -9205,7 +9503,6 @@ function vjHotspotsBase(){
   } else if (VJ.escena === 'barrio'){
     out.push({ x:330, tipo:'npc', semilla:'amigo'+(G.apellido||'x'), ropa:'calle', edad:(G.vidaEdad||40),
       lbl:'Un amigo de siempre', accion:'suceso', cat:'social', icono:'bx-conversation', rol:'amigo' });
-    out.push({ x:610, tipo:'obj', obj:'kiosco', lbl:'El kiosco', accion:'suceso', cat:'dinero', icono:'bx-store' });
     out.push({ x:830, tipo:'npc', semilla:'medico', ropa:'medico', edad:52, lbl:'El médico del barrio', accion:'suceso', cat:'salud', icono:'bx-plus-medical', rol:'médico' });
   } else if (VJ.escena === 'extra'){
     const rol = G.vidaRol || 'disfrutar';
@@ -9223,7 +9520,6 @@ function vjHotspotsBase(){
       accion:'suceso', cat:'social', icono:'bx-conversation', rol:gente[1] });
     out.push({ x:Math.round(W*0.66), tipo:'obj', obj:(rol==='dt'||rol==='escuela')?'pelota':'trabajo', escala:1.6,
       lbl:'Meterle horas acá', accion:'trabajar', icono:L.icon });
-    out.push({ x:Math.round(W*0.86), tipo:'obj', obj:'descanso', lbl:'Tomarte un rato', accion:'descansar', icono:'bx-coffee' });
   } else {
     // TRABAJO: el que te viene a ofrecer algo está PARADO ahí, no es un texto.
     const R = VIDA_ROLES[G.vidaRol] || VIDA_ROLES.disfrutar;
@@ -9240,6 +9536,16 @@ function vjHotspotsBase(){
           lbl:'JUGAR LA TEMPORADA ' + (G.anio||''), accion:'dtTemporada', icono:'bx-play-circle', destacado:true });
         out.push({ x:Math.round(W*0.68), tipo:'obj', obj:'trabajo', lbl:'Ver el plantel y el mercado', accion:'escritorio', icono:'bx-clipboard' });
       }
+      // El empresario juega SU anio igual que el DT juega su temporada: se cierra
+      // el ejercicio, se ve el balance y queda anotado en la ficha.
+      if (G.vidaRol === 'empresario'){
+        out.push({ x:Math.round(W*0.50), tipo:'obj', obj:'trabajo', escala:1.1,
+          lbl:'CERRAR EL AÑO ' + (G.anio||''), accion:'empAno', icono:'bx-line-chart', destacado:true });
+      }
+      // Tu ficha: la vitrina, el ano a ano y el rival. Como cuando jugabas.
+      if (G.vidaRol === 'dt' || G.vidaRol === 'empresario')
+        out.push({ x:Math.round(W*0.60), tipo:'obj', obj:'trabajo', escala:0.9,
+          lbl:'TU FICHA — vitrina y temporadas', accion:'fichaVida', icono:'bx-trophy' });
       // CAMBIAR DE CLUB CUANDO QUIERAS. Antes el destino se elegía UNA vez al
       // empezar el rol y quedabas atado a ese club para siempre.
       out.push({ x:Math.round(W*0.30), tipo:'obj', obj:'cartel',
@@ -9309,7 +9615,9 @@ function vjHotspotsClub(){
       accion:'suceso', cat:'familia', icono:'bx-heart' });
     if (fam.pareja) out.push({ x:250, tipo:'npc', _pareja:true, semilla:'pareja'+fam.pareja, ropa:'calle', edad:Math.max(18,(G.edad||24)-1),
       gen: fam.parejaGen || parejaGen(),
-      lbl:'Hablar con ' + esc(fam.pareja), accion:'suceso', cat:'familia', icono:'bx-heart', nombre:esc(fam.pareja), rol:'tu pareja' });
+      lbl: fam.embarazada ? ('Hablar con ' + esc(fam.pareja) + ' — está embarazada') : ('Hablar con ' + esc(fam.pareja)),
+      accion:'suceso', cat:'familia', icono:'bx-heart', nombre:esc(fam.pareja), rol:'tu pareja', siempre:true,
+      destacado: !!fam.embarazada });
     // Los bebés NO caminan por el living: están en la cuna. Sólo los que ya andan
     // aparecen parados en la escena.
     (fam.hijos||[]).filter(h=>(h.edad||0) > 2).slice(0,3).forEach((h,i)=> out.push({ x:330+i*58, tipo:'npc', semilla:'hijo'+h.nombre, ropa:'calle',
@@ -9618,7 +9926,7 @@ function mundoRender(){
   // primer cuadro saldria con el mundo corto y los costados vacios.
   (function(){
     const conPanelLargo = (VJ.mundo === 'vida' && G && G.vidaRol);
-    const alto = Math.max(190, Math.round((window.innerHeight || 700) * (conPanelLargo ? 0.34 : 0.5)));
+    const alto = Math.max(150, Math.round((window.innerHeight || 700) * (conPanelLargo ? 0.26 : 0.30)));
     const s = clamp(alto / 250, 1, 2.4);
     VJ.anchoMin = Math.ceil((window.innerWidth || 900) / s) + 20;
   })();
@@ -9651,7 +9959,12 @@ function mundoRender(){
         </div>
       </div>
     </div>
-    <div id="vj-view" style="position:relative;flex:0 0 auto;height:min(250px, 46dvh);overflow:hidden;background:#05070a;">
+    <div id="vj-view" style="position:relative;flex:0 0 auto;height:min(250px, 30dvh);min-height:150px;overflow:hidden;background:#05070a;">
+      <!-- Cambiar de escenario: chips chicos SOBRE la escena. Antes era una fila
+           de botones grandes al final del panel y en el celular no se veian. -->
+      <div style="position:absolute;top:6px;left:6px;right:6px;z-index:4;display:flex;gap:6px;justify-content:space-between;pointer-events:none;">
+        ${['izq','der'].map(k=>E.sale[k]?`<button onclick="window._vjIr('${E.sale[k]}')" style="pointer-events:auto;background:rgba(5,7,10,.82);border:1px solid rgba(125,211,252,.5);color:#7dd3fc;border-radius:20px;padding:5px 11px;font-size:11px;font-weight:900;cursor:pointer;white-space:nowrap;backdrop-filter:blur(4px);">${k==='izq'?'◀ ':''}${esc(escenas[E.sale[k]].n)}${k==='der'?' ▶':''}</button>`:'<span></span>').join('')}
+      </div>
       <!-- vj-escala estira la escena para llenar el ancho: antes se dibujaba a
            tamano fijo pegada a la izquierda y quedaba media pantalla en negro. -->
       <div id="vj-escala" style="position:absolute;left:0;bottom:0;width:${W}px;height:${H}px;transform-origin:0 100%;">
@@ -9669,8 +9982,6 @@ function mundoRender(){
         <div id="vj-player" style="position:absolute;left:0;bottom:${Math.round(H*(1-pisoPct))-15}px;line-height:0;will-change:transform;">${vjSpriteJugador('idle')}</div>
         <!-- Lo que compraste, apoyado en el piso de tu casa y a escala real. -->
         ${(VJ.escena === 'casa') ? vjPatioHTML(W, H, pisoPct) : ''}
-        ${E.sale.izq?`<div style="position:absolute;left:6px;bottom:${Math.round(H*(1-pisoPct))}px;font-size:9px;font-weight:900;color:${_avisoEn(E.sale.izq)?'#0a0d08':'#7dd3fc'};background:${_avisoEn(E.sale.izq)?A:'rgba(5,7,10,.7)'};border:1px solid ${_avisoEn(E.sale.izq)?A:'#1e3a5c'};border-radius:8px;padding:3px 6px;">◀ ${esc(escenas[E.sale.izq].n)}${_avisoEn(E.sale.izq)?' •':''}</div>`:''}
-        ${E.sale.der?`<div style="position:absolute;right:6px;bottom:${Math.round(H*(1-pisoPct))}px;font-size:9px;font-weight:900;color:#7dd3fc;background:rgba(5,7,10,.7);border:1px solid #1e3a5c;border-radius:8px;padding:3px 6px;">${esc(escenas[E.sale.der].n)} ▶</div>`:''}
       </div>
       </div>
       <div id="vj-prompt" style="position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:none;background:rgba(186,255,0,.14);border:1.5px solid ${A};color:${A};border-radius:22px;padding:7px 16px;font-size:12.5px;font-weight:900;pointer-events:none;white-space:nowrap;"></div>
@@ -9712,10 +10023,6 @@ function mundoRender(){
               </div>
             </div>`).join('');
         })()}
-        <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#5d6879;margin:16px 0 9px;">IR A OTRO LADO</div>
-        <div style="display:flex;gap:9px;flex-wrap:wrap;">
-          ${['izq','der'].filter(k=>E.sale[k]).map(k=>`<button onclick="window._vjIr('${E.sale[k]}')" style="flex:1;min-width:140px;background:rgba(125,211,252,.10);border:1.5px solid rgba(125,211,252,.4);color:#7dd3fc;border-radius:13px;padding:13px 14px;font-weight:900;font-size:13px;cursor:pointer;">${k==='izq'?'◀ ':''}${esc(escenas[E.sale[k]].n)}${k==='der'?' ▶':''}</button>`).join('')}
-        </div>
       </div>
       <div style="min-width:0;">
         ${(VJ.mundo === 'vida' && G && G.vidaRol) ? metaHTML() : ''}
@@ -10057,7 +10364,10 @@ function vjAjustarEscala(){
   const W = vjEscena().ancho, H = 250;
   // El alto disponible depende de lo que ocupe el panel de abajo.
   const conPanelLargo = (VJ.mundo === 'vida' && G && G.vidaRol);
-  const alto = Math.max(190, Math.round((window.innerHeight || 700) * (conPanelLargo ? 0.34 : 0.5)));
+  // EN EL CELULAR EL ESCENARIO ES UNA FRANJA. Ocupaba media pantalla y empujaba
+  // los botones abajo de todo (o directamente los tapaba). Con un tope de 250 el
+  // mundo se ve igual de bien y las opciones quedan siempre a la vista.
+  const alto = clamp(Math.round((window.innerHeight || 700) * (conPanelLargo ? 0.26 : 0.30)), 150, 250);
   // EL MUNDO ENTRA ENTERO. Antes el zoom lo mandaba el ancho y lo que sobraba de
   // alto se recortaba de arriba: se llenaba la pantalla pero los personajes y sus
   // nombres quedaban cortados por la mitad. Ahora manda el ALTO —nadie sale
@@ -10122,6 +10432,8 @@ function vjInteractuar(){
     case 'gestion':      vjDetener(); window._vjGestion(); return;
     case 'escritorio':   vjDetener(); window._vjEscritorio('plantel'); return;
     case 'dtTemporada':  vjDetener(); window._dtTemporada(); return;
+    case 'empAno':       vjDetener(); window._empAno(); return;
+    case 'fichaVida':    vjDetener(); window._lyFichaVida(); return;
     case 'truco':
       if (!window._trucoAbrir){ vjFlash('El truco no está disponible acá.'); return; }
       vjDetener();
@@ -10231,10 +10543,10 @@ function vjInteractuar(){
       personalAsegurar();
       const temp = G.temporada || 1;
       if (G._sucTemp !== temp){ G._sucTemp = temp; G._sucHechos = 0; }
-      if ((G._sucHechos || 0) >= 2){ vjFlash('Ya pasaron bastantes cosas esta temporada. Andá a jugar.'); return; }
+      if ((G._sucHechos || 0) >= 2){ if (h.tipo === 'npc'){ vjCharlaSuelta(h); return; } vjFlash('Ya pasaron bastantes cosas esta temporada. Andá a jugar.'); return; }
     } else {
       hechos.sucesos = hechos.sucesos || 0;
-      if (hechos.sucesos >= 2){ vjFlash('Ya pasó bastante por hoy. El tiempo tiene que correr.'); return; }
+      if (hechos.sucesos >= 2){ if (h.tipo === 'npc'){ vjCharlaSuelta(h); return; } vjFlash('Ya pasó bastante por hoy. El tiempo tiene que correr.'); return; }
     }
     // Si tocaste a una PERSONA, lo que pasa tiene que ser DE ESA PERSONA. Antes
     // se caía a cualquier categoría: hablabas con tu hijo y salía un negocio,
@@ -10326,7 +10638,21 @@ function vjCharlaSuelta(h){
   } else {
     f = ['Todo bien por acá.','Nos vemos, che.','Andá que se te hace tarde.'];
   }
-  vjBurbujaEn(h.x, pick(f), 4600);
+  const suelta = pick(f);
+  if (window._lyChatIA !== false && typeof fetch === 'function'){
+    // Lo mismo pero pensado: la burbuja aparece con lo local y se reemplaza si
+    // la IA contesta a tiempo. Asi nunca hay un hueco esperando.
+    fetch('/api/game-judge', {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(Object.assign({ modo:'chat',
+        hilo:[{ yo:true, t:'(pasás cerca y lo mirás. Decile algo corto, de tu parte.)' }] }, vjChatContexto(h)))
+    })
+    .then(r=> r.ok ? r.json() : null)
+    .then(d=>{ if (d && d.texto && VJ.activo) vjBurbujaEn(h.x, d.texto, 4600); else vjBurbujaEn(h.x, suelta, 4600); })
+    .catch(()=> vjBurbujaEn(h.x, suelta, 4600));
+  } else {
+    vjBurbujaEn(h.x, suelta, 4600);
+  }
   const s = personalAsegurar();
   if (s){ s.soledad = clamp((s.soledad||30) - ri(1,3), 0, 100); save(); }
 }
@@ -10912,14 +11238,39 @@ function vjFraseViva(cat){
   const pool = T.concat(ctx);
   return (pick(HABLA.arranque) + ' ' + pool[Math.floor(Math.random()*pool.length)] + ' ' + pick(HABLA.cierre)).replace(/\s+/g,' ').trim();
 }
+function vjAbrirCon(h, cat){
+  const local = ()=>{
+    VJ._chatHilo = [{ yo:false, t: (Math.random() < 0.5 ? vjFraseViva(cat || 'club')
+                                                       : pick(VJ_CHARLAS[cat] || VJ_CHARLAS.club)) }];
+    vjPintarChat();
+  };
+  if (window._lyChatIA === false || typeof fetch !== 'function'){ local(); return; }
+  VJ._chatHilo = [{ yo:false, t:'...', pensando:true }];
+  vjPintarChat();
+  const ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+  const corte = setTimeout(()=>{ try{ ctrl && ctrl.abort(); }catch(e){} }, 9000);
+  // Se le manda un gesto, no un texto del jugador: el personaje abre la charla.
+  const hilo = [{ yo:true, t:'(te ve, se acerca y te saluda. Arrancá vos la charla con algo tuyo.)' }];
+  fetch('/api/game-judge', {
+    method:'POST', headers:{ 'Content-Type':'application/json' },
+    signal: ctrl ? ctrl.signal : undefined,
+    body: JSON.stringify(Object.assign({ modo:'chat', hilo }, vjChatContexto(h)))
+  })
+  .then(r=>{ clearTimeout(corte); return r.ok ? r.json() : null; })
+  .then(d=>{
+    if (d && d.texto){ VJ._chatHilo = [{ yo:false, t:d.texto }]; vjPintarChat(); }
+    else local();
+  })
+  .catch(()=>{ clearTimeout(corte); local(); });
+}
 function vjCharla(h, cat){
   // Charlar es CONVERSAR: se abre el hilo y el personaje arranca hablando.
   // Antes esto tiraba una frase del banco y se terminaba ahi.
   if (h && h.tipo === 'npc'){
     vjDetener();
     VJ._chatCon = h;
-    VJ._chatHilo = [{ yo:false, t: pick(VJ_CHARLAS[cat] || VJ_CHARLAS.club) }];
-    vjPintarChat();
+    VJ._chatHilo = [];
+    vjAbrirCon(h, cat);
     return;
   }
   return vjCharlaFlash(h, cat);
@@ -10980,7 +11331,7 @@ function vjEscenaEspecial(){
   const tipo = G._momentoVisual; G._momentoVisual = null;
   const fam = G.familia || {};
   const edad = (VJ.mundo === 'vida') ? (G.vidaEdad||40) : (G.edad||25);
-  const yo = (pose) => avatarSprite(G.avatar, { edad, escala:3, pose, ropa:(tipo==='boda'?'traje':(vjRopa()||undefined)), num:'', apellido:'' });
+  const yo = (pose) => avatarSprite(G.avatar, { edad, escala:2.4, pose, ropa:(tipo==='boda'?'traje':(vjRopa()||undefined)), num:'', apellido:'' });
   if (tipo === 'bebe'){
     // EL NACIMIENTO. Antes el bebé era un rectángulo flotando al costado, pegado
     // con posiciones absolutas a ojo. Ahora se alza EN BRAZOS (pose 'bebe', que
@@ -10988,21 +11339,21 @@ function vjEscenaEspecial(){
     // piso, los dos parados juntos y el nombre abajo.
     const bebe = (fam.hijos||[])[(fam.hijos||[]).length-1] || {};
     const bg = genDe(bebe);
-    const yoConBebe = avatarSprite(G.avatar, { edad, escala:3, pose:'bebe', bebeGen:bg,
+    const yoConBebe = avatarSprite(G.avatar, { edad, escala:2.4, pose:'bebe', bebeGen:bg,
       ropa:(vjRopa()||'calle'), num:'', apellido:'' });
     return `<div style="text-align:center;">
       ${avatarBox(`<div style="display:flex;align-items:flex-end;gap:2px;line-height:0;">
-        <div style="line-height:0;">${vjSpritePareja('orgullo', false, 3)}</div>
+        <div style="line-height:0;">${vjSpritePareja('orgullo', false, 2.4)}</div>
         <div style="line-height:0;">${yoConBebe}</div>
       </div>`, '14px 20px', 'hospital')}
-      ${bebe.nombre ? `<div style="margin-top:8px;font-size:13px;font-weight:900;color:#f9a8d4;">
+      ${(bebe.nombre && !G._pedirNombreHijo) ? `<div style="margin-top:8px;font-size:13px;font-weight:900;color:#f9a8d4;">
         ${esc(bebe.nombre)} · ${bg === 'f' ? 'tu hija' : 'tu hijo'}</div>` : ''}
     </div>`;
   }
   if (tipo === 'boda'){
     return avatarBox(`<div style="display:flex;align-items:flex-end;gap:2px;line-height:0;">
       <div style="line-height:0;">${yo('orgullo')}</div>
-      <div style="line-height:0;">${vjSpritePareja('orgullo', false, 3)}</div>
+      <div style="line-height:0;">${vjSpritePareja('orgullo', false, 2.4)}</div>
     </div>`, '14px 20px', 'estadio');
   }
   return '';
@@ -11205,6 +11556,9 @@ window._vjResolver = function(tipo, i){
   const color = enCarrera ? A : ((VIDA_ROLES[G.vidaRol] || VIDA_ROLES.disfrutar).color);
   const volver = enCarrera ? `window._clubMundo('${VJ.escena === 'pension' ? 'casa' : VJ.escena}')` : 'window._vidaJugable()';
   const volverJuv = (VJ.mundo === 'juveniles');
+  // Si el evento te empareja, primero ELEGIS con quien: la cara tiene que ser
+  // una decision tuya, no un cartel que te avisa a quien te toco.
+  if (G && G._elegirPareja){ G._resParejaPend = res; window._vjElegirPareja(); return; }
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
   <div style="min-height:100%;background:#05070a;display:flex;flex-direction:column;justify-content:center;position:relative;">
@@ -11252,12 +11606,15 @@ window._nombrarHijo = function(nombre){
   if (hijos.length) hijos[hijos.length-1].nombre = nombre;
   else hijos.push(nacePersona(null, { nombre }));
   // Si el nombre escrito es claramente de mujer/hombre, manda el nombre.
-  hijos[hijos.length-1].gen = generoDe(nombre);
+  // El apellido sigue por varon: el genero no cambia con el nombre escrito.
+  hijos[hijos.length-1].gen = 'm';
   // La edad del padre al nacer: sirve despues para los nietos.
   hijos[hijos.length-1].nacioConPadreDe = (VJ.mundo === 'vida') ? (G.vidaEdad||40) : (G.edad||25);
   G._pedirNombreHijo = false;
+  const _enCarrera = !!G._nombreDesdeCarrera; G._nombreDesdeCarrera = false;
   save();
-  if (VJ.mundo === 'vida') window._vidaJugable();
+  if (_enCarrera) window._carreraContinuar();
+  else if (VJ.mundo === 'vida') window._vidaJugable();
   else window._clubMundo(VJ.escena === 'pension' ? 'casa' : VJ.escena);
 };
 // ── GESTIÓN DEL ROL: lo que de verdad hacés en tu segunda vida ───────────────
@@ -11383,6 +11740,9 @@ window._vjGestionElegir = function(tipo, dato, idx){
   save();
   const R = VIDA_ROLES[rol] || VIDA_ROLES.disfrutar;
   const pose = /echaron|renunci|no funcion|no alcanz/i.test(res) ? 'bajon' : /levantando|barbaro|bárbaro/i.test(res) ? 'festejo' : 'orgullo';
+  // Si el evento te empareja, primero ELEGIS con quien: la cara tiene que ser
+  // una decision tuya, no un cartel que te avisa a quien te toco.
+  if (G && G._elegirPareja){ G._resParejaPend = res; window._vjElegirPareja(); return; }
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
   <div style="min-height:100%;background:#05070a;display:flex;flex-direction:column;justify-content:center;position:relative;">
@@ -11483,10 +11843,12 @@ function legadoCandidatos(){
   // EL NIETO VA PRIMERO. Cuando el abuelo se retira ya pasaron decadas: el hijo
   // suele estar cerca de los 40 y no puede empezar una carrera. El que toma la
   // posta es el nieto, y el hijo queda como alternativa solo si todavia es chico.
-  let cand = marca(nietos.filter(n=>n.futbol), 'nieto').concat(marca(hijos.filter(h=>h.futbol), 'hijo'));
-  if (!cand.length) cand = marca(nietos, 'nieto').concat(marca(hijos, 'hijo'));
+  // SIEMPRE el nieto. El hijo, cuando el abuelo se retira, ya paso los 40: no
+  // puede empezar una carrera y ofrecerlo era el error que rompia el legado.
+  let cand = marca(nietos.filter(n=>n.futbol), 'nieto');
+  if (!cand.length) cand = marca(nietos, 'nieto');
   // Si toda la descendencia ya es grande, aparece la generación que sigue.
-  if (!cand.length && ((fam.hijos||[]).length || (fam.nietos||[]).length)){
+  if (!cand.length){
     // Siempre hay un varon disponible para tomar la posta, como pidio el juego.
     cand = [Object.assign(nacePersona('m'), { edad:EDAD_INICIO, _rel:'nieto', _nuevo:true })];
   }
@@ -11669,6 +12031,9 @@ window._vjRopero = function(){
   if(!G) return;
   const edad = (VJ.mundo === 'vida') ? (G.vidaEdad||40) : (G.edad||25);
   const opciones = ['calle','traje','tv','dt','empresario','escuela','jubilado'];
+  // Si el evento te empareja, primero ELEGIS con quien: la cara tiene que ser
+  // una decision tuya, no un cartel que te avisa a quien te toco.
+  if (G && G._elegirPareja){ G._resParejaPend = res; window._vjElegirPareja(); return; }
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
   <div style="min-height:100%;background:#05070a;display:flex;flex-direction:column;justify-content:center;position:relative;">
@@ -11803,20 +12168,20 @@ function camaConPersonaHTML(){
   const colchonX = 8 * S, colchonW = 74 * S;
   const almohadaCx = (15 + 17/2) * S;  // centro de la almohada: ahí va la cabeza
   const colchonY = 16 * S;
-  // El cuerpo entra a lo largo del colchón: se elige la escala para que quepa.
-  const escala = 1.35;
-  const cuerpoLargo = 72 * escala;     // alto del sprite = largo al acostarse
-  // Centro del cuerpo: arranca en la almohada y se extiende hacia los pies.
-  const cx = almohadaCx + cuerpoLargo / 2 - 8;
-  const cy = colchonY + 10;
+  // El cuerpo se APOYA sobre el colchón y se centra en él. Antes la posición
+  // salía de un alto de sprite supuesto (72 px): como el sprite mide otra cosa
+  // según la edad y la ropa, el muñeco terminaba colgando fuera de la cama.
+  const escala = 1.25;
+  const cx = colchonX + colchonW * 0.47;
+  const cy = colchonY + 13;
   return `
   <div style="position:relative;width:${W}px;height:${H}px;">
     <div style="position:absolute;left:0;bottom:0;line-height:0;">${vjObjSVG('cama', S)}</div>
-    <div style="position:absolute;left:${cx}px;top:${cy}px;transform:translate(-50%,-50%) rotate(-90deg);transform-origin:50% 50%;line-height:0;">
+    <div style="position:absolute;left:${cx}px;top:${cy}px;transform:translate(-50%,-50%) rotate(-90deg) translateY(2px);transform-origin:50% 50%;line-height:0;">
       ${avatarSprite(G.avatar, { edad:G.vidaEdad, escala, pose:'idle', ropa:vjRopa()||undefined, num:'', apellido:'' })}
     </div>
     <!-- Acolchado por encima: tapa de la cintura a los pies -->
-    <div style="position:absolute;left:${colchonX + colchonW*0.42}px;top:${colchonY + 2}px;width:${colchonW*0.56}px;height:${26}px;background:linear-gradient(180deg,#7d5a8c,#54395f);border-radius:3px;box-shadow:inset 0 2px 0 rgba(255,255,255,.18);"></div>
+    <div style="position:absolute;left:${colchonX + colchonW*0.44}px;top:${colchonY + 1}px;width:${colchonW*0.54}px;height:${30}px;background:linear-gradient(180deg,#7d5a8c,#54395f);border-radius:3px;box-shadow:inset 0 2px 0 rgba(255,255,255,.18);"></div>
   </div>`;
 }
 window._carreraSegundaVida = function(rol){
@@ -11976,6 +12341,9 @@ window._tomarDestino = function(i){
     // Un club grande sube la exigencia; uno chico da aire.
     if (rol === 'dt'){ s.presion = clamp((s.presion||45) + (o.str>=82?18:o.str>=70?6:-10), 0, 100); }
     else { s.poder = clamp((s.poder||40) + (o.str>=78?-8:8), 0, 100); }
+  } else if (rol === 'empresario'){
+    const g = gestionAsegurar();
+    if (g){ g.club = o.id; g.liga = o.sub || ''; g.hist = g.hist || []; }
   } else if (rol === 'comentarista'){
     if (o.id === 'Streaming propio'){ s.credibilidad = clamp((s.credibilidad||50)+8,0,100); s.rating = clamp((s.rating||40)-10,0,100); }
     else { s.rating = clamp((s.rating||40)+8,0,100); }

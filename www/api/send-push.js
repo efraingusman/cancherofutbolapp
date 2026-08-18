@@ -40,7 +40,7 @@ module.exports = async function handler(req, res) {
         title,
         body: body || '',
         icon: '/logo-oficial.png',
-        url: 'https://canchero-app.vercel.app/',
+        url: 'https://cancherofutbolapp.vercel.app/',
         notif: notif || null
     });
 

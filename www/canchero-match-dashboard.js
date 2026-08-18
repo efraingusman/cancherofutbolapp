@@ -356,7 +356,7 @@ window.MatchDashboard = window.MatchDashboard || {};
         if (m.venue) bits.push(m.venue);
         if (m.city) bits.push(m.city);
         if (urg==='alta') bits.push('URGENTE');
-        var link = 'https://canchero-app.vercel.app/#partido/' + m.id;
+        var link = 'https://cancherofutbolapp.vercel.app/#partido/' + m.id;
         return head + '\n\n' + bits.join(' · ') + (msg?('\n\n' + msg):'') + '\n\n→ Sumate al partido: ' + link + '\n\n#FaltanJugadores #Canchero';
     }
 
@@ -405,7 +405,7 @@ window.MatchDashboard = window.MatchDashboard || {};
     window.MatchDashboard._needShareExternal = async function(){
         var c = window._needCtx; if (!c) return;
         var txt = _buildNeedText(c.m, c.e, c.count, c.urg, c.pos, c.msg);
-        var url = 'https://canchero-app.vercel.app/#partido/' + c.m.id;
+        var url = 'https://cancherofutbolapp.vercel.app/#partido/' + c.m.id;
         try { if (navigator.share){ await navigator.share({ title:'Faltan jugadores', text:txt, url:url }); return; } } catch(e){}
         try { await navigator.clipboard.writeText(txt); if(window.showToast) showToast('Aviso copiado ✓','success'); } catch(e){ alert(txt); }
     };
