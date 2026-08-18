@@ -2855,13 +2855,115 @@ const POTRERO_POOL = [
     { txt:'Aprovecharlo para que me vean', ef:g=>{ g._potBonus=(g._potBonus||0)+2; g.fama=clamp((g.fama||0)+4,0,100); return 'Un captador lo vio y preguntó por vos. A veces la suerte también hay que dejarla entrar.'; } },
     { txt:'No darle bola y seguir entrenando', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Dijiste que una gambeta no es una carrera. Tenías catorce años y ya lo entendías.'; } }
   ] },
+
+  // ── MÁS POTRERO ────────────────────────────────────────────────────────────
+  // Con veinticuatro situaciones y tres por carrera, la infancia se repetía cada
+  // dos partidas. Estas son las que faltaban: la casa, la calle, la escuela, el
+  // cuerpo, la plata y el miedo. Ninguna es de relleno; todas mueven el bonus con
+  // el que arrancás, el estilo o una marca en el cuerpo.
+  { t:'Tu vieja quiere que estudies', edad:12, d:'Trajiste el boletín y no está para festejar. Te dice que el fútbol es una lotería.', opts:[
+    { txt:'Prometerle que levanto las notas', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Cumpliste. Entrenabas después de estudiar y dormías poco, pero en tu casa nadie te frenó más.'; } },
+    { txt:'Discutir y encerrarme con la pelota', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Se hablaron poco un mes. Después ella fue la primera en la tribuna, igual.'; } }
+  ] },
+  { t:'El potrero se llena de agua', edad:11, d:'Llovió tres días. La canchita es un barrial y los pibes se van a jugar a la vereda.', opts:[
+    { txt:'Jugar en el barro igual', ef:g=>{ g._potBonus=(g._potBonus||0)+3; return 'Volviste irreconocible. En el barro no se gambetea: se piensa. Eso te quedó.'; } },
+    { txt:'Jugar en el cemento de la vereda', ef:g=>{ g._potBonus=(g._potBonus||0)+2; g._potStyle=g._potStyle||'crack'; return 'Espacio corto, pared y perfil. Te hiciste rápido de cabeza.'; } }
+  ] },
+  { t:'Tu viejo se quedó sin trabajo', edad:13, d:'Hace semanas que en tu casa se habla bajo. Los botines nuevos ya no están en la conversación.', opts:[
+    { txt:'Ponerme a trabajar los sábados', ef:g=>{ g._potBonus=(g._potBonus||0)+1; g._potTrabajo=true; return 'Repartías pedidos hasta el mediodía y jugabas a la tarde. Aprendiste lo que vale una hora.'; } },
+    { txt:'Seguir entrenando y no aflojar', ef:g=>{ g._potBonus=(g._potBonus||0)+3; return 'Tu viejo te dijo que lo tuyo era eso. Se privaron de cosas para que no faltaras un día.'; } }
+  ] },
+  { t:'El arquero del barrio te desafía', edad:11, d:'Diez penales, mano a mano, delante de todos. Si perdés, te cargan un año.', opts:[
+    { txt:'Aceptar sin pensarlo', ef:g=>{ const gano=Math.random()<.6; g._potBonus=(g._potBonus||0)+(gano?3:-1); return gano?'Le metiste siete. No se habló de otra cosa en el barrio.':'Te atajó seis. Ese invierno pateaste todos los días.'; } },
+    { txt:'Aceptar pero pedir estudiar cómo se tira', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Lo miraste dos tardes antes. Ganaste sin gambetas: ganaste leyéndolo.'; } }
+  ] },
+  { t:'Te crece el cuerpo de golpe', edad:13, d:'Pegaste un estirón de doce centímetros en un verano y no sabés dónde tenés los pies.', opts:[
+    { txt:'Trabajar la coordinación todos los días', ef:g=>{ g._potBonus=(g._potBonus||0)+3; return 'Conos, escalera y paciencia. A los seis meses eras otro, y encima alto.'; } },
+    { txt:'Jugar igual y bancarme las caídas', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Te caíste todo el año. Cuando el cuerpo se acomodó, ya sabías levantarte.'; } }
+  ] },
+  { t:'La pelota se pinchó y no hay otra', edad:10, d:'Es la única del barrio y quedó abierta contra un alambre.', opts:[
+    { txt:'Juntar monedas entre todos', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Tardaron dos semanas. Cuando llegó la nueva, la trataban como si fuera de oro.'; } },
+    { txt:'Jugar con una de trapo hasta que aparezca otra', ef:g=>{ g._potBonus=(g._potBonus||0)+3; return 'La de trapo no pica: hay que llevarla al pie. Ese control no lo aprende nadie en una cancha buena.'; } }
+  ] },
+  { t:'Te invitan a jugar con los grandes', edad:13, d:'Faltó uno en el partido de los de veinte y te miran a vos. Te van a pegar.', opts:[
+    { txt:'Entrar y no esconderme', ef:g=>{ g._potBonus=(g._potBonus||0)+3; avMutar&&0; return 'Te pegaron todo el partido y metiste uno. Desde ese día te llamaron siempre.'; } },
+    { txt:'Decir que no, todavía no es mi momento', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Te esperaste seis meses. Cuando entraste, entraste para quedarte.'; } }
+  ] },
+  { t:'El profe de educación física te ficha', edad:11, d:'Te ve correr en el patio y te dice que tenés cuerpo para atletismo, no para fútbol.', opts:[
+    { txt:'Ir a atletismo tres meses', ef:g=>{ g._potBonus=(g._potBonus||0)+2; g._potFisico=true; return 'Volviste al fútbol con un motor que no tenía nadie de tu edad.'; } },
+    { txt:'Agradecerle y seguir con la pelota', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Le dijiste que corrías, pero atrás de algo. Se rió y te dejó ir.'; } }
+  ] },
+  { t:'Un pibe nuevo juega mejor que vos', edad:12, d:'Llegó al barrio hace un mes y ya es el mejor de la canchita. Y lo sabe.', opts:[
+    { txt:'Pegarme a él y aprenderle todo', ef:g=>{ g._potBonus=(g._potBonus||0)+3; return 'Se hicieron amigos jugando en contra. Lo que él hacía de memoria, vos lo entendiste.'; } },
+    { txt:'Ir a buscarlo y marcarlo todo el partido', ef:g=>{ g._potBonus=(g._potBonus||0)+2; g._potStyle=g._potStyle||'guerrero'; return 'No lo dejaste tocar una. Nadie más se te paró de manos ese año.'; } }
+  ] },
+  { t:'Te ofrecen entrar a una barra', edad:14, d:'Los más grandes de la esquina te ofrecen ir a la cancha con ellos. Con ellos hay respeto y hay lío.', opts:[
+    { txt:'Decir que no y bancar la cargada', ef:g=>{ g._potBonus=(g._potBonus||0)+3; return 'Te dijeron de todo tres meses. Después, cuando debutaste, te aplaudieron igual.'; } },
+    { txt:'Ir una vez para ver', ef:g=>{ const mal=Math.random()<.45; g._potBonus=(g._potBonus||0)+(mal?-2:1); if(mal){ g.flags=g.flags||{}; g.flags.barra=true; } return mal?'Hubo corridas y terminaste en una comisaría a los catorce. Tu vieja no habló en el viaje de vuelta.':'Viste de cerca lo que no querías ser. Volviste caminando y solo.'; } }
+  ] },
+  { t:'La final del baby fútbol', edad:12, d:'Cancha llena de padres. Empate, faltan dos minutos y tenés un tiro libre al borde del área.', opts:[
+    { txt:'Pegarle yo', ef:g=>{ const gol=Math.random()<.5; g._potBonus=(g._potBonus||0)+(gol?4:-1); return gol?'Al ángulo. Los padres saltaron el alambrado. Todavía se habla de ese tiro.':'Barrera. Perdieron por penales y lloraste hasta la esquina.'; } },
+    { txt:'Tocarla corta al que está mejor parado', ef:g=>{ const gol=Math.random()<.65; g._potBonus=(g._potBonus||0)+(gol?3:1); return gol?'Asistencia y campeones. Elegir bien también es talento.':'No entró, pero la jugada fue tuya. El técnico te lo dijo.'; } }
+  ] },
+  { t:'Te ponen de arquero por una tarde', edad:11, d:'Falta el arquero y te toca a vos. Sesenta minutos abajo del arco.', opts:[
+    { txt:'Tomármelo en serio', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Atajaste tres. Desde entonces sabés exactamente qué ve un arquero cuando encarás.'; } },
+    { txt:'Salir a jugar como un jugador más', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Te comieron dos de mitad de cancha. Los pibes te lo recuerdan hasta hoy.'; } }
+  ] },
+  { t:'Tu abuelo te lleva a la cancha', edad:10, d:'Primera vez en un estadio de verdad. Te agarra la mano en la puerta y no te la suelta.', opts:[
+    { txt:'Mirar el partido', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'No sacaste los ojos de la pelota. Volviste sabiendo dónde te querías parar.'; } },
+    { txt:'Mirar a la gente', ef:g=>{ g._potBonus=(g._potBonus||0)+2; g._potHincha=true; return 'Miraste a la tribuna todo el partido. Entendiste para quién se juega antes que cómo.'; } }
+  ] },
+  { t:'Se te rompen los únicos botines', edad:12, d:'Se despegó la suela del derecho a mitad de semana y el sábado hay partido.', opts:[
+    { txt:'Arreglarlos con lo que haya', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Alambre, pegamento y una hora. Aguantaron el partido justo hasta el último minuto.'; } },
+    { txt:'Jugar con championes de calle', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Te resbalaste toda la tarde y metiste uno igual. Nadie te pudo decir nada.'; } }
+  ] },
+  { t:'Te dicen que sos muy chico', edad:13, d:'En la prueba te miran de arriba abajo y anotan algo. "Físicamente todavía no."', opts:[
+    { txt:'Meterme al gimnasio del barrio', ef:g=>{ g._potBonus=(g._potBonus||0)+2; g._potFisico=true; return 'Un año de trabajo con lo que había. Volviste y el que anotó ya no anotó nada.'; } },
+    { txt:'Aprender a jugar sin chocar', ef:g=>{ g._potBonus=(g._potBonus||0)+3; g._potStyle=g._potStyle||'crack'; return 'Perfil, primer toque y la pelota siempre lejos del que pega. Te hiciste imposible de agarrar.'; } }
+  ] },
+  { t:'El técnico del baby te quiere de otro puesto', edad:12, d:'Dice que donde jugás no vas a llegar y que tenés cara de otra cosa.', opts:[
+    { txt:'Probar el puesto nuevo', ef:g=>{ g._potBonus=(g._potBonus||0)+3; return 'Te costó dos meses y después no saliste más de ahí. Tenía razón, y vos coraje.'; } },
+    { txt:'Quedarme donde me siento', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Te plantaste. Jugaste peor un tiempo, pero aprendiste a defender lo tuyo.'; } }
+  ] },
+  { t:'Un vecino te graba y te sube a internet', edad:14, d:'Sin preguntarte, subió tres minutos tuyos. En dos días lo vieron miles.', opts:[
+    { txt:'Pedirle que lo baje', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Lo bajó. Preferiste que te vieran en una cancha y no en una pantalla.'; } },
+    { txt:'Dejarlo y contestar los mensajes', ef:g=>{ g._potBonus=(g._potBonus||0)+1; g.fama=clamp((g.fama||0)+6,0,100); return 'Se te llenó el teléfono de gente que no te conocía. Algunos servían. La mayoría, no.'; } }
+  ] },
+  { t:'La primera lesión', edad:13, d:'Un golpe feo en el tobillo. El del barrio dice que es nada; tu vieja quiere llevarte al hospital.', opts:[
+    { txt:'Ir al hospital y parar lo que haya que parar', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Tres semanas quieto. Volviste entero, y aprendiste a escuchar el cuerpo antes de que grite.'; } },
+    { txt:'Vendarme y seguir jugando', ef:g=>{ const mal=Math.random()<.5; g._potBonus=(g._potBonus||0)+(mal?-2:2); return mal?'Se hizo crónico. Ese tobillo te va a avisar toda la vida cuando cambia el tiempo.':'Aguantó. Tuviste suerte, y lo sabés.'; } }
+  ] },
+  { t:'Un partido por plata', edad:14, d:'Los grandes arman un picado apostado y necesitan un delantero. Pagan si ganan.', opts:[
+    { txt:'Jugar y llevar la plata a casa', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Ganaron y te dieron tu parte. Se la diste a tu vieja sin decir de dónde salió.'; } },
+    { txt:'No meterme en eso', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Dijiste que jugabas gratis o no jugabas. A los catorce eso también es carácter.'; } }
+  ] },
+  { t:'Te toca de capitán por primera vez', edad:13, d:'El técnico te da la cinta sin explicar por qué. Dos del equipo se pelean en el entretiempo.', opts:[
+    { txt:'Meterme en el medio y cortarlo', ef:g=>{ g._potBonus=(g._potBonus||0)+3; return 'Los separaste y los hiciste jugar juntos el segundo tiempo. Ese día dejaste de ser uno más.'; } },
+    { txt:'Dejar que lo arregle el técnico', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Miraste desde el costado. Aprendiste que la cinta pesa cuando no la usás.'; } }
+  ] },
+  { t:'Tu hermano también juega', edad:12, d:'Es un año menor y lo suben a tu categoría. Ahora compiten por el mismo puesto.', opts:[
+    { txt:'Bancarlo y jugar los dos', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Se entendieron de memoria. Los rivales no sabían a cuál de los dos marcar.'; } },
+    { txt:'Ganarle el puesto', ef:g=>{ g._potBonus=(g._potBonus||0)+3; return 'Le ganaste el lugar y en casa no se habló por un tiempo. Competir en serio empezó ahí.'; } }
+  ] },
+  { t:'Un domingo sin partido', edad:11, d:'Se suspendió todo por el temporal. Tenés el día entero por delante.', opts:[
+    { txt:'Pared contra el paredón, sola, toda la tarde', ef:g=>{ g._potBonus=(g._potBonus||0)+3; return 'Mil paredes con las dos piernas. Nadie te vio, y sin embargo fue una de las tardes que más te sirvió.'; } },
+    { txt:'Mirar partidos viejos con tu viejo', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Te fue explicando por qué cada uno se movía donde se movía. Empezaste a ver la cancha desde arriba.'; } }
+  ] },
+  { t:'Te cargan por cómo jugás', edad:12, d:'Te dicen que sos amarrete con la pelota, o que la tenés demasiado. El apodo pega.', opts:[
+    { txt:'Cambiar y jugar más simple', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Empezaste a soltarla antes. El equipo entero jugó mejor y el apodo se murió solo.'; } },
+    { txt:'Jugar igual, que se acostumbren', ef:g=>{ g._potBonus=(g._potBonus||0)+2; g._potStyle=g._potStyle||'crack'; return 'No cambiaste una coma. Al final el barrio te la daba a vos justamente por eso.'; } }
+  ] },
+  { t:'Se muda el mejor amigo', edad:13, d:'Con él armaste todos los equipos desde los siete años. La familia se va a otra ciudad.', opts:[
+    { txt:'Prometerse jugar juntos en primera', ef:g=>{ g._potBonus=(g._potBonus||0)+2; return 'Se lo prometieron en la esquina, en serio. Vos te acordás de eso cada vez que te cuesta.'; } },
+    { txt:'Despedirse y seguir', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'No hubo discurso. Se dieron la mano y cada uno siguió. Así también se crece.'; } }
+  ] },
 ];
 // 3 eventos al azar del pool (no repetidos), la carrera se siente distinta cada vez.
 // Van ORDENADOS por la edad propia de cada evento: como el pool se baraja, antes
 // podía tocar "a los 14 vinieron los ojeadores" en el paso 0 mientras el cartel
 // decía "11 años". Ahora el cartel, el relato y el avatar usan siempre ev.edad.
 function potreroEventosDeCarrera(){
-  return shuffle(POTRERO_POOL).slice(0, 3).sort((a,b)=>(a.edad||12)-(b.edad||12));
+  return shuffle(POTRERO_POOL).slice(0, 4).sort((a,b)=>(a.edad||12)-(b.edad||12));
 }
 const POTRERO_EVENTOS = [];  // se llena por carrera con potreroEventosDeCarrera()
 window._carreraPotrero = function(paso){
@@ -3258,14 +3360,12 @@ window._lyFinal = function(cfg){
   // se resuelven solas, otras se definen al truco y otras las jugás vos. Tener
   // que elegir cada vez volvía el minijuego un menú, y quitaba la sorpresa.
   const modos = [];
-  if (window._platAbrir) modos.push('plat');
   if (window._trucoAbrir) modos.push('truco');
   modos.push('simular', 'simular');            // la mitad se juegan solas
   cfg.modo = cfg.modo || pick(modos);
   G._finalPend = cfg;
   const D = {
-    plat:   { t:'La jugás vos', d:'Salí a la cancha y llegá al final sin quedarte sin vidas. Cada pelota es un gol.', b:'SALIR A LA CANCHA', ic:'bx-football' },
-    truco:  { t:'Se define al truco', d:'Antes del partido, la interna se juega en el vestuario. El que gana la mano, gana la cabeza.', b:'AGARRAR LAS CARTAS', ic:'bx-been-here' },
+    truco:  { t:'Se define al truco', d:'Antes del partido, la interna se juega en el vestuario. Una partida corta, a 6: el que gana la mano, gana la cabeza.', b:'AGARRAR LAS CARTAS', ic:'bx-been-here' },
     simular:{ t:'Se juega en la cancha', d:'Esta se define adentro, con la pelota y nada más. Vos ya hiciste tu parte toda la temporada.', b:'JUGAR LA FINAL', ic:'bx-play-circle' }
   }[cfg.modo];
   const m = document.getElementById('carrera-modal') || overlay();
@@ -3296,7 +3396,7 @@ window._lyResultadoFinal = function(gano, titulo, rival, despues){
     </div>
     <div style="font-size:13.5px;color:#b9c4ad;line-height:1.6;max-width:400px;margin-bottom:22px;">
       ${gano
-        ? ('Con ' + esc(G.club||'tu club') + '. Ya son ' + (G.titulos||1) + ' título' + ((G.titulos||1)===1?'':'s') + ' en tu vitrina.' + (rival?(' Y se lo ganaste a ' + esc(rival) + '.'):''))
+        ? ('Con ' + esc(G.club||'tu club') + '.' + (despues ? '' : (' Ya son ' + (G.titulos||1) + ' título' + ((G.titulos||1)===1?'':'s') + ' en tu vitrina.')) + (rival?(' Y se lo ganaste a ' + esc(rival) + '.'):''))
         : ('Se define en detalles. ' + (rival?('Esta vez fue para ' + esc(rival) + '. '):'') + 'Va a haber revancha.')}
     </div>
     <button onclick="window._lyFinalSeguir()" style="width:100%;max-width:360px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">SEGUIR <i class='bx bx-right-arrow-alt'></i></button>
@@ -3332,22 +3432,10 @@ window._lyFinalJugar = function(modo){
   if (modo === 'truco' && window._trucoAbrir){
     window._trucoVolverA = null;
     window._trucoAbrir();
-    setTimeout(()=>{ try { window._trucoNueva(15, true, cerrar); } catch(e){ cerrar(false); } }, 60);
+    setTimeout(()=>{ try { window._trucoNueva(6, true, cerrar); } catch(e){ cerrar(false); } }, 60);
     return;
   }
-  if (window._platAbrir){
-    window._platVolverA = null;
-    window._platAbrir({ apellido:G.apellido, num:G.num, colores:kitOf(G.pais||'Uruguay'),
-      piel:(AV_PIELES.find(x=>x.id===((G.avatar||{}).piel))||AV_PIELES[1]).c,
-      pelo:(AV_COLORES_PELO.find(x=>x.id===((G.avatar||{}).peloColor))||AV_COLORES_PELO[0]).c,
-      rival:(G.rival&&G.rival.nombre)||null, rivalCol:kitOf((G.rival&&G.rival.pais)||'Argentina'),
-      desafio:true, titulo:cfg.titulo, onFin:cerrar,
-      avatarSVG: avatarSprite(G.avatar||avatarDefault(), { edad:(G.edad||28), kitBase:kitOf(G.pais||'Uruguay')[0], kitTxt:kitOf(G.pais||'Uruguay')[1], num:G.num||10, apellido:'', escala:1.6, pose:'caminar' }),
-      // El rival, con SU cara y SU camiseta: el villano del juego es el de verdad.
-      rivalSVG: (G.rival && G.rival.avatar) ? avatarSprite(G.rival.avatar, { edad:(G.edad||28), kitBase:kitOf((G.rival.pais)||'Argentina')[0], kitTxt:kitOf((G.rival.pais)||'Argentina')[1], num:G.rival.num||9, apellido:'', escala:1.6, pose:'caminar' }) : null });
-    return;
-  }
-  cerrar(Math.random() < 0.5);
+  cerrar(Math.random() < (cfg.chance != null ? cfg.chance : 0.5));
 };
 // ── LOS ESTADIOS ─────────────────────────────────────────────────────────────
 // Los grandes partidos no se juegan "en una cancha": se juegan en un lugar con
@@ -3886,19 +3974,6 @@ window._lyNacimiento = function(){
   </div>`;
 };
 function _finTemporada(ctx){
-  // ── SI SALÍS CAMPEÓN, ES PORQUE GANASTE UNA FINAL ──────────────────────────
-  // Antes el título aparecía solo en el resumen y nunca jugabas nada. Ahora,
-  // cuando terminás primero, se juega la final: el minijuego (o la simulación)
-  // decide si levantás la copa o si se te escapa sobre la hora.
-  if (ctx.pos === 1 && !ctx._finalHecha && typeof window._lyFinal === 'function'){
-    const _T = trofeosDe(G.liga) || {};
-    window._lyFinal({ titulo: _T.local || 'el campeonato',
-      rival: (G.rival && G.rival.club) || null, sinTitulo:true,
-      chance: clamp(0.42 + ((G.nivel||60) - 60) / 120, 0.25, 0.82),
-      onGana:  function(){ ctx._finalHecha = true; _finTemporada(ctx); },
-      onPierde:function(){ ctx._finalHecha = true; ctx.pos = 2; _finTemporada(ctx); } });
-    return;
-  }
   // `pos` se reasigna más abajo (anti-dinastía puede bajarte del 1º puesto),
   // por eso va con let y no con const.
   const { pj, g, a, dN, rend, totalEq, momento } = ctx;
@@ -3943,6 +4018,31 @@ function _finTemporada(ctx){
       const maxR = clamp(Math.floor((G.clubStr-62)/5), 0, 4);
       interLiteRonda = rondasInter[ri(0, maxR)];
     }
+  }
+  // ── LA FINAL: UNA SOLA, Y DECIDE ────────────────────────────────────────────
+  // Lo que se sorteó arriba queda CONGELADO en ctx: si se re-sorteara al volver
+  // de la final podrías perderla y que el resumen te dijera campeón igual.
+  if (ctx._titGuard){ titulosGanados.length = 0; ctx._titGuard.forEach(t=>titulosGanados.push(t)); pos = ctx._posGuard; }
+  else { ctx._titGuard = titulosGanados.slice(); ctx._posGuard = pos; }
+  if (titulosGanados.length && !ctx._finalHecha && typeof window._lyFinal === 'function'){
+    // El rival de la final sale de TU liga: perder una final de Serie A contra un
+    // club chileno no tenía ningún sentido.
+    const _mios = todosClubs().filter(c => c.liga === G.liga && c.name !== G.club);
+    const _riv = _mios.length ? pick(_mios).name : ((G.rival && G.rival.club) || null);
+    ctx._rivalFinal = ctx._rivalFinal || _riv;
+    window._lyFinal({ titulo: titulosGanados[0], rival: ctx._rivalFinal, sinTitulo:true,
+      chance: clamp(0.45 + ((G.nivel||60) - 60) / 120, 0.28, 0.85),
+      onGana:  function(){ ctx._finalHecha = 'gano';   _finTemporada(ctx); },
+      onPierde:function(){ ctx._finalHecha = 'perdio'; _finTemporada(ctx); } });
+    return;
+  }
+  if (ctx._finalHecha === 'perdio'){
+    // Se perdió la final: no hay copa, y no se termina primero.
+    titulosGanados.length = 0;
+    pos = Math.max(2, pos);
+    ctx._posGuard = pos;
+    interRonda = interRonda === 'CAMPEÓN' ? 'Final' : interRonda;
+    interLiteRonda = interLiteRonda === 'CAMPEÓN' ? 'Final' : interLiteRonda;
   }
   // Persistir cada trofeo en la vitrina — guardando SIEMPRE el club donde se ganó.
   titulosGanados.forEach(t => {
@@ -4317,7 +4417,6 @@ window._carreraContinuar = function(){
   if (G && G._bebePend){ window._lyNacimiento(); return; }
   if (G && G._avisoEmbarazo){ window._lyEmbarazo(); return; }
   // Si acaba de haber una primera convocatoria, elegís número de selección.
-  if(G && G._pedirNumSel){ G._pedirNumSel = false; save(); window._elegirNumero('seleccion'); return; }
   if(G && G._evLeft>0){ mostrarEvento(); return; }
   if(G && !G._mercadoHecho){ window._carreraMercadoForzado(); return; }
   G._mercadoHecho = false;
@@ -4779,7 +4878,9 @@ function eventoSeleccionRandom(){
     opts: [
       { txt: `${flagImg(G.pais,18)}&nbsp;Ir con todo — jugar el ${t.tipo}`, ef: g => {
         // Primera convocatoria: elegís el número de la selección.
-        if (!g.numSeleccion) g._pedirNumSel = true;
+        // Se toma el mismo numero que usas en el club. Antes se abria una
+        // pantalla a elegir numero DESPUES de haber jugado el torneo.
+        if (!g.numSeleccion) g.numSeleccion = g.num || 10;
         g.flags = g.flags || {}; g.flags.debutSel = true; g.selPj = (g.selPj||0) + 1;
         const bien = Math.random() < 0.55 + (g.nivel - req(t))/100; // más chance si estás por arriba del corte
         if (bien) {
@@ -5546,7 +5647,7 @@ const EVENTOS=[
     { txt:'Vender todo y pasarme a ladrillos', ef:g=>{ if(g.inversiones&&g.inversiones.monto){ g.dinero+=Math.round(g.inversiones.monto*0.8); g.inversiones=null; return 'Saliste con una pérdida del 20% pero dormís tranquilo. El ladrillo no cotiza en pánico.'; } return 'No tenías nada invertido. Pusiste tus ahorros en un departamento.'; } } ] },
 
   // ══ DOBLE NACIONALIDAD — se abre tras el evento del abuelo ═════════════════
-  { t:'Te llama la selección de tu segundo país', img:'seleccion', reqFlag:'doblenac', d:'La federación del país que elegiste por linaje te quiere de titular. Pero la prensa del país donde naciste te trata de mercenario.', opts:[
+  { t:'Te llama la selección de tu segundo país', img:'seleccion', reqFlag:'doblenac', noFlag:'debutSel', maxAge:22, d:'La federación del país que elegiste por linaje te quiere de titular. Pero la prensa del país donde naciste te trata de mercenario.', opts:[
     { txt:'Aceptar y bancar la crítica', ef:g=>{ g.fama+=12; g.moral-=5; return 'Debutaste con el otro himno. Media patria te aplaude, la otra media te putea.'; } },
     { txt:'Arrepentirme y volver a mis raíces', ef:g=>{ g.flags.doblenac=false; g.moral+=10; g.fama-=4; return 'Pediste volver. Burocracia FIFA de por medio, pero el corazón mandó.'; } } ] }
 ];
@@ -6249,10 +6350,19 @@ function homenajeEscena(){
     <div style="display:flex;justify-content:center;margin-bottom:18px;">
       ${avatarBox(avatarSprite(G.avatar||avatarDefault(), { edad:(G.edad||34), kitBase:kb[0], kitTxt:kb[1], num:G.num||10, apellido:G.apellido||'', escala:3, pose:'orgullo' }), '16px 26px', 'estadio')}
     </div>
-    <div style="max-width:440px;font-size:14px;color:#d8dfcd;line-height:1.7;margin-bottom:22px;">
-      Saliste a los veinte minutos. El estadio entero se puso de pie y no se sentó hasta que llegaste al túnel.
-      Tu camiseta colgada del alambrado, tus hijos en el círculo central, y cuarenta mil personas cantando tu apellido.
-      Levantaste la mano una vez. Alcanzó.
+    <!-- Los números del relato salen de los mismos datos del cartel: antes el
+         cartel decía 80 mil y el texto, cuarenta mil. -->
+    <div style="width:100%;max-width:440px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
+      ${[['GENTE', Math.round(publico/1000)+' mil'], ['AÑOS', (G.timeline||[]).length || G.years || 0], ['TÍTULOS', G.titulos||0]].map(c=>`
+        <div style="background:rgba(255,255,255,.05);border:1px solid #2a3222;border-radius:12px;padding:11px 4px;text-align:center;">
+          <div style="font-size:19px;font-weight:900;color:#facc15;line-height:1;">${esc(c[1])}</div>
+          <div style="font-size:8px;color:#79836f;font-weight:900;letter-spacing:1.2px;margin-top:5px;">${c[0]}</div>
+        </div>`).join('')}
+    </div>
+    <div style="max-width:440px;font-size:14px;color:#d8dfcd;line-height:1.75;margin-bottom:14px;text-align:left;">
+      <div style="margin-bottom:9px;"><span style="color:#facc15;font-weight:900;">20'</span> &nbsp;Salís. El estadio entero se pone de pie y no se sienta hasta que llegás al túnel.</div>
+      <div style="margin-bottom:9px;"><span style="color:#facc15;font-weight:900;">Ahí</span> &nbsp;Tu camiseta colgada del alambrado y ${(((G.familia||{}).hijos||[]).length ? 'tus hijos' : 'los pibes del club')} en el círculo central.</div>
+      <div><span style="color:#facc15;font-weight:900;">Y</span> &nbsp;${publico.toLocaleString('es')} personas cantando tu apellido. Levantás la mano una vez. Alcanza.</div>
     </div>
     <button onclick="window._lyHomenajeSeguir()" style="width:100%;max-width:360px;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">VER MI CARRERA <i class='bx bx-right-arrow-alt'></i></button>
   </div>`;
@@ -9491,8 +9601,6 @@ function vjHotspotsBase(){
     // La mesa del truco: partida completa contra la máquina, con envido y todo.
     out.push({ x:392, tipo:'obj', obj:'trabajo', escala:1.1, lbl:'La mesa — jugar al truco', accion:'truco', icono:'bx-joystick' });
     // Si licenciaste tu imagen, el videojuego existe de verdad y se puede jugar.
-    if ((G._vidaFlags||{}).videojuego)
-      out.push({ x:352, tipo:'obj', obj:'tele', escala:0.9, lbl:'Tu videojuego — jugarlo', accion:'videojuego', icono:'bx-game' });
     out.push({ x:512, tipo:'obj', obj:'ropero', escala:1.5, lbl:'Ropero — cambiarte', accion:'ropero', icono:'bx-closet' });
     out.push({ x:568, tipo:'obj', obj:'espejo', escala:1.4, lbl:'Espejo — cambiar tu look', accion:'look', icono:'bx-cut' });
     // La cama va lejos del borde: pegada a la salida uno se pasaba de largo al
@@ -9646,7 +9754,6 @@ function vjHotspotsClub(){
       lbl:'Hablar con el capitán', accion:'charlaClub', icono:'bx-conversation', rol:'capitán' });
     out.push({ x:720, tipo:'obj', obj:'trabajo', lbl:'Tu casillero — ver tu ficha', accion:'ficha', icono:'bx-id-card' });
   } else if (VJ.escena === 'cancha'){
-    out.push({ x:260, tipo:'obj', obj:'gimnasio', escala:1.7, lbl:'Levantar pesas en el gimnasio', accion:'entrenarClub', icono:'bx-dumbbell' });
     out.push({ x:560, tipo:'obj', obj:'pelota', escala:0.9, lbl: pend ? 'Primero hablá con el técnico' : 'JUGAR LA TEMPORADA',
       accion:'jugar', icono:'bx-play-circle', destacado: !pend, bloqueado: pend });
     out.push({ x:860, tipo:'npc', semilla:'hincha'+G.club, ropa:'calle', edad:38,
@@ -10012,7 +10119,7 @@ function mundoRender(){
             const i = idx(h);
             return `<div style="display:flex;gap:6px;">
               <button onclick="window._vjAccion(${i})" ${h.bloqueado?'disabled':''} style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:${h.destacado?'rgba(186,255,0,.13)':'rgba(255,255,255,.04)'};border:1.5px solid ${h.destacado?A:'#242a20'};color:${h.bloqueado?'#5d6879':(h.destacado?A:'#e0e4dc')};border-radius:12px;padding:${h.destacado?'14px':'11px'} 13px;font-weight:${h.destacado?900:800};font-size:${h.destacado?14:13}px;text-align:left;cursor:${h.bloqueado?'default':'pointer'};opacity:${h.bloqueado?.55:1};line-height:1.3;"><i class='bx ${h.icono}' style="font-size:${h.destacado?21:18}px;flex-shrink:0;"></i><span>${h.lbl}</span></button>
-              ${vjCharlable(h) ? `<button onclick="window._vjHablar(${i})" title="Escribirle" style="flex:0 0 auto;background:rgba(125,211,252,.10);border:1.5px solid rgba(125,211,252,.35);color:#7dd3fc;border-radius:12px;padding:0 12px;font-size:17px;cursor:pointer;line-height:1;"><i class='bx bx-message-rounded-dots'></i></button>` : ''}
+              ${vjCharlable(h) ? `<button onclick="window._vjHablar(${i})" title="Ponerte a prueba con esta persona" style="flex:0 0 auto;background:rgba(125,211,252,.10);border:1.5px solid rgba(125,211,252,.35);color:#7dd3fc;border-radius:12px;padding:0 12px;font-size:17px;cursor:pointer;line-height:1;"><i class='bx bx-message-rounded-dots'></i></button>` : ''}
             </div>`;
           };
           return grupos.map(g=>`
@@ -10445,15 +10552,6 @@ function vjInteractuar(){
     case 'leyenda':      vjLeyendaEncuentro(h); return;
     case 'miCarrera':    vjDetener(); window._lyMiCarrera(); return;
     case 'rival':        vjRival(h); return;
-    case 'videojuego':
-      if (!window._platAbrir){ vjFlash('El videojuego no está disponible acá.'); return; }
-      vjDetener();
-      window._platVolverA = function(){ window._vidaJugable(); };
-      window._platAbrir({ apellido:G.apellido, num:G.num, colores:kitOf(G.pais||'Uruguay'),
-      piel:(AV_PIELES.find(x=>x.id===((G.avatar||{}).piel))||AV_PIELES[1]).c,
-      pelo:(AV_COLORES_PELO.find(x=>x.id===((G.avatar||{}).peloColor))||AV_COLORES_PELO[0]).c,
-      rival:(G.rival&&G.rival.nombre)||null, rivalCol:kitOf((G.rival&&G.rival.pais)||'Argentina') });
-      return;
     case 'cambiarRepre': vjDetener(); window._elegirRepre('cambio'); return;
     case 'bienes':       vjDetener(); window._carreraBienes(); return;
     case 'tablas':       vjDetener(); if(G._tablasData) window._verTablas('pos'); else vjFlash('Todavía no jugaste una temporada completa.'); return;
@@ -11047,53 +11145,6 @@ function vjAmbienteTick(){
   .catch(()=> mostrar(localA, localB));
 }
 
-// Pantalla de conversación: escribís, te contesta, y podés seguir.
-window._vjHablar = function(indice){
-  const h = (VJ.hotspots||[])[indice];
-  if(!h) return;
-  vjDetener();
-  VJ._chatCon = h;
-  VJ._chatHilo = [];
-  vjPintarChat();
-};
-function vjPintarChat(){
-  const h = VJ._chatCon; if(!h) return;
-  const nombre = h.nombre || vjNombreNPC(h.semilla, vjGen(h));
-  const rol = (h.rol || 'vecino');
-  const m = document.getElementById('carrera-modal') || overlay();
-  m.innerHTML = `
-  <!-- La charla ocupa TODA la pantalla y el hilo se estira: antes vivía en una
-       cajita de 210px y había que deslizar para leer tres mensajes. -->
-  <div style="height:100%;min-height:100%;background:#05070a;display:flex;flex-direction:column;position:relative;">
-    ${fondoEscenaHTML()}
-    <div style="position:relative;flex:1;min-height:0;max-width:640px;margin:0 auto;width:100%;padding:52px 18px calc(18px + env(safe-area-inset-bottom));box-sizing:border-box;display:flex;flex-direction:column;">
-      <div style="flex:0 0 auto;display:flex;align-items:flex-end;justify-content:center;gap:6px;margin-bottom:10px;">
-        <div style="line-height:0;">${h.tipo==='npc' ? vjSpriteHab(h,'idle') : vjObjSVG(h.obj, h.escala)}</div>
-        <div style="line-height:0;transform:scaleX(-1);">${vjSpriteJugador('idle')}</div>
-      </div>
-      <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:rgba(10,13,8,.82);border:1.5px solid #2a3a4c;border-radius:18px;padding:14px;">
-        <div style="flex:0 0 auto;font-size:10px;font-weight:900;letter-spacing:1.5px;color:${A};margin-bottom:9px;">${esc(nombre.toUpperCase())} · ${esc(String(rol).toUpperCase())}</div>
-        <div id="ly-chat-hilo" style="flex:1;min-height:96px;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:7px;margin-bottom:11px;">
-          ${VJ._chatHilo.length ? VJ._chatHilo.map(l=>`
-            <div style="align-self:${l.yo?'flex-end':'flex-start'};max-width:84%;background:${l.yo?'rgba(186,255,0,.14)':'rgba(255,255,255,.06)'};border:1px solid ${l.yo?'rgba(186,255,0,.35)':'#243040'};color:${l.yo?A:'#dbe3ee'};border-radius:13px;padding:8px 11px;font-size:13px;line-height:1.45;${l.pensando?'opacity:.6;letter-spacing:2px;':''}">${l.pensando?'···':esc(l.t)}</div>`).join('')
-            : `<div style="font-size:12.5px;color:#7d879a;">Escribile lo que quieras. Te va a contestar según quién es, qué le dijiste y cómo venís vos.</div>`}
-        </div>
-        <div style="flex:0 0 auto;display:flex;gap:8px;">
-          <input id="ly-chat-in" maxlength="160" ${VJ._chatHilo.some(x=>x.pensando)?'disabled':''} placeholder="Escribí acá..." style="flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid #243040;color:#fff;border-radius:12px;padding:12px;font-size:16px;font-family:inherit;">
-          <button onclick="window._vjChatEnviar()" style="background:rgba(186,255,0,.16);border:1px solid ${A};color:${A};border-radius:12px;padding:12px 16px;font-weight:900;font-size:13px;cursor:pointer;"><i class='bx bx-send'></i></button>
-        </div>
-        <button onclick="window._vjChatCerrar()" style="flex:0 0 auto;width:100%;margin-top:9px;background:transparent;border:none;color:#5d6879;font-size:12px;font-weight:800;cursor:pointer;padding:8px;">Cortar la charla</button>
-      </div>
-    </div>
-  </div>`;
-  const inp = document.getElementById('ly-chat-in');
-  if (inp){
-    inp.focus();
-    inp.addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); window._vjChatEnviar(); } });
-  }
-  const hilo = document.getElementById('ly-chat-hilo');
-  if (hilo) hilo.scrollTop = hilo.scrollHeight;
-}
 // Ficha completa para que el personaje entienda de qué se está hablando: quién es
 // él, quién sos vos y cómo viene la partida. Sin esto la respuesta sería genérica.
 function vjChatContexto(h){
@@ -11125,68 +11176,6 @@ function vjChatContexto(h){
     nietos: nombres(fam.nietos) || null
   };
 }
-window._vjChatEnviar = function(){
-  const inp = document.getElementById('ly-chat-in');
-  const txt = inp ? String(inp.value||'').trim() : '';
-  if(!txt) return;
-  const h = VJ._chatCon; if(!h) return;
-  VJ._chatHilo.push({ yo:true, t:txt });
-  const semilla = h.semilla || h.obj || 'x';
-  const rol = h.rol || 'vecino';
-  const nombreNPC = h.nombre || '';
-  const responder = (r)=>{
-    // Se saca el "pensando..." si estaba, y se agrega la respuesta.
-    if (VJ._chatHilo.length && VJ._chatHilo[VJ._chatHilo.length-1].pensando) VJ._chatHilo.pop();
-    VJ._chatHilo.push({ yo:false, t:r });
-    if(G) save();
-    vjPintarChat();
-  };
-  const local = ()=> responder(npcResponder(txt, rol, semilla, nombreNPC));
-
-  // 1) Gancho propio, si alguien lo definió (tiene prioridad).
-  if (typeof window.CANCHERO_LEYENDA_IA === 'function'){
-    VJ._chatHilo.push({ yo:false, t:'...', pensando:true });
-    vjPintarChat();
-    Promise.resolve(window.CANCHERO_LEYENDA_IA(Object.assign({ tipo:'respuesta', dijo:txt,
-      hilo: VJ._chatHilo.filter(x=>!x.pensando), mundo:VJ.mundo, escena:VJ.escena }, vjChatContexto(h))))
-      .then(t=> t ? responder(String(t).slice(0,240)) : local())
-      .catch(local);
-    return;
-  }
-
-  // 2) EL PERSONAJE PIENSA DE VERDAD: se le manda la charla entera y la ficha de
-  //    la partida a nuestro endpoint, que responde en personaje y AL TEMA.
-  //    Si no hay endpoint (o no está la key, o no hay red) cae al generador local
-  //    sin que el jugador note un error.
-  if (window._lyChatIA !== false){
-    VJ._chatHilo.push({ yo:false, t:'...', pensando:true });
-    vjPintarChat();
-    const ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
-    const corte = setTimeout(()=>{ try{ ctrl && ctrl.abort(); }catch(e){} }, 9000);
-    fetch('/api/game-judge', {
-      method:'POST', headers:{ 'Content-Type':'application/json' },
-      signal: ctrl ? ctrl.signal : undefined,
-      body: JSON.stringify(Object.assign({ modo:'chat', hilo: VJ._chatHilo.filter(x=>!x.pensando) }, vjChatContexto(h)))
-    })
-    .then(r=>{
-      clearTimeout(corte);
-      if (r.status === 204){ vjAvisarSinIA('el servidor no devolvio texto'); return null; }
-      if (!r.ok){ vjAvisarSinIA('el servidor respondio ' + r.status); return null; }
-      return r.json();
-    })
-    .then(d=>{ if (d && d.texto) responder(d.texto); else local(); })
-    .catch(()=>{ clearTimeout(corte); vjAvisarSinIA(); local(); });
-    return;
-  }
-  local();
-};
-window._vjChatCerrar = function(){
-  VJ._chatCon = null; VJ._chatHilo = [];
-  if (VJ.mundo === 'vida') window._vidaJugable();
-  else if (VJ.mundo === 'club') window._clubMundo(VJ.escena);
-  else mundoRender();
-};
-
 // Charlas ambientales: no cambian el rumbo, pero el mundo tiene que tener voz.
 const VJ_CHARLAS = {
   potrero: [
@@ -11238,40 +11227,12 @@ function vjFraseViva(cat){
   const pool = T.concat(ctx);
   return (pick(HABLA.arranque) + ' ' + pool[Math.floor(Math.random()*pool.length)] + ' ' + pick(HABLA.cierre)).replace(/\s+/g,' ').trim();
 }
-function vjAbrirCon(h, cat){
-  const local = ()=>{
-    VJ._chatHilo = [{ yo:false, t: (Math.random() < 0.5 ? vjFraseViva(cat || 'club')
-                                                       : pick(VJ_CHARLAS[cat] || VJ_CHARLAS.club)) }];
-    vjPintarChat();
-  };
-  if (window._lyChatIA === false || typeof fetch !== 'function'){ local(); return; }
-  VJ._chatHilo = [{ yo:false, t:'...', pensando:true }];
-  vjPintarChat();
-  const ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
-  const corte = setTimeout(()=>{ try{ ctrl && ctrl.abort(); }catch(e){} }, 9000);
-  // Se le manda un gesto, no un texto del jugador: el personaje abre la charla.
-  const hilo = [{ yo:true, t:'(te ve, se acerca y te saluda. Arrancá vos la charla con algo tuyo.)' }];
-  fetch('/api/game-judge', {
-    method:'POST', headers:{ 'Content-Type':'application/json' },
-    signal: ctrl ? ctrl.signal : undefined,
-    body: JSON.stringify(Object.assign({ modo:'chat', hilo }, vjChatContexto(h)))
-  })
-  .then(r=>{ clearTimeout(corte); return r.ok ? r.json() : null; })
-  .then(d=>{
-    if (d && d.texto){ VJ._chatHilo = [{ yo:false, t:d.texto }]; vjPintarChat(); }
-    else local();
-  })
-  .catch(()=>{ clearTimeout(corte); local(); });
-}
 function vjCharla(h, cat){
   // Charlar es CONVERSAR: se abre el hilo y el personaje arranca hablando.
   // Antes esto tiraba una frase del banco y se terminaba ahi.
   if (h && h.tipo === 'npc'){
-    vjDetener();
-    VJ._chatCon = h;
-    VJ._chatHilo = [];
-    vjAbrirCon(h, cat);
-    return;
+    const i = (VJ.hotspots||[]).indexOf(h);
+    if (i >= 0){ window._vjHablar(i); return; }
   }
   return vjCharlaFlash(h, cat);
 }
@@ -12162,26 +12123,35 @@ function vjDormir(){
 // rotación gira sobre el CENTRO (que es predecible) y un acolchado le tapa las
 // piernas, que es lo que termina de venderlo como "está acostado".
 function camaConPersonaHTML(){
-  const S = 2.1;                       // misma escala que el SVG de la cama
-  const W = Math.round(88 * S), H = Math.round(50 * S);
-  // Colchón útil dentro del dibujo de la cama (coords base × escala).
-  const colchonX = 8 * S, colchonW = 74 * S;
-  const almohadaCx = (15 + 17/2) * S;  // centro de la almohada: ahí va la cabeza
-  const colchonY = 16 * S;
-  // El cuerpo se APOYA sobre el colchón y se centra en él. Antes la posición
-  // salía de un alto de sprite supuesto (72 px): como el sprite mide otra cosa
-  // según la edad y la ropa, el muñeco terminaba colgando fuera de la cama.
-  const escala = 1.25;
-  const cx = colchonX + colchonW * 0.47;
-  const cy = colchonY + 13;
+  // VISTA DESDE ARRIBA. De costado no se entendia: el muneco es un sprite de
+  // frente y, girado, se leia como una persona parada volcada. Mirando la cama
+  // desde arriba, ese mismo giro es exactamente lo que corresponde: se ve
+  // acostado boca arriba, con la cabeza en la almohada y el acolchado encima.
+  const W = 216, H = 116;
+  const marco = 7;
+  const colX = marco + 4, colY = marco + 4;
+  const colW = W - (colX * 2), colH = H - (colY * 2);
+  const almW = Math.round(colW * 0.20);
+  const escala = 1.15;
+  // La cabeza va sobre la almohada: el sprite se centra un poco a la derecha de
+  // ella y se gira 90 grados (los pies quedan hacia el otro extremo).
+  const cx = colX + almW + (colW - almW) * 0.42;
+  const cy = colY + colH / 2;
   return `
   <div style="position:relative;width:${W}px;height:${H}px;">
-    <div style="position:absolute;left:0;bottom:0;line-height:0;">${vjObjSVG('cama', S)}</div>
-    <div style="position:absolute;left:${cx}px;top:${cy}px;transform:translate(-50%,-50%) rotate(-90deg) translateY(2px);transform-origin:50% 50%;line-height:0;">
+    <!-- estructura de la cama -->
+    <div style="position:absolute;inset:0;background:#4a3324;border-radius:9px;box-shadow:0 4px 14px rgba(0,0,0,.5);"></div>
+    <div style="position:absolute;left:${marco}px;top:${marco}px;right:${marco}px;bottom:${marco}px;background:#6b4a34;border-radius:6px;"></div>
+    <!-- colchon -->
+    <div style="position:absolute;left:${colX}px;top:${colY}px;width:${colW}px;height:${colH}px;background:linear-gradient(180deg,#efeaf5,#ddd6e6);border-radius:4px;"></div>
+    <!-- almohada -->
+    <div style="position:absolute;left:${colX + 3}px;top:${colY + 6}px;width:${almW}px;height:${colH - 12}px;background:linear-gradient(180deg,#ffffff,#e8e2f0);border-radius:5px;box-shadow:inset 0 -2px 0 rgba(0,0,0,.06);"></div>
+    <!-- el que duerme -->
+    <div style="position:absolute;left:${cx}px;top:${cy}px;transform:translate(-50%,-50%) rotate(-90deg);transform-origin:50% 50%;line-height:0;">
       ${avatarSprite(G.avatar, { edad:G.vidaEdad, escala, pose:'idle', ropa:vjRopa()||undefined, num:'', apellido:'' })}
     </div>
-    <!-- Acolchado por encima: tapa de la cintura a los pies -->
-    <div style="position:absolute;left:${colchonX + colchonW*0.44}px;top:${colchonY + 1}px;width:${colchonW*0.54}px;height:${30}px;background:linear-gradient(180deg,#7d5a8c,#54395f);border-radius:3px;box-shadow:inset 0 2px 0 rgba(255,255,255,.18);"></div>
+    <!-- acolchado: de la cintura a los pies -->
+    <div style="position:absolute;left:${colX + almW + Math.round((colW-almW)*0.34)}px;top:${colY}px;width:${Math.round((colW-almW)*0.66)}px;height:${colH}px;background:linear-gradient(180deg,#7d5a8c,#54395f);border-radius:0 4px 4px 0;box-shadow:inset 3px 0 0 rgba(255,255,255,.16);"></div>
   </div>`;
 }
 window._carreraSegundaVida = function(rol){
@@ -13034,6 +13004,294 @@ function st2(l,v){ return `<div style="background:rgba(255,255,255,.04);border:1
     else window.addEventListener('load', function(){ setTimeout(abrir, 400); });
   }catch(e){}
 })();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LOS DESAFÍOS DE LA GENTE
+// Antes, tocar a una persona abría un cuadro de texto para escribirle. Escribir
+// no es jugar: la charla no llevaba a ningún lado y siempre terminaba igual.
+// Ahora cada persona te PONE ADELANTE UNA SITUACIÓN y vos elegís. Cada rol tiene
+// su propio banco y ninguno se repite hasta que se agotan todos.
+// ══════════════════════════════════════════════════════════════════════════════
+function retoFamilia(rol){
+  const r = String(rol||'').toLowerCase();
+  if (/pareja/.test(r)) return 'pareja';
+  if (/nieto|nieta/.test(r)) return 'nieto';
+  if (/hijo|hija/.test(r)) return 'hijo';
+  if (/abuelo|viejo|padre/.test(r)) return 'viejo';
+  if (/dt|t[eé]cnico|entrenador/.test(r)) return 'dt';
+  if (/capit[aá]n|veterano|compa[nñ]ero/.test(r)) return 'vestuario';
+  if (/hincha|socio|vecino/.test(r)) return 'gente';
+  if (/repre|empresario|jefe|presidente|dirigente/.test(r)) return 'negocio';
+  if (/m[eé]dico|kinesi/.test(r)) return 'medico';
+  if (/ojeador|capta/.test(r)) return 'ojeador';
+  if (/juvenil|alumno|pibe/.test(r)) return 'pibe';
+  return 'gente';
+}
+// ef(g, s) → texto. `g` es la partida; `s` son tus barras personales.
+const RETOS = {
+  pareja: [
+    { t:'Te pide una noche sin fútbol', d:'"Una. Sin teléfono, sin repeticiones, sin hablar del domingo."', opts:[
+      { txt:'Apagar todo y quedarme', ef:(g,s)=>{ s.felicidad=(s.felicidad||50)+10; s.familia=(s.familia||50)+9; s.soledad=(s.soledad||40)-10; return 'Cocinaron, se rieron y no se habló de fútbol. Dormiste mejor que en meses.'; } },
+      { txt:'Prometer que después del partido', ef:(g,s)=>{ s.familia=(s.familia||50)-7; g.nivel=clamp((g.nivel||60)+1,30,99); return 'Miraste el partido. Ella se fue a dormir antes. No dijo nada, que es peor.'; } } ] },
+    { t:'Quiere volver a trabajar', d:'"Dejé lo mío cuando nos mudamos por vos. Quiero algo mío otra vez."', opts:[
+      { txt:'Bancarla y reorganizar la casa', ef:(g,s)=>{ s.felicidad=(s.felicidad||50)+8; s.familia=(s.familia||50)+12; return 'Volvió a trabajar y volvió a ser ella. En tu casa se respira distinto.'; } },
+      { txt:'Pedirle que espere a que termine la temporada', ef:(g,s)=>{ s.familia=(s.familia||50)-12; s.felicidad=(s.felicidad||50)-6; return 'Aceptó. Pero desde ese día algo quedó anotado en alguna parte.'; } } ] },
+    { t:'Se enteró de una noche que no le contaste', d:'"Me lo contaron otros. Eso es lo que me duele."', opts:[
+      { txt:'Decir toda la verdad', ef:(g,s)=>{ s.familia=(s.familia||50)-6; s.felicidad=(s.felicidad||50)+5; return 'Fue una noche larga y fea. Terminaron hablando de verdad por primera vez en un año.'; } },
+      { txt:'Minimizarlo', ef:(g,s)=>{ s.familia=(s.familia||50)-14; g.moral=clamp((g.moral||60)-6,0,100); return 'Te creyó a medias. Las medias verdades se acumulan.'; } } ] },
+    { t:'Te propone mudarse más cerca de su familia', d:'"Están grandes. Y a los chicos les hace bien."', opts:[
+      { txt:'Mudarse', ef:(g,s)=>{ s.familia=(s.familia||50)+14; s.soledad=(s.soledad||40)-10; g.dinero=Math.max(0,(g.dinero||0)-ri(20000,90000)); return 'Casa nueva, viajes más largos al entrenamiento y una mesa llena los domingos.'; } },
+      { txt:'Quedarse cerca del club', ef:(g,s)=>{ s.familia=(s.familia||50)-8; g.nivel=clamp((g.nivel||60)+1,30,99); return 'Ganaste una hora por día. La usaste entrenando.'; } } ] },
+    { t:'Te para en la puerta antes de un clásico', d:'"Pase lo que pase hoy, volvé igual. No vuelvas otro."', opts:[
+      { txt:'Prometérselo', ef:(g,s)=>{ s.felicidad=(s.felicidad||50)+7; g.moral=clamp((g.moral||60)+8,0,100); return 'Jugaste liviano. Cuando terminó, fuiste el mismo que salió a la mañana.'; } },
+      { txt:'No contestar y salir', ef:(g,s)=>{ s.familia=(s.familia||50)-6; g.moral=clamp((g.moral||60)+3,0,100); return 'Saliste con la cabeza en otro lado. Jugaste como una máquina y volviste como una máquina.'; } } ] },
+    { t:'Quiere otro hijo', d:'"Ahora. Después vas a estar de gira, o lesionado, o en otro país."', opts:[
+      { txt:'Decir que sí', ef:(g,s)=>{ const fam=g.familia=g.familia||{}; if(fam.pareja && !fam.embarazada && (fam.hijos||[]).length<4){ fam.embarazada=true; } s.felicidad=(s.felicidad||50)+12; s.familia=(s.familia||50)+10; return 'Lo decidieron una noche cualquiera, sin ceremonia. En unos meses son uno más.'; } },
+      { txt:'Pedir tiempo', ef:(g,s)=>{ s.familia=(s.familia||50)-6; return 'Lo hablaron y quedó para más adelante. "Más adelante" es una palabra peligrosa.'; } } ] },
+    { t:'Se peleó con tu representante', d:'"Ese tipo te usa. Y vos le creés todo."', opts:[
+      { txt:'Darle la razón a ella', ef:(g,s)=>{ s.familia=(s.familia||50)+9; g._repreDudas=true; return 'Empezaste a leer los contratos vos. Tardás más y firmás mejor.'; } },
+      { txt:'Defender al representante', ef:(g,s)=>{ s.familia=(s.familia||50)-9; g.dinero=(g.dinero||0)+ri(10000,60000); return 'Firmaste igual y entró plata. En tu casa se cenó en silencio.'; } } ] },
+    { t:'Te pide que dejes de leer lo que dicen de vos', d:'"Te veo la cara cuando agarrás el teléfono."', opts:[
+      { txt:'Entregarle el teléfono una semana', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+12,0,100); s.felicidad=(s.felicidad||50)+8; return 'Siete días sin leer nada. Volviste a jugar sin la voz de nadie en la cabeza.'; } },
+      { txt:'Decir que no me afecta', ef:(g,s)=>{ g.moral=clamp((g.moral||60)-7,0,100); return 'Te afecta. Los dos lo saben.'; } } ] }
+  ],
+  hijo: [
+    { t:'No quiere jugar al fútbol', d:'"Todos me comparan con vos. Quiero hacer otra cosa."', opts:[
+      { txt:'Decirle que haga lo suyo', ef:(g,s)=>{ s.familia=(s.familia||50)+13; s.felicidad=(s.felicidad||50)+8; return 'Se le iluminó la cara. Ese día dejó de tener miedo de decepcionarte.'; } },
+      { txt:'Insistir un año más', ef:(g,s)=>{ s.familia=(s.familia||50)-11; return 'Fue a entrenar por vos. Se le nota en la cara y vos también lo ves.'; } } ] },
+    { t:'Le hicieron bullying en la escuela', d:'Volvió callado y no quiere contar por qué.', opts:[
+      { txt:'Ir a hablar con la escuela', ef:(g,s)=>{ s.familia=(s.familia||50)+10; return 'Se resolvió en dos días. Aprendió que cuando algo duele, se dice.'; } },
+      { txt:'Enseñarle a bancársela solo', ef:(g,s)=>{ s.familia=(s.familia||50)+4; s.felicidad=(s.felicidad||50)-3; return 'Lo resolvió él. Le sirvió, aunque le costó más de lo que hacía falta.'; } } ] },
+    { t:'Te pide que vayas a su partido', d:'"El sábado a las nueve. Ya sé que entrenás. Igual te aviso."', opts:[
+      { txt:'Pedir permiso e ir', ef:(g,s)=>{ s.familia=(s.familia||50)+15; g.nivel=clamp((g.nivel||60)-1,30,99); return 'Te vio desde el alambrado y jugó como nunca. Vos también te acordás de ese partido.'; } },
+      { txt:'Mandar a alguien a filmarlo', ef:(g,s)=>{ s.familia=(s.familia||50)-5; return 'Miraste el video a la noche. No es lo mismo y los dos lo saben.'; } } ] },
+    { t:'Quiere usar tu apellido en la camiseta', d:'"En el club me quieren poner tu nombre atrás. ¿Puedo?"', opts:[
+      { txt:'Que se lo ponga con orgullo', ef:(g,s)=>{ s.familia=(s.familia||50)+9; g.fama=clamp((g.fama||0)+4,0,100); return 'Salió a la cancha con tu apellido y no le pesó ni un gramo.'; } },
+      { txt:'Que se haga el suyo primero', ef:(g,s)=>{ s.familia=(s.familia||50)+6; return 'Puso solo su nombre de pila. Le va a servir más de lo que hoy entiende.'; } } ] },
+    { t:'Se le murió el perro', d:'Es la primera vez que le pasa algo así.', opts:[
+      { txt:'Quedarme con él toda la tarde', ef:(g,s)=>{ s.familia=(s.familia||50)+11; s.felicidad=(s.felicidad||50)+5; return 'Lloraron los dos y después salieron a caminar. Hay tardes que se recuerdan enteras.'; } },
+      { txt:'Comprarle otro enseguida', ef:(g,s)=>{ s.familia=(s.familia||50)-4; g.dinero=Math.max(0,(g.dinero||0)-ri(500,3000)); return 'Se puso contento un rato. Al otro perro le puso el mismo nombre.'; } } ] },
+    { t:'Te pide plata para algo que no explica', d:'Tiene diecisiete y no te mira a los ojos.', opts:[
+      { txt:'Dársela sin preguntar', ef:(g,s)=>{ g.dinero=Math.max(0,(g.dinero||0)-ri(2000,15000)); s.familia=(s.familia||50)-3; return 'Se la diste. Tres meses después te enteraste para qué era, y no fue tan grave.'; } },
+      { txt:'Sentarse a hablar antes', ef:(g,s)=>{ s.familia=(s.familia||50)+9; return 'Tardó media hora en contarlo. Salió más barato y quedó mejor.'; } } ] },
+    { t:'Quiere dejar el liceo para probarse afuera', d:'"Tengo dieciséis. Es ahora."', opts:[
+      { txt:'Dejarlo ir', ef:(g,s)=>{ s.familia=(s.familia||50)+5; s.soledad=(s.soledad||40)+9; return 'Se fue con un bolso. Le pasó lo mismo que a vos, veinte años después.'; } },
+      { txt:'Que termine y después se prueba', ef:(g,s)=>{ s.familia=(s.familia||50)-6; s.felicidad=(s.felicidad||50)+4; return 'Terminó. Te lo agradeció recién a los treinta, pero te lo agradeció.'; } } ] }
+  ],
+  nieto: [
+    { t:'Quiere que le enseñes a pegarle', d:'Tiene la pelota en la mano y no la suelta.', opts:[
+      { txt:'Salir al patio con él', ef:(g,s)=>{ s.felicidad=(s.felicidad||50)+12; s.familia=(s.familia||50)+10; s.salud=(s.salud||70)-2; return 'Dos horas en el patio. Te dolió todo, y no te importó nada.'; } },
+      { txt:'Explicarle sentado', ef:(g,s)=>{ s.familia=(s.familia||50)+5; return 'Te escuchó diez minutos y se fue igual a probar solo. Como corresponde.'; } } ] },
+    { t:'Le preguntan en la escuela quién sos', d:'"La maestra dijo que traigas algo tuyo para mostrar."', opts:[
+      { txt:'Ir yo a la escuela', ef:(g,s)=>{ s.felicidad=(s.felicidad||50)+11; g.fama=clamp((g.fama||0)+3,0,100); return 'Firmaste cuadernos una hora. Tu nieto no dejó de mirarte ni un segundo.'; } },
+      { txt:'Mandarle una camiseta firmada', ef:(g,s)=>{ s.familia=(s.familia||50)+5; return 'La llevó como un trofeo. Igual te preguntó por qué no fuiste.'; } } ] },
+    { t:'Lo dejaron afuera del equipo', d:'Llegó de la escuelita sin hablar.', opts:[
+      { txt:'Contarle cuántas veces me dejaron afuera a mí', ef:(g,s)=>{ s.familia=(s.familia||50)+12; return 'Se le pasó en veinte minutos. Volvió al otro día a entrenar.'; } },
+      { txt:'Ir a hablar con el técnico', ef:(g,s)=>{ s.familia=(s.familia||50)-4; g.fama=clamp((g.fama||0)-2,0,100); return 'Lo pusieron. Nadie quedó del todo contento, tu nieto tampoco.'; } } ] },
+    { t:'Te pide que le cuentes el gol', d:'Otra vez. La misma historia por decimoquinta vez.', opts:[
+      { txt:'Contarla otra vez, entera', ef:(g,s)=>{ s.felicidad=(s.felicidad||50)+9; s.soledad=(s.soledad||40)-9; return 'La contaste con los mismos gestos de siempre. Los dos disfrutan la parte final.'; } },
+      { txt:'Buscar el video y verlo juntos', ef:(g,s)=>{ s.felicidad=(s.felicidad||50)+7; return 'Lo vieron cuatro veces seguidas. Después él lo actuó en el living.'; } } ] }
+  ],
+  viejo: [
+    { t:'Te pregunta si estás bien', d:'No pregunta por el fútbol. Pregunta por vos.', opts:[
+      { txt:'Contarle la verdad', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+11,0,100); s.soledad=(s.soledad||40)-12; return 'Le contaste todo. No te dio ningún consejo y aun así te sacó un peso de encima.'; } },
+      { txt:'Decir que todo bien', ef:(g,s)=>{ s.soledad=(s.soledad||40)+6; return 'Te miró un rato largo. Sabía que no, pero respetó.'; } } ] },
+    { t:'Está enfermo y no quiere molestar', d:'Te enteraste por otro.', opts:[
+      { txt:'Llevarlo al mejor médico que haya', ef:(g,s)=>{ g.dinero=Math.max(0,(g.dinero||0)-ri(10000,60000)); s.familia=(s.familia||50)+13; return 'Se dejó ayudar a regañadientes. Salió bien, y él nunca lo va a admitir.'; } },
+      { txt:'Ir a acompañarlo y nada más', ef:(g,s)=>{ s.familia=(s.familia||50)+9; s.felicidad=(s.felicidad||50)+5; return 'Se sentaron a mirar un partido sin hablar. Fue exactamente lo que necesitaba.'; } } ] },
+    { t:'Quiere que lo lleves a la cancha', d:'"Antes de que no pueda subir la escalera."', opts:[
+      { txt:'Conseguir dos entradas y subir esa escalera', ef:(g,s)=>{ s.felicidad=(s.felicidad||50)+13; s.familia=(s.familia||50)+8; return 'Subieron despacio, parando dos veces. Cantó los noventa minutos.'; } },
+      { txt:'Llevarlo al palco', ef:(g,s)=>{ s.familia=(s.familia||50)+5; return 'Vio todo cómodo y dijo que se veía mejor de arriba. No era cierto y a los dos les dio igual.'; } } ] }
+  ],
+  dt: [
+    { t:'Te pide que cambies de puesto por el equipo', d:'"Te necesito unos metros más atrás. No te va a gustar."', opts:[
+      { txt:'Aceptar y aprenderlo', ef:(g,s)=>{ g.nivel=clamp((g.nivel||60)+3,30,99); g.fama=clamp((g.fama||0)-3,0,100); return 'Metés menos goles y sos más importante. Tardaste medio año en entenderlo.'; } },
+      { txt:'Decirle que mi puesto es el mío', ef:(g,s)=>{ g.moral=clamp((g.moral||60)-6,0,100); g.nivel=clamp((g.nivel||60)+1,30,99); return 'Te respetó la postura y te sentó dos fechas. Después volviste a tu lugar.'; } } ] },
+    { t:'Te hace capitán', d:'"Necesito que hables vos adentro, no yo desde afuera."', opts:[
+      { txt:'Agarrar la cinta', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+10,0,100); g.fama=clamp((g.fama||0)+6,0,100); return 'Te la pusiste y el vestuario cambió de tono. También cambió lo que te reclaman.'; } },
+      { txt:'Proponer a un compañero', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+4,0,100); return 'Nombraste a otro. El vestuario lo tomó como un gesto y te lo devolvió.'; } } ] },
+    { t:'Quiere que juegues infiltrado', d:'"Es una final. Una inyección y jugás."', opts:[
+      { txt:'Jugar infiltrado', ef:(g,s)=>{ g.nivel=clamp((g.nivel||60)+1,30,99); s.salud=(s.salud||70)-14; g.fama=clamp((g.fama||0)+7,0,100); return 'Jugaste y no se notó nada. Tres semanas después se notó todo.'; } },
+      { txt:'Decir que no', ef:(g,s)=>{ g.moral=clamp((g.moral||60)-5,0,100); s.salud=(s.salud||70)+6; return 'Te perdiste la final desde el banco. Tu rodilla te lo agradece hasta hoy.'; } } ] },
+    { t:'Te deja afuera de la lista', d:'"Esta te la vas a ver desde afuera. Es una decisión mía."', opts:[
+      { txt:'Entrenar el doble sin decir nada', ef:(g,s)=>{ g.nivel=clamp((g.nivel||60)+3,30,99); return 'Dos semanas sin abrir la boca. Volviste y no te sacó más.'; } },
+      { txt:'Encararlo de frente', ef:(g,s)=>{ const bien=Math.random()<.5; g.moral=clamp((g.moral||60)+(bien?8:-10),0,100); return bien?'Se dijeron todo y quedaron bien. Te puso el domingo.':'Se dijeron todo y quedaron mal. Tardaste un mes en volver.'; } } ] },
+    { t:'Te pregunta qué hacemos con el pibe', d:'"Tiene diecisiete y no sé si está para jugar el clásico."', opts:[
+      { txt:'Que juegue, yo lo llevo', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+7,0,100); g.fama=clamp((g.fama||0)+4,0,100); return 'Jugó al lado tuyo y anduvo bárbaro. Ahora te sigue a todos lados.'; } },
+      { txt:'Que espere, no está', ef:(g,s)=>{ g.nivel=clamp((g.nivel||60)+1,30,99); return 'Esperó seis meses. Cuando entró, entró bien. También era una respuesta.'; } } ] }
+  ],
+  vestuario: [
+    { t:'Se armó una interna por el sueldo', d:'"A vos te pagan al día y a nosotros hace tres meses que no."', opts:[
+      { txt:'Ponerme del lado del plantel', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+9,0,100); g.dinero=Math.max(0,(g.dinero||0)-ri(5000,30000)); return 'Fuiste vos el que habló con la dirigencia. Cobraron todos, y a vos te miraron feo arriba.'; } },
+      { txt:'No meterme', ef:(g,s)=>{ g.moral=clamp((g.moral||60)-8,0,100); return 'Nadie te dijo nada. Y sin embargo el vestuario se enfrió con vos.'; } } ] },
+    { t:'Un compañero está jugando mal por algo de afuera', d:'"No es la rodilla. Es la casa. No se lo digas a nadie."', opts:[
+      { txt:'Bancarlo y taparlo un mes', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+8,0,100); s.felicidad=(s.felicidad||50)+4; return 'Le tapaste errores un mes entero. Cuando salió del pozo, no se olvidó más.'; } },
+      { txt:'Hablarlo con el técnico', ef:(g,s)=>{ g.moral=clamp((g.moral||60)-4,0,100); return 'El técnico lo ayudó, pero él se enteró de que fuiste vos. Nunca fue igual.'; } } ] },
+    { t:'Te piden que lideres un reclamo contra el DT', d:'Medio plantel quiere que se vaya. Vos jugás todos los partidos.', opts:[
+      { txt:'Ponerme al frente', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+5,0,100); g.fama=clamp((g.fama||0)+5,0,100); g.flags=g.flags||{}; g.flags.rebelde=true; return 'Lo echaron. La prensa dijo tu nombre en todos los títulos, para bien y para mal.'; } },
+      { txt:'Frenarlos', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+7,0,100); g.nivel=clamp((g.nivel||60)+1,30,99); return 'Los sentaste y les hiciste ver el fixture. Ganaron tres al hilo y se terminó la interna.'; } } ] },
+    { t:'El más joven te pide consejo de plata', d:'"Firmé lo primero que me pusieron. ¿Está bien?"', opts:[
+      { txt:'Revisarle el contrato con mi gente', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+7,0,100); return 'Le encontraron tres cláusulas de terror. Se las sacaron. Te debe una carrera.'; } },
+      { txt:'Decirle que aprenda solo', ef:(g,s)=>{ g.moral=clamp((g.moral||60)-3,0,100); return 'Aprendió, sí. Le costó dos años de sueldo.'; } } ] },
+    { t:'Fiesta después de ganar el clásico', d:'Todo el plantel va. Mañana hay doble turno.', opts:[
+      { txt:'Ir un rato y volverme', ef:(g,s)=>{ s.felicidad=(s.felicidad||50)+6; g.moral=clamp((g.moral||60)+4,0,100); return 'Te fuiste a la una. Al otro día entrenaste bien y nadie te acusó de amargo.'; } },
+      { txt:'Quedarme hasta el final', ef:(g,s)=>{ const mal=Math.random()<.5; s.felicidad=(s.felicidad||50)+10; if(mal){ g.nivel=clamp((g.nivel||60)-2,30,99); g.fama=clamp((g.fama||0)-4,0,100); } return mal?'Salieron fotos. Doble turno con resaca y el técnico mirándote.':'La pasaron bárbaro y nadie se enteró. A veces sale bien.'; } } ] }
+  ],
+  gente: [
+    { t:'Te para un pibe con la camiseta tuya', d:'Está con la madre y no puede hablar de los nervios.', opts:[
+      { txt:'Sacarme los botines y dárselos', ef:(g,s)=>{ g.fama=clamp((g.fama||0)+8,0,100); s.felicidad=(s.felicidad||50)+9; return 'La foto dio la vuelta al barrio. El pibe todavía los tiene colgados.'; } },
+      { txt:'Firmarle y sacarme una foto', ef:(g,s)=>{ g.fama=clamp((g.fama||0)+4,0,100); s.felicidad=(s.felicidad||50)+4; return 'Se fue saltando. Cinco minutos que le cambiaron el mes.'; } } ] },
+    { t:'Te putean por la calle', d:'"Cobrás una fortuna para correr como corrés."', opts:[
+      { txt:'Frenar y escucharlo', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+6,0,100); g.fama=clamp((g.fama||0)+3,0,100); return 'Terminaron hablando diez minutos. Se fue pidiéndote perdón.'; } },
+      { txt:'Seguir de largo', ef:(g,s)=>{ g.moral=clamp((g.moral||60)-4,0,100); return 'Lo dejaste hablando solo. Te quedó picando toda la tarde igual.'; } } ] },
+    { t:'El club del barrio se queda sin luz', d:'La canchita donde empezaste no puede pagar las facturas.', opts:[
+      { txt:'Pagarla yo, un año entero', ef:(g,s)=>{ g.dinero=Math.max(0,(g.dinero||0)-ri(8000,40000)); g.fama=clamp((g.fama||0)+7,0,100); s.felicidad=(s.felicidad||50)+8; return 'Pusieron una placa con tu nombre. Pediste que la sacaran. La dejaron igual.'; } },
+      { txt:'Organizar un partido a beneficio', ef:(g,s)=>{ g.fama=clamp((g.fama||0)+9,0,100); s.salud=(s.salud||70)-3; return 'Vinieron ocho jugadores de primera. Juntaron para tres años.'; } } ] },
+    { t:'Un vecino te pide trabajo', d:'"Cualquier cosa. En serio, cualquier cosa."', opts:[
+      { txt:'Conseguirle algo de verdad', ef:(g,s)=>{ s.felicidad=(s.felicidad||50)+7; g.fama=clamp((g.fama||0)+3,0,100); return 'Movió unos contactos y entró en el club de utilero. Sigue ahí.'; } },
+      { txt:'Darle plata y listo', ef:(g,s)=>{ g.dinero=Math.max(0,(g.dinero||0)-ri(1000,8000)); s.felicidad=(s.felicidad||50)-2; return 'Le diste un sobre. A los dos meses volvió a golpear la puerta.'; } } ] },
+    { t:'Te piden que salgas en un acto político', d:'Pagan bien y prometen no usar tu imagen para nada más.', opts:[
+      { txt:'Ir', ef:(g,s)=>{ g.dinero=(g.dinero||0)+ri(20000,120000); g.fama=clamp((g.fama||0)+5,0,100); g.moral=clamp((g.moral||60)-6,0,100); return 'Usaron tu cara en todos lados. Cobraste, y medio barrio dejó de saludarte.'; } },
+      { txt:'No ir', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+6,0,100); return 'Dijiste que vos jugás a la pelota. Te lo respetaron los dos lados.'; } } ] }
+  ],
+  negocio: [
+    { t:'Te trae una oferta de un país lejos', d:'"Te triplican el sueldo. La liga es peor. Vos decidís."', opts:[
+      { txt:'Ir por la plata', ef:(g,s)=>{ g.dinero=(g.dinero||0)+ri(200000,900000); g.nivel=clamp((g.nivel||60)-2,30,99); s.familia=(s.familia||50)-8; return 'Te fuiste. La cuenta creció y el nivel bajó. Sabías el precio.'; } },
+      { txt:'Quedarme y competir', ef:(g,s)=>{ g.nivel=clamp((g.nivel||60)+3,30,99); g.moral=clamp((g.moral||60)+6,0,100); return 'Te quedaste. Un año más de exigencia real y se te notó en todo.'; } } ] },
+    { t:'Te ofrece una marca propia', d:'"Tu apellido en una zapatilla. Ponés plata y ponés cara."', opts:[
+      { txt:'Meterme', ef:(g,s)=>{ const va=Math.random()<.5; g.dinero=Math.max(0,(g.dinero||0)+(va?ri(80000,400000):-ri(60000,250000))); return va?'Se vendió mejor de lo que nadie esperaba. Tenés algo para cuando esto termine.':'No se vendió. Aprendiste caro que tu nombre no vende solo.'; } },
+      { txt:'Cobrar por prestar el nombre y nada más', ef:(g,s)=>{ g.dinero=(g.dinero||0)+ri(30000,120000); return 'Cobraste sin arriesgar. Menos plata, cero problemas.'; } } ] },
+    { t:'Se está quedando con más de lo que dice', d:'Los números no te cierran hace dos contratos.', opts:[
+      { txt:'Auditarlo', ef:(g,s)=>{ const roba=Math.random()<.55; if(roba){ g.dinero=(g.dinero||0)+ri(40000,200000); g.repre=null; } return roba?'Te estaba sacando el doble de lo pactado. Recuperaste parte y lo echaste.':'Estaba todo en regla. Quedó dolido y te lo hizo saber.'; } },
+      { txt:'Dejarlo pasar', ef:(g,s)=>{ g.moral=clamp((g.moral||60)-5,0,100); return 'Preferiste no mirar. Eso, en plata, tiene un número.'; } } ] },
+    { t:'Te propone una inversión "segura"', d:'"Es un amigo mío. Está todo firmado."', opts:[
+      { txt:'Poner plata', ef:(g,s)=>{ const va=Math.random()<.45; const m=ri(50000,300000); g.dinero=Math.max(0,(g.dinero||0)+(va?m:-m)); return va?'Salió bien. Duplicaste en dos años.':'El amigo desapareció. La plata también.'; } },
+      { txt:'Poner solo lo que puedo perder', ef:(g,s)=>{ const va=Math.random()<.45; const m=ri(10000,50000); g.dinero=Math.max(0,(g.dinero||0)+(va?m*2:-m)); return va?'Chico pero salió. Y dormiste todas las noches.':'Perdiste poco. Aprendiste mucho.'; } } ] }
+  ],
+  medico: [
+    { t:'Te encuentra algo en los estudios', d:'"No es grave hoy. Puede serlo si seguís así."', opts:[
+      { txt:'Parar lo que haya que parar', ef:(g,s)=>{ s.salud=(s.salud||70)+16; g.nivel=clamp((g.nivel||60)-1,30,99); return 'Un mes afuera. Volviste entero y con años de más en el cuerpo.'; } },
+      { txt:'Seguir y controlarme cada tanto', ef:(g,s)=>{ s.salud=(s.salud||70)-9; g.nivel=clamp((g.nivel||60)+1,30,99); return 'Seguiste jugando. Cada tanto te acordás de esa charla.'; } } ] },
+    { t:'Te propone una recuperación más rápida', d:'"Es legal. Es cara. Y es dura."', opts:[
+      { txt:'Hacerla', ef:(g,s)=>{ g.dinero=Math.max(0,(g.dinero||0)-ri(20000,90000)); s.salud=(s.salud||70)+10; g.nivel=clamp((g.nivel||60)+2,30,99); return 'Seis semanas de infierno y volviste antes de lo previsto.'; } },
+      { txt:'Recuperarme como siempre', ef:(g,s)=>{ s.salud=(s.salud||70)+4; return 'Tardaste lo que había que tardar. Sin atajos y sin sustos.'; } } ] },
+    { t:'Te dice que duermas más', d:'"Dormís cinco horas. Tu cuerpo tiene la edad que vos le das."', opts:[
+      { txt:'Cambiar la rutina entera', ef:(g,s)=>{ s.salud=(s.salud||70)+12; g.nivel=clamp((g.nivel||60)+2,30,99); s.felicidad=(s.felicidad||50)+5; return 'Ocho horas por noche. En dos meses eras otro jugador y otra persona.'; } },
+      { txt:'Prometerlo y no hacerlo', ef:(g,s)=>{ s.salud=(s.salud||70)-6; return 'Seguiste igual. El cuerpo lleva la cuenta aunque vos no.'; } } ] }
+  ],
+  ojeador: [
+    { t:'Te ofrece una prueba lejos de tu casa', d:'"Tres semanas allá. Si gustás, te quedás."', opts:[
+      { txt:'Ir', ef:(g,s)=>{ g.nivel=clamp((g.nivel||60)+3,30,99); s.soledad=(s.soledad||40)+10; return 'Te fuiste solo con un bolso. Volviste distinto, y mejor.'; } },
+      { txt:'No ir todavía', ef:(g,s)=>{ s.familia=(s.familia||50)+7; return 'Te quedaste un año más en tu casa. No todo el mundo está listo a la misma edad.'; } } ] },
+    { t:'Te dice qué te falta', d:'"Tenés todo menos una cosa. Te la digo si la querés escuchar."', opts:[
+      { txt:'Escucharla', ef:(g,s)=>{ g.nivel=clamp((g.nivel||60)+3,30,99); g.moral=clamp((g.moral||60)-3,0,100); return 'Te dijo algo que no querías oír y tenía razón. Trabajaste en eso un año.'; } },
+      { txt:'Decirle que ya sé lo que me falta', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+4,0,100); return 'Se sonrió y anotó algo. Nunca supiste qué.'; } } ] }
+  ],
+  pibe: [
+    { t:'Te pregunta si vale la pena', d:'"¿Y si no llego? ¿Qué hago con estos años?"', opts:[
+      { txt:'Decirle la verdad completa', ef:(g,s)=>{ s.felicidad=(s.felicidad||50)+6; g.moral=clamp((g.moral||60)+5,0,100); return 'Le dijiste que la mayoría no llega y que igual vale. Se quedó pensando y volvió al otro día.'; } },
+      { txt:'Decirle que va a llegar', ef:(g,s)=>{ s.felicidad=(s.felicidad||50)+3; return 'Se fue contento. Ojalá no te equivoques.'; } } ] },
+    { t:'Lo tientan con un representante trucho', d:'"Me prometió Europa. Solo tengo que firmar una hoja."', opts:[
+      { txt:'Frenarlo y mostrarle el contrato', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+8,0,100); return 'Era una hoja que le sacaba el 40% de por vida. No firmó.'; } },
+      { txt:'Que aprenda solo', ef:(g,s)=>{ g.moral=clamp((g.moral||60)-5,0,100); return 'Firmó. Dos años después seguía atado y ya no jugaba.'; } } ] },
+    { t:'Te pide entrenar aparte con vos', d:'Se queda una hora más todos los días esperando que le digas que sí.', opts:[
+      { txt:'Entrenarlo yo', ef:(g,s)=>{ g.nivel=clamp((g.nivel||60)+1,30,99); s.salud=(s.salud||70)-3; g.moral=clamp((g.moral||60)+7,0,100); return 'Una hora más por día, los dos. Vos también aprendiste explicando.'; } },
+      { txt:'Pasarle un plan y que lo haga solo', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+3,0,100); return 'Lo hizo completo, sin faltar un día. Eso ya dice bastante de él.'; } } ] }
+  ]
+};
+// Elige un desafío que esa persona no te haya puesto todavía.
+function retoDe(h){
+  const fam = retoFamilia(h && h.rol);
+  const pool = RETOS[fam] || RETOS.gente;
+  const vistos = (G && G._retosVistos) || {};
+  const libres = pool.map((r,i)=>({r,i})).filter(x => !vistos[fam + ':' + x.i]);
+  const elegido = libres.length ? pick(libres) : pick(pool.map((r,i)=>({r,i})));
+  if (G){
+    G._retosVistos = vistos;
+    if (!libres.length) G._retosVistos = {};
+    G._retosVistos[fam + ':' + elegido.i] = true;
+  }
+  return elegido.r;
+}
+// ── LA PANTALLA DEL DESAFÍO ─────────────────────────────────────────────────
+window._vjHablar = function(indice){
+  const h = (VJ.hotspots||[])[indice]; if(!h) return;
+  vjDetener();
+  VJ._retoCon = h;
+  VJ._reto = retoDe(h);
+  vjPintarReto();
+};
+function vjPintarReto(){
+  const h = VJ._retoCon, R = VJ._reto; if(!h || !R) return;
+  const nombre = h.nombre || vjNombreNPC(h.semilla, vjGen(h));
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="min-height:100%;background:#05070a;display:flex;flex-direction:column;justify-content:center;position:relative;">
+    ${fondoEscenaHTML()}
+    <div style="position:relative;max-width:560px;margin:0 auto;width:100%;padding:44px 18px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;">
+      <div style="display:flex;align-items:flex-end;justify-content:center;gap:6px;margin-bottom:12px;">
+        <div style="line-height:0;">${h.tipo==='npc' ? vjSpriteHab(h,'idle') : vjObjSVG(h.obj, h.escala)}</div>
+        <div style="line-height:0;transform:scaleX(-1);">${vjSpriteJugador('idle')}</div>
+      </div>
+      <div style="background:rgba(10,13,8,.86);border:1.5px solid #2a3a4c;border-radius:18px;padding:16px;">
+        <div style="font-size:10px;font-weight:900;letter-spacing:1.5px;color:${A};margin-bottom:8px;">${esc(nombre.toUpperCase())} · ${esc(String(h.rol||'').toUpperCase())}</div>
+        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;color:#fff;line-height:1.25;margin-bottom:7px;">${esc(R.t)}</div>
+        <div style="font-size:13.5px;color:#c4ccc0;line-height:1.6;margin-bottom:15px;">${esc(R.d)}</div>
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          ${R.opts.map((o,i)=>`<button onclick="window._vjRetoElegir(${i})" style="background:rgba(186,255,0,.09);border:1.5px solid rgba(186,255,0,.34);color:#e6ecdf;border-radius:13px;padding:13px 14px;font-weight:800;font-size:14px;text-align:left;cursor:pointer;line-height:1.35;">${esc(o.txt)}</button>`).join('')}
+        </div>
+      </div>
+      <button onclick="window._vjRetoSalir()" style="width:100%;margin-top:10px;background:transparent;border:none;color:#5d6879;font-size:12px;font-weight:800;cursor:pointer;padding:8px;">Ahora no</button>
+    </div>
+  </div>`;
+}
+window._vjRetoSalir = function(){
+  VJ._retoCon = null; VJ._reto = null;
+  if (VJ.mundo === 'vida') window._vidaJugable();
+  else if (VJ.mundo === 'club') window._clubMundo(VJ.escena);
+  else mundoRender();
+};
+window._vjRetoElegir = function(i){
+  const h = VJ._retoCon, R = VJ._reto; if(!h || !R) return;
+  const o = R.opts[i]; if(!o) return;
+  const enCarrera = VJ.mundo !== 'vida';
+  const s = enCarrera ? personalAsegurar() : (G.vidaStats = G.vidaStats || {});
+  const antes = { moral:G.moral||0, nivel:G.nivel||0, dinero:G.dinero||0, fama:G.fama||0 };
+  const antesS = JSON.parse(JSON.stringify(s));
+  let res = '';
+  try { res = o.ef(G, s) || ''; } catch(e){ res = ''; }
+  Object.keys(s).forEach(k=>{ if(typeof s[k]==='number') s[k] = clamp(s[k], 0, 100); });
+  G.moral = clamp(G.moral||0, 0, 100); G.nivel = clamp(G.nivel||0, 30, 99);
+  G.fama = clamp(G.fama||0, 0, 100); G.dinero = Math.max(0, G.dinero||0);
+  if(!G.vidaHist) G.vidaHist = [];
+  G.vidaHist.push({ lapso: enCarrera ? ((G.edad||0)+' años') : ((VIDA_LAPSOS[G.vidaLapso]||VIDA_LAPSOS[VIDA_LAPSOS.length-1]).lbl),
+    t:R.t, res, rol:G.vidaRol || 'jugador' });
+  save();
+  const chip = (l,d,inv)=>{ if(!d) return ''; const bueno = inv ? d<0 : d>0; const c = bueno?'#4ade80':'#ff6b6b';
+    return `<span style="display:inline-flex;align-items:center;gap:3px;background:${c}18;border:1px solid ${c}55;color:${c};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;">${l} ${d>0?'+':''}${d}</span>`; };
+  let chips = ['felicidad','familia','salud'].map(k=>chip(k.toUpperCase(), Math.round((s[k]||0)-(antesS[k]||0)))).join('')
+    + chip('SOLEDAD', Math.round((s.soledad||0)-(antesS.soledad||0)), true)
+    + chip('Moral', Math.round((G.moral||0)-antes.moral))
+    + chip('Nivel', Math.round((G.nivel||0)-antes.nivel))
+    + chip('Fama',  Math.round((G.fama||0)-antes.fama));
+  const dd = Math.round((G.dinero||0)-antes.dinero);
+  if (dd) chips += `<span style="display:inline-flex;align-items:center;gap:3px;background:${dd>0?'#4ade8018':'#ff6b6b18'};border:1px solid ${dd>0?'#4ade8055':'#ff6b6b55'};color:${dd>0?'#4ade80':'#ff6b6b'};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;">${dd>0?'+':''}${eur(Math.abs(dd))}</span>`;
+  const edadR = enCarrera ? (G.edad||20) : (G.vidaEdad||40);
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="min-height:100%;background:#05070a;display:flex;align-items:center;position:relative;">
+    ${fondoEscenaHTML()}
+    <div style="position:relative;max-width:520px;margin:0 auto;padding:24px 20px calc(24px + env(safe-area-inset-bottom));text-align:center;width:100%;box-sizing:border-box;">
+      <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(`<div style="display:flex;align-items:flex-end;gap:3px;line-height:0;">
+        <div style="line-height:0;">${h.tipo==='npc' ? vjSpriteHab(h,'idle') : vjObjSVG(h.obj, h.escala)}</div>
+        <div style="line-height:0;transform:scaleX(-1);">${vjSpriteJugador('idle')}</div>
+      </div>`, '12px 18px', 'casa')}</div>
+      <div style="font-size:15px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:14px;">${esc(res)}</div>
+      ${chips?`<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:18px;">${chips}</div>`:'<div style="margin-bottom:18px;"></div>'}
+      <button onclick="window._vjRetoSalir()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px 30px;font-weight:900;font-size:14.5px;cursor:pointer;">SEGUIR <i class='bx bx-right-arrow-alt'></i></button>
+    </div>
+  </div>`;
+};
 
 console.log('[canchero-carrera] v2 cargado');
 })();
