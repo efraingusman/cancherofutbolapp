@@ -13547,7 +13547,7 @@ function camaConPersonaHTML(){
   const escala = 1.9;
   // La cabeza va sobre la almohada: el sprite se centra un poco a la derecha de
   // ella y se gira 90 grados (los pies quedan hacia el otro extremo).
-  const cx = colX + almW * 0.62 + (colW - almW) * 0.46;
+  const cx = colX + almW * 0.10 + (colW - almW) * 0.42;
   const cy = colY + colH / 2;
   return `
   <div style="position:relative;width:${W}px;height:${H}px;">
@@ -13564,9 +13564,9 @@ function camaConPersonaHTML(){
     </div>
     <!-- Acolchado: SOLO de la cintura a los pies. Antes empezaba en el 34% y le
          tapaba hasta el pecho: se veía una cama con una cabeza asomando. -->
-    <div style="position:absolute;left:${colX + almW + Math.round((colW-almW)*0.54)}px;top:${colY}px;width:${Math.round((colW-almW)*0.46)}px;height:${colH}px;background:linear-gradient(180deg,#7d5a8c,#54395f);border-radius:0 4px 4px 0;box-shadow:inset 3px 0 0 rgba(255,255,255,.16);"></div>
+    <div style="position:absolute;left:${colX + almW + Math.round((colW-almW)*0.30)}px;top:${colY}px;width:${Math.round((colW-almW)*0.70)}px;height:${colH}px;background:linear-gradient(180deg,#7d5a8c,#54395f);border-radius:0 4px 4px 0;box-shadow:inset 3px 0 0 rgba(255,255,255,.16);"></div>
     <!-- El doblez de la sábana, que es lo que termina de leerse como una cama -->
-    <div style="position:absolute;left:${colX + almW + Math.round((colW-almW)*0.50)}px;top:${colY}px;width:${Math.round((colW-almW)*0.06)}px;height:${colH}px;background:linear-gradient(180deg,#fbf9ff,#e6e0ef);"></div>
+    <div style="position:absolute;left:${colX + almW + Math.round((colW-almW)*0.26)}px;top:${colY}px;width:${Math.round((colW-almW)*0.05)}px;height:${colH}px;background:linear-gradient(180deg,#fbf9ff,#e6e0ef);"></div>
   </div>`;
 }
 window._carreraSegundaVida = function(rol){
