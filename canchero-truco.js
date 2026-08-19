@@ -102,7 +102,7 @@ window._trucoCerrarDesafio = function(){
 function nuevaPartida(meta){
   T = {
     meta: meta || 30,
-    ptsYo: 0, ptsEl: 0,
+    ptsYo: 0, ptsEl: 0, golesYo: 0, golesEl: 0,
     mano: 0,                 // quién es mano: 0 = vos, 1 = la IA
     log: [],
     fin: null
@@ -251,7 +251,19 @@ function ganadorDeMano(){
 function terminarMano(ganador){
   const pts = T.truco.nivel >= 1 ? puntosQuerido(T.truco.nivel) : 1;
   sumar(ganador, pts, ganador === 0 ? 'Ganaste la mano' : 'La mano fue para la máquina');
+  desafioGol(ganador);
   T.finMano = true;
+}
+// En una final, la mano ganada vale un GOL. El primero que llega a dos, gana.
+function desafioGol(quien){
+  if (!T || !T.desafio) return;
+  if (quien === 0) T.golesYo = (T.golesYo||0) + 1; else T.golesEl = (T.golesEl||0) + 1;
+  log(quien === 0 ? '¡GOL TUYO! ' + T.golesYo + '-' + (T.golesEl||0)
+                  : 'Gol de ellos. ' + (T.golesYo||0) + '-' + T.golesEl);
+  if ((T.golesYo||0) >= 2 || (T.golesEl||0) >= 2){
+    T.fin = (T.golesYo||0) >= 2 ? 0 : 1;
+    avisarDesafio(T.fin === 0);
+  }
 }
 function sumar(quien, pts, motivo){
   if (quien === 0) T.ptsYo += pts; else T.ptsEl += pts;
@@ -341,7 +353,7 @@ window._trucoCantar = function(que){
     log('Cantás TRUCO.');
     setTimeout(()=>{
       if (iaQuiereTruco(1)){ log('Quiero.'); T.truco.quien = null; }
-      else { sumar(0, 1, 'La máquina no quiso el truco'); T.finMano = true; }
+      else { sumar(0, 1, 'La máquina no quiso el truco'); desafioGol(0); T.finMano = true; }
       render();
     }, 800);
     render(); return;
@@ -353,7 +365,7 @@ window._trucoCantar = function(que){
     log('Cantás ' + (n===2?'RETRUCO':'VALE CUATRO') + '.');
     setTimeout(()=>{
       if (iaQuiereTruco(n)){ log('Quiero.'); T.truco.quien = null; }
-      else { sumar(0, puntosNoQuiero(n-1)+1, 'La máquina no quiso'); T.finMano = true; }
+      else { sumar(0, puntosNoQuiero(n-1)+1, 'La máquina no quiso'); desafioGol(0); T.finMano = true; }
       render();
     }, 800);
     render(); return;
@@ -361,7 +373,7 @@ window._trucoCantar = function(que){
   if (que === 'irme'){
     const pts = T.truco.nivel >= 1 ? puntosNoQuiero(T.truco.nivel) : 1;
     sumar(1, pts, 'Te fuiste al mazo');
-    T.finMano = true; render(); return;
+    desafioGol(1); T.finMano = true; render(); return;
   }
 };
 // Respondés a un canto de la máquina.
@@ -393,14 +405,14 @@ window._trucoResponder = function(resp){
   }
   if (E.tipo === 'truco'){
     if (resp === 'quiero'){ T.esperando = null; log('Quiero.'); T.truco.quien = null; tirarSiTocaIA(); render(); return; }
-    if (resp === 'no'){ T.esperando = null; sumar(1, puntosNoQuiero(E.nivel), 'No quisiste el truco'); T.finMano = true; render(); return; }
+    if (resp === 'no'){ T.esperando = null; sumar(1, puntosNoQuiero(E.nivel), 'No quisiste el truco'); desafioGol(1); T.finMano = true; render(); return; }
     if (resp === 'subir'){
       const n = E.nivel + 1;
       T.esperando = null; T.truco.nivel = n; T.truco.quien = 0;
       log('Subís a ' + (n===2?'RETRUCO':'VALE CUATRO') + '.');
       setTimeout(()=>{
         if (iaQuiereTruco(n)){ log('Quiero.'); T.truco.quien = null; tirarSiTocaIA(); }
-        else { sumar(0, puntosNoQuiero(n-1)+1, 'La máquina no quiso'); T.finMano = true; }
+        else { sumar(0, puntosNoQuiero(n-1)+1, 'La máquina no quiso'); desafioGol(0); T.finMano = true; }
         render();
       }, 800);
       render(); return;
@@ -549,18 +561,24 @@ function render(){
         <div style="font-size:10px;font-weight:900;letter-spacing:2.4px;color:${A};">TRUCO</div>
       </div>
 
-      <!-- TANTEADOR -->
+      <!-- TANTEADOR. En una final el marcador son GOLES: cada mano que ganás
+           es un gol y el partido se define a dos. Los puntos del truco quedan
+           abajo, chiquitos, que es lo que son en ese contexto. -->
       <div style="display:flex;gap:9px;margin-bottom:14px;">
-        ${[['VOS',T.ptsYo,A],['MÁQUINA',T.ptsEl,'#f87171']].map(x=>`
+        ${(T.desafio
+          ? [['VOS', T.golesYo||0, A],['ELLOS', T.golesEl||0, '#f87171']]
+          : [['VOS', T.ptsYo, A],['MÁQUINA', T.ptsEl, '#f87171']]).map(x=>`
           <div style="flex:1;background:rgba(255,255,255,.04);border:1.5px solid ${x[2]}44;border-radius:13px;padding:10px;text-align:center;">
             <div style="font-size:8.5px;font-weight:900;letter-spacing:1.4px;color:#8a9480;">${x[0]}</div>
             <div style="font-size:26px;font-weight:900;color:${x[2]};line-height:1.1;">${x[1]}</div>
+            ${T.desafio?`<div style="font-size:8px;color:#79836f;font-weight:800;margin-top:2px;">${x[0]==='VOS'?T.ptsYo:T.ptsEl} pts</div>`:''}
           </div>`).join('')}
         <div style="flex:0 0 auto;background:rgba(255,255,255,.03);border:1px solid #232a1f;border-radius:13px;padding:10px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center;">
-          <div style="font-size:8.5px;font-weight:900;letter-spacing:1.2px;color:#79836f;">A</div>
-          <div style="font-size:15px;font-weight:900;color:#cfd8c6;">${T.meta}</div>
+          <div style="font-size:8.5px;font-weight:900;letter-spacing:1.2px;color:#79836f;">${T.desafio?'GOLES':'A'}</div>
+          <div style="font-size:15px;font-weight:900;color:#cfd8c6;">${T.desafio?2:T.meta}</div>
         </div>
       </div>
+      ${T.desafio?`<div style="text-align:center;font-size:11px;color:#8a9480;font-weight:800;margin:-8px 0 12px;">Cada mano que ganás es un gol. Gana el que llega a 2.</div>`:''}
 
       <!-- MESA -->
       <div style="background:linear-gradient(165deg,rgba(31,74,26,.5),rgba(9,14,8,.7));border:1.5px solid #24361c;border-radius:18px;padding:14px;margin-bottom:12px;">
@@ -623,7 +641,7 @@ function renderFin(m){
       <div style="font-size:56px;margin-bottom:10px;">${gane?'🏆':'💀'}</div>
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:30px;color:#fff;line-height:1.15;margin-bottom:9px;">${gane?'¡Ganaste!':'Te ganó la máquina'}</div>
       ${T.desafio ? `<div style="font-size:13px;color:${gane?'#facc15':'#f87171'};font-weight:900;margin-bottom:6px;">${gane?'La final es tuya.':'Se te escapó la final.'}</div>` : ''}
-      <div style="font-size:14px;color:#b9c4ad;margin-bottom:22px;">${T.ptsYo} a ${T.ptsEl}${gane?'. A cobrar.':'. La próxima.'}</div>
+      <div style="font-size:14px;color:#b9c4ad;margin-bottom:22px;">${T.desafio ? ((T.golesYo||0) + ' a ' + (T.golesEl||0)) : (T.ptsYo + ' a ' + T.ptsEl)}${gane?'. A cobrar.':'. La próxima.'}</div>
       ${T.desafio
         ? `<button onclick="window._trucoCerrarDesafio()" style="width:100%;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">VOLVER A LA CANCHA <i class='bx bx-right-arrow-alt'></i></button>`
         : `<button onclick="window._trucoNueva(${T.meta})" style="width:100%;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">OTRA</button>
@@ -634,6 +652,7 @@ function renderFin(m){
 
 // ── ENTRADA ───────────────────────────────────────────────────────────────────
 window._trucoAbrir = function(){
+  try { window._lyOcultarSalir && window._lyOcultarSalir(true); } catch(e){}
   const m = overlay();
   m.innerHTML = `
   <div style="min-height:100%;background:radial-gradient(120% 80% at 50% 0%, #16260f 0%, #070a06 62%);display:flex;align-items:center;justify-content:center;padding:30px 20px;">
@@ -648,6 +667,7 @@ window._trucoAbrir = function(){
   </div>`;
 };
 window._trucoNueva = function(meta, desafio, onFin){
+  try { window._lyOcultarSalir && window._lyOcultarSalir(true); } catch(e){}
   nuevaPartida(meta);
   if (desafio){ T.desafio = true; T.onFin = onFin || null; }
   if (T.turno === 1) setTimeout(turnoIA, 800);
@@ -655,6 +675,7 @@ window._trucoNueva = function(meta, desafio, onFin){
 };
 window._trucoSiguiente = function(){ siguienteMano(); };
 window._trucoSalir = function(){
+  try { window._lyOcultarSalir && window._lyOcultarSalir(false); } catch(e){}
   T = null;
   document.getElementById('truco-modal')?.remove();
   // Si entraste desde Leyenda, volvés EXACTAMENTE a donde estabas. Nunca hay que
