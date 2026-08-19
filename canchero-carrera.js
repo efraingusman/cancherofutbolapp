@@ -342,10 +342,11 @@ function clubBadge(name, size){
   const slug = NAMESLUG[name];
   const generic = `<div style="width:${s}px;height:${s}px;flex-shrink:0;">${genericCrest(name, s)}</div>`;
   if (!slug) return generic;
-  // Escudo real con fallback al crest genérico si la imagen no existe (ya no letra pelada).
-  return `<div style="width:${s}px;height:${s}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative;">
-    <img src="img/clubs/${slug}.webp" alt="" style="max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));" onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
-    <div style="display:none;position:absolute;inset:0;">${genericCrest(name, s)}</div>
+  // Escudo real, SIEMPRE centrado en su caja (antes, si la imagen era más ancha
+  // que alta, quedaba pegada arriba y descolocada al lado del texto).
+  return `<div style="width:${s}px;height:${s}px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;position:relative;vertical-align:middle;">
+    <img src="img/clubs/${slug}.webp" alt="" style="display:block;max-width:100%;max-height:100%;width:auto;height:auto;margin:auto;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+    <div style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;">${genericCrest(name, s)}</div>
   </div>`;
 }
 
@@ -1075,9 +1076,9 @@ window._carreraLen = function(){
       </button>`).join('')}
     </div>
     <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:16px;color:#fff;margin:22px 0 4px;">¿Hasta dónde querés jugar?</div>
-    <div style="font-size:12px;color:#8a8f96;margin-bottom:12px;">Podés quedarte solo con la carrera del jugador, o seguir la vida entera.</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="cr-alc-row">
-      ${[['todo','Vida completa','Carrera + retiro + legado del nieto',A],['carrera','Solo la carrera','Termina cuando colgás los botines','#4fc3f7']].map(d=>`<button data-alc="${d[0]}" onclick="window._crAlcance='${d[0]}';document.querySelectorAll('#cr-alc-row button').forEach(function(b){b.style.borderColor='#262626';b.style.background='rgba(255,255,255,.04)'});this.style.borderColor='${d[3]}';this.style.background='rgba(255,255,255,.08)';" style="background:rgba(255,255,255,.04);border:1.5px solid #262626;border-radius:14px;padding:13px 10px;cursor:pointer;text-align:left;">
+    <div style="font-size:12px;color:#8a8f96;margin-bottom:12px;">La carrera del jugador, la vida entera, o directamente el banco: <b style="color:#f97316;">Solo DT</b> arranca con vos ya de técnico, y los años de arriba son las temporadas que vas a dirigir.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;" id="cr-alc-row">
+      ${[['todo','Vida completa','Carrera + retiro + legado del nieto',A],['carrera','Solo la carrera','Termina cuando colgás los botines','#4fc3f7'],['dt','Solo DT','Arrancás en el banco, sin jugar','#f97316']].map(d=>`<button data-alc="${d[0]}" onclick="window._crAlcance='${d[0]}';document.querySelectorAll('#cr-alc-row button').forEach(function(b){b.style.borderColor='#262626';b.style.background='rgba(255,255,255,.04)'});this.style.borderColor='${d[3]}';this.style.background='rgba(255,255,255,.08)';" style="background:rgba(255,255,255,.04);border:1.5px solid #262626;border-radius:14px;padding:13px 10px;cursor:pointer;text-align:left;">
         <div style="font-weight:900;font-size:13.5px;color:${d[3]};">${d[1]}</div>
         <div style="font-size:10.5px;color:#999;margin-top:4px;line-height:1.4;">${d[2]}</div>
       </button>`).join('')}
@@ -2703,29 +2704,35 @@ window._carreraIdent = function(years){
 // Antes era una sola pantalla con tres pestañas y todo apretado: había que
 // descubrir dónde tocar. Ahora son tres pasos claros con un botón de Siguiente:
 // 1) cómo sos y cómo te llamás, 2) tu número y de dónde sos, 3) dónde jugás.
-const IDENT_PASOS = [
+const IDENT_PASOS_JUGADOR = [
   { id:'look', t:'¿Quién sos?',      s:'Tu cara, tu pelo y tu apellido.',          i:'bx-user' },
   { id:'pais', t:'¿De dónde sos?',   s:'El número que vas a usar y tu bandera.',   i:'bx-world' },
   { id:'pos',  t:'¿Dónde jugás?',    s:'Tocá el puesto en la cancha.',             i:'bx-football' }
 ];
+// Un técnico no elige puesto ni número: elige su cara y de dónde viene.
+const IDENT_PASOS_DT = [
+  { id:'look', t:'¿Quién sos?',      s:'La cara del técnico y su apellido.',       i:'bx-user' },
+  { id:'pais', t:'¿De dónde sos?',   s:'Tu bandera y tu pierna hábil de jugador.', i:'bx-world' }
+];
+function identPasos(){ return (_draft && _draft.alcance === 'dt') ? IDENT_PASOS_DT : IDENT_PASOS_JUGADOR; }
 function renderIdent(){
   const d=_draft; const m=document.getElementById('carrera-modal')||overlay();
-  const paso = clamp(d.paso||0, 0, IDENT_PASOS.length-1);
+  const paso = clamp(d.paso||0, 0, identPasos().length-1);
   d.paso = paso;
-  const P = IDENT_PASOS[paso];
-  const ultimo = paso === IDENT_PASOS.length-1;
+  const P = identPasos()[paso];
+  const ultimo = paso === identPasos().length-1;
   const list = PAISES.filter(p=>p.toLowerCase().includes((d.filtro||'').toLowerCase()));
   m.innerHTML=`
   <div style="max-width:620px;margin:0 auto;padding:18px 16px calc(100px + env(safe-area-inset-bottom));">
     <!-- En qué paso vas -->
     <div style="display:flex;gap:6px;margin-bottom:14px;">
-      ${IDENT_PASOS.map((x,i)=>`<div style="flex:1;height:4px;border-radius:2px;background:${i<=paso?A:'#242a20'};"></div>`).join('')}
+      ${identPasos().map((x,i)=>`<div style="flex:1;height:4px;border-radius:2px;background:${i<=paso?A:'#242a20'};"></div>`).join('')}
     </div>
     <div style="display:flex;align-items:center;gap:9px;margin-bottom:4px;">
       <i class='bx ${P.i}' style="font-size:21px;color:${A};"></i>
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:21px;color:#fff;">${P.t}</div>
     </div>
-    <div style="font-size:12.5px;color:#8a9280;margin-bottom:14px;">Paso ${paso+1} de ${IDENT_PASOS.length} · ${P.s}</div>
+    <div style="font-size:12.5px;color:#8a9280;margin-bottom:14px;">Paso ${paso+1} de ${identPasos().length} · ${P.s}</div>
 
     <div style="background:rgba(255,255,255,.03);border:1px solid #1c1c1c;border-radius:16px;padding:13px;">
       <div style="display:flex;justify-content:center;margin-bottom:12px;">
@@ -2740,10 +2747,10 @@ function renderIdent(){
 
       ${paso===1 ? `
         <div style="display:flex;gap:9px;margin-bottom:12px;">
-          <div style="width:96px;">
+          ${d.alcance === 'dt' ? '' : `<div style="width:96px;">
             <label style="font-size:9.5px;font-weight:900;color:#5f6a58;display:block;margin-bottom:4px;letter-spacing:1px;">TU Nº</label>
             <input id="cr-num" type="number" min="1" max="99" value="${d.num}" oninput="window._carreraSet('num',this.value)" style="${inp()};text-align:center;font-size:20px;font-weight:900;">
-          </div>
+          </div>`}
           <div style="flex:1;">
             <label style="font-size:9.5px;font-weight:900;color:#5f6a58;display:block;margin-bottom:4px;letter-spacing:1px;">PIERNA HÁBIL</label>
             <div style="display:flex;gap:6px;">
@@ -2791,11 +2798,14 @@ window._identPaso = function(dir){
     if (i){ i.style.borderColor = '#ef4444'; i.focus(); }
     return;
   }
-  if (paso >= IDENT_PASOS.length-1){ window._potreroMundo(); return; }
+  if (paso >= identPasos().length-1){
+    if (d.alcance === 'dt'){ window._dtArrancar(); return; }
+    window._potreroMundo(); return;
+  }
   d.paso = paso + 1;
   renderIdent();
 };
-window._identTab = function(t){ if(!_draft) return; const i = IDENT_PASOS.findIndex(x=>x.id===t); if(i>=0){ _draft.paso = i; renderIdent(); } };
+window._identTab = function(t){ if(!_draft) return; const i = identPasos().findIndex(x=>x.id===t); if(i>=0){ _draft.paso = i; renderIdent(); } };
 window._carreraSet = function(k,v){
   if(k==='num') v=clamp(parseInt(v)||10,1,99);
   _draft[k]=v;
@@ -6458,8 +6468,26 @@ function homenajeEscena(){
     <div style="font-size:10px;font-weight:900;letter-spacing:2.6px;color:#facc15;margin-bottom:8px;">TU PARTIDO DESPEDIDA</div>
     <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;line-height:1.15;margin-bottom:6px;">${esc(H.club)} &nbsp;vs&nbsp; ${esc(sel)}</div>
     <div style="font-size:12.5px;color:#8d9782;font-weight:700;margin-bottom:16px;">${esc(estadioDe(G.pais, G.apellido))} · ${publico.toLocaleString('es')} personas</div>
-    <div style="display:flex;justify-content:center;margin-bottom:18px;">
+    <div style="display:flex;justify-content:center;margin-bottom:14px;">
       ${avatarBox(avatarSprite(G.avatar||avatarDefault(), { edad:(G.edad||34), kitBase:kb[0], kitTxt:kb[1], num:G.num||10, apellido:G.apellido||'', escala:3, pose:'orgullo' }), '16px 26px', 'estadio')}
+    </div>
+    <!-- LAS DOS CAMISETAS: la del club donde te hiciste y la de tu selección.
+         Antes solo se veía la de la selección y faltaba la mitad de la historia. -->
+    <div style="display:flex;align-items:flex-start;justify-content:center;gap:18px;margin-bottom:18px;flex-wrap:wrap;">
+      <div style="text-align:center;">
+        <div style="display:flex;justify-content:center;">${jerseyKit(96, G.apellido, G.num, kitClub(H.club, G.clubPais||G.pais))}</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:7px;">
+          ${clubBadge(H.club, 20)}
+          <span style="font-size:11px;font-weight:900;color:#c4ccc0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;">${esc(H.club)}</span>
+        </div>
+      </div>
+      <div style="text-align:center;">
+        <div style="display:flex;justify-content:center;">${jerseyKit(96, G.apellido, G.numSeleccion || G.num, kitDe(G.pais||'Uruguay'))}</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:7px;">
+          ${flagImg(G.pais, 20)}
+          <span style="font-size:11px;font-weight:900;color:#c4ccc0;">${esc(G.pais||'')}</span>
+        </div>
+      </div>
     </div>
     <!-- Los números del relato salen de los mismos datos del cartel: antes el
          cartel decía 80 mil y el texto, cuarenta mil. -->
@@ -7585,6 +7613,203 @@ function casaVista(){
   return 'barrio';
 }
 // Fondo de casa y barrio (el de "trabajo" lo aporta vidaEscena, ya existente).
+// ══════════════════════════════════════════════════════════════════════════════
+// LOS ESCENARIOS, CON PROFUNDIDAD
+// Cada fondo estaba dibujado plano: un degradado, unas cajas y el piso. Se veía
+// prolijo pero muerto — todo a la misma distancia, sin aire y sin hora del día.
+// Estas capas se comparten entre TODOS los escenarios: el cielo (con su sol o su
+// luna, sus nubes y sus estrellas), el fondo lejano en silueta, la luz que entra,
+// el polvo en el aire y el detalle del piso. Con eso, el mismo dibujo pasa a
+// tener tres planos y una hora.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Cada escenario tiene su hora: la casa de noche, el potrero al atardecer, el
+// predio a la mañana. Eso es lo que le da carácter a un lugar.
+const ESC_HORA = {
+  casa:'noche', barrio:'atardecer', esquina:'noche', baldio:'atardecer',
+  pension:'noche', predio:'manana', cancha:'nocturno', vestuario:'interior',
+  oficina:'interior', trabajo:'interior', extra:'tarde'
+};
+const ESC_PALETA = {
+  manana:    { alto:'#a8d4ee', bajo:'#5b93bb', astro:'#fff4d0', astroR:22, halo:'#ffe9a8', luz:'#fff2c8', op:.22, estrellas:0, nubes:5, nubeC:'#ffffff', nubeOp:.30 },
+  tarde:     { alto:'#8fb8d8', bajo:'#4d7ea6', astro:'#ffe6a0', astroR:20, halo:'#ffd98a', luz:'#ffe6ae', op:.18, estrellas:0, nubes:4, nubeC:'#f4f0e4', nubeOp:.24 },
+  atardecer: { alto:'#f0a04b', bajo:'#5a2d18', astro:'#ffd27a', astroR:26, halo:'#ffb457', luz:'#ffb673', op:.26, estrellas:0, nubes:3, nubeC:'#ffcf9a', nubeOp:.30 },
+  noche:     { alto:'#26304a', bajo:'#0e1320', astro:'#e8eefc', astroR:15, halo:'#aabbdd', luz:'#9fb4e0', op:.13, estrellas:34, nubes:2, nubeC:'#33405c', nubeOp:.35 },
+  nocturno:  { alto:'#1b1330', bajo:'#0a0716', astro:null, astroR:0, halo:null, luz:'#dfe6ff', op:.16, estrellas:18, nubes:0, nubeC:'#241a3a', nubeOp:.3 },
+  interior:  { alto:null, bajo:null, astro:null, astroR:0, halo:null, luz:'#ffe4b0', op:.12, estrellas:0, nubes:0, nubeC:null, nubeOp:0 }
+};
+function escHora(){ return ESC_HORA[VJ.escena] || 'tarde'; }
+// Ruido estable por escenario: las nubes y las estrellas no se mueven de lugar
+// cada vez que se repinta la pantalla (eso mareaba).
+function escRnd(sem, i){
+  let h = (sem * 2654435761 + i * 40503) >>> 0;
+  h ^= h >>> 13; h = (h * 1274126177) >>> 0;
+  return ((h >>> 8) % 10000) / 10000;
+}
+function escSemilla(){
+  const t = String(VJ.escena || '') + String((G && G.club) || '');
+  let h = 0; for (let i=0;i<t.length;i++) h = (h*31 + t.charCodeAt(i)) >>> 0;
+  return h;
+}
+// EL CIELO: degradado propio de la hora, astro con halo, nubes y estrellas.
+function escCielo(W, pisoY, hora, altoAstro){
+  const P = ESC_PALETA[hora] || ESC_PALETA.tarde;
+  if (!P.alto) return '';
+  const sem = escSemilla();
+  const id = 'esc' + hora;
+  let o = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${P.alto}"/><stop offset="100%" stop-color="${P.bajo}"/></linearGradient></defs>
+    <rect width="${W}" height="${pisoY}" fill="url(#${id})"/>`;
+  // Estrellas: chicas, tenues y siempre en el mismo lugar.
+  for (let i=0;i<P.estrellas;i++){
+    const x = Math.round(escRnd(sem, i) * W);
+    const y = Math.round(escRnd(sem, i+700) * pisoY * 0.62);
+    const op = (0.25 + escRnd(sem, i+1400) * 0.55).toFixed(2);
+    o += `<rect x="${x}" y="${y}" width="1.5" height="1.5" fill="#e8eefc" opacity="${op}"/>`;
+  }
+  // El sol o la luna, con su halo.
+  if (P.astro){
+    const ax = Math.round(W * (0.14 + escRnd(sem, 9) * 0.14));
+    const ay = Math.round(pisoY * (altoAstro != null ? altoAstro : (hora === 'atardecer' ? 0.34 : 0.24)));
+    o += `<circle cx="${ax}" cy="${ay}" r="${P.astroR * 2.6}" fill="${P.halo}" opacity=".13"/>`;
+    o += `<circle cx="${ax}" cy="${ay}" r="${P.astroR * 1.5}" fill="${P.halo}" opacity=".18"/>`;
+    o += `<circle cx="${ax}" cy="${ay}" r="${P.astroR}" fill="${P.astro}" opacity=".92"/>`;
+    if (hora === 'noche'){
+      // La luna tiene su mordida: si no, es un círculo blanco y nada más.
+      o += `<circle cx="${ax + P.astroR*0.42}" cy="${ay - P.astroR*0.32}" r="${P.astroR*0.82}" fill="${P.bajo}" opacity=".85"/>`;
+    }
+  }
+  // Nubes: tres bloques por nube, a distinta altura y opacidad.
+  for (let i=0;i<P.nubes;i++){
+    const cx = Math.round(escRnd(sem, i+30) * W);
+    const cy = Math.round(pisoY * (0.10 + escRnd(sem, i+60) * 0.34));
+    const cw = Math.round(46 + escRnd(sem, i+90) * 64);
+    const ch = Math.round(9 + escRnd(sem, i+120) * 7);
+    const op = (P.nubeOp * (0.6 + escRnd(sem, i+150) * 0.6)).toFixed(2);
+    o += `<rect x="${cx}" y="${cy}" width="${cw}" height="${ch}" rx="${ch/2}" fill="${P.nubeC}" opacity="${op}"/>`;
+    o += `<rect x="${cx + cw*0.22}" y="${cy - ch*0.55}" width="${cw*0.5}" height="${ch}" rx="${ch/2}" fill="${P.nubeC}" opacity="${op}"/>`;
+    o += `<rect x="${cx + cw*0.52}" y="${cy + ch*0.35}" width="${cw*0.42}" height="${ch*0.8}" rx="${ch/2}" fill="${P.nubeC}" opacity="${(op*0.7).toFixed(2)}"/>`;
+  }
+  return o;
+}
+// EL PLANO LEJANO: siluetas azuladas detrás de todo. Es lo que da la sensación
+// de que el mundo sigue más allá de lo que estás pisando.
+function escLejania(W, pisoY, tipo){
+  const sem = escSemilla();
+  const col = tipo === 'monte' ? '#1d2a1c' : tipo === 'ciudad' ? '#161d2c' : '#1a2130';
+  let o = '';
+  if (tipo === 'monte'){
+    // Lomas: dos capas, la de atrás más clara.
+    for (let capa=0; capa<2; capa++){
+      const base = pisoY - 96 + capa*26;
+      const alpha = capa === 0 ? .42 : .68;
+      let d = `M0,${pisoY} L0,${base}`;
+      for (let x=0; x<=W; x+=60){
+        const alto = base - Math.round(escRnd(sem, x + capa*99) * 34);
+        d += ` L${x},${alto} L${x+30},${alto + 12}`;
+      }
+      d += ` L${W},${pisoY} Z`;
+      o += `<path d="${d}" fill="${col}" opacity="${alpha}"/>`;
+    }
+    return o;
+  }
+  // Ciudad: bloques de edificios con ventanas encendidas.
+  for (let capa=0; capa<2; capa++){
+    const alpha = capa === 0 ? .45 : .8;
+    const paso = capa === 0 ? 78 : 54;
+    const techo = pisoY - (capa === 0 ? 128 : 96);
+    for (let x=0; x<W; x+=paso){
+      const h = Math.round(30 + escRnd(sem, x + capa*57) * (capa === 0 ? 92 : 62));
+      const w = Math.round(paso * 0.82);
+      o += `<rect x="${x}" y="${pisoY - h - (capa===0?36:0)}" width="${w}" height="${h + (capa===0?36:0)}" fill="${col}" opacity="${alpha}"/>`;
+      if (capa === 1){
+        for (let f=0; f<Math.floor(h/16); f++)
+          for (let c=0; c<2; c++){
+            if (escRnd(sem, x + f*13 + c*7) < 0.42) continue;
+            o += `<rect x="${x + 8 + c*18}" y="${pisoY - h + 8 + f*16}" width="6" height="7" fill="#f2d68a" opacity=".5"/>`;
+          }
+      }
+    }
+  }
+  return o;
+}
+// LA LUZ: un haz suave que baja desde arriba y tiñe la escena con la hora.
+function escLuz(W, pisoY, hora){
+  const P = ESC_PALETA[hora] || ESC_PALETA.tarde;
+  const id = 'escL' + hora;
+  return `<defs><radialGradient id="${id}" cx="26%" cy="0%" r="95%">
+      <stop offset="0%" stop-color="${P.luz}" stop-opacity="${P.op}"/>
+      <stop offset="100%" stop-color="${P.luz}" stop-opacity="0"/></radialGradient></defs>
+    <rect width="${W}" height="${pisoY + 30}" fill="url(#${id})"/>`;
+}
+// EL AIRE: partículas de polvo suspendidas. Cuesta cero y cambia todo: la escena
+// deja de ser un dibujo y pasa a ser un lugar con aire adentro.
+function escPolvo(W, pisoY){
+  const sem = escSemilla(); let o = '';
+  for (let i=0;i<22;i++){
+    const x = Math.round(escRnd(sem, i+2000) * W);
+    const y = Math.round(pisoY * (0.25 + escRnd(sem, i+2300) * 0.72));
+    const s = escRnd(sem, i+2600) < 0.7 ? 1 : 2;
+    const op = (0.10 + escRnd(sem, i+2900) * 0.22).toFixed(2);
+    o += `<rect x="${x}" y="${y}" width="${s}" height="${s}" fill="#ffeccb" opacity="${op}"/>`;
+  }
+  return o;
+}
+// EL PISO: manchas, juntas y una sombra larga contra la pared. Un rectángulo de
+// color plano se leía como cartulina.
+function escSuelo(W, pisoY, H, tipo){
+  const sem = escSemilla(); let o = '';
+  // Sombra pegada a la pared: separa el fondo del piso.
+  o += `<rect x="0" y="${pisoY}" width="${W}" height="7" fill="rgba(0,0,0,.30)"/>`;
+  o += `<rect x="0" y="${pisoY}" width="${W}" height="2" fill="rgba(255,255,255,.10)"/>`;
+  if (tipo === 'tierra'){
+    for (let i=0;i<Math.floor(W/26);i++){
+      const x = Math.round(escRnd(sem, i+400) * W);
+      const y = pisoY + 6 + Math.round(escRnd(sem, i+430) * (H - pisoY - 10));
+      const w = 8 + Math.round(escRnd(sem, i+460) * 20);
+      o += `<rect x="${x}" y="${y}" width="${w}" height="2" fill="rgba(0,0,0,.22)"/>`;
+      if (escRnd(sem, i+490) > 0.6) o += `<rect x="${x+3}" y="${y-2}" width="3" height="2" fill="rgba(255,255,255,.10)"/>`;
+    }
+    return o;
+  }
+  if (tipo === 'pasto'){
+    for (let i=0;i<Math.floor(W/9);i++){
+      const x = i*9 + Math.round(escRnd(sem, i+500) * 5);
+      const y = pisoY + 4 + Math.round(escRnd(sem, i+530) * (H - pisoY - 8));
+      o += `<rect x="${x}" y="${y}" width="2" height="3" fill="rgba(255,255,255,.07)"/>`;
+    }
+    // Franjas de corte, como en una cancha de verdad.
+    for (let i=0;i<Math.ceil(W/64);i++)
+      if (i%2===0) o += `<rect x="${i*64}" y="${pisoY}" width="64" height="${H-pisoY}" fill="rgba(255,255,255,.035)"/>`;
+    return o;
+  }
+  if (tipo === 'baldosa'){
+    for (let i=0;i<Math.ceil(W/48);i++) o += `<rect x="${i*48}" y="${pisoY}" width="1.5" height="${H-pisoY}" fill="rgba(0,0,0,.20)"/>`;
+    for (let j=1;j<Math.ceil((H-pisoY)/22);j++) o += `<rect x="0" y="${pisoY + j*22}" width="${W}" height="1.5" fill="rgba(0,0,0,.16)"/>`;
+    o += `<rect x="0" y="${pisoY+3}" width="${W}" height="2" fill="rgba(255,255,255,.06)"/>`;
+    return o;
+  }
+  // Madera / interior
+  for (let j=0;j<Math.ceil((H-pisoY)/12);j++){
+    o += `<rect x="0" y="${pisoY + 6 + j*12}" width="${W}" height="1.5" fill="rgba(0,0,0,.18)"/>`;
+    for (let i=0;i<Math.ceil(W/90);i++)
+      o += `<rect x="${i*90 + (j%2?45:0)}" y="${pisoY + 6 + j*12}" width="1.5" height="12" fill="rgba(0,0,0,.14)"/>`;
+  }
+  return o;
+}
+// El paquete completo, para meterlo de una línea en cada escenario.
+// `atras` va DEBAJO del dibujo propio de la escena; `adelante`, encima.
+function escCapasAtras(W, pisoY, opt){
+  opt = opt || {};
+  const hora = opt.hora || escHora();
+  return escCielo(W, pisoY, hora, opt.altoAstro) + (opt.lejania ? escLejania(W, pisoY, opt.lejania) : '');
+}
+function escCapasAdelante(W, pisoY, H, opt){
+  opt = opt || {};
+  const hora = opt.hora || escHora();
+  return escLuz(W, pisoY, hora) + escSuelo(W, pisoY, H, opt.suelo || 'tierra') + escPolvo(W, pisoY);
+}
+
 function vjFondoCasa(W,H){
   const nv = casaNivel();
   const C = CASAS[nv] || CASAS[0];
@@ -7770,6 +7995,7 @@ function vjFondoCasa(W,H){
   const farolX = Math.min(W-14, muroX+grosor+Math.round(vereda*0.55));
   M(farolX, pisoY-92, 4, 92, '#2f353d');
   M(farolX-8, pisoY-100, 20, 8, ep >= 3 ? '#a5f3fc' : ep >= 2 ? '#dbeafe' : '#f5e6a8');
+  o += escCapasAdelante(W, pisoY, H, { hora:'interior', suelo:'madera' });
   return o;
 }
 
@@ -7783,6 +8009,7 @@ function vjFondoBarrio(W,H){
       <stop offset="0%" stop-color="#243657"/><stop offset="45%" stop-color="#16223a"/>
       <stop offset="100%" stop-color="#0a0f1a"/></linearGradient></defs>`;
   M(0,0,W,pisoY,'url(#vjb)');
+  o += escCapasAtras(W, pisoY, { hora:'atardecer', altoAstro:0.15, lejania:'ciudad' });
   // Estrellas y luna: el barrio es de noche, que se note.
   for(let i=0;i<Math.ceil(W/26);i++){ const sx=(i*97)%W, sy=8+((i*53)%54);
     M(sx, sy, ((i%5)===0)?2:1, ((i%5)===0)?2:1, 'rgba(232,240,255,.75)'); }
@@ -7843,6 +8070,7 @@ function vjFondoBarrio(W,H){
   M(576,pisoY-64,88,40,'#0d1620'); M(582,pisoY-58,34,28,'#f5a524'); M(624,pisoY-58,34,28,'#4fc3f7');
   // banco de plaza
   M(300,pisoY-20,72,7,'#4a3a24'); M(300,pisoY-32,72,7,'#4a3a24'); M(304,pisoY-20,5,20,'#2b2115'); M(366,pisoY-20,5,20,'#2b2115');
+  o += escCapasAdelante(W, pisoY, H, { hora:'atardecer', suelo:'baldosa' });
   return o;
 }
 
@@ -7854,9 +8082,7 @@ function vjFondoBaldio(W,H){
       <stop offset="0%" stop-color="#f0a04b"/><stop offset="34%" stop-color="#a15f2e"/>
       <stop offset="72%" stop-color="#4a2d15"/><stop offset="100%" stop-color="#20130a"/></linearGradient></defs>`;
   M(0,0,W,pisoY,'url(#vjbd)');
-  // Sol bajo y su reflejo: atardecer de potrero.
-  o += `<circle cx="${Math.round(W*0.18)}" cy="${Math.round(pisoY*0.30)}" r="26" fill="#ffd27a" opacity=".85"/>`;
-  o += `<circle cx="${Math.round(W*0.18)}" cy="${Math.round(pisoY*0.30)}" r="52" fill="#ffb457" opacity=".18"/>`;
+  o += escCapasAtras(W, pisoY, { hora:'atardecer', altoAstro:0.14 });
   // Casas bajas del barrio a lo lejos, en silueta.
   for(let i=0;i<Math.ceil(W/70);i++){ const bh=26+((i*37)%26), bx=i*70;
     M(bx, pisoY-118-bh, 62, bh, '#2a1a0f');
@@ -7872,7 +8098,6 @@ function vjFondoBaldio(W,H){
   M(520,pisoY-88,60,20,'#6b2a2a'); M(526,pisoY-83,48,5,'#a83f3f');
   // tierra
   M(0,pisoY,W,H-pisoY,'#5c4321'); M(0,pisoY,W,3,'#6e5229');
-  for(let i=0;i<W;i+=17) M(i,pisoY+7+((i*7)%9),9,2,'#4a3519');
   // arco de caño
   M(240,pisoY-84,4,84,'#c8c8bc'); M(240,pisoY-84,110,4,'#c8c8bc'); M(346,pisoY-84,4,84,'#c8c8bc');
   for(let i=0;i<14;i++) M(244+i*8,pisoY-80,1,78,'rgba(220,220,205,.28)');
@@ -7880,6 +8105,7 @@ function vjFondoBaldio(W,H){
   // pelota gastada y una piedra de arco
   M(700,pisoY-12,12,12,'#ddd8c8'); M(703,pisoY-9,5,5,'#2a2a22');
   M(800,pisoY-6,16,6,'#8a8272');
+  o += escCapasAdelante(W, pisoY, H, { hora:'atardecer', suelo:'tierra' });
   return o;
 }
 function vjFondoEsquina(W,H){
@@ -7887,6 +8113,7 @@ function vjFondoEsquina(W,H){
   const M=(x,y,w,h,c)=>{ o+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`; };
   o += `<defs><linearGradient id="vjes" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2f3a"/><stop offset="1" stop-color="#12151c"/></linearGradient></defs>`;
   M(0,0,W,pisoY,'url(#vjes)');
+  o += escCapasAtras(W, pisoY, { hora:'noche', altoAstro:0.13 });
   // casas bajas del barrio
   for(let i=0;i<7;i++){ const bx=i*126, bh=88+((i*29)%40);
     M(bx,pisoY-bh,116,bh, i%2?'#3a2e26':'#33383f');
@@ -7897,6 +8124,7 @@ function vjFondoEsquina(W,H){
   }
   M(0,pisoY,W,H-pisoY,'#2a2d33'); M(0,pisoY,W,3,'#3a3e46');
   M(0,pisoY+16,W,3,'#232629');
+  o += escCapasAdelante(W, pisoY, H, { hora:'noche', suelo:'baldosa' });
   return o;
 }
 function vjFondoPension(W,H){
@@ -7905,6 +8133,7 @@ function vjFondoPension(W,H){
   o += `<defs><linearGradient id="vjpe" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1d2630"/><stop offset="1" stop-color="#0d1218"/></linearGradient></defs>`;
   M(0,0,W,pisoY,'url(#vjpe)');
   M(0,pisoY,W,H-pisoY,'#3a3128'); M(0,pisoY,W,3,'#4c4033');
+  o += escCapasAdelante(W, pisoY, H, { hora:'interior', suelo:'madera' });
   // cuchetas
   for(let c=0;c<3;c++){ const bx=60+c*230;
     M(bx,pisoY-104,120,8,'#4a5560'); M(bx,pisoY-56,120,8,'#4a5560');
@@ -7924,6 +8153,7 @@ function vjFondoPredio(W,H){
       <stop offset="0%" stop-color="#7fb2d9"/><stop offset="40%" stop-color="#3d6f96"/>
       <stop offset="100%" stop-color="#12293a"/></linearGradient></defs>`;
   M(0,0,W,pisoY,'url(#vjpr)');
+  o += escCapasAtras(W, pisoY, { hora:'manana', altoAstro:0.18, lejania:'monte' });
   // Nubes y arboleda del predio, de manana.
   o += `<ellipse cx="${Math.round(W*0.22)}" cy="34" rx="54" ry="14" fill="#eaf2f8" opacity=".55"/>`;
   o += `<ellipse cx="${Math.round(W*0.28)}" cy="28" rx="34" ry="12" fill="#eaf2f8" opacity=".45"/>`;
@@ -7942,6 +8172,7 @@ function vjFondoPredio(W,H){
   [180,220,260,300].forEach(x=>{ M(x,pisoY-12,10,12,'#f97316'); M(x+2,pisoY-16,6,5,'#fb923c'); });
   for(let i=0;i<7;i++) M(560+i*30,pisoY+4,26,2,'#e8e8dc');
   M(560,pisoY+2,2,20,'#e8e8dc'); M(560+7*30,pisoY+2,2,20,'#e8e8dc');
+  o += escCapasAdelante(W, pisoY, H, { hora:'manana', suelo:'pasto' });
   return o;
 }
 function vjFondoCancha(W,H){
@@ -7949,6 +8180,7 @@ function vjFondoCancha(W,H){
   const M=(x,y,w,h,c)=>{ o+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`; };
   o += `<defs><linearGradient id="vjca" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b1330"/><stop offset="1" stop-color="#0a0716"/></linearGradient></defs>`;
   M(0,0,W,pisoY,'url(#vjca)');
+  o += escCielo(W, pisoY, 'nocturno');
   // tribuna llena
   M(0,pisoY-120,W,120,'#191436');
   for(let f=0;f<9;f++) for(let i=0;i<W;i+=9){
@@ -7972,6 +8204,7 @@ function vjFondoCancha(W,H){
   M(30,pisoY-46,3,48,'#e8f0e4'); M(30,pisoY-46,96,3,'#e8f0e4'); M(123,pisoY-46,3,48,'#e8f0e4');
   for(let i=0;i<12;i++) M(33+i*8,pisoY-43,1,45,'rgba(240,245,240,.30)');
   for(let j=0;j<6;j++) M(33,pisoY-43+j*8,90,1,'rgba(240,245,240,.30)');
+  o += escCapasAdelante(W, pisoY, H, { hora:'nocturno', suelo:'pasto' });
   return o;
 }
 function vjFondoOficina(W,H){
@@ -7980,6 +8213,7 @@ function vjFondoOficina(W,H){
   o += `<defs><linearGradient id="vjof" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2314"/><stop offset="1" stop-color="#12100a"/></linearGradient></defs>`;
   M(0,0,W,pisoY,'url(#vjof)');
   M(0,pisoY,W,H-pisoY,'#2b2118'); M(0,pisoY,W,3,'#3d3022');
+  o += escCapasAdelante(W, pisoY, H, { hora:'interior', suelo:'madera' });
   // ventanal
   M(40,30,150,96,'#0a1220'); M(45,35,140,86,'#12325c');
   for(let i=0;i<9;i++){ const bh=20+((i*17)%50); M(50+i*15,121-bh,11,bh,'#0a2038'); }
@@ -8754,8 +8988,8 @@ function dtPlantelAsegurar(){
     g.plantel.sort((a,b)=> DT_POS.indexOf(a.pos) - DT_POS.indexOf(b.pos) || b.nivel - a.nivel);
     nuevo = true;
   }
-  if (!g.mercado || g._mercadoTemp !== (G.vidaLapso||0)){
-    g._mercadoTemp = G.vidaLapso || 0;
+  if (!g.mercado || g._mercadoTemp !== ((g.hist||[]).length)){
+    g._mercadoTemp = (g.hist||[]).length;
     g.mercado = Array.from({length:6}, ()=> dtJugador(g.str + 6, pick([g.pais||G.pais,'Argentina','Brasil','Uruguay']), null));
     nuevo = true;
   }
@@ -8771,14 +9005,15 @@ function dtMediaPlantel(g){
 // Tabla de posiciones del torneo que dirigis, con tu equipo marcado.
 function dtTabla(){
   const g = dtPlantelAsegurar(); if(!g) return [];
-  if (g._tabla && g._tablaTemp === (G.vidaLapso||0)) return g._tabla;
+  const _clave = ((g.hist||[]).length) + ':' + (g.club||'');
+  if (g._tabla && g._tablaTemp === _clave) return g._tabla;
   const L = LIGAS.find(x=>x.liga===g.liga);
   const rivales = L ? L.clubs.filter(c=>c[0]!==g.club).slice(0,13) : [];
   const media = dtMediaPlantel(g);
   const filas = rivales.map(c=>({ club:c[0], str:c[1], pts: Math.round(c[1]*0.75 + rnd(-11,11)) }));
   filas.push({ club:g.club, str:media, pts: Math.round(media*0.75 + rnd(-6,14)), yo:true });
   filas.sort((a,b)=> b.pts - a.pts);
-  g._tabla = filas; g._tablaTemp = G.vidaLapso||0;
+  g._tabla = filas; g._tablaTemp = _clave;
   return filas;
 }
 // ══════════════════════════════════════════════════════════════════════════════
@@ -8984,17 +9219,374 @@ window._empResumen = function(){
   </div>`;
 };
 
-window._dtTemporada = function(){
+// ══════════════════════════════════════════════════════════════════════════════
+// LA CARRERA DE DT — igual que la del jugador
+// Como jugador la cosa es simple: estás en tu ficha, jugás la temporada, ves cómo
+// te fue, y pasás a la siguiente. Dirigir tenía que ser lo mismo. Esta es la
+// ficha del técnico: el club donde estás, tus números, el historial temporada por
+// temporada, la vitrina, la tabla del año pasado y el duelo con tu rival. Todo
+// en una pantalla, sin tener que entrar a ningún lado a buscarlo.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// UN SOLO club. Antes convivían dos ideas de "tu equipo" (G.vidaLugar y
+// G.gestion.club) y por eso la ficha decía un club y la temporada se jugaba con
+// otro. Ahora manda la gestión y lo demás la copia.
+function dtSync(){
+  const g = G && G.gestion; if(!g) return null;
+  G.vidaLugar = g.club;
+  G.vidaClubStr = g.str;
+  return g;
+}
+function dtTemporadasTotales(){ return (G && G.dtAnios) || 15; }
+function dtTemporadaNro(){ return (((G && G.gestion && G.gestion.hist) || []).length) + 1; }
+
+// El duelo con el rival, pero desde el banco: si dirige en tu misma liga se
+// cruzan dos veces al año; si no, se comparan los títulos al final.
+function dtDuelo(g, miPos, rivDT){
+  if (!rivDT || !G.rival) return null;
+  const mismaLiga = !!(todosClubs().find(c => c.name === rivDT.club && c.liga === g.liga));
+  if (!mismaLiga) return null;
+  // Se compara equipo contra equipo, en la misma escala: la media de tu plantel
+  // contra la fuerza del club que él dirige (más lo que valga él como técnico).
+  // Antes se comparaba tu plantel contra SU NIVEL DE JUGADOR y el clásico era
+  // un trámite: lo ganabas siempre, o lo perdías siempre.
+  const suClub = todosClubs().find(c => c.name === rivDT.club);
+  const suBase = (suClub ? suClub.str : 58) + Math.min(8, (G.rival.dtTitulos || 0) * 2);
+  const miFuerza = dtMediaPlantel(g) - (miPos - 1) * 1.2 + ri(-10, 10);
+  const suFuerza = suBase + ri(-10, 10);
+  const gane = miFuerza >= suFuerza;
+  const R = G.rival;
+  R.dtGanados = (R.dtGanados || 0) + (gane ? 1 : 0);
+  R.dtPerdidos = (R.dtPerdidos || 0) + (gane ? 0 : 1);
+  R.odio = clamp((R.odio || 20) + (gane ? 6 : 9), 0, 100);
+  return { gane, nombre:R.nombre, club:rivDT.club,
+    ganados:R.dtGanados, perdidos:R.dtPerdidos,
+    // El marcador acompaña al resultado: nada de "le ganaste 1-1".
+    marcador: (function(){ const a = ri(1,3), b = ri(0, Math.max(0, a-1));
+      return gane ? (a + '-' + b) : (b + '-' + a); })() };
+}
+
+// Empezar una partida que es SOLO de técnico: sin potrero, sin carrera de
+// jugador y sin vida post-retiro. Se arranca a los 45, en el banco de un club
+// que elegís, y se dirigen las temporadas que hayas pedido.
+window._dtArrancar = function(){
+  const d = _draft || {};
+  const anios = d.years || 15;
+  G = {
+    apellido: (d.apellido || 'DT').toUpperCase(), num: d.num || 1, pais: d.pais || 'Uruguay',
+    pos: d.pos || 'DT', pie: d.pie || 'Derecha', avatar: d.avatar || avatarDefault(),
+    dif: d.dif || 'normal', alcance: 'dt', dtSolo: true, dtAnios: anios,
+    edad: 45, vidaEdad: 45, vidaRol: 'dt', vidaLapso: 1, anio: 2026,
+    nivel: 60, nivelMax: 60, moral: 70, fama: 30, dinero: 0, titulos: 0,
+    tot: { pj:0, g:0, a:0 }, timeline: [], vitrina: [], premios: [],
+    vidaStats: {}, familia: {}, _homenajeVisto: true,
+    segundaVida: { rol:'Director Técnico', icon:'bx-clipboard', key:'dt' },
+    creado: Date.now()
+  };
+  // vidaInit mira la partida en curso: por eso se llama DESPUÉS de crearla.
+  G.vidaStats = vidaInit('dt');
+  // Un técnico también tiene su rival de toda la vida: otro entrenador.
+  G.rival = crearRival(pick(['Argentina','Brasil','Uruguay','España','Italia']), 'DC', 74);
+  G.rival.dt = true; G.rival.dtTitulos = 0; G.rival.dtAnios = 0;
+  G.rival.dtClub = null;
+  save();
+  window._dtElegirClub(true);
+};
+// El primer banco: tres clubes para empezar, de abajo hacia arriba.
+window._dtElegirClub = function(primera){
+  if(!G) return;
+  const pool = todosClubs().filter(c => c.str >= 48 && c.str <= 74);
+  const ops = shuffle(pool).slice(0, 3);
+  G._dtClubOps = ops; save();
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:26px 18px calc(30px + env(safe-area-inset-bottom));">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:10px;font-weight:900;letter-spacing:2.4px;color:${VIDA_ROLES.dt.color};">TU PRIMER BANCO</div>
+      <div style="display:flex;justify-content:center;margin:12px 0;">${avatarBox(avatarSprite(G.avatar||avatarDefault(), { edad:45, escala:2.4, pose:'idle', ropa:'dt', num:'', apellido:'' }), '12px 18px', 'vestuario')}</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:23px;color:#fff;line-height:1.2;">¿Dónde empezás a dirigir?</div>
+      <div style="font-size:12.5px;color:#9aa294;margin-top:7px;line-height:1.5;">Nadie arranca en un grande. Elegí bien: de acá salen tus primeras temporadas.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      ${ops.map((c,i)=>`<button onclick="window._dtTomarClub(${i})" style="display:flex;align-items:center;gap:12px;background:rgba(186,255,0,.06);border:1.5px solid rgba(186,255,0,.3);border-radius:15px;padding:13px;cursor:pointer;text-align:left;">
+        ${clubBadge(c.name,44)}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:15px;font-weight:900;color:#fff;">${esc(c.name)}</div>
+          <div style="font-size:11.5px;color:#9aa294;font-weight:700;">${flagImgInline(c.pais)} ${esc(c.liga)} · nivel ${c.str}</div>
+          <div style="font-size:11.5px;color:${c.str>=68?'#f87171':c.str>=58?'#facc15':'#4ade80'};font-weight:800;margin-top:3px;">${c.str>=68?'Te van a pedir el título ya':c.str>=58?'Proyecto serio':'Para hacerte de abajo'}</div>
+        </div>
+      </button>`).join('')}
+    </div>
+  </div>`;
+};
+window._dtTomarClub = function(i){
+  const c = (G._dtClubOps||[])[i]; if(!c) return;
+  G.gestion = { club:c.name, str:c.str, liga:c.liga, pais:c.pais, anios:0, titulos:0, sinTrabajo:false, plantel:[], hist:[] };
+  G._dtClubOps = null;
+  // El rival dirige en tu misma liga: así se cruzan de verdad, dos veces al año.
+  if (G.rival){
+    const mismos = todosClubs().filter(x => x.liga === c.liga && x.name !== c.name);
+    G.rival.dtClub = mismos.length ? pick(mismos).name : c.name;
+    G.rival.pais = c.pais;
+  }
+  dtSync(); save();
+  window._dtHub();
+};
+
+// ── LA FICHA DEL TÉCNICO ────────────────────────────────────────────────────
+window._dtHub = function(){
+  if(!G) G = load(); if(!G){ window._carreraStart(); return; }
+  if(!G.vidaRol) G.vidaRol = 'dt';
+  lyChrome(false);
+  const g = dtPlantelAsegurar(); if(!g){ window._carreraHub(); return; }
+  dtSync();
+  const R = VIDA_ROLES.dt, col = R.color;
+  const s = G.vidaStats = G.vidaStats || vidaInit('dt');
+  const hist = (g.hist || []).slice().reverse();
+  const trof = (G.vitrina || []).filter(v => v.comoDT);
+  const grup = {};
+  trof.forEach(v=>{ grup[v.nombre] = grup[v.nombre] || { n:v.nombre, count:0 }; grup[v.nombre].count++; });
+  const trofArr = Object.keys(grup).map(k=>grup[k]).sort((a,b)=>b.count-a.count);
+  const nro = dtTemporadaNro(), total = dtTemporadasTotales();
+  const ultima = (g.hist||[])[(g.hist||[]).length-1];
+  const mejor = hist.reduce((m,h)=> (!m || (h.pos||99) < (m.pos||99)) ? h : m, null);
+  const R2 = (G.rival && G.rival.dt) ? G.rival : null;
+  const fin = nro > total;
+  const celda = (l,v,c)=>`<div style="background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:11px 4px;text-align:center;">
+      <div style="font-size:20px;font-weight:900;color:${c||'#fff'};line-height:1;">${esc(v)}</div>
+      <div style="font-size:9px;color:#666;font-weight:800;letter-spacing:1px;margin-top:5px;">${l}</div></div>`;
+  const barra = (b)=>{ const v = Math.round(s[b[1]]||0); return `
+    <div style="margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;font-size:9.5px;font-weight:900;letter-spacing:1px;color:#79836f;margin-bottom:4px;"><span>${b[0]}</span><span style="color:${b[2]};">${v}</span></div>
+      <div style="height:5px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;"><div style="height:100%;width:${v}%;background:${b[2]};border-radius:3px;"></div></div>
+    </div>`; };
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:560px;margin:0 auto;padding:20px 16px calc(30px + env(safe-area-inset-bottom));">
+    <!-- CABECERA: quién sos, dónde dirigís y en qué temporada vas -->
+    <div style="background:radial-gradient(120% 90% at 50% 0%, ${col}18 0%, rgba(10,12,10,0) 65%);border:1px solid ${col}3a;border-radius:20px;padding:16px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="line-height:0;flex-shrink:0;">${avatarSprite(G.avatar||avatarDefault(), { edad:(G.vidaEdad||50), escala:2.2, pose: trof.length?'orgullo':'idle', ropa:'dt', num:'', apellido:'' })}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:9.5px;font-weight:900;letter-spacing:1.8px;color:${col};">DIRECTOR TÉCNICO</div>
+          <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;color:#fff;line-height:1.1;margin:2px 0 4px;">${esc(G.apellido||'')}</div>
+          <div style="display:flex;align-items:center;gap:7px;">
+            ${clubBadge(g.club, 26)}
+            <span style="font-size:12.5px;color:#c4ccc0;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(g.club)}</span>
+          </div>
+          <div style="font-size:11px;color:#79836f;font-weight:700;margin-top:3px;">${esc(g.liga||'')} · ${G.vidaEdad||''} años · ${G.anio||''}</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:8px;">
+        <div style="flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,.09);overflow:hidden;"><div style="height:100%;width:${clamp(Math.round(((nro-1)/Math.max(1,total))*100),0,100)}%;background:${col};"></div></div>
+        <span style="font-size:10.5px;font-weight:900;color:${col};white-space:nowrap;">TEMPORADA ${Math.min(nro,total)}/${total}</span>
+      </div>
+    </div>
+
+    <!-- LO QUE HAY QUE HACER: jugar la temporada -->
+    ${fin ? `
+    <button onclick="window._dtCerrarCarrera()" style="width:100%;background:linear-gradient(135deg,#a16207,#facc15);color:#0a0c0a;border:none;border-radius:16px;padding:17px;font-family:Outfit,sans-serif;font-weight:900;font-size:16px;cursor:pointer;margin-bottom:14px;">TERMINAR MI CARRERA COMO DT <i class='bx bx-right-arrow-alt'></i></button>`
+    : `
+    <button onclick="window._dtTemporada()" style="width:100%;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:16px;padding:17px;font-family:Outfit,sans-serif;font-weight:900;font-size:16px;cursor:pointer;margin-bottom:10px;">JUGAR LA TEMPORADA ${G.anio||''} <i class='bx bx-right-arrow-alt'></i></button>`}
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button onclick="window._vjEscritorio('plantel')" style="flex:1;background:rgba(255,255,255,.05);border:1px solid #2a3222;color:#cfd8c6;border-radius:12px;padding:11px;font-weight:900;font-size:12px;cursor:pointer;"><i class='bx bx-group'></i> Plantel</button>
+      <button onclick="window._vjEscritorio('mercado')" style="flex:1;background:rgba(255,255,255,.05);border:1px solid #2a3222;color:#cfd8c6;border-radius:12px;padding:11px;font-weight:900;font-size:12px;cursor:pointer;"><i class='bx bx-transfer'></i> Mercado</button>
+      ${G.dtSolo ? '' : `<button onclick="window._vidaJugable()" style="flex:1;background:rgba(255,255,255,.05);border:1px solid #2a3222;color:#cfd8c6;border-radius:12px;padding:11px;font-weight:900;font-size:12px;cursor:pointer;"><i class='bx bx-walk'></i> Tu vida</button>`}
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;">
+      ${celda('AÑOS', (g.hist||[]).length)}
+      ${celda('TÍTULOS', trof.length, '#facc15')}
+      ${celda('MEJOR', mejor ? (mejor.pos + 'º') : '—', col)}
+      ${celda('MEDIA', dtMediaPlantel(g), '#4fc3f7')}
+    </div>
+
+    <div style="background:rgba(255,255,255,.03);border:1px solid #1e1e1e;border-radius:16px;padding:14px;margin-bottom:14px;">
+      <div style="font-size:9.5px;font-weight:900;letter-spacing:1.8px;color:${col};margin-bottom:10px;">CÓMO ESTÁS PARADO</div>
+      ${R.barras.map(barra).join('')}
+      <div style="font-size:11.5px;color:#c4ccc0;font-weight:800;margin-top:4px;">${esc(R.estado(s))}</div>
+    </div>
+
+    ${trofArr.length ? `
+    <div style="background:rgba(250,204,21,.06);border:1px solid rgba(250,204,21,.28);border-radius:16px;padding:14px;margin-bottom:14px;">
+      <div style="font-size:9.5px;font-weight:900;letter-spacing:1.8px;color:#facc15;margin-bottom:11px;">TU VITRINA COMO TÉCNICO</div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;">
+        ${trofArr.map(t=>`<div style="text-align:center;width:88px;">
+          ${trofeoRender(t.n, 54)}
+          <div style="font-size:10px;font-weight:800;color:#e2d9c4;margin-top:5px;line-height:1.25;">${esc(t.n)}</div>
+          ${t.count>1?`<div style="font-size:11px;font-weight:900;color:#facc15;">×${t.count}</div>`:''}
+        </div>`).join('')}
+      </div>
+    </div>` : ''}
+
+    ${R2 ? dtDueloHTML(R2, trof.length) : ''}
+
+    ${ultima ? `
+    <div style="background:rgba(255,255,255,.03);border:1px solid #1e1e1e;border-radius:16px;padding:14px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">
+        <div style="font-size:9.5px;font-weight:900;letter-spacing:1.8px;color:${col};">LA TABLA DE ${ultima.anio||''}</div>
+        <button onclick="window._dtVerTabla()" style="background:none;border:0;color:#7dd3fc;font-size:11px;font-weight:900;cursor:pointer;">Ver completa <i class='bx bx-chevron-right'></i></button>
+      </div>
+      ${dtTablaHTML(4)}
+    </div>` : ''}
+
+    ${hist.length ? `
+    <div style="background:rgba(255,255,255,.03);border:1px solid #1e1e1e;border-radius:16px;padding:6px 12px;margin-bottom:14px;">
+      <div style="font-size:9.5px;font-weight:900;letter-spacing:1.8px;color:${col};margin:11px 0 4px;">TEMPORADA POR TEMPORADA</div>
+      ${hist.map(h=>`<div style="display:flex;align-items:center;gap:11px;padding:10px 2px;border-bottom:1px solid #141614;">
+        ${clubBadge(h.club, 36)}
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:10px;color:#666;font-weight:800;">${h.anio||''}</span>
+            <span style="font-size:13.5px;color:#fff;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(h.club)}</span>
+          </div>
+          <div style="font-size:11px;color:#aaa;margin-top:2px;">${h.pos}º de ${h.total} · media ${h.media}${h.goleador?(' · '+esc(h.goleador)+' '+h.goles+'G'):''}</div>
+          ${h.titulo?`<div style="display:inline-flex;align-items:center;gap:4px;background:rgba(250,204,21,.14);border:1px solid rgba(250,204,21,.35);color:#facc15;border-radius:8px;padding:2px 8px;font-size:10px;font-weight:800;margin-top:3px;"><i class='bx bx-trophy'></i>${esc(h.titulo)}</div>`:''}
+          ${h.duelo?`<div style="display:inline-flex;align-items:center;gap:4px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:${h.duelo.gane?'#4ade80':'#f87171'};border-radius:8px;padding:2px 8px;font-size:10px;font-weight:800;margin-top:3px;margin-left:4px;"><i class='bx bx-shield'></i>${h.duelo.gane?'Le ganaste a ':'Perdiste con '}${esc(h.duelo.nombre)}</div>`:''}
+        </div>
+      </div>`).join('')}
+    </div>` : `
+    <div style="background:rgba(255,255,255,.03);border:1px solid #1e1e1e;border-radius:14px;padding:16px;text-align:center;font-size:12.5px;color:#79836f;margin-bottom:14px;">
+      Todavía no dirigiste ninguna temporada. Lo que pase de acá en adelante se escribe en esta lista.</div>`}
+
+    <button onclick="window._lyMiCarrera()" style="width:100%;background:rgba(255,255,255,.05);border:1px solid #2a3222;color:#cfd8c6;border-radius:13px;padding:13px;font-weight:900;font-size:13px;cursor:pointer;">${G.dtSolo ? 'Volver a la portada' : 'Ver lo que hiciste como jugador'}</button>
+  </div>`;
+  save();
+};
+// El cara a cara con el rival, dibujado: los dos, enfrentados.
+function dtDueloHTML(R2, misTitulos){
+  const gan = R2.dtGanados || 0, per = R2.dtPerdidos || 0;
+  const kitMio = kitClub((G.gestion&&G.gestion.club)||'', G.pais);
+  const kitSuyo = kitClub(R2.dtClub||'', R2.pais||'Argentina');
+  return `
+  <div style="background:linear-gradient(160deg,rgba(239,68,68,.10),rgba(20,22,18,.5));border:1.5px solid rgba(239,68,68,.32);border-radius:16px;padding:14px;margin-bottom:14px;">
+    <div style="font-size:9.5px;font-weight:900;letter-spacing:1.8px;color:#ef4444;margin-bottom:11px;text-align:center;">EL DUELO DE TU VIDA · DESDE EL BANCO</div>
+    <div style="display:flex;align-items:flex-end;justify-content:center;gap:6px;margin-bottom:10px;">
+      <div style="line-height:0;">${avatarSprite(G.avatar||avatarDefault(), { edad:(G.vidaEdad||50), escala:2, pose:'desafiante', ropa:'dt', num:'', apellido:'' })}</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:15px;color:#ef4444;padding-bottom:16px;">VS</div>
+      <div style="line-height:0;transform:scaleX(-1);">${avatarSprite((R2.avatar||avatarDefault()), { edad:(G.vidaEdad||50), escala:2, pose:'desafiante', ropa:'dt', num:'', apellido:'' })}</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div style="text-align:center;flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(G.apellido||'Vos')}</div>
+        <div style="font-size:10px;color:#79836f;font-weight:700;">${esc((G.gestion&&G.gestion.club)||'')}</div>
+        <div style="font-size:26px;font-weight:900;color:${gan>=per?'#4ade80':'#79836f'};line-height:1.1;">${gan}</div>
+      </div>
+      <div style="font-size:10px;font-weight:900;color:#79836f;text-align:center;">MANO A<br>MANO</div>
+      <div style="text-align:center;flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(R2.nombre||'Tu rival')}</div>
+        <div style="font-size:10px;color:#79836f;font-weight:700;">${esc(R2.dtClub||'')}</div>
+        <div style="font-size:26px;font-weight:900;color:${per>gan?'#f87171':'#79836f'};line-height:1.1;">${per}</div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:center;gap:16px;margin-top:9px;padding-top:9px;border-top:1px solid rgba(255,255,255,.08);font-size:11.5px;color:#c4ccc0;font-weight:800;">
+      <span>Títulos: <b style="color:${misTitulos>=(R2.dtTitulos||0)?'#facc15':'#79836f'};">${misTitulos}</b></span>
+      <span style="color:#5d6879;">·</span>
+      <span>Los suyos: <b style="color:${(R2.dtTitulos||0)>misTitulos?'#ef4444':'#79836f'};">${R2.dtTitulos||0}</b></span>
+    </div>
+  </div>`;
+}
+// La tabla, como la del jugador: posiciones, puntos y tu equipo marcado.
+function dtTablaHTML(limite){
+  const filas = dtTabla();
+  if (!filas.length) return '';
+  const yoIdx = filas.findIndex(f=>f.yo);
+  let ver = filas;
+  if (limite){
+    // Se muestran los de arriba y, si estás más abajo, tu fila igual.
+    ver = filas.slice(0, limite);
+    if (yoIdx >= limite) ver = ver.concat([{ _corte:true }, filas[yoIdx]]);
+  }
+  return ver.map((f,i)=>{
+    if (f._corte) return `<div style="text-align:center;color:#3d4438;font-size:12px;letter-spacing:3px;padding:2px 0;">···</div>`;
+    const pos = filas.indexOf(f) + 1;
+    return `<div style="display:flex;align-items:center;gap:9px;padding:7px 4px;border-bottom:1px solid #141614;background:${f.yo?'rgba(186,255,0,.07)':'transparent'};border-radius:${f.yo?'8px':'0'};">
+      <span style="width:20px;text-align:center;font-size:12px;font-weight:900;color:${pos===1?'#facc15':f.yo?A:'#5f6a58'};">${pos}</span>
+      ${clubBadge(f.club, 22)}
+      <span style="flex:1;min-width:0;font-size:12.5px;font-weight:${f.yo?900:700};color:${f.yo?'#fff':'#c4ccc0'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(f.club)}</span>
+      <span style="font-size:13px;font-weight:900;color:${f.yo?A:'#8a9280'};">${f.pts}</span>
+    </div>`;
+  }).join('');
+}
+window._dtVerTabla = function(){
+  const g = gestionAsegurar(); if(!g) return;
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:20px 16px calc(28px + env(safe-area-inset-bottom));">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <button onclick="window._dtHub()" style="background:rgba(255,255,255,.06);border:none;color:#aaa;width:32px;height:32px;border-radius:50%;font-size:17px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button>
+      <div style="min-width:0;">
+        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:18px;color:#fff;">Tabla de posiciones</div>
+        <div style="font-size:11px;color:#79836f;font-weight:800;">${esc(g.liga||'')}</div>
+      </div>
+    </div>
+    <div style="background:rgba(255,255,255,.03);border:1px solid #1e1e1e;border-radius:16px;padding:8px 12px;">
+      ${dtTablaHTML(0)}
+    </div>
+  </div>`;
+};
+window._dtCerrarCarrera = function(){
+  if(!G) return;
+  G._dtFin = true; save();
+  if (G.dtSolo){ window._dtFinalCarrera(); return; }
+  window._vidaFinal();
+};
+// El cierre de una carrera que fue SOLO de técnico.
+window._dtFinalCarrera = function(){
+  const g = gestionAsegurar() || {};
+  const trof = (G.vitrina||[]).filter(v=>v.comoDT);
+  const hist = g.hist || [];
+  const campeonatos = hist.filter(h=>h.titulo).length;
+  const rango = trof.length >= 8 ? 'TÉCNICO LEYENDA' : trof.length >= 4 ? 'GRAN TÉCNICO' : trof.length >= 1 ? 'TÉCNICO CAMPEÓN' : 'TÉCNICO DE OFICIO';
+  const col = trof.length >= 4 ? '#facc15' : A;
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:26px 16px calc(30px + env(safe-area-inset-bottom));text-align:center;">
+    <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(0,0,0,.35);border:1px solid ${col}88;border-radius:99px;padding:5px 14px;font-size:11px;font-weight:900;letter-spacing:2px;color:${col};margin-bottom:14px;"><i class='bx bx-crown'></i>${rango}</div>
+    <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(avatarSprite(G.avatar||avatarDefault(), { edad:(G.vidaEdad||60), escala:2.8, pose: trof.length?'campeon':'orgullo', ropa:'dt', num:'', apellido:'' }), '14px 20px', 'cancha')}</div>
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;">${esc(G.apellido||'')}</div>
+    <div style="font-size:12.5px;color:#8a9280;margin:5px 0 16px;">${hist.length} temporadas dirigidas · ${campeonatos} campeonatos</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
+      ${[['TEMPORADAS',hist.length],['TÍTULOS',trof.length],['CLUBES',Array.from(new Set(hist.map(h=>h.club))).length]].map(c=>`
+        <div style="background:rgba(255,255,255,.04);border:1px solid #232a1f;border-radius:12px;padding:13px 4px;">
+          <div style="font-size:22px;font-weight:900;color:${col};line-height:1;">${c[1]}</div>
+          <div style="font-size:8px;color:#79836f;font-weight:900;letter-spacing:1px;margin-top:5px;">${c[0]}</div>
+        </div>`).join('')}
+    </div>
+    <button onclick="window._carreraStart()" style="width:100%;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">VOLVER A LA PORTADA <i class='bx bx-right-arrow-alt'></i></button>
+  </div>`;
+};
+
+window._dtTemporada = function(ctx){
   const g = dtPlantelAsegurar(); if(!g) return;
+  dtSync();
   const s = G.vidaStats || {};
   const media = dtMediaPlantel(g);
-  const tabla = (function(){ g._tablaTemp = null; return dtTabla(); })();
-  const pos = tabla.findIndex(f=>f.yo) + 1;
+  // La tabla se recalcula UNA vez por temporada y queda congelada: si se
+  // recalculara al volver de la final podrías perderla y salir campeón igual.
+  ctx = ctx || {};
+  const tabla = ctx._tabla || (function(){ g._tablaTemp = null; return dtTabla(); })();
+  ctx._tabla = tabla;
+  const pos = ctx._pos != null ? ctx._pos : (tabla.findIndex(f=>f.yo) + 1);
+  ctx._pos = pos;
   const T = trofeosDe(g.liga) || {};
-  // ¿Salió campeón? Primero es título; segundo o tercero, copa chica a veces.
   const campeon = pos === 1;
-  const copita = !campeon && pos <= 3 && Math.random() < 0.3;
-  const titulo = campeon ? (T.local || 'el torneo') : (copita ? (T.copaNac || 'la copa') : null);
+  const copita = ctx._copita != null ? ctx._copita : (!campeon && pos <= 3 && Math.random() < 0.3);
+  ctx._copita = copita;
+  let titulo = campeon ? (T.local || 'el torneo') : (copita ? (T.copaNac || 'la copa') : null);
+  // ── LA FINAL, TAMBIÉN DESDE EL BANCO ──────────────────────────────────────
+  // Si el año termina con una copa, hay una final y se juega. Ganarla es tuya;
+  // perderla te deja con las manos vacías, igual que como jugador.
+  if (titulo && !ctx._finalHecha && typeof window._lyFinal === 'function'){
+    const _mios = todosClubs().filter(c => c.liga === g.liga && c.name !== g.club);
+    ctx._rivalFinal = ctx._rivalFinal || (_mios.length ? pick(_mios).name : null);
+    window._lyFinal({ titulo: titulo, rival: ctx._rivalFinal, sinTitulo:true, comoDT:true,
+      chance: clamp(0.44 + (media - 60) / 110, 0.28, 0.85),
+      onGana:  function(){ ctx._finalHecha = 'gano';   window._dtTemporada(ctx); },
+      onPierde:function(){ ctx._finalHecha = 'perdio'; window._dtTemporada(ctx); } });
+    return;
+  }
+  if (ctx._finalHecha === 'perdio') titulo = null;
   if (titulo){ _gtitulo(g, G, titulo); }
   // El goleador del año, con nombre y números: eso sí se recuerda.
   const F = dtFiguras(g);
@@ -9014,11 +9606,31 @@ window._dtTemporada = function(){
   // mas. Sin esto, despues del retiro desaparecia de la historia.
   const rivDT = rivalDTTick();
   g.hist = g.hist || [];
-  g.hist.push({ anio:(G.anio || 2026) + (g.hist.length % 5), edad:G.vidaEdad, club:g.club, liga:g.liga,
-    pos, total:tabla.length, titulo: titulo || null, media, goleador: F ? F.goleador.n : null, goles });
+  // El plantel vive: los pibes crecen, los veteranos bajan y los muy viejos se
+  // retiran y entra sangre nueva. Sin esto el goleador tenía 27 años por década.
+  g.plantel = (g.plantel || []).map(j => {
+    j.edad = (j.edad || 24) + 1;
+    if (j.edad <= 24) j.nivel = clamp(j.nivel + ri(0, 3), 35, 92);
+    else if (j.edad >= 31) j.nivel = clamp(j.nivel - ri(0, 3), 35, 92);
+    j.valor = Math.max(50000, Math.round((j.valor || 200000) * (j.edad >= 31 ? 0.78 : 1.12)));
+    return j;
+  }).map(j => j.edad > 36 ? dtJugador(g.str, g.pais || G.pais, j.pos) : j);
+  const duelo = dtDuelo(g, pos, rivDT);
+  g.hist.push({ anio: G.anio || 2026, edad:G.vidaEdad, club:g.club, liga:g.liga,
+    pos, total:tabla.length, titulo: titulo || null, media, goleador: F ? F.goleador.n : null, goles,
+    duelo: duelo ? { gane:duelo.gane, nombre:duelo.nombre } : null,
+    perdioFinal: ctx._finalHecha === 'perdio' ? (campeon ? (T.local||'el torneo') : (T.copaNac||'la copa')) : null });
   (G._vjHechos = G._vjHechos || {}).temporada = true;
   G._dtAno = { pos, total:tabla.length, titulo, prensa, goleador: F ? F.goleador : null, goles, media,
-    echado: s.presion >= 88, rival: rivDT };
+    echado: s.presion >= 88, rival: rivDT, duelo,
+    perdioFinal: ctx._finalHecha === 'perdio' ? (campeon ? (T.local||'el torneo') : (T.copaNac||'la copa')) : null };
+  // El calendario del técnico corre como el del jugador: una temporada, un año.
+  G.anio = (G.anio || 2026) + 1;
+  if (G.dtSolo){
+    G.vidaEdad = (G.vidaEdad || 45) + 1;
+    G.vidaLapso = nivelDeVida(G.vidaEdad);
+    try { avEnvejecer(G.vidaEdad); } catch(e){}
+  }
   save();
   window._dtResumen();
 };
@@ -9066,18 +9678,35 @@ window._dtResumen = function(){
         </div>
       </div>
     </div>` : ''}
+    ${A_.perdioFinal ? `
+    <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:13px;padding:12px;margin-bottom:12px;text-align:center;font-size:12.5px;color:#f0d6d6;line-height:1.5;">
+      Llegaste a la final de <b>${esc(A_.perdioFinal)}</b> y se te escapó. Terminar ${A_.pos}º no alcanza cuando estuviste tan cerca.</div>` : ''}
+    ${A_.duelo ? `
+    <div style="background:linear-gradient(160deg,rgba(239,68,68,.12),rgba(20,22,18,.5));border:1.5px solid rgba(239,68,68,.34);border-radius:16px;padding:14px;margin-bottom:12px;">
+      <div style="font-size:9.5px;font-weight:900;letter-spacing:1.8px;color:#ef4444;margin-bottom:10px;text-align:center;">EL CLÁSICO CONTRA ${esc(String(A_.duelo.nombre||'').toUpperCase())}</div>
+      <div style="display:flex;align-items:flex-end;justify-content:center;gap:6px;margin-bottom:8px;">
+        <div style="line-height:0;">${avatarSprite(G.avatar||avatarDefault(), { edad:(G.vidaEdad||50), escala:2, pose: A_.duelo.gane?'festejo':'bronca', ropa:'dt', num:'', apellido:'' })}</div>
+        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;color:#fff;padding-bottom:14px;">${esc(A_.duelo.marcador)}</div>
+        <div style="line-height:0;transform:scaleX(-1);">${avatarSprite(((G.rival&&G.rival.avatar)||avatarDefault()), { edad:(G.vidaEdad||50), escala:2, pose: A_.duelo.gane?'bronca':'festejo', ropa:'dt', num:'', apellido:'' })}</div>
+      </div>
+      <div style="text-align:center;font-size:12.5px;font-weight:800;color:${A_.duelo.gane?'#4ade80':'#f87171'};">${A_.duelo.gane ? 'Le ganaste en su cara.' : 'Te lo llevó puesto él.'} Mano a mano: ${A_.duelo.ganados}—${A_.duelo.perdidos}</div>
+    </div>` : ''}
+    <div style="background:rgba(255,255,255,.03);border:1px solid #1e1e1e;border-radius:16px;padding:8px 12px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0 6px;">
+        <div style="font-size:9.5px;font-weight:900;letter-spacing:1.8px;color:${col};">CÓMO TERMINÓ LA TABLA</div>
+        <button onclick="window._dtVerTabla()" style="background:none;border:0;color:#7dd3fc;font-size:11px;font-weight:900;cursor:pointer;">Completa <i class='bx bx-chevron-right'></i></button>
+      </div>
+      ${dtTablaHTML(5)}
+    </div>
     <div style="background:rgba(0,0,0,.35);border-left:3px solid ${col};border-radius:8px;padding:11px 13px;margin-bottom:16px;">
       <div style="font-size:9px;font-weight:900;letter-spacing:1.5px;color:#79836f;margin-bottom:5px;">LA PRENSA</div>
       <div style="font-size:13px;color:#dfe7d6;line-height:1.5;font-style:italic;">${esc(A_.prensa||'')}</div>
+      ${A_.rival ? `<div style="font-size:12px;color:#c4ccc0;line-height:1.5;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);"><b style="color:#ef4444;">${esc(A_.rival.nombre)}</b> dirige ${esc(A_.rival.club)}. ${A_.rival.ganoEste ? 'Salió campeón este año.' : 'Este año se volvió con las manos vacías.'} Lleva ${A_.rival.titulos} título${A_.rival.titulos===1?'':'s'}.</div>` : ''}
     </div>
     <div style="display:flex;flex-direction:column;gap:9px;">
       ${gol ? `<button onclick="window._dtVenderFigura()" style="background:rgba(250,204,21,.1);border:1.5px solid rgba(250,204,21,.4);color:#facc15;border-radius:13px;padding:13px;font-weight:900;font-size:13px;cursor:pointer;text-align:left;">Vender a ${esc(gol.n)} por ${eur(gol.valor)} — el club necesita la plata</button>` : ''}
-      ${A_.rival ? `<div style="background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.28);border-radius:13px;padding:12px;font-size:12.5px;color:#e6ecdf;line-height:1.5;">
-        <b style="color:#ef4444;">${esc(A_.rival.nombre)}</b> dirige ${esc(A_.rival.club)}. ${A_.rival.ganoEste ? 'Salió campeón este año.' : 'Este año se volvió con las manos vacías.'} Lleva ${A_.rival.titulos} título${A_.rival.titulos===1?'':'s'} como técnico.
-      </div>` : ''}
-      <button onclick="window._lyFichaVida()" style="background:rgba(250,204,21,.08);border:1.5px solid rgba(250,204,21,.32);color:#facc15;border-radius:13px;padding:13px;font-weight:900;font-size:13px;cursor:pointer;text-align:left;">Ver tu ficha: vitrina y temporada por temporada</button>
       <button onclick="window._dtOfertas()" style="background:rgba(125,211,252,.1);border:1.5px solid rgba(125,211,252,.4);color:#7dd3fc;border-radius:13px;padding:13px;font-weight:900;font-size:13px;cursor:pointer;text-align:left;">Escuchar a otros clubes</button>
-      <button onclick="window._vidaJugable()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px;font-weight:900;font-size:14.5px;cursor:pointer;">SEGUIR EN ${esc(g.club).toUpperCase()} <i class='bx bx-right-arrow-alt'></i></button>
+      <button onclick="window._dtHub()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px;font-weight:900;font-size:14.5px;cursor:pointer;">SIGUIENTE TEMPORADA <i class='bx bx-right-arrow-alt'></i></button>
     </div>
   </div>`;
 };
@@ -9093,7 +9722,7 @@ window._dtVenderFigura = function(){
   G._dtAno.goleador = null;
   save();
   vjFlash('Se fue ' + gol.n + '. La plata entró, pero el vestuario lo sintió.');
-  window._vidaJugable();
+  window._dtHub();
 };
 window._dtOfertas = function(){
   const cand = clubesParaDirigir().map(c=>Object.assign({}, c, {
@@ -9119,7 +9748,7 @@ window._dtOfertas = function(){
           <div style="font-size:11.5px;font-weight:900;color:#facc15;margin-top:4px;">${eur(c.sueldo)} por año · contrato de ${c.anios}</div>
         </div>
       </button>`).join('')}
-      <button onclick="window._vidaJugable()" style="background:rgba(255,255,255,.05);border:1px solid #2a3222;color:#cfd8c6;border-radius:13px;padding:13px;font-weight:900;font-size:13px;cursor:pointer;">Quedarme en ${esc(g.club)}</button>
+      <button onclick="window._dtHub()" style="background:rgba(255,255,255,.05);border:1px solid #2a3222;color:#cfd8c6;border-radius:13px;padding:13px;font-weight:900;font-size:13px;cursor:pointer;">Quedarme en ${esc(g.club)}</button>
     </div>
   </div>`;
   G._dtOfertas = cand;
@@ -9134,8 +9763,9 @@ window._dtFirmar = function(i){
   s.presion = clamp((s.presion||45) + (c.str >= 80 ? 16 : 4), 0, 100);
   G._dtOfertas = null;
   save();
+  dtSync();
   vjFlash('Firmaste en ' + c.name + '. Plantel nuevo, exigencia nueva.');
-  window._vidaJugable();
+  window._dtHub();
 };
 window._vjEscritorio = function(tab){
   const g = dtPlantelAsegurar(); if(!g){ window._carreraHub(); return; }
@@ -12746,6 +13376,14 @@ window._vidaFinal = function(){
 // momento mientras jugás con el heredero.
 function ancestros(){ try { return JSON.parse(localStorage.getItem('canchero_ancestros')||'[]'); } catch(e){ return []; } }
 window._verAncestros = function(){
+  // Se anota de dónde venís para poder devolverte ahí.
+  const _v = (G && G.vidaRol && VJ && VJ.mundo === 'vida') ? 'vida' : (VJ && VJ.mundo === 'club') ? 'mundo' : 'hub';
+  const _e = (VJ && VJ.escena) || 'casa';
+  window._volverDeEstirpe = function(){
+    if (_v === 'vida'){ window._vidaJugable(); return; }
+    if (_v === 'mundo'){ window._clubMundo(_e); return; }
+    window._carreraHub();
+  };
   const AN = ancestros();
   const m = document.getElementById('carrera-modal') || overlay();
   if(!AN.length){ window._carreraHub(); return; }
@@ -12765,7 +13403,7 @@ window._verAncestros = function(){
   m.innerHTML = `
   <div style="max-width:520px;margin:0 auto;padding:20px 16px calc(28px + env(safe-area-inset-bottom));">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-      <button onclick="window._carreraHub()" style="background:rgba(255,255,255,.06);border:none;color:#aaa;width:32px;height:32px;border-radius:50%;font-size:17px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button>
+      <button onclick="window._volverDeEstirpe()" style="background:rgba(255,255,255,.06);border:none;color:#aaa;width:32px;height:32px;border-radius:50%;font-size:17px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button>
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:18px;color:#fff;">Tu estirpe</div>
     </div>
     ${filas}
@@ -12775,16 +13413,35 @@ window._verAncestros = function(){
 window._verAncestro = function(idx){
   const AN = ancestros(); const a = AN[idx]; if(!a || !a.partida) return;
   const actual = G;
-  G = a.partida;
-  try { retiro(); } catch(e){}
-  G = actual;
+  // De dónde veníamos, para volver EXACTAMENTE ahí. Antes el botón te mandaba
+  // siempre a la ficha del jugador: si estabas dirigiendo o caminando tu casa,
+  // quedabas tirado en otra pantalla sin forma de volver.
+  const _volverA = (actual && actual.vidaRol && VJ && VJ.mundo === 'vida') ? 'vida'
+                 : (VJ && VJ.mundo === 'club') ? 'mundo' : 'hub';
+  const _escena = (VJ && VJ.escena) || 'casa';
+  window._volverDeAncestro = function(){
+    G = actual;
+    if (_volverA === 'vida'){ window._vidaJugable(); return; }
+    if (_volverA === 'mundo'){ window._clubMundo(_escena); return; }
+    window._carreraHub();
+  };
+  // La partida del ancestro se muestra como FICHA, no como su despedida: si el
+  // homenaje no estaba visto, retiro() abría esa escena y el botón de volver
+  // nunca llegaba a dibujarse.
+  G = Object.assign({}, a.partida, { _homenajeVisto:true, segundaVida: a.partida.segundaVida || { rol:'—' } });
+  try { retiro(); } catch(e){ G = actual; window._carreraHub(); return; }
   setTimeout(function(){
     const m = document.getElementById('carrera-modal'); if(!m) return;
+    // Todo lo que se ve es del ancestro y no se puede tocar: es historia, no una
+    // partida en curso. Se apagan sus botones y queda uno solo, el de volver.
+    Array.prototype.forEach.call(m.querySelectorAll('button'), function(x){
+      x.onclick = null; x.setAttribute('onclick',''); x.style.opacity = '.45'; x.style.pointerEvents = 'none';
+    });
     const cont = m.firstElementChild || m;
     const b = document.createElement('button');
     b.style.cssText = 'position:sticky;bottom:10px;width:100%;margin-top:14px;background:linear-gradient(135deg,#16a34a,'+A+');color:#000;border:none;border-radius:13px;padding:14px;font-weight:900;font-size:14px;cursor:pointer;z-index:5;';
-    b.textContent = 'Volver a mi carrera';
-    b.onclick = function(){ window._carreraHub(); };
+    b.textContent = 'Volver a lo mío';
+    b.onclick = function(){ window._volverDeAncestro(); };
     cont.appendChild(b);
   }, 40);
 };
