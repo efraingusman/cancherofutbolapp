@@ -51,6 +51,15 @@ function fuerza(c){
 }
 // Valor de la carta PARA EL ENVIDO: las figuras no suman.
 function valEnvido(c){ return c.v >= 10 ? 0 : c.v; }
+// ── LA FLOR ───────────────────────────────────────────────────────────────────
+// Tres cartas del mismo palo. Vale 20 + las tres (las figuras no suman). Se canta
+// antes de la primera baza y tapa el envido: si hay flor, no hay envido.
+// Si los dos tienen, es CONTRAFLOR y se lleva 6 el que tenga más.
+function florDe(mano){
+  if (!mano || mano.length < 3) return 0;
+  if (!(mano[0].p === mano[1].p && mano[1].p === mano[2].p)) return 0;
+  return 20 + valEnvido(mano[0]) + valEnvido(mano[1]) + valEnvido(mano[2]);
+}
 function tantoDe(mano){
   let mejor = 0;
   for (let i=0;i<mano.length;i++){
@@ -81,10 +90,15 @@ const LS = 'canchero_truco_v1';
 // sola vez y el truco se cierra solo.
 function avisarDesafio(gano){
   if (!T || !T.desafio || T._avisado) return;
-  T._avisado = true;
-  const cb = T.onFin;
-  setTimeout(function(){ try { window._trucoSalir(); } catch(e){} try { cb && cb(gano); } catch(e){} }, 2200);
+  T._avisado = true;   // el resultado lo cierra el botón de la pantalla final
 }
+window._trucoCerrarDesafio = function(){
+  if (!T) return;
+  const cb = T.onFin, gano = T.fin === 0;
+  T.onFin = null;
+  try { window._trucoSalir(); } catch(e){}
+  try { cb && cb(gano); } catch(e){}
+};
 function nuevaPartida(meta){
   T = {
     meta: meta || 30,
@@ -110,7 +124,32 @@ function repartir(){
   T.log = [];
   T.tantoYo = tantoDe(T.yo);
   T.tantoEl = tantoDe(T.el);
+  T.florYo = florDe(T.yo);
+  T.florEl = florDe(T.el);
+  T.flor = { cantada:false, resuelta:false };
+  if (T.florYo) log('¡TENÉS FLOR! ' + T.florYo + ' puntos. Cantala antes de tirar.');
   log(T.mano === 0 ? 'Sos mano.' : 'Es mano la máquina.');
+}
+// Se canta la flor (la tuya o la de la maquina) y se reparte lo que corresponde.
+function resolverFlor(quienCanta){
+  if (!T || T.flor.cantada) return;
+  T.flor.cantada = true;
+  T.flor.resuelta = true;
+  T.envido.cantado = true;          // con flor no hay envido
+  T.envido.resuelto = true;
+  const mia = T.florYo, suya = T.florEl;
+  if (mia && suya){
+    // Contraflor: se lleva 6 el que tenga mas; empate, el mano.
+    const ganaYo = mia > suya || (mia === suya && T.mano === 0);
+    log('CONTRAFLOR: ' + mia + ' contra ' + suya + '.');
+    sumar(ganaYo ? 0 : 1, 6, ganaYo ? 'Ganaste la contraflor' : 'La contraflor fue de la máquina');
+  } else if (mia){
+    log('Cantás FLOR: ' + mia + '.');
+    sumar(0, 3, 'Tu flor');
+  } else if (suya){
+    log('La máquina canta FLOR: ' + suya + '.');
+    sumar(1, 3, 'La flor de la máquina');
+  }
 }
 function log(txt){ T.log.push(txt); if (T.log.length > 7) T.log.shift(); }
 
@@ -235,6 +274,9 @@ function turnoIA(){
   if (T.esperando) return;                 // te toca contestar a vos
   if (T.turno !== 1) return;
   // ¿Canta algo antes de tirar?
+  if (T.florEl && !T.flor.cantada && T.bazas.length === 0){
+    resolverFlor(1); render(); return;
+  }
   if (!T.envido.cantado && T.bazas.length === 0 && iaCantaEnvido()){
     T.envido.cantado = true; T.envido.nivel = 1; T.envido.quien = 1;
     T.esperando = { tipo:'envido', nivel:1 };
@@ -264,6 +306,9 @@ window._trucoTirar = function(idx){
   if (!T || T.fin != null || T.finMano || T.esperando) return;
   if (T.turno !== 0) return;
   const c = T.yo[idx]; if (!c) return;
+  // Flor no cantada, flor perdida: acá no. Si tenés flor y tirás sin cantarla,
+  // se canta sola. Nadie tiene que acordarse de una regla para no perder puntos.
+  if (T.florYo && !T.flor.cantada && T.bazas.length === 0){ resolverFlor(0); }
   T.yo = T.yo.filter((_,i)=>i!==idx);
   T.jugadasYo[T.bazas.length] = c;
   log('Tirás ' + nombreCarta(c) + '.');
@@ -273,6 +318,7 @@ window._trucoTirar = function(idx){
 };
 window._trucoCantar = function(que){
   if (!T || T.fin != null || T.finMano || T.esperando) return;
+  if (que === 'flor'){ if (T.florYo && !T.flor.cantada && T.bazas.length === 0){ resolverFlor(0); render(); } return; }
   if (que === 'envido' || que === 'real' || que === 'falta'){
     if (T.envido.cantado || T.bazas.length > 0) return;
     T.envido.cantado = true; T.envido.quien = 0;
@@ -486,7 +532,7 @@ function render(){
   if (!T) return;
   const m = overlay();
   if (T.fin != null){ renderFin(m); return; }
-  const puedeEnvido = !T.envido.cantado && T.bazas.length === 0 && !T.esperando && !T.finMano;
+  const puedeEnvido = !T.envido.cantado && !T.florYo && !T.florEl && T.bazas.length === 0 && !T.esperando && !T.finMano;
   const puedeTruco  = T.truco.nivel === 0 && !T.esperando && !T.finMano;
   const puedeSubir  = T.truco.nivel >= 1 && T.truco.nivel < 3 && T.truco.quien === 1 && !T.esperando && !T.finMano;
   const tuTurno = T.turno === 0 && !T.esperando && !T.finMano;
@@ -556,6 +602,7 @@ function render(){
 
       <!-- CANTOS -->
       <div style="display:flex;flex-wrap:wrap;gap:7px;justify-content:center;">
+        ${(T.florYo && !T.flor.cantada && T.bazas.length === 0 && !T.finMano) ? btn('¡FLOR! (' + T.florYo + ')', "window._trucoCantar('flor')", '#f472b6') : ''}
         ${puedeEnvido ? btn('Envido', "window._trucoCantar('envido')", '#4fc3f7', true) : ''}
         ${puedeEnvido ? btn('Real envido', "window._trucoCantar('real')", '#4fc3f7', true) : ''}
         ${puedeEnvido ? btn('Falta envido', "window._trucoCantar('falta')", '#fb923c', true) : ''}
@@ -575,9 +622,12 @@ function renderFin(m){
     <div style="max-width:400px;width:100%;text-align:center;">
       <div style="font-size:56px;margin-bottom:10px;">${gane?'🏆':'💀'}</div>
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:30px;color:#fff;line-height:1.15;margin-bottom:9px;">${gane?'¡Ganaste!':'Te ganó la máquina'}</div>
+      ${T.desafio ? `<div style="font-size:13px;color:${gane?'#facc15':'#f87171'};font-weight:900;margin-bottom:6px;">${gane?'La final es tuya.':'Se te escapó la final.'}</div>` : ''}
       <div style="font-size:14px;color:#b9c4ad;margin-bottom:22px;">${T.ptsYo} a ${T.ptsEl}${gane?'. A cobrar.':'. La próxima.'}</div>
-      <button onclick="window._trucoNueva(${T.meta})" style="width:100%;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">OTRA</button>
-      <button onclick="window._trucoSalir()" style="width:100%;margin-top:9px;background:rgba(255,255,255,.05);border:1px solid #2a3222;color:#cfd8c6;border-radius:14px;padding:14px;font-weight:900;font-size:14px;cursor:pointer;">Salir</button>
+      ${T.desafio
+        ? `<button onclick="window._trucoCerrarDesafio()" style="width:100%;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">VOLVER A LA CANCHA <i class='bx bx-right-arrow-alt'></i></button>`
+        : `<button onclick="window._trucoNueva(${T.meta})" style="width:100%;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:14px;padding:15px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">OTRA</button>
+      <button onclick="window._trucoSalir()" style="width:100%;margin-top:9px;background:rgba(255,255,255,.05);border:1px solid #2a3222;color:#cfd8c6;border-radius:14px;padding:14px;font-weight:900;font-size:14px;cursor:pointer;">Salir</button>`}
     </div>
   </div>`;
 }

@@ -1019,6 +1019,9 @@ window._lyElegirIdioma = function(){
 };
 
 // ── RANKING DE CARRERAS ──────────────────────────────────────────────────────────
+// El link que viaja con cada ficha compartida. Sin esto, compartías una imagen
+// linda y el que la recibía no tenía cómo jugar.
+const LY_URL = 'https://cancherofutbolapp.vercel.app/leyenda';
 function careerScore(g){ return Math.round(g.nivel*10 + g.titulos*60 + g.tot.g*3 + g.tot.a*1.5 + (g.years>=20?100:0)); }
 async function saveCareer(g){
   try{ const c=window._sb; const u=me(); if(!c||!u.email) return;
@@ -1117,7 +1120,7 @@ const AV_COLORES_PELO = [
   { id:'rojo',    n:'Colorado',  c:'#9c3d1c' },
   { id:'canoso',  n:'Canoso',    c:'#a8a8a4' },
   { id:'platino', n:'Platinado', c:'#ece7d8' },
-  { id:'fantasia',n:'Fantasía',  c:'#baff00' }
+  { id:'fantasia',n:'Teñido',    c:'#e8d7b4' }
 ];
 const AV_ACCS = [
   { id:'nada',     n:'Nada' },      { id:'cinta',   n:'Vincha' },
@@ -1495,7 +1498,7 @@ const AV_POSES = {
   caminar:   { brazoL:-26,  brazoR:26,   cabeza:0,  salto:1, cara:'normal', piernas:1, gesto:'braceo',   ritmo:1 },
   correr:    { brazoL:-52,  brazoR:52,   cabeza:-2, salto:2, cara:'normal', piernas:2, gesto:'braceo',   ritmo:1 },
   festejo:   { brazoL:-62,  brazoR:62,   cabeza:-4, salto:3, cara:'feliz',  piernas:0, gesto:'agitar',   ritmo:.75 },
-  campeon:   { brazoL:-148, brazoR:148,  cabeza:-6, salto:5, cara:'feliz',  piernas:0, gesto:'levantar', ritmo:.9 },
+  campeon:   { brazoL:-148, brazoR:148,  cabeza:-6, salto:2, cara:'feliz',  piernas:0, gesto:'levantar', ritmo:.9 },
   bajon:     { brazoL:8,    brazoR:-8,   cabeza:7,  salto:0, cara:'triste', piernas:0, gesto:'hundirse', ritmo:2.2 },
   lesion:    { brazoL:34,   brazoR:-16,  cabeza:9,  salto:0, cara:'dolor',  piernas:3, gesto:'dolor',    ritmo:1.6 },
   pensando:  { brazoL:4,    brazoR:-44,  cabeza:3,  salto:0, cara:'normal', piernas:0, gesto:'meditar',  ritmo:2 },
@@ -1511,7 +1514,7 @@ const AV_POSES = {
   entrenar:  { brazoL:-72,  brazoR:72,   cabeza:0,  salto:1, cara:'normal', piernas:3, gesto:'braceo',   ritmo:.7 },
   // Poses nuevas: el juego repetía cuatro caras para veinte situaciones distintas.
   llorar:    { brazoL:-92,  brazoR:92,  cabeza:12, salto:0, cara:'triste', piernas:0, gesto:'sollozar', ritmo:1.8 },
-  gol:       { brazoL:-136, brazoR:136,  cabeza:-8, salto:4, cara:'feliz',  piernas:0, gesto:'agitar',   ritmo:.55 },
+  gol:       { brazoL:-136, brazoR:136,  cabeza:-8, salto:3, cara:'feliz',  piernas:0, gesto:'agitar',   ritmo:.55 },
   taparse:   { brazoL:-98,  brazoR:98,  cabeza:10, salto:0, cara:'dolor',  piernas:0, gesto:'sollozar', ritmo:1.5 },
   desafiante:{ brazoL:30,   brazoR:-30,  cabeza:-5, salto:0, cara:'dolor',  piernas:0, gesto:'pecho',    ritmo:1 },
   alivio:    { brazoL:-20,  brazoR:20,   cabeza:6,  salto:0, cara:'normal', piernas:0, gesto:'jadear',   ritmo:1.4 },
@@ -1519,7 +1522,7 @@ const AV_POSES = {
   nervioso:  { brazoL:12,   brazoR:-12,  cabeza:2,  salto:0, cara:'normal', piernas:3, gesto:'temblar',  ritmo:.8 },
   // Poses de vida cotidiana: se sienta, salta, se estira, se seca la frente.
   sentado:   { brazoL:16,   brazoR:-16,  cabeza:2,  salto:0, cara:'normal', piernas:4, gesto:'respirar', ritmo:2.6 },
-  saltar:    { brazoL:-120, brazoR:120,  cabeza:-6, salto:6, cara:'feliz',  piernas:0, gesto:'agitar',   ritmo:.45 },
+  saltar:    { brazoL:-120, brazoR:120,  cabeza:-6, salto:4, cara:'feliz',  piernas:0, gesto:'agitar',   ritmo:.45 },
   estirar:   { brazoL:-134, brazoR:134,  cabeza:-8, salto:0, cara:'normal', piernas:0, gesto:'mostrar',  ritmo:2.2 },
   sofocado:  { brazoL:26,   brazoR:-26,  cabeza:14, salto:0, cara:'triste', piernas:3, gesto:'jadear',   ritmo:.9 },
   // Alzar un bebé: los dos antebrazos se cierran hacia el pecho formando la cuna.
@@ -1662,7 +1665,10 @@ function avatarSprite(av, o){
   const piernaH = Math.max(2, (pisoY - 2) - piernaY);
 
   // Sombra
-  p.push(`<ellipse cx="${(cx*S).toFixed(1)}" cy="${((pisoY+1.5)*S).toFixed(1)}" rx="${(hombroW*0.62*S).toFixed(1)}" ry="${(2.4*S).toFixed(1)}" fill="rgba(0,0,0,.34)"/>`);
+  // Cuanto más alto salta, más chica y más suave la sombra: eso es lo que hace
+  // que se lea "está en el aire" en vez de "está flotando".
+  const _aire = clamp((pose.salto||0) / 6, 0, 1);
+  p.push(`<ellipse cx="${(cx*S).toFixed(1)}" cy="${((pisoY+1.5)*S).toFixed(1)}" rx="${(hombroW*0.62*(1-_aire*0.45)*S).toFixed(1)}" ry="${(2.4*(1-_aire*0.35)*S).toFixed(1)}" fill="rgba(0,0,0,${(0.34*(1-_aire*0.5)).toFixed(2)})"/>`);
 
   // ── PIERNAS (con ciclo de movimiento) ──
   const pw = Math.max(2, Math.round(hombroW*(fem ? 0.26 : 0.30))), gapP = Math.round(hombroW*0.10);
@@ -2693,56 +2699,103 @@ window._carreraIdent = function(years){
   _draft.years = years;
   renderIdent();
 };
+// ── CREAR EL JUGADOR, PASO POR PASO ─────────────────────────────────────────
+// Antes era una sola pantalla con tres pestañas y todo apretado: había que
+// descubrir dónde tocar. Ahora son tres pasos claros con un botón de Siguiente:
+// 1) cómo sos y cómo te llamás, 2) tu número y de dónde sos, 3) dónde jugás.
+const IDENT_PASOS = [
+  { id:'look', t:'¿Quién sos?',      s:'Tu cara, tu pelo y tu apellido.',          i:'bx-user' },
+  { id:'pais', t:'¿De dónde sos?',   s:'El número que vas a usar y tu bandera.',   i:'bx-world' },
+  { id:'pos',  t:'¿Dónde jugás?',    s:'Tocá el puesto en la cancha.',             i:'bx-football' }
+];
 function renderIdent(){
   const d=_draft; const m=document.getElementById('carrera-modal')||overlay();
+  const paso = clamp(d.paso||0, 0, IDENT_PASOS.length-1);
+  d.paso = paso;
+  const P = IDENT_PASOS[paso];
+  const ultimo = paso === IDENT_PASOS.length-1;
   const list = PAISES.filter(p=>p.toLowerCase().includes((d.filtro||'').toLowerCase()));
   m.innerHTML=`
-  <div style="max-width:1040px;margin:0 auto;padding:18px 18px calc(96px + env(safe-area-inset-bottom));">
-    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;color:#fff;margin-bottom:10px;">Definí tu jugador</div>
-    <div style="display:grid;grid-template-columns:1fr;gap:18px;">
-      <!-- Panel compacto: avatar fijo arriba + pestañas abajo (entra en una pantalla) -->
-      <div style="background:rgba(255,255,255,.03);border:1px solid #1c1c1c;border-radius:16px;padding:12px;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-          ${avatarBox(`<div id="cr-avatar" style="display:flex;align-items:flex-end;justify-content:center;">${avatarSprite(d.avatar, _avOpts(d, _avEscalaIdent()))}</div>`, '10px 14px')}
-          <div style="flex:1;min-width:0;">
+  <div style="max-width:620px;margin:0 auto;padding:18px 16px calc(100px + env(safe-area-inset-bottom));">
+    <!-- En qué paso vas -->
+    <div style="display:flex;gap:6px;margin-bottom:14px;">
+      ${IDENT_PASOS.map((x,i)=>`<div style="flex:1;height:4px;border-radius:2px;background:${i<=paso?A:'#242a20'};"></div>`).join('')}
+    </div>
+    <div style="display:flex;align-items:center;gap:9px;margin-bottom:4px;">
+      <i class='bx ${P.i}' style="font-size:21px;color:${A};"></i>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:21px;color:#fff;">${P.t}</div>
+    </div>
+    <div style="font-size:12.5px;color:#8a9280;margin-bottom:14px;">Paso ${paso+1} de ${IDENT_PASOS.length} · ${P.s}</div>
+
+    <div style="background:rgba(255,255,255,.03);border:1px solid #1c1c1c;border-radius:16px;padding:13px;">
+      <div style="display:flex;justify-content:center;margin-bottom:12px;">
+        ${avatarBox(`<div id="cr-avatar" style="display:flex;align-items:flex-end;justify-content:center;">${avatarSprite(d.avatar, _avOpts(d, _avEscalaIdent()))}</div>`, '10px 16px', paso===2?'cancha':'potrero')}
+      </div>
+
+      ${paso===0 ? `
+        <label style="font-size:9.5px;font-weight:900;color:#5f6a58;display:block;margin-bottom:4px;letter-spacing:1px;">TU APELLIDO</label>
+        <input id="cr-ape" value="${esc(d.apellido)}" placeholder="APELLIDO" oninput="window._carreraSet('apellido',this.value)" style="${inp()};margin-bottom:12px;text-transform:uppercase;">
+        ${_avEditorHTML(d)}
+      ` : ''}
+
+      ${paso===1 ? `
+        <div style="display:flex;gap:9px;margin-bottom:12px;">
+          <div style="width:96px;">
+            <label style="font-size:9.5px;font-weight:900;color:#5f6a58;display:block;margin-bottom:4px;letter-spacing:1px;">TU Nº</label>
+            <input id="cr-num" type="number" min="1" max="99" value="${d.num}" oninput="window._carreraSet('num',this.value)" style="${inp()};text-align:center;font-size:20px;font-weight:900;">
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:9.5px;font-weight:900;color:#5f6a58;display:block;margin-bottom:4px;letter-spacing:1px;">PIERNA HÁBIL</label>
             <div style="display:flex;gap:6px;">
-              <div style="flex:2;"><label style="font-size:9px;font-weight:800;color:#5f6a58;display:block;margin-bottom:3px;">APELLIDO</label><input id="cr-ape" value="${esc(d.apellido)}" placeholder="APELLIDO" oninput="window._carreraSet('apellido',this.value)" style="${inp()};padding:8px;font-size:13px;"></div>
-              <div style="width:62px;"><label style="font-size:9px;font-weight:800;color:#5f6a58;display:block;margin-bottom:3px;">Nº</label><input id="cr-num" type="number" min="1" max="99" value="${d.num}" oninput="window._carreraSet('num',this.value)" style="${inp()};padding:8px;font-size:13px;text-align:center;"></div>
-            </div>
-            <div style="margin-top:7px;"><label style="font-size:9px;font-weight:800;color:#5f6a58;display:block;margin-bottom:3px;">PIERNA</label>
-              <div style="display:flex;gap:5px;">
-                ${['Izquierda','Derecha'].map(x=>`<button onclick="window._carreraSet('pie','${x}')" style="flex:1;background:${d.pie===x?A:'#161616'};color:${d.pie===x?'#000':'#9aa294'};border:1px solid ${d.pie===x?A:'#242a20'};border-radius:8px;padding:7px 4px;font-weight:800;font-size:11.5px;cursor:pointer;">${x.slice(0,3)}</button>`).join('')}
-              </div>
-            </div>
-            <div style="margin-top:7px;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.03);border:1px solid #242a20;border-radius:8px;padding:6px 8px;">
-              ${flagImg(d.pais,18)}<span style="font-size:11.5px;color:#c4ccc0;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(d.pais)}</span>
-              <span style="font-size:10px;font-weight:900;color:${A};background:rgba(186,255,0,.12);border-radius:5px;padding:2px 6px;">${esc(d.pos)}</span>
+              ${['Izquierda','Derecha'].map(x=>`<button onclick="window._carreraSet('pie','${x}')" style="flex:1;background:${d.pie===x?A:'#161616'};color:${d.pie===x?'#000':'#9aa294'};border:1px solid ${d.pie===x?A:'#242a20'};border-radius:10px;padding:13px 4px;font-weight:900;font-size:12.5px;cursor:pointer;">${x}</button>`).join('')}
             </div>
           </div>
         </div>
-        <!-- Pestañas -->
-        <div style="display:flex;gap:5px;margin-bottom:10px;">
-          ${[['look','Aspecto','bx-user'],['pais','País','bx-world'],['pos','Puesto','bx-football']].map(t=>`
-            <button onclick="window._identTab('${t[0]}')" style="flex:1;background:${(d.tab||'look')===t[0]?'rgba(186,255,0,.13)':'rgba(255,255,255,.03)'};border:1.5px solid ${(d.tab||'look')===t[0]?A:'#242a20'};border-radius:10px;padding:8px 4px;cursor:pointer;color:${(d.tab||'look')===t[0]?A:'#8a9280'};font-weight:900;font-size:11.5px;"><i class='bx ${t[2]}'></i> ${t[1]}</button>`).join('')}
+        <label style="font-size:9.5px;font-weight:900;color:#5f6a58;display:block;margin-bottom:4px;letter-spacing:1px;">TU PAÍS</label>
+        <input value="${esc(d.filtro)}" placeholder="Buscar país" oninput="window._carreraSet('filtro',this.value)" style="${inp()};margin-bottom:8px;padding:10px;">
+        <div style="max-height:230px;overflow-y:auto;-webkit-overflow-scrolling:touch;display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          ${list.map(p=>`<button onclick="window._carreraSet('pais','${p.replace(/'/g,"\\'")}')" style="display:flex;align-items:center;gap:7px;background:${d.pais===p?'rgba(186,255,0,.12)':'transparent'};border:1px solid ${d.pais===p?'rgba(186,255,0,.4)':'#1c211a'};border-radius:10px;padding:10px 8px;color:#fff;cursor:pointer;text-align:left;font-size:12px;font-weight:700;">${flagImg(p,18)}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(p)}</span></button>`).join('')}
         </div>
-        <div style="min-height:250px;">
-          ${(d.tab||'look')==='look' ? _avEditorHTML(d) : ''}
-          ${d.tab==='pais' ? `
-            <input value="${esc(d.filtro)}" placeholder="Buscar país" oninput="window._carreraSet('filtro',this.value)" style="${inp()};margin-bottom:8px;padding:9px;">
-            <div style="max-height:220px;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:5px;">
-              ${list.map(p=>`<button onclick="window._carreraSet('pais','${p.replace(/'/g,"\\'")}')" style="display:flex;align-items:center;gap:7px;background:${d.pais===p?'rgba(186,255,0,.1)':'transparent'};border:1px solid ${d.pais===p?'rgba(186,255,0,.3)':'#1c211a'};border-radius:9px;padding:8px;color:#fff;cursor:pointer;text-align:left;font-size:11.5px;font-weight:700;">${flagImg(p,18)}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(p)}</span></button>`).join('')}
-            </div>` : ''}
-          ${d.tab==='pos' ? pitch(d.pos,'window._carreraSet.bind(null,\'pos\')') : ''}
+      ` : ''}
+
+      ${paso===2 ? `
+        ${pitch(d.pos,'window._carreraSet.bind(null,\'pos\')')}
+        <div style="margin-top:12px;display:flex;align-items:center;justify-content:center;gap:9px;background:rgba(255,255,255,.03);border:1px solid #242a20;border-radius:11px;padding:11px;">
+          ${flagImg(d.pais,20)}
+          <span style="font-size:13px;color:#fff;font-weight:900;">${esc(d.apellido||'SIN NOMBRE')}</span>
+          <span style="font-size:12px;color:#8a9280;font-weight:800;">#${d.num}</span>
+          <span style="font-size:11px;font-weight:900;color:${A};background:rgba(186,255,0,.12);border-radius:6px;padding:3px 8px;">${esc(d.pos)}</span>
         </div>
-      </div>
+      ` : ''}
     </div>
-    <div style="position:fixed;left:0;right:0;bottom:0;z-index:20;background:#0a0c0a;border-top:1px solid #1c1c1c;padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:flex;gap:10px;max-width:1040px;margin:0 auto;box-shadow:0 -8px 24px rgba(0,0,0,.6);">
-      <button onclick="window._carreraLen()" style="flex:1;background:#161616;color:#aaa;border:1px solid #262626;border-radius:12px;padding:14px;font-weight:800;cursor:pointer;">Volver</button>
-      <button onclick="window._potreroMundo()" style="flex:2;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:12px;padding:14px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">Confirmar identidad</button>
+
+    <div style="position:fixed;left:0;right:0;bottom:0;z-index:20;background:#0a0c0a;border-top:1px solid #1c1c1c;padding:14px 16px calc(14px + env(safe-area-inset-bottom));display:flex;gap:10px;box-shadow:0 -8px 24px rgba(0,0,0,.6);">
+      <div style="max-width:620px;margin:0 auto;display:flex;gap:10px;width:100%;">
+        <button onclick="window._identPaso(-1)" style="flex:1;background:#161616;color:#aaa;border:1px solid #262626;border-radius:12px;padding:14px;font-weight:800;cursor:pointer;">${paso===0?'Volver':'Atrás'}</button>
+        <button onclick="window._identPaso(1)" style="flex:2;background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:12px;padding:14px;font-family:Outfit,sans-serif;font-weight:900;font-size:15px;cursor:pointer;">${ultimo?'EMPEZAR':'Siguiente'} <i class='bx bx-right-arrow-alt'></i></button>
+      </div>
     </div>
   </div>`;
 }
-window._identTab = function(t){ if(!_draft) return; _draft.tab = t; renderIdent(); };
+window._identPaso = function(dir){
+  if(!_draft) return;
+  const d = _draft;
+  const paso = d.paso || 0;
+  if (dir < 0){
+    if (paso === 0){ window._carreraLen(); return; }
+    d.paso = paso - 1; renderIdent(); return;
+  }
+  // No se pasa de largo sin lo mínimo: sin apellido no hay camiseta.
+  if (paso === 0 && !String(d.apellido||'').trim()){
+    const i = document.getElementById('cr-ape');
+    if (i){ i.style.borderColor = '#ef4444'; i.focus(); }
+    return;
+  }
+  if (paso >= IDENT_PASOS.length-1){ window._potreroMundo(); return; }
+  d.paso = paso + 1;
+  renderIdent();
+};
+window._identTab = function(t){ if(!_draft) return; const i = IDENT_PASOS.findIndex(x=>x.id===t); if(i>=0){ _draft.paso = i; renderIdent(); } };
 window._carreraSet = function(k,v){
   if(k==='num') v=clamp(parseInt(v)||10,1,99);
   _draft[k]=v;
@@ -2767,7 +2820,7 @@ const POTRERO_POOL = [
     { txt:'Un killer (Suárez / Ronaldo)', ef:g=>{ g._potBonus=(g._potBonus||0)+2; g._potStyle='killer'; return 'Ir al gol es tu religión.'; } },
     { txt:'Un guerrero (Vidal)', ef:g=>{ g._potBonus=(g._potBonus||0)+1; g._potStyle='guerrero'; return 'La cancha es guerra. Nunca te rendís.'; } }
   ] },
-  { t:'Ojeadores te vinieron a ver', edad:14, d:'DOS ojeadores de distintos clubes de tu país te vieron jugar. Uno de un club grande, otro de uno chico. Ambos te invitan a probarte.', opts:[
+  { t:'La final del interbarrial', edad:14, d:'Jugaste la final del torneo más grande del barrio y metiste dos. En la tribuna había DOS ojeadores anotando: uno de un club grande, otro de uno chico. Los dos te esperan en la puerta.', opts:[
     { txt:'Elegir dónde probarme', prueba:true },
     { txt:'No ir, seguir en el barrio', ef:g=>{ g._potBonus=(g._potBonus||0)+1; return 'Preferís madurar sin apuro.'; } }
   ] },
@@ -3333,7 +3386,7 @@ const JUVENILES_POOL = [
     { txt:'Infiltrarme y jugar ese partido', ef:g=>{ const mal=Math.random()<.55; if(mal){ g.nivel-=5; g.moral-=8; return 'Se te agravó y estuviste 6 meses afuera. Perdiste la ventana.'; } g.nivel+=3; g.fama+=5; return 'Jugaste al 60% y aún así lo convenciste. Riesgo que salió bien.'; } },
     { txt:'Parar y recuperar bien', ef:g=>{ g.nivel+=1; g.moral+=3; return 'Volviste entero dos meses después. La ventana se cerró, pero el cuerpo quedó sano.'; } } ] },
   { t:'Oferta de un club del exterior', d:'Un club europeo quiere llevarte a su cantera a los 16. Es lejos, otro idioma, y tu familia queda acá.', opts:[
-    { txt:'Cruzar el charco solo', ef:g=>{ const b=Math.random()<.5; if(b){ g.nivel+=5; g.fama+=6; g.flags=g.flags||{}; g.flags.emigroPibe=true; return 'Te adaptaste. Otra cultura de trabajo, otro nivel de exigencia. Volaste.'; } g.nivel-=2; g.moral-=12; return 'No aguantaste la soledad. Volviste a los 8 meses con la autoestima rota.'; } },
+    { txt:'Cruzar el charco — elegir a dónde', ef:g=>{ g._pedirClubExt = true; return 'Dijiste que sí. Ahora hay que elegir dónde te vas a jugar la infancia entera.'; } },
     { txt:'Quedarme y crecer en casa', ef:g=>{ g.nivel+=2; g.moral+=6; return 'Elegiste tus raíces. Progreso más lento pero con los tuyos al lado.'; } } ] },
   { t:'Te ponen de capitán de la categoría', d:'El cuerpo técnico te da la cinta de la juvenil. Implica hablar, poner la cara cuando se pierde y mediar en los quilombos.', opts:[
     { txt:'Aceptar y liderar de verdad', ef:g=>{ g.nivel+=2; g.moral+=6; g._juvDisc=(g._juvDisc||0)+2; g.flags=g.flags||{}; g.flags.lider=true; avMutar({capitanPerm:true}); return 'Te bancaste todas. Cuando subís a primera ya sabés hablar en un vestuario. Desde hoy llevás la cinta.'; } },
@@ -3571,8 +3624,66 @@ window._juvElegir = function(paso, idx){
       <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:#4fc3f7;margin-bottom:12px;">${esc(ev.t)}</div>
       <div style="font-size:16px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:16px;">${esc(res)}</div>
       ${dNiv?`<div style="margin-bottom:22px;">${deltaChip('Nivel', dNiv)}</div>`:'<div style="margin-bottom:22px;"></div>'}
-      <button onclick="window._juvenilesVolver(${paso+1})" style="background:linear-gradient(135deg,#0284c7,#4fc3f7);color:#fff;border:none;border-radius:13px;padding:13px 30px;font-weight:900;cursor:pointer;">${paso+1>=G._juvSet.length?'El día del debut':'Volver al predio'} <i class='bx bx-right-arrow-alt'></i></button>
+      <button onclick="${G._pedirClubExt ? 'window._juvClubExterior('+(paso+1)+')' : 'window._juvenilesVolver('+(paso+1)+')'}" style="background:linear-gradient(135deg,#0284c7,#4fc3f7);color:#fff;border:none;border-radius:13px;padding:13px 30px;font-weight:900;cursor:pointer;">${G._pedirClubExt ? 'Elegir el club' : (paso+1>=G._juvSet.length?'El día del debut':'Volver al predio')} <i class='bx bx-right-arrow-alt'></i></button>
     </div>`;
+};
+// Tres canteras de afuera, de verdad, con su liga y su nivel. Elegís vos: la
+// grande exige más y puede escupirte; la chica te da minutos.
+window._juvClubExterior = function(sig){
+  if(!G) return;
+  const fuera = todosClubs().filter(c => c.pais !== G.pais && c.str >= 62);
+  const orden = shuffle(fuera).sort((a,b)=>b.str-a.str);
+  const opciones = [orden[0], orden[Math.floor(orden.length*0.35)] || orden[1], orden[Math.floor(orden.length*0.7)] || orden[2]].filter(Boolean);
+  G._extOps = opciones; G._extSig = sig; save();
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:26px 18px calc(30px + env(safe-area-inset-bottom));">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:10px;font-weight:900;letter-spacing:2.4px;color:#4fc3f7;">LA CANTERA DE AFUERA</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:23px;color:#fff;margin-top:6px;line-height:1.2;">¿A dónde te vas?</div>
+      <div style="font-size:12.5px;color:#9aa294;margin-top:7px;line-height:1.5;">Tenés 16 años y te vas solo. Cuanto más grande el club, más difícil quedarse — y más alto llegás si te quedás.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      ${opciones.map((c,i)=>`<button onclick="window._juvTomarExterior(${i})" style="display:flex;align-items:center;gap:12px;background:rgba(79,195,247,.06);border:1.5px solid rgba(79,195,247,.3);border-radius:15px;padding:13px;cursor:pointer;text-align:left;">
+        ${clubBadge(c.name,44)}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:15px;font-weight:900;color:#fff;">${esc(c.name)}</div>
+          <div style="font-size:11.5px;color:#9aa294;font-weight:700;">${flagImgInline(c.pais)} ${esc(c.liga)} · nivel ${c.str}</div>
+          <div style="font-size:11.5px;color:${c.str>=82?'#f87171':c.str>=72?'#facc15':'#4ade80'};font-weight:800;margin-top:3px;">${c.str>=82?'Te van a mirar con lupa':c.str>=72?'Exigente pero justo':'Vas a jugar seguro'}</div>
+        </div>
+      </button>`).join('')}
+      <button onclick="window._juvTomarExterior(-1)" style="background:rgba(255,255,255,.04);border:1px solid #242a20;color:#8a9280;border-radius:13px;padding:13px;font-weight:800;font-size:12.5px;cursor:pointer;">Arrepentirme y quedarme en ${esc(G.club||'mi club')}</button>
+    </div>
+  </div>`;
+};
+window._juvTomarExterior = function(i){
+  const ops = G._extOps || [];
+  const sig = G._extSig || ((G._juvPaso||0)+1);
+  G._pedirClubExt = false; G._extOps = null;
+  if (i < 0 || !ops[i]){
+    G.nivel = clamp((G.nivel||50) + 2, 30, 75); G.moral = clamp((G.moral||60) + 6, 0, 100);
+    save(); vjFlash('Te quedaste. Progreso más lento, pero con los tuyos al lado.');
+    window._juvenilesVolver(sig); return;
+  }
+  const c = ops[i];
+  G.club = c.name; G.clubStr = c.str; G.liga = c.liga; G.clubPais = c.pais;
+  G.flags = G.flags || {}; G.flags.emigroPibe = true;
+  // Cuanto más grande el club, más te exige y más te puede costar.
+  const aguanta = Math.random() < clamp(0.82 - (c.str - 62) / 60, 0.32, 0.85);
+  let res;
+  if (aguanta){
+    G.nivel = clamp((G.nivel||50) + (c.str >= 82 ? 7 : c.str >= 72 ? 5 : 3), 30, 75);
+    G.fama = clamp((G.fama||0) + 6, 0, 100);
+    res = 'Te quedaste en ' + c.name + '. Otro idioma, otra exigencia, otro nivel. Volaste.';
+  } else {
+    G.nivel = clamp((G.nivel||50) - 2, 30, 75);
+    G.moral = clamp((G.moral||60) - 12, 0, 100);
+    res = 'No aguantaste la soledad en ' + c.name + '. Volviste a los ocho meses, pero volviste sabiendo cosas.';
+  }
+  (G.juvHist = G.juvHist || []).push({ edad:16, t:'La cantera de afuera', res });
+  save();
+  vjFlash(res);
+  window._juvenilesVolver(sig);
 };
 // Debut: la disciplina acumulada en juveniles define si subís a los 17 o a los 18.
 window._carreraDebut = function(){
@@ -6426,10 +6537,10 @@ function retiro(){
          mide. Antes eran seis botones iguales con un icono y no se entendia en
          que se diferenciaban. -->
     <div class="cr-fade" style="background:linear-gradient(160deg,rgba(167,139,250,.12),rgba(20,22,18,.5));border:1.5px solid rgba(167,139,250,.4);border-radius:18px;padding:17px;margin-bottom:16px;">
-      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;color:#fff;text-align:center;">Se acabó el fútbol. Ahora, ¿qué?</div>
-      <div style="font-size:12.5px;color:#c4ccc0;text-align:center;margin:6px 0 14px;line-height:1.55;">Elegí un camino y vivilo hasta los ${VIDA_LAPSOS[VIDA_LAPSOS.length-1].a}: caminás tu casa, tu barrio y tu laburo, hablás con la gente y decidís.</div>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:19px;color:#fff;text-align:center;">Se acabó el fútbol. Ahora, el banco.</div>
+      <div style="font-size:12.5px;color:#c4ccc0;text-align:center;margin:6px 0 14px;line-height:1.55;">Se dirige igual que se jugaba: <b style="color:#fff;">temporada por temporada</b>, con tu ficha, tu vitrina y tu tabla. Y con la vida alrededor, hasta los ${VIDA_LAPSOS[VIDA_LAPSOS.length-1].a}.</div>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        ${['dt','empresario'].map(id=>{
+        ${['dt'].map(id=>{
           const R = VIDA_ROLES[id];
           const mide = R.barras.filter(b=>b[1]!=='salud').map(b=>b[0].toLowerCase()).join(' · ');
           return `<button onclick="window._carreraSegundaVida('${id}')" style="width:100%;display:flex;align-items:center;gap:12px;background:linear-gradient(160deg,${R.color}12,rgba(13,16,13,.7));border:1.5px solid ${R.color}3a;border-radius:14px;padding:13px 14px;color:#fff;cursor:pointer;text-align:left;" onmouseover="this.style.borderColor='${R.color}'" onmouseout="this.style.borderColor='${R.color}3a'">
@@ -8905,6 +9016,7 @@ window._dtTemporada = function(){
   g.hist = g.hist || [];
   g.hist.push({ anio:(G.anio || 2026) + (g.hist.length % 5), edad:G.vidaEdad, club:g.club, liga:g.liga,
     pos, total:tabla.length, titulo: titulo || null, media, goleador: F ? F.goleador.n : null, goles });
+  (G._vjHechos = G._vjHechos || {}).temporada = true;
   G._dtAno = { pos, total:tabla.length, titulo, prensa, goleador: F ? F.goleador : null, goles, media,
     echado: s.presion >= 88, rival: rivDT };
   save();
@@ -9449,7 +9561,7 @@ function metaHTML(){
       const pend = vjPendientesTramo();
       if (!pend.length) return '';
       return `<div style="margin-top:9px;padding-top:9px;border-top:1px solid rgba(255,255,255,.08);">
-        <div style="font-size:9px;font-weight:900;letter-spacing:1.5px;color:#5d6879;margin-bottom:6px;">PARA CERRAR ESTE TRAMO</div>
+        <div style="font-size:9px;font-weight:900;letter-spacing:1.5px;color:#5d6879;margin-bottom:6px;">PARA CERRAR EL AÑO</div>
         ${pend.map(x=>`<div style="display:flex;align-items:center;gap:7px;font-size:11px;color:${x.hecho?'#4ade80':'#9aa4b2'};margin-bottom:3px;">
           <i class='bx ${x.hecho?'bx-check-circle':'bx-circle'}' style="font-size:13px;flex-shrink:0;"></i>
           <span style="${x.hecho?'text-decoration:line-through;opacity:.7;':''}">${esc(x.txt)}${x.obliga?'':' <span style="font-size:9px;color:#5d6879;">(opcional)</span>'}</span>
@@ -9463,12 +9575,15 @@ function vjPendientesTramo(){
   const h = G._vjHechos || {};
   const s = G.vidaStats || {};
   const rol = VIDA_ROLES[G.vidaRol] || VIDA_ROLES.disfrutar;
-  const lista = [
-    { id:'lapso', obliga:true, hecho: !!h.lapso || (G.vidaPausa > 0),
+  const lista = [];
+  if (G.vidaRol === 'dt' && !(G.vidaPausa > 0))
+    lista.push({ id:'temporada', obliga:true, hecho: !!h.temporada,
+      txt:'Jugar la temporada ' + (G.anio||'') });
+  lista.push(
+    { id:'lapso', obliga: G.vidaRol !== 'dt', hecho: !!h.lapso || (G.vidaPausa > 0),
       txt: (G.vidaPausa > 0) ? 'Estás de licencia' : ('Decidir lo de ' + rol.n.toLowerCase()) },
     { id:'sucesos', obliga:false, hecho: (h.sucesos || 0) >= 1, txt:'Ocuparte de algo tuyo (familia, plata, salud)' },
-    { id:'descanso', obliga:false, hecho: !!h.descanso, txt:'Descansar un poco' }
-  ];
+    { id:'descanso', obliga:false, hecho: !!h.descanso, txt:'Descansar un poco' });
   const ar = asuntoDeRol();
   if (ar) lista.splice(1, 0, { id:'gestion', obliga:true, hecho:false, txt:ar.txt });
   if ((s.salud || 100) < 55) lista.push({ id:'salud', obliga:false, hecho: !!h.cuidoSalud, txt:'Cuidarte: la salud viene mal' });
@@ -9483,17 +9598,17 @@ function vjDormirHotspot(x){
   const hechos = pend.filter(p=>p.hecho).length;
   const falta = pend.find(p=>p.obliga && !p.hecho);
   const hoy = G.vidaEdad || 36;
-  const prox = (VIDA_LAPSOS[(G.vidaLapso||0) + 1] || {}).de;
+  const nivel = (G.vidaLapso||0) + 1;
   // Una cama en el piso de TV o en la vereda no existe: fuera de casa la opcion
   // es un cartel que te manda a casa a dormir.
   const enCasa = VJ.escena === 'casa';
   return { x:x || 400, tipo:'obj', obj: enCasa ? 'cama' : 'cartel', icono: enCasa ? 'bx-moon' : 'bx-home',
     accion: enCasa ? 'dormir' : 'irACasa', destacado:listo, bloqueado:!listo,
-    lbl: !enCasa ? (listo ? 'IR A CASA A DORMIR Y PASAR 5 AÑOS' : ('Antes de dormir: ' + (falta ? falta.txt.toLowerCase() : 'resolvé lo del tramo')))
+    lbl: !enCasa ? (listo ? 'IR A CASA A CERRAR EL AÑO' : ('Antes de cerrar el año: ' + (falta ? falta.txt.toLowerCase() : 'resolvé lo pendiente')))
       : listo
-      ? ('DORMIR Y PASAR 5 AÑOS' + (prox ? ' (' + hoy + ' → ' + prox + ')' : ' — el último tramo') +
+      ? ('CERRAR EL AÑO Y DORMIR (' + hoy + ' → ' + (hoy+1) + ')  ·  nivel de vida ' + nivel +
          '  ·  ' + hechos + '/' + pend.length + ' resuelto' + (hechos===1?'':'s'))
-      : ('Antes de dormir: ' + (falta ? falta.txt.toLowerCase() : 'resolvé lo del tramo')) };
+      : ('Antes de cerrar el año: ' + (falta ? falta.txt.toLowerCase() : 'resolvé lo pendiente')) };
 }
 // ¿Esta accion puede hacer algo AHORA? Si no, no se muestra.
 function vjPuede(h){
@@ -9510,6 +9625,7 @@ function vjPuede(h){
       } else if (((G._vjHechos||{}).sucesos || 0) >= 2) return false;
       return !!vjSucesoDisponible(h.cat);
     }
+    case 'dtTemporada':   return !((G._vjHechos||{}).temporada);
     case 'entrenarClub':
     case 'entrenarJuv':   return (G && (G._entrenos || 0) < 3);
     case 'patear':        return (_draft && (_draft._pateos || 0) < 3);
@@ -9523,8 +9639,52 @@ function vjPuede(h){
     default:              return true;
   }
 }
+// ── TE VIENEN A BUSCAR ──────────────────────────────────────────────────────
+// Antes había que salir a cazar personajes por los escenarios y tocarlos uno por
+// uno. Al revés es como funciona una vida: la gente aparece cuando tiene algo que
+// decirte. Una visita por año como mucho, y los importantes (tu ídolo, tu rival)
+// casi nunca: por eso cuando aparecen, pesan.
+const VISITAS = [
+  { rol:'representante', peso:4, ropa:'traje', edad:52, gen:'m', donde:['casa','barrio','vestuario','oficina','trabajo'] },
+  { rol:'DT',            peso:4, ropa:'dt',    edad:56, gen:'m', donde:['vestuario','cancha','trabajo'] },
+  { rol:'capitán',       peso:3, ropa:null,    edad:31, gen:'m', donde:['vestuario','cancha'] },
+  { rol:'médico',        peso:3, ropa:'medico',edad:50, gen:'m', donde:['casa','barrio','vestuario'] },
+  { rol:'amigo',         peso:4, ropa:'calle', edad:30, gen:'m', donde:['casa','barrio','pension'] },
+  { rol:'hincha',        peso:3, ropa:'calle', edad:38, gen:'m', donde:['barrio','cancha','casa'] },
+  { rol:'rival',         peso:1, ropa:null,    edad:29, gen:'m', donde:['vestuario','cancha'] },
+  { rol:'ídolo',         peso:1, ropa:null,    edad:58, gen:'m', donde:['vestuario','cancha','barrio'] }
+];
+function vjVisita(){
+  if (!G) return null;
+  // Una por temporada (o por año de vida). Y no siempre: si aparecieran todas
+  // las veces, dejarían de ser una visita para ser un trámite.
+  const sello = (VJ.mundo === 'vida' ? 'v' : 'c') + (G.temporada || 0) + '-' + (G.vidaEdad || 0);
+  if (G._visitaSello === sello) return G._visitaHot || null;
+  G._visitaSello = sello; G._visitaHot = null;
+  if (Math.random() > 0.55) { save(); return null; }
+  const aptas = VISITAS.filter(v => v.donde.indexOf(VJ.escena) >= 0
+    && (v.rol !== 'rival' || (G.rival && G.rival.nombre))
+    && (v.rol !== 'representante' || G.repre)
+    && (v.rol !== 'ídolo' || (G.titulos||0) >= 2));
+  if (!aptas.length) { save(); return null; }
+  // Sorteo por peso: el representante aparece seguido, el ídolo casi nunca.
+  const total = aptas.reduce((n,v)=>n+v.peso, 0);
+  let r = Math.random() * total, elegida = aptas[0];
+  for (const v of aptas){ r -= v.peso; if (r <= 0){ elegida = v; break; } }
+  const nombre = elegida.rol === 'rival' ? (G.rival && G.rival.nombre)
+    : elegida.rol === 'ídolo' ? (G._idoloNombre || 'Un histórico')
+    : null;
+  G._visitaHot = { x: Math.round(vjEscena().ancho * 0.44), tipo:'npc', semilla:'visita'+elegida.rol+sello,
+    ropa: elegida.ropa, edad: elegida.edad, gen: elegida.gen, rol: elegida.rol, nombre: nombre,
+    destacado:true, icono:'bx-user-voice', accion:'visita', _visita:true,
+    lbl: (nombre ? esc(nombre) : ('Tu ' + elegida.rol)) + ' te vino a buscar' };
+  save();
+  return G._visitaHot;
+}
 function vjHotspots(){
   let lista = vjHotspotsBase().filter(h => h.bloqueado || vjPuede(h));
+  const _vis = vjVisita();
+  if (_vis) lista = [_vis].concat(lista);
   const pr = vjPrincipal();
   // En la segunda vida el tiempo se mueve durmiendo: esa opcion no puede faltar
   // nunca de la lista, y siempre con el MISMO texto claro (antes la cama de la
@@ -9551,7 +9711,7 @@ function vjHotspots(){
 function vjAcotar(lista){
   const TOPE = 7;
   if (lista.length <= TOPE) return lista;
-  const clave = h => h.destacado || h.tipo === 'npc' || h.accion === 'dormir'
+  const clave = h => h._visita || h.destacado || h.tipo === 'npc' || h.accion === 'dormir'
                   || h.accion === 'gestion' || h.accion === 'rol' || h.accion === 'escritorio'
                   || h.accion === 'fichaVida' || h.accion === 'empAno' || h.accion === 'dtTemporada';
   const fijas = lista.filter(clave);
@@ -9606,7 +9766,7 @@ function vjHotspotsBase(){
     // La cama va lejos del borde: pegada a la salida uno se pasaba de largo al
     // barrio antes de poder tocarla. Y va SOLO en casa: una cama en el piso de TV
     // o en la vereda no tiene ningun sentido.
-    out.push({ x:626, tipo:'obj', obj:'cama', lbl: hechos.lapso ? 'Dormir y pasar 5 años' : 'Todavía no hiciste nada este tramo',
+    out.push({ x:626, tipo:'obj', obj:'cama', lbl: hechos.lapso ? 'Dormir y cerrar el año' : 'Todavía no hiciste nada este año',
       accion:'dormir', icono:'bx-moon', bloqueado: !hechos.lapso });
   } else if (VJ.escena === 'barrio'){
     out.push({ x:330, tipo:'npc', semilla:'amigo'+(G.apellido||'x'), ropa:'calle', edad:(G.vidaEdad||40),
@@ -9892,7 +10052,7 @@ function vjHud(){
     const L = VIDA_LAPSOS[G.vidaLapso] || VIDA_LAPSOS[VIDA_LAPSOS.length-1];
     const s = G.vidaStats || {};
     return { titulo:`${(G.gestion&&G.gestion.esSeleccion)?flagImg(G.pais,15)+' ':''}${esc(G.apellido||'')} · ${G.vidaEdad} años`,
-      sub:`${G.anio||''} · ${esc(R.n)}${(G.gestion&&G.gestion.club&&!G.gestion.sinTrabajo)?(' · '+esc(G.gestion.club)):(G.gestion&&G.gestion.sinTrabajo?' · SIN CLUB':'')}${G.vidaPausa>0?' · DE LICENCIA':''}`, color:R.color,
+      sub:`${G.anio||''} · NIVEL ${(G.vidaLapso||0)+1} · ${esc(R.n)}${(G.gestion&&G.gestion.club&&!G.gestion.sinTrabajo)?(' · '+esc(G.gestion.club)):(G.gestion&&G.gestion.sinTrabajo?' · SIN CLUB':'')}${G.vidaPausa>0?' · DE LICENCIA':''}`, color:R.color,
       datos:R.barras.map(b=>[b[0], Math.round(s[b[1]]||0), b[2]]) };
   }
   if (VJ.mundo === 'potrero'){
@@ -10140,6 +10300,18 @@ function mundoRender(){
   <style>@media (max-width: 900px){ .ly-panel{ grid-template-columns:minmax(0,1fr) !important; } }</style>`;
   vjArrancarLoop();
   vjChequearMudanza();
+  // Venías cruzando porque el asunto estaba de este lado: se camina hasta él y
+  // se resuelve solo. No hay que volver a buscar el botón.
+  if (VJ._autoAlLlegar){
+    VJ._autoAlLlegar = false;
+    const _pr = VJ.hotspots.find(x => x.destacado && x.accion !== 'irEscena');
+    if (_pr){
+      VJ.meta = null;
+      VJ.pendiente = _pr;
+      VJ.pendienteHasta = performance.now() + 2600;
+      VJ.destino = clamp(_pr.x + (VJ.x <= _pr.x ? -54 : 54), 40, vjEscena().ancho - 40);
+    }
+  }
   // La gente empieza a hablar sola al ratito de entrar, y sigue cada tanto.
   clearInterval(VJ.ambT);
   clearTimeout(VJ.ambT0);
@@ -10538,6 +10710,13 @@ function vjInteractuar(){
     case 'consejo':      vjConsejoRepre(); return;
     case 'gestion':      vjDetener(); window._vjGestion(); return;
     case 'escritorio':   vjDetener(); window._vjEscritorio('plantel'); return;
+    case 'visita': {
+      // Vino él: se le habla de una, sin tener que buscarlo en la lista.
+      const iv = (VJ.hotspots||[]).indexOf(h);
+      if (G) { G._visitaHot = null; save(); }
+      if (iv >= 0) window._vjHablar(iv);
+      return;
+    }
     case 'dtTemporada':  vjDetener(); window._dtTemporada(); return;
     case 'empAno':       vjDetener(); window._empAno(); return;
     case 'fichaVida':    vjDetener(); window._lyFichaVida(); return;
@@ -10566,7 +10745,10 @@ function vjInteractuar(){
     case 'charlaPotrero':vjCharla(h, 'potrero'); return;
     case 'charlaJuv':    vjCharla(h, 'juveniles'); return;
     case 'charlaClub':   vjCharla(h, 'club'); return;
+    case 'irACasa':      vjCambiarEscena('casa','izq'); return;
+    case 'irEscena':     VJ._autoAlLlegar = true; vjCambiarEscena(h.destino, 'izq'); return;
   }
+  if (!G) return;                       // el resto de las acciones necesitan partida
   const hechos = G._vjHechos = G._vjHechos || {};
   if (h.accion === 'descansar'){
     // La tele DURA: te sentás, pasa un rato, y recién ahí sentís el descanso.
@@ -10616,8 +10798,6 @@ function vjInteractuar(){
     return;
   }
   if (h.accion === 'licencia'){ vjLicencia(); return; }
-  if (h.accion === 'irACasa'){ vjCambiarEscena('casa','izq'); return; }
-  if (h.accion === 'irEscena'){ vjCambiarEscena(h.destino, 'izq'); return; }
   if (h.accion === 'dormir'){ vjDormir(); return; }
   if (h.accion === 'rol'){
     if (hechos.lapso){ vjFlash('Ya tomaste la decisión importante de este tramo. Andá a dormir para que pasen los años.'); return; }
@@ -12081,25 +12261,32 @@ function asegurarDescendencia(fam){
     G._momentoVisual = G._momentoVisual || 'bebe';
   }
 }
+// ¿En qué nivel de vida estás? Sale de la edad, no de un contador aparte.
+function nivelDeVida(edad){
+  for (let i = VIDA_LAPSOS.length-1; i >= 0; i--) if (edad >= VIDA_LAPSOS[i].de) return i;
+  return 0;
+}
 function vjDormir(){
   const s = G.vidaStats;
-  s.salud = clamp((s.salud||70) - ri(3,8), 0, 100);
-  G.vidaLapso++;
+  s.salud = clamp((s.salud||70) - ri(1,3), 0, 100);
   G._vjHechos = {};
   if (G.vidaPausa > 0) G.vidaPausa--;
-  // Los hijos crecen, uno envejece.
+  // Los hijos crecen, uno envejece. Un año por vez, como en la carrera.
   const fam = G.familia = G.familia || {};
-  (fam.hijos||[]).forEach(h=> h.edad = (h.edad||0) + 5);
-  (fam.nietos||[]).forEach(n=> n.edad = (n.edad||0) + 5);
+  (fam.hijos||[]).forEach(h=> h.edad = (h.edad||0) + 1);
+  (fam.nietos||[]).forEach(n=> n.edad = (n.edad||0) + 1);
   asegurarDescendencia(fam);
   try { avCuerpoAlDia(); } catch(e){}
+  G.vidaEdad = (G.vidaEdad || VIDA_LAPSOS[0].de) + 1;
+  G.anio = (G.anio || 2026) + 1;
+  const nivelAntes = G.vidaLapso || 0;
+  G.vidaLapso = nivelDeVida(G.vidaEdad);
+  const subioNivel = G.vidaLapso > nivelAntes;
   const L = VIDA_LAPSOS[G.vidaLapso];
-  G.vidaEdad = L ? L.de : (G.vidaEdad || 40) + 5;
-  G.anio = (G.anio || 2026) + 5;      // el calendario tambien avanza: el futuro llega
   avEnvejecer(G.vidaEdad);
   save();
   if ((s.salud||0) <= 0){ G._vidaFlags = G._vidaFlags || {}; G._vidaFlags.murioAntes = true; vjDetener(); window._vidaFinal(); return; }
-  if (G.vidaLapso >= VIDA_LAPSOS.length){ vjDetener(); window._vidaFinal(); return; }
+  if (G.vidaEdad > VIDA_LAPSOS[VIDA_LAPSOS.length-1].a){ vjDetener(); window._vidaFinal(); return; }
   vjDetener();
   // Pantalla de paso del tiempo, con el cuerpo ya cambiado.
   const m = document.getElementById('carrera-modal') || overlay();
@@ -12107,10 +12294,10 @@ function vjDormir(){
   <div style="min-height:100%;background:#05070a;display:flex;align-items:center;position:relative;">
     ${fondoEscenaHTML()}
     <div style="position:relative;max-width:520px;margin:0 auto;padding:24px 20px;text-align:center;">
-      <div style="font-size:10px;font-weight:900;letter-spacing:3px;color:#5d6879;margin-bottom:10px;">PASARON CINCO AÑOS</div>
+      <div style="font-size:10px;font-weight:900;letter-spacing:3px;color:${subioNivel?A:'#5d6879'};margin-bottom:10px;">${subioNivel ? ('NIVEL DE VIDA ' + (G.vidaLapso+1) + ' · ' + esc((L&&L.t)||'')) : 'PASÓ UN AÑO MÁS'}</div>
       <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(camaConPersonaHTML(), '14px 20px', 'casa')}</div>
       <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;">${G.vidaEdad} años</div>
-      <div style="font-size:13px;color:#8a9280;margin:6px 0 20px;">${esc(L ? L.t : '')}</div>
+      <div style="font-size:13px;color:#8a9280;margin:6px 0 20px;">${esc(L ? L.t : '')} · ${G.anio||''}</div>
       <button onclick="window._vidaJugable()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px 30px;font-weight:900;font-size:14.5px;cursor:pointer;">SEGUIR VIVIENDO <i class='bx bx-right-arrow-alt'></i></button>
     </div>
   </div>`;
@@ -12615,18 +12802,12 @@ window._carreraCompartir = function(){
   const nivelF = Math.round(G.nivel||0);
   const valor = eur(G.valor||0);
   const rango = G.titulos>=8||nivelF>=88 ? 'LEYENDA' : G.titulos>=4||nivelF>=80 ? 'GRAN CARRERA' : 'CARRERA';
-  const lines = [
-    `🏆 CANCHERO LEYENDA — ${G.apellido||'—'} #${G.num||10}`,
-    `${rango} · Nivel ${nivelF} · Valor ${valor}`,
-    `⚽ ${G.tot.pj} PJ · ${G.tot.g} goles · ${G.tot.a} asist.`,
-    `🥇 ${G.titulos||0} títulos${trofArr.length?': '+trofArr.slice(0,4).join(', ')+(trofArr.length>4?`, +${trofArr.length-4}`:''):''}`,
-    `👕 Trayectoria: ${clubes.slice(0,5).join(' → ')}${clubes.length>5?` (+${clubes.length-5})`:''}`,
-    ...(G.rival&&(G.rival.ganados+G.rival.perdidos)?[`⚔️ Duelo con ${G.rival.nombre}: ${G.rival.ganados}—${G.rival.perdidos}`]:[]),
-    `💰 Patrimonio: ${eur((G.dinero||0)+((G.inversiones&&G.inversiones.monto)||0)+(G.bienes||[]).reduce((s,b)=>{const B=bienByld(b.id)||{};return s+Math.round((b.precio||B.p||0)*0.65);},0))}`,
+  const texto = [
+    `Terminé mi carrera en Canchero Leyenda: ${G.titulos||0} títulos y nivel ${nivelF}.`,
+    `A ver si la superás.`,
     ``,
-    `Canchero Leyenda`
-  ];
-  const texto = lines.join('\n');
+    LY_URL
+  ].join('\n');
   // Antes esto compartia un chorro de texto pelado. Ahora se muestra una FICHA:
   // se ve el jugador, el rango, los numeros grandes y la vitrina, como una figurita.
   // Desde ahi se comparte (imagen si el navegador deja, texto si no).
@@ -13025,6 +13206,8 @@ function retoFamilia(rol){
   if (/m[eé]dico|kinesi/.test(r)) return 'medico';
   if (/ojeador|capta/.test(r)) return 'ojeador';
   if (/juvenil|alumno|pibe/.test(r)) return 'pibe';
+  if (/leyenda|[ií]dolo|hist[oó]rico|crack/.test(r)) return 'idolo';
+  if (/rival|n[eé]mesis/.test(r)) return 'rival';
   return 'gente';
 }
 // ef(g, s) → texto. `g` es la partida; `s` son tus barras personales.
@@ -13187,6 +13370,34 @@ const RETOS = {
       { txt:'Escucharla', ef:(g,s)=>{ g.nivel=clamp((g.nivel||60)+3,30,99); g.moral=clamp((g.moral||60)-3,0,100); return 'Te dijo algo que no querías oír y tenía razón. Trabajaste en eso un año.'; } },
       { txt:'Decirle que ya sé lo que me falta', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+4,0,100); return 'Se sonrió y anotó algo. Nunca supiste qué.'; } } ] }
   ],
+  idolo: [
+    { t:'Te dice qué hacer con la fama', d:'"Ganaste todo lo que yo gané. Lo difícil empieza ahora."', opts:[
+      { txt:'Preguntarle cómo lo llevó él', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+12,0,100); g._marcas=g._marcas||{}; g._marcas.consejoIdolo=true; return 'Te contó lo que nunca contó en una entrevista. Cambió cómo mirás todo esto.'; } },
+      { txt:'Decirle que yo lo llevo bien', ef:(g,s)=>{ g.fama=clamp((g.fama||0)+5,0,100); g.moral=clamp((g.moral||60)-4,0,100); return 'Se sonrió. "Todos decimos eso a tu edad." Y tenía razón.'; } } ] },
+    { t:'Te ofrece su camiseta', d:'La que usó en la final que vos mirabas de pibe. Te la da sin decir nada.', opts:[
+      { txt:'Aceptarla y prometerle algo', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+10,0,100); g._marcas=g._marcas||{}; g._marcas.camisetaIdolo=true; return 'Le prometiste ganar una igual. Esa camiseta está enmarcada en tu casa desde ese día.'; } },
+      { txt:'Pedirle que se la quede', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+6,0,100); return '"Ganate la tuya", te dijiste en voz alta. Él te palmeó la espalda y no dijo más nada.'; } } ] },
+    { t:'Te avisa que te estás yendo de mambo', d:'"Te vi jugar el domingo. Estás jugando para las cámaras."', opts:[
+      { txt:'Escucharlo y volver a lo simple', ef:(g,s)=>{ g.nivel=clamp((g.nivel||60)+4,30,99); g.fama=clamp((g.fama||0)-4,0,100); return 'Volviste a jugar para el equipo. Tres meses después eras otra vez el mejor de la cancha.'; } },
+      { txt:'Contestarle que el juego cambió', ef:(g,s)=>{ g.fama=clamp((g.fama||0)+6,0,100); g.nivel=clamp((g.nivel||60)-2,30,99); return 'Te miró y se fue. Tenías razón en algo y él en casi todo lo demás.'; } } ] },
+    { t:'Te propone jugar juntos un último año', d:'"Yo tengo uno más adentro. Vos estás en tu mejor momento."', opts:[
+      { txt:'Buscar la manera de que pase', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+14,0,100); g.fama=clamp((g.fama||0)+8,0,100); g._marcas=g._marcas||{}; g._marcas.jugoConIdolo=true; return 'Se dio. Doce partidos juntos y una foto que vas a mirar toda la vida.'; } },
+      { txt:'Decirle que ya es tarde', ef:(g,s)=>{ g.moral=clamp((g.moral||60)-6,0,100); return 'Tenías razón y te quedó doliendo igual. Se retiró seis meses después.'; } } ] }
+  ],
+  rival: [
+    { t:'Te encara en el túnel', d:'"Todo lo que ganaste lo ganaste cuando yo no estaba."', opts:[
+      { txt:'Contestarle en la cancha', ef:(g,s)=>{ g.nivel=clamp((g.nivel||60)+2,30,99); g.moral=clamp((g.moral||60)+8,0,100); if(g.rival) g.rival.odio=(g.rival.odio||0)+10; return 'No le dijiste una palabra y le metiste dos. Ese silencio quedó grabado.'; } },
+      { txt:'Contestarle ahí mismo', ef:(g,s)=>{ g.fama=clamp((g.fama||0)+5,0,100); g.moral=clamp((g.moral||60)-4,0,100); if(g.rival) g.rival.odio=(g.rival.odio||0)+18; return 'Se armó lío en el túnel y salió en todos lados. Desde ese día es personal.'; } } ] },
+    { t:'Te propone una tregua', d:'"Nos estamos haciendo mal los dos. Yo ya me cansé."', opts:[
+      { txt:'Aceptarla', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+10,0,100); if(g.rival) g.rival.odio=Math.max(0,(g.rival.odio||0)-30); return 'Se dieron la mano sin cámaras. Siguen compitiendo, pero ya no se odian.'; } },
+      { txt:'Decirle que no', ef:(g,s)=>{ g.nivel=clamp((g.nivel||60)+2,30,99); if(g.rival) g.rival.odio=(g.rival.odio||0)+12; return 'Le dijiste que el día que dejes de competir con él te retirás. Lo entendió.'; } } ] },
+    { t:'Se lesionó feo', d:'Está seis meses afuera. Todo el mundo espera tu declaración.', opts:[
+      { txt:'Bancarlo en público', ef:(g,s)=>{ g.fama=clamp((g.fama||0)+7,0,100); g.moral=clamp((g.moral||60)+8,0,100); if(g.rival) g.rival.odio=Math.max(0,(g.rival.odio||0)-20); return 'Dijiste que sin él el fútbol es peor. Te lo agradeció por privado.'; } },
+      { txt:'No decir nada', ef:(g,s)=>{ g.moral=clamp((g.moral||60)-3,0,100); return 'Silencio. Se leyó de las dos maneras, y ninguna te dejó bien parado.'; } } ] },
+    { t:'Te ofrecen jugar en su equipo', d:'El club de tu rival te quiere. Él tendría que dejarte lugar.', opts:[
+      { txt:'Ir y pelearle el puesto', ef:(g,s)=>{ g.nivel=clamp((g.nivel||60)+3,30,99); if(g.rival) g.rival.odio=(g.rival.odio||0)+22; return 'Te lo tomaste como un desafío. Entrenar contra él todos los días te subió el nivel.'; } },
+      { txt:'No compartir vestuario con él', ef:(g,s)=>{ g.moral=clamp((g.moral||60)+5,0,100); return 'Preferiste seguir enfrentándolo desde el otro lado. Es más lindo así.'; } } ] }
+  ],
   pibe: [
     { t:'Te pregunta si vale la pena', d:'"¿Y si no llego? ¿Qué hago con estos años?"', opts:[
       { txt:'Decirle la verdad completa', ef:(g,s)=>{ s.felicidad=(s.felicidad||50)+6; g.moral=clamp((g.moral||60)+5,0,100); return 'Le dijiste que la mayoría no llega y que igual vale. Se quedó pensando y volvió al otro día.'; } },
@@ -13249,11 +13460,25 @@ window._vjRetoSalir = function(){
   VJ._retoCon = null; VJ._reto = null;
   if (VJ.mundo === 'vida') window._vidaJugable();
   else if (VJ.mundo === 'club') window._clubMundo(VJ.escena);
-  else mundoRender();
+  else { lyChrome(true); mundoRender(); }
 };
 window._vjRetoElegir = function(i){
   const h = VJ._retoCon, R = VJ._reto; if(!h || !R) return;
   const o = R.opts[i]; if(!o) return;
+  // En el potrero y en juveniles todavía no hay partida guardada: el efecto se
+  // aplica sobre el borrador y lo bueno se traduce en bonus de arranque.
+  if (!G){
+    const d = _draft; if(!d){ mundoRender(); return; }
+    d.vidaStats = d.vidaStats || { felicidad:60, familia:60, soledad:35, salud:85 };
+    const antesF = d.vidaStats.felicidad || 0;
+    let txt = '';
+    try { txt = o.ef(d, d.vidaStats) || ''; } catch(e){ txt = ''; }
+    Object.keys(d.vidaStats).forEach(k=>{ if(typeof d.vidaStats[k]==='number') d.vidaStats[k]=clamp(d.vidaStats[k],0,100); });
+    if ((d.vidaStats.felicidad||0) > antesF) d._potBonus = (d._potBonus||0) + 1;
+    VJ._retoRes = txt;
+    vjPintarRetoRes(h, txt, '');
+    return;
+  }
   const enCarrera = VJ.mundo !== 'vida';
   const s = enCarrera ? personalAsegurar() : (G.vidaStats = G.vidaStats || {});
   const antes = { moral:G.moral||0, nivel:G.nivel||0, dinero:G.dinero||0, fama:G.fama||0 };
@@ -13276,7 +13501,11 @@ window._vjRetoElegir = function(i){
     + chip('Fama',  Math.round((G.fama||0)-antes.fama));
   const dd = Math.round((G.dinero||0)-antes.dinero);
   if (dd) chips += `<span style="display:inline-flex;align-items:center;gap:3px;background:${dd>0?'#4ade8018':'#ff6b6b18'};border:1px solid ${dd>0?'#4ade8055':'#ff6b6b55'};color:${dd>0?'#4ade80':'#ff6b6b'};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;">${dd>0?'+':''}${eur(Math.abs(dd))}</span>`;
-  const edadR = enCarrera ? (G.edad||20) : (G.vidaEdad||40);
+  vjPintarRetoRes(h, res, chips);
+};
+// LA FOTO DEL MOMENTO. Lo que decidís deja una imagen, no solo un renglón: se ve
+// a los dos, en el escenario donde pasó, con la reacción de cada uno.
+function vjPintarRetoRes(h, res, chips){
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
   <div style="min-height:100%;background:#05070a;display:flex;align-items:center;position:relative;">
@@ -13285,13 +13514,13 @@ window._vjRetoElegir = function(i){
       <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(`<div style="display:flex;align-items:flex-end;gap:3px;line-height:0;">
         <div style="line-height:0;">${h.tipo==='npc' ? vjSpriteHab(h,'idle') : vjObjSVG(h.obj, h.escala)}</div>
         <div style="line-height:0;transform:scaleX(-1);">${vjSpriteJugador('idle')}</div>
-      </div>`, '12px 18px', 'casa')}</div>
+      </div>`, '12px 18px', (vjEscena()||{}).fondo || VJ.escena || 'casa')}</div>
       <div style="font-size:15px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:14px;">${esc(res)}</div>
       ${chips?`<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:18px;">${chips}</div>`:'<div style="margin-bottom:18px;"></div>'}
       <button onclick="window._vjRetoSalir()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px 30px;font-weight:900;font-size:14.5px;cursor:pointer;">SEGUIR <i class='bx bx-right-arrow-alt'></i></button>
     </div>
   </div>`;
-};
+}
 
 console.log('[canchero-carrera] v2 cargado');
 })();
