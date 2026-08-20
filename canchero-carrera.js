@@ -2061,8 +2061,12 @@ function avatarSprite(av, o){
     CO(jx, jy, jw, 1, baseL); CO(jx, jy+jh-1, jw, 1, baseS);
     CO(jx, jy, 1, jh, baseS); CO(jx+jw-1, jy, 1, jh, baseS);
     CO(jx+Math.round(jw*0.38), jy, Math.round(jw*0.24), 2, _avShade(base,-50));   // cuello
-    objeto += `<text x="${(cx*S).toFixed(1)}" y="${((jy+jh*0.74)*S).toFixed(1)}" text-anchor="middle" font-family="Outfit,Arial Black,sans-serif" font-weight="900" font-size="${(jh*0.62*S).toFixed(1)}" fill="${kitTxt}">${esc(String(o.num||''))}</text>`;
-    if (o.apellido) objeto += `<text x="${(cx*S).toFixed(1)}" y="${((jy+jh*0.24)*S).toFixed(1)}" text-anchor="middle" font-family="Outfit,Arial Black,sans-serif" font-weight="900" font-size="${(2.9*S).toFixed(1)}" fill="${kitTxt}" textLength="${(jw*0.74*S).toFixed(1)}" lengthAdjust="spacingAndGlyphs">${esc(String(o.apellido).toUpperCase().slice(0,12))}</text>`;
+    // Número y nombre con CONTORNO de color opuesto: en camisetas a rayas (Juventus,
+    // Peñarol) el número quedaba mitad tapado por las franjas del color del texto.
+    // El trazo lo hace legible sobre cualquier patrón.
+    const _kbord = _avContraste(kitTxt);
+    objeto += `<text x="${(cx*S).toFixed(1)}" y="${((jy+jh*0.74)*S).toFixed(1)}" text-anchor="middle" font-family="Outfit,Arial Black,sans-serif" font-weight="900" font-size="${(jh*0.62*S).toFixed(1)}" fill="${kitTxt}" style="paint-order:stroke;stroke:${_kbord};stroke-width:${(jh*0.07*S).toFixed(2)};stroke-linejoin:round;">${esc(String(o.num||''))}</text>`;
+    if (o.apellido) objeto += `<text x="${(cx*S).toFixed(1)}" y="${((jy+jh*0.24)*S).toFixed(1)}" text-anchor="middle" font-family="Outfit,Arial Black,sans-serif" font-weight="900" font-size="${(2.9*S).toFixed(1)}" fill="${kitTxt}" textLength="${(jw*0.74*S).toFixed(1)}" lengthAdjust="spacingAndGlyphs" style="paint-order:stroke;stroke:${_kbord};stroke-width:${(0.5*S).toFixed(2)};stroke-linejoin:round;">${esc(String(o.apellido).toUpperCase().slice(0,12))}</text>`;
   }
   // Muletas
   if (av.muletas){
