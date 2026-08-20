@@ -11140,11 +11140,13 @@ function vjHotspotsBase(){
         nombre: esc(_L.padre || 'tu ' + _L.parentesco), rol:'tu ' + _L.parentesco });
     // `av` viaja con el hotspot: así el hijo se dibuja con los rasgos que heredó
     // de sus padres y no con una cara sorteada por el hash de su nombre.
-    (fam.hijos||[]).slice(0,2).forEach((h,i)=> out.push({ x:318+i*62, tipo:'npc', semilla:'hijo'+h.nombre, ropa:'calle',
+    // Se muestran hasta 3 hijos: antes eran 2 y si tenías 3 en la ficha, en la
+    // casa aparecían solo dos y no cerraba.
+    (fam.hijos||[]).slice(0,3).forEach((h,i)=> out.push({ x:300+i*56, tipo:'npc', semilla:'hijo'+h.nombre, ropa:'calle',
       edad: (h.edad != null ? h.edad : 0), gen: genDe(h), av: h.av,
       lbl:'Estar con ' + esc(h.nombre), accion:'suceso', cat:'familia', icono:'bx-child', nombre:esc(h.nombre),
       rol:'tu ' + palabraHijo(genDe(h)) }));
-    (fam.nietos||[]).slice(0,2).forEach((n,i)=> out.push({ x:452+i*60, tipo:'npc', semilla:'nieto'+n.nombre, ropa:'calle',
+    (fam.nietos||[]).slice(0,2).forEach((n,i)=> out.push({ x:486+i*58, tipo:'npc', semilla:'nieto'+n.nombre, ropa:'calle',
       edad: (n.edad != null ? n.edad : 3), gen: genDe(n), av: n.av,
       lbl: (n.edad||0) <= 2 ? ('Alzar a ' + esc(n.nombre)) : ('Jugar con ' + esc(n.nombre)),
       accion:'suceso', cat:'familia', icono:'bx-child',
