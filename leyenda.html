@@ -38,6 +38,12 @@
   #ly-carga .spin{ font-size:30px; color:#baff00; }
   #ly-error{ display:none; max-width:340px; font-size:13px; color:#c4ccc0; line-height:1.6; }
   #ly-error a{ color:#baff00; }
+  /* PÁGINA PROPIA: acá no existe el nav de la app grande. La regla global de
+     style.css baja el modal 62-74px para dejar lugar a ese nav; sin nav, eso es
+     una franja negra vacía arriba. En standalone el juego arranca pegado al borde
+     (respetando el notch). */
+  #carrera-modal{ top: env(safe-area-inset-top, 0px) !important; }
+  @media (max-width: 640px){ #carrera-modal{ top: env(safe-area-inset-top, 0px) !important; } }
 </style>
 </head>
 <body>
@@ -84,8 +90,8 @@
   })();
 </script>
 
-<script src="canchero-truco.js?v=20260820j" charset="utf-8"></script>
-<script src="canchero-carrera.js?v=20260820j" charset="utf-8"></script>
+<script src="canchero-truco.js?v=20260820k" charset="utf-8"></script>
+<script src="canchero-carrera.js?v=20260820k" charset="utf-8"></script>
 <script>
   (function(){
     var spin = document.getElementById('ly-spin');

@@ -545,7 +545,11 @@ function montarSalida(){
   // titulo ni las estadisticas.
   // La flecha hacia atrás se confundía con "volver a la pantalla anterior" y en
   // realidad se sale del juego. Ahora dice SALIR, con su icono de puerta.
-  b.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + 82px);right:14px;height:28px;padding:0 10px;border-radius:14px;background:rgba(10,12,10,.78);backdrop-filter:blur(6px);border:1px solid #33402c;color:#8a9280;font-size:10.5px;font-weight:900;letter-spacing:.8px;line-height:1;display:flex;align-items:center;gap:5px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);opacity:.8;';
+  // En la página propia el juego arranca pegado al borde (sin el nav de la app),
+  // así que la X/SALIR va arriba de todo. Dentro de la app grande baja para no
+  // meterse debajo del nav.
+  const _topOff = esStandalone() ? 10 : 82;
+  b.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + '+_topOff+'px);right:14px;height:28px;padding:0 10px;border-radius:14px;background:rgba(10,12,10,.78);backdrop-filter:blur(6px);border:1px solid #33402c;color:#8a9280;font-size:10.5px;font-weight:900;letter-spacing:.8px;line-height:1;display:flex;align-items:center;gap:5px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);opacity:.8;';
   b.innerHTML = "<i class='bx bx-log-out' style=\"font-size:14px;\"></i>SALIR";
   b.onclick = function(){ window._lyConfirmarSalida(); };
   document.body.appendChild(b);
@@ -566,7 +570,8 @@ function montarAnio(){
   if (document.getElementById('carrera-anio')) return;
   const d = document.createElement('div');
   d.id = 'carrera-anio';
-  d.style.cssText = 'position:fixed;z-index:100069;top:calc(env(safe-area-inset-top, 0px) + 82px);right:82px;height:32px;display:flex;align-items:center;padding:0 10px;border-radius:16px;background:rgba(10,12,10,.72);backdrop-filter:blur(6px);border:1px solid #2a3222;color:#baff00;font-size:12px;font-weight:900;letter-spacing:1px;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.5);';
+  const _anioTop = esStandalone() ? 8 : 82;
+  d.style.cssText = 'position:fixed;z-index:100069;top:calc(env(safe-area-inset-top, 0px) + '+_anioTop+'px);right:82px;height:32px;display:flex;align-items:center;padding:0 10px;border-radius:16px;background:rgba(10,12,10,.72);backdrop-filter:blur(6px);border:1px solid #2a3222;color:#baff00;font-size:12px;font-weight:900;letter-spacing:1px;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.5);';
   document.body.appendChild(d);
   refrescarAnio();
   clearInterval(window._lyAnioT);
@@ -14688,7 +14693,9 @@ function autoIndicador(){
   if (!d){
     d = document.createElement('div');
     d.id = 'carrera-auto';
-    d.style.cssText = 'position:fixed;z-index:100071;right:12px;top:calc(env(safe-area-inset-top, 0px) + 10px);display:flex;align-items:center;gap:6px;background:rgba(10,12,10,.92);backdrop-filter:blur(8px);border:1px solid #a78bfa88;border-radius:16px;padding:6px 11px;box-shadow:0 4px 14px rgba(0,0,0,.55);cursor:pointer;';
+    // Abajo y al centro: antes iba arriba a la derecha y se montaba sobre el botón
+    // SALIR. Acá no tapa nada y se ve igual de claro.
+    d.style.cssText = 'position:fixed;z-index:100071;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom, 0px) + 14px);display:flex;align-items:center;gap:6px;background:rgba(10,12,10,.92);backdrop-filter:blur(8px);border:1px solid #a78bfa88;border-radius:16px;padding:7px 13px;box-shadow:0 4px 14px rgba(0,0,0,.55);cursor:pointer;';
     d.innerHTML = "<i class='bx bx-pause-circle' style=\"font-size:15px;color:#c4b5fd;\"></i><span style=\"font-size:10.5px;font-weight:900;letter-spacing:.4px;color:#c4b5fd;\">SIMULANDO — tocá para parar</span>";
     d.onclick = function(){ window._lyAuto(false); };
     document.body.appendChild(d);
