@@ -4202,6 +4202,11 @@ function _finTemporada(ctx){
       interLiteRonda = rondasInter[ri(0, maxR)];
     }
   }
+  // Un campeón de Champions/Libertadores NO termina octavo en su liga: quedaba
+  // "gané la Champions pero salí 8º", que se lee como un error. Si te llevaste la
+  // copa grande, la posición local acompaña (top 3); la copa lite, top 6.
+  if (interRonda === 'CAMPEÓN') pos = Math.min(pos, 3);
+  else if (interLiteRonda === 'CAMPEÓN') pos = Math.min(pos, 6);
   // ── LA FINAL: UNA SOLA, Y DECIDE ────────────────────────────────────────────
   // Lo que se sorteó arriba queda CONGELADO en ctx: si se re-sorteara al volver
   // de la final podrías perderla y que el resumen te dijera campeón igual.
