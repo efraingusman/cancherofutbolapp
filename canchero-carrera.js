@@ -4615,7 +4615,10 @@ function pantallaDecision(cuerpo, etiqueta, color){
 // cuando eso pasa, se abre esta pantalla y elegís vos.
 window._lyElegirClubDe = function(){
   const pedido = G && G._pedirClubDe; if(!pedido){ window._carreraContinuar(); return; }
-  const pool = todosClubs().filter(c => c.liga === pedido.liga && c.name !== G.club);
+  // Filtro por LIGA (una copa/liga puntual) o por PAÍS (volver a tu país: elegís
+  // entre los clubes de tu país, no te meten en uno a dedo).
+  const pool = todosClubs().filter(c => c.name !== G.club &&
+    (pedido.pais ? c.pais === pedido.pais : c.liga === pedido.liga));
   const ops = shuffle(pool).slice(0, 3);
   if (!ops.length){ G._pedirClubDe = null; save(); window._carreraContinuar(); return; }
   G._clubDeOps = ops; save();
@@ -4641,9 +4644,10 @@ window._lyElegirClubDe = function(){
 };
 window._lyTomarClubDe = function(i){
   const c = (G._clubDeOps||[])[i]; if(!c) return;
-  G.club = c.name; G.clubStr = c.str; G.liga = c.liga; G.clubPais = c.pais;
-  G.sueldo = ofertaDe(c).sueldo;
-  G.contratoAnios = 3;
+  // mudarseA deja todo coherente: idioma del país, idolatría inicial, contrato y
+  // reseteo de banderas de salida. Antes se seteaban los campos a mano y quedaban
+  // colgados el idioma y los flags del club anterior.
+  mudarseA(G, c);
   G._pedirClubDe = null; G._clubDeOps = null;
   G._tablasData = null;
   save();
@@ -5749,11 +5753,10 @@ const EVENTOS=[
     { txt:'Volver a mi país', ef:g=>{
         const destino = clubDeMiPais(g);
         if(!destino){ g.moral+=6; return 'Buscaste club en tu país y no apareció nada serio. Te quedás, pero con la cabeza allá.'; }
-        const antes = g.club, afuera = g.clubPais;
-        mudarseA(g, destino);
         g.moral += 14; g.fama -= 5; g.valor = Math.round((g.valor||100000) * 0.82);
-        return 'Dejaste ' + esc(antes) + ' y volviste a ' + esc(g.pais) + ': firmaste en ' + esc(destino.name) +
-               '. Resignás vidriera, pero almorzás con los tuyos los domingos.' + (afuera ? '' : '');
+        // Antes te metían en un club a dedo. Ahora elegís vos entre los de tu país.
+        g._pedirClubDe = { pais: g.pais, motivo:'Volvés a ' + esc(g.pais) + '. Elegí el club donde vas a jugar.' };
+        return 'Decidiste volver a ' + esc(g.pais) + '. Falta lo importante: elegir el club.';
       } },
     { txt:'Seguir mi camino afuera', ef:g=>{ g.moral-=8; g.fama+=3; return 'Les dijiste que todavía no. Cortaste el teléfono con un nudo en la garganta.'; } } ] },
 
