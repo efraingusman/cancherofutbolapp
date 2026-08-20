@@ -14587,9 +14587,12 @@ window._lyFichaCompartir = function(){
 // ══════════════════════════════════════════════════════════════════════════════
 let AUTO = { on:false, timer:null, pasos:0 };
 // Botones que el automático NUNCA toca: sacan del juego o borran la partida.
-const AUTO_PROHIBIDO = /(salir|volver|atr[áa]s|nueva carrera|cerrar|ranking|idioma|c[óo]mo se juega|saltar|compartir|ritmo|listo|logros|ir a canchero)/i;
+// OJO: "volver al baldío / al predio / al barrio" NO entran acá — en el potrero y
+// en juveniles ESE es el botón de continuar. Solo se bloquean los "volver" que
+// salen de verdad (a juegos, a la portada, a identidad).
+const AUTO_PROHIBIDO = /(^\s*salir|salir del juego|volver a juegos|volver al inicio|volver a la portada|volver a identidad|ir a canchero|nueva carrera|^\s*cerrar|ranking|idioma:|c[óo]mo se juega|saltar el|^\s*compartir|^\s*ritmo|^\s*atr[áa]s\s*$|logros)/i;
 // Botones que hacen AVANZAR el juego: tienen prioridad sobre las decisiones.
-const AUTO_AVANZA = /(continuar|seguir|jugar temporada|ver retiro|empezar|dale|siguiente|entrar|confirmar|aceptar|firmar)/i;
+const AUTO_AVANZA = /(continuar|seguir|jugar temporada|jugar la temporada|ver retiro|empezar|dale|siguiente|entrar|confirmar|aceptar|firmar|volver al bald[íi]o|volver al predio|volver al barrio|ir a la cantera|d[íi]a del debut|el debut|dormir y cerrar)/i;
 function autoBotones(){
   const m = document.getElementById('carrera-modal'); if(!m) return [];
   return Array.prototype.slice.call(m.querySelectorAll('button'))
@@ -14601,17 +14604,56 @@ function autoBotones(){
       return true;
     });
 }
+// EN EL MUNDO CAMINABLE (hay #vj-view): se maneja por HOTSPOTS, no por botones.
+// El mundo se dibuja DENTRO de #carrera-modal, asi que la vieja condicion
+// "sin modal" nunca daba verdadera y el automatico se quedaba tildado sin
+// avanzar de temporada, sin hablar con nadie y sin cambiar de escena.
+function autoSweep(){
+  // Barre las escenas en una dirección y rebota en las puntas, para ir a buscar
+  // la cama (cerrar el año) o la escena donde está la decisión pendiente.
+  const E = vjEscena(); let dir = AUTO._dir || 'der';
+  if (!(E.sale && E.sale[dir])){ dir = (dir === 'der' ? 'izq' : 'der'); AUTO._dir = dir; }
+  if (E.sale && E.sale[dir] && typeof window._vjIr === 'function'){ window._vjIr(E.sale[dir]); }
+}
+function autoPasoMundo(){
+  const hs = (VJ.hotspots||[]).filter(h=>!h.bloqueado && h.accion!=='nada');
+  // Al cambiar de escena se reinicia el cupo de actividades de esa escena.
+  if (VJ.escena !== AUTO._esc){ AUTO._esc = VJ.escena; AUTO._actEsc = 0; }
+  const dormir = hs.find(h=>h.accion === 'dormir');
+  // En la vida, si ya se tomó la decisión del tramo (lapso hecho), lo único que
+  // queda es DORMIR para que pasen los años. No se vuelve a tocar la decisión ya
+  // tomada (eso solo tiraba un aviso y trababa el automático en la misma escena).
+  const lapsoHecho = VJ.mundo === 'vida' && !!(G && G._vjHechos && G._vjHechos.lapso);
+  if (lapsoHecho){
+    if (dormir){ AUTO._actEsc++; VJ.hot = dormir; vjInteractuar(); return; }
+    return autoSweep();
+  }
+  // 1) PROGRESO: jugar la temporada, la decisión del tramo, la gestión del DT.
+  let obj = hs.find(h=>['jugar','dtTemporada','gestion','rol'].indexOf(h.accion) >= 0)
+         || hs.find(h=>h.destacado);
+  // 2) Que "haga cosas": hasta 2 charlas/actividades por escena antes de avanzar.
+  if (!obj && (AUTO._actEsc||0) < 2){
+    const social = hs.filter(h=>h.tipo === 'npc');
+    const activ  = hs.filter(h=>['suceso','entrenarClub','entrenarJuv','patear',
+      'descansarCasa','descansarJuv','truco','charlaClub','charlaPotrero','charlaJuv'].indexOf(h.accion) >= 0);
+    obj = (social.length ? social[(AUTO._gi = (AUTO._gi||0) + 1) % social.length] : null)
+       || (activ.length  ? pick(activ) : null);
+  }
+  // 3) Dormir / cerrar el año o el tramo (cuando ya se puede).
+  if (!obj) obj = dormir;
+  if (obj){ AUTO._actEsc = (AUTO._actEsc||0) + 1; VJ.hot = obj; vjInteractuar(); return; }
+  // 4) Nada por hacer acá: cambiar de escena para buscar la cama o la decisión.
+  autoSweep();
+}
 function autoPaso(){
   if (!AUTO.on) return;
   try{
-    // 1) Si estás caminando por el mundo, el personaje va solo a lo importante.
-    if (VJ && VJ.activo && !document.getElementById('carrera-modal')){
-      const destacado = (VJ.hotspots||[]).filter(h=>h.destacado && !h.bloqueado && h.accion!=='nada');
-      const obj = destacado.length ? destacado[0] : null;
-      if (obj){ VJ.hot = obj; vjInteractuar(); }
+    // 1) Mundo caminable: se maneja por hotspots (jugar, hablar, dormir, moverse).
+    if (VJ && VJ.activo && document.getElementById('vj-view')){
+      autoPasoMundo();
       return;
     }
-    // 2) En pantalla: primero lo que hace avanzar, si no una decisión al azar.
+    // 2) En pantalla/modal de decisión: primero lo que hace avanzar, si no una al azar.
     const btns = autoBotones();
     if (!btns.length) return;
     const avanzar = btns.filter(b=>AUTO_AVANZA.test((b.textContent||'').trim()));
@@ -14632,6 +14674,8 @@ window._lyAuto = function(encender){
   clearInterval(AUTO.timer); AUTO.timer = null;
   if (AUTO.on){
     AUTO.pasos = 0;
+    AUTO._trabado = 0; AUTO._ult = null;
+    AUTO._esc = null; AUTO._actEsc = 0; AUTO._dir = 'der'; AUTO._gi = 0;
     // Ritmo tranquilo: se tiene que poder LEER lo que va pasando.
     AUTO.timer = setInterval(autoPaso, 1800);
   }
