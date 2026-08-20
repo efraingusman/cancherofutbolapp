@@ -2432,7 +2432,8 @@ const AV_ESCENARIOS = {
   noche:    { cielo:['#0d1424','#05080f'], piso:'rgba(50,80,140,.16)',  pisoSolido:'#2b3038', borde:'#1a2438', luz:null,      fondo:'ciudad' },
   oficina:  { cielo:['#1a1710','#0b0a07'], piso:'rgba(160,130,60,.16)', pisoSolido:'#4a3a22', borde:'#332c1a', luz:'#facc15', fondo:'ventanal' },
   casa:     { cielo:['#1e1628','#0c0912'], piso:'rgba(140,100,180,.16)',pisoSolido:'#4a3520', borde:'#2e2440', luz:null,      fondo:'living' },
-  lluvia:   { cielo:['#131b22','#070b0e'], piso:'rgba(90,120,140,.18)', pisoSolido:'#2c3a42', borde:'#22303a', luz:null,      fondo:'lluvia' }
+  lluvia:   { cielo:['#131b22','#070b0e'], piso:'rgba(90,120,140,.18)', pisoSolido:'#2c3a42', borde:'#22303a', luz:null,      fondo:'lluvia' },
+  kiosco:   { cielo:['#241a10','#120c06'], piso:'rgba(180,140,70,.20)', pisoSolido:'#4a3416', borde:'#3a2c18', luz:'#ffcf6a', fondo:'kiosco' }
 };
 // Elige el escenario que corresponde a la pose y al estado del jugador.
 function escenaDePose(pose, av, edad){
@@ -2478,6 +2479,16 @@ function _escFondo(tipo){
     case 'lluvia':
       return `<div style="${S}background:repeating-linear-gradient(74deg, rgba(190,220,240,.16) 0 1px, transparent 1px 7px);animation:crLluvia .5s linear infinite;"></div>
         <style>@keyframes crLluvia{0%{background-position:0 0}100%{background-position:-7px 24px}}</style>`;
+    case 'kiosco': {
+      // Estantería del kiosco: dos baldas con productos de colores (golosinas,
+      // gaseosas, chicles) y una guarda de banderines arriba. Da fondo de local.
+      const cols = ['#ef4444','#f59e0b','#facc15','#22c55e','#3b82f6','#a855f7','#ec4899','#14b8a6'];
+      const balda = (top)=> `<div style="position:absolute;left:6%;right:6%;top:${top}%;height:12%;display:flex;gap:3px;align-items:flex-end;">`
+        + cols.map((c,i)=>`<div style="flex:1;height:${60+((i*37)%40)}%;background:${c};opacity:.5;border-radius:1px 1px 0 0;"></div>`).join('')
+        + `</div><div style="position:absolute;left:6%;right:6%;top:${top+12}%;height:2px;background:rgba(255,255,255,.14);"></div>`;
+      const banderines = `<div style="position:absolute;left:0;right:0;top:4%;height:7%;background:repeating-linear-gradient(90deg,#ef4444 0 12px,#facc15 12px 24px,#22c55e 24px 36px,#3b82f6 36px 48px);opacity:.35;clip-path:polygon(0 0,100% 0,100% 40%,96% 100%,92% 40%,88% 100%,84% 40%,80% 100%,76% 40%,72% 100%,68% 40%,64% 100%,60% 40%,56% 100%,52% 40%,48% 100%,44% 40%,40% 100%,36% 40%,32% 100%,28% 40%,24% 100%,20% 40%,16% 100%,12% 40%,8% 100%,4% 40%,0 100%);"></div>`;
+      return `<div style="${S}background:linear-gradient(180deg,rgba(80,55,25,.35),transparent 60%);"></div>${banderines}${balda(20)}${balda(40)}`;
+    }
     default: return '';
   }
 }
@@ -11431,9 +11442,47 @@ function mundoAbrir(mundo, escena){
   VJ.destino = null; VJ.keys = {}; VJ.hot = null; VJ.meta = null; VJ.ultInput = 0; VJ.proxDecision = 0;
   mundoRender();
 }
-// Fondo del escenario activo.
-function vjFondo(W,H){
-  switch(VJ.escena){
+// EL KIOSCO POR DENTRO: pared, guarda de banderines, dos estanterías con
+// productos de colores, una heladera de gaseosas a un lado y el mostrador con
+// vitrina de golosinas al frente. El del kiosco se para detrás del mostrador.
+function vjFondoKiosco(W,H){
+  const pisoY = Math.round(H*0.80); let o='';
+  const M=(x,y,w,h,c)=>{ o+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`; };
+  // Pared del local
+  o += `<defs><linearGradient id="vjk" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3a2c18"/><stop offset="100%" stop-color="#1c150b"/></linearGradient></defs>`;
+  M(0,0,W,pisoY,'url(#vjk)');
+  // Guarda de banderines arriba
+  const flag=['#ef4444','#facc15','#22c55e','#3b82f6','#ec4899'];
+  for(let x=0;x<W;x+=26){ M(x,0,24,10,flag[(x/26|0)%flag.length]); o+=`<polygon points="${x},10 ${x+24},10 ${x+12},22" fill="${flag[(x/26|0)%flag.length]}"/>`; }
+  // Estanterías con productos (dos baldas largas)
+  const cols=['#ef4444','#f59e0b','#facc15','#22c55e','#3b82f6','#a855f7','#ec4899','#14b8a6','#f97316'];
+  [Math.round(pisoY*0.34), Math.round(pisoY*0.60)].forEach((by,bi)=>{
+    M(40,by+30,W-260,4,'#5a4326');              // tabla de la balda
+    for(let x=48;x<W-224;x+=22){ const c=cols[((x+bi*13)/22|0)%cols.length];
+      const ph=16+((x*7+bi*11)%16); M(x,by+30-ph,16,ph,c); M(x,by+30-ph,16,2,'rgba(255,255,255,.35)'); }
+  });
+  // Heladera de gaseosas a la derecha
+  const hx=W-190;
+  M(hx,Math.round(pisoY*0.20),150,Math.round(pisoY*0.60),'#0f2233');
+  M(hx+8,Math.round(pisoY*0.20)+8,134,Math.round(pisoY*0.60)-16,'#123047');
+  for(let r=0;r<3;r++) for(let cq=0;cq<5;cq++){ const bx=hx+16+cq*26, byy=Math.round(pisoY*0.20)+16+r*Math.round((pisoY*0.60-40)/3);
+    M(bx,byy,14,Math.round((pisoY*0.60-40)/3)-6, cols[(r*5+cq)%cols.length]); }
+  M(hx+2,Math.round(pisoY*0.20)+2,4,Math.round(pisoY*0.60)-4,'rgba(255,255,255,.10)');
+  // Piso
+  M(0,pisoY,W,H-pisoY,'#3a2c16'); M(0,pisoY,W,3,'#4a3a20');
+  // Mostrador con vitrina de golosinas, al frente
+  const mostY=pisoY-40;
+  M(28,mostY,Math.round(W*0.46),44,'#6b4a24'); M(28,mostY,Math.round(W*0.46),6,'#8a6432');
+  M(36,mostY-16,Math.round(W*0.46)-16,16,'rgba(180,220,240,.18)');   // vitrina de vidrio
+  for(let x=44;x<28+Math.round(W*0.46)-8;x+=18) M(x,mostY-13,10,10,cols[(x/18|0)%cols.length]);
+  return o;
+}
+// Fondo del escenario activo (o el que se pida por parámetro, para pantallas
+// como la charla con el del kiosco que quieren su propio decorado).
+function vjFondo(W,H,esc){
+  switch(esc || VJ.escena){
+    case 'kiosco':    return vjFondoKiosco(W,H);
     case 'casa':      return vjFondoCasa(W,H);
     case 'barrio':    return vjFondoBarrio(W,H);
     case 'trabajo':   return vidaEscena(G.vidaRol, W, H);
@@ -12856,11 +12905,11 @@ function vjCharlaFlash(h, cat){
 }
 // Telon de fondo con el escenario actual. Las pantallas de dialogo y de
 // resultado quedaban sobre negro y el personaje parecia flotar en el vacio.
-function fondoEscenaHTML(){
+function fondoEscenaHTML(escOverride){
   try{
-    const W = vjEscena().ancho, H = 250;
+    const W = escOverride === 'kiosco' ? 940 : vjEscena().ancho, H = 250;
     return `<div style="position:absolute;inset:0;overflow:hidden;pointer-events:none;">
-      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" style="position:absolute;inset:0;width:100%;height:100%;shape-rendering:crispEdges;">${vjFondo(W,H)}</svg>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" style="position:absolute;inset:0;width:100%;height:100%;shape-rendering:crispEdges;">${vjFondo(W,H,escOverride)}</svg>
       <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" style="position:absolute;inset:0;width:100%;height:100%;">${vjAtmosfera(W,H,vjPisoPct())}</svg>
       <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,7,10,.30) 0%,rgba(5,7,10,.72) 48%,#05070a 88%);"></div>
     </div>`;
@@ -15075,10 +15124,13 @@ window._vjHablar = function(indice){
 function vjPintarReto(){
   const h = VJ._retoCon, R = VJ._reto; if(!h || !R) return;
   const nombre = h.nombre || vjNombreNPC(h.semilla, vjGen(h));
+  // Si estás hablando con el del kiosco, la charla pasa DENTRO del kiosco: su
+  // propio decorado, no la calle.
+  const _fEsc = /kiosq/i.test(String(h.rol||'')) ? 'kiosco' : undefined;
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
   <div style="min-height:100%;background:#05070a;display:flex;flex-direction:column;justify-content:center;position:relative;">
-    ${fondoEscenaHTML()}
+    ${fondoEscenaHTML(_fEsc)}
     <div style="position:relative;max-width:560px;margin:0 auto;width:100%;padding:44px 18px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;">
       <div style="display:flex;align-items:flex-end;justify-content:center;gap:6px;margin-bottom:12px;">
         <div style="line-height:0;">${h.tipo==='npc' ? vjSpriteHab(h,'idle') : vjObjSVG(h.obj, h.escala)}</div>
@@ -15165,15 +15217,18 @@ window._vjRetoElegir = function(i){
 // LA FOTO DEL MOMENTO. Lo que decidís deja una imagen, no solo un renglón: se ve
 // a los dos, en el escenario donde pasó, con la reacción de cada uno.
 function vjPintarRetoRes(h, res, chips){
+  const _kiosco = /kiosq/i.test(String(h.rol||''));
+  const _fEsc = _kiosco ? 'kiosco' : undefined;
+  const _fondoBox = _kiosco ? 'kiosco' : ((vjEscena()||{}).fondo || VJ.escena || 'casa');
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
   <div style="min-height:100%;background:#05070a;display:flex;align-items:center;position:relative;">
-    ${fondoEscenaHTML()}
+    ${fondoEscenaHTML(_fEsc)}
     <div style="position:relative;max-width:520px;margin:0 auto;padding:24px 20px calc(24px + env(safe-area-inset-bottom));text-align:center;width:100%;box-sizing:border-box;">
       <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarBox(`<div style="display:flex;align-items:flex-end;gap:3px;line-height:0;">
         <div style="line-height:0;">${h.tipo==='npc' ? vjSpriteHab(h,'idle') : vjObjSVG(h.obj, h.escala)}</div>
         <div style="line-height:0;transform:scaleX(-1);">${vjSpriteJugador('idle')}</div>
-      </div>`, '12px 18px', (vjEscena()||{}).fondo || VJ.escena || 'casa')}</div>
+      </div>`, '12px 18px', _fondoBox)}</div>
       <div style="font-size:15px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:14px;">${esc(res)}</div>
       ${chips?`<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:18px;">${chips}</div>`:'<div style="margin-bottom:18px;"></div>'}
       <button onclick="window._vjRetoSalir()" style="background:linear-gradient(135deg,#16a34a,${A});color:#000;border:none;border-radius:13px;padding:14px 30px;font-weight:900;font-size:14.5px;cursor:pointer;">SEGUIR <i class='bx bx-right-arrow-alt'></i></button>
