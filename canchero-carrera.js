@@ -4349,6 +4349,11 @@ function _finTemporada(ctx){
   const idBase = 4 + (titulosGanados.length*10) + (pos===1?6:pos<=3?3:0) + (rend>0.5?4:rend<0.15?-3:0);
   G.idolatria[G.club] = clamp((G.idolatria[G.club]||0) + idBase, -100, 100);
   G.temporada++; G.edad++; G.anio = (G.anio||2026) + 1;
+  // El cupo de entrenamiento aparte se renueva cada temporada. Antes se contaba
+  // para toda la carrera: tras 3 entrenos en tu vida el botón quedaba bloqueado
+  // para siempre y "entrenar aparte" dejaba de servir. Ahora sube nivel todos los
+  // años (hasta 3 veces por temporada) y el cuerpo lo acumula de verdad.
+  G._entrenos = 0;
   try { avCuerpoAlDia(); } catch(e){}
   // La temporada retro dura eso: una temporada. Después el mundo vuelve a ser el
   // que era, con su año y su tecnología.
