@@ -250,8 +250,10 @@ function trofeoRender(nombre, size){
   const s = size || 60;
   const generico = `<div style="width:${s}px;height:${s}px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 35%, #facc15 0%, #b8860b 65%, #6b4d08 100%);border-radius:50%;box-shadow:0 4px 12px rgba(250,204,21,.35), inset 0 -6px 12px rgba(0,0,0,.35), inset 0 4px 8px rgba(255,255,255,.35);"><i class='bx bxs-trophy' style="font-size:${Math.round(s*0.55)}px;color:#fff8dc;text-shadow:0 1px 2px rgba(0,0,0,.4);"></i></div>`;
   if (!file) return generico;
-  // Si la imagen falla, cae al trofeo dorado genérico (nunca a otra copa equivocada).
-  return `<span style="display:inline-flex;align-items:center;justify-content:center;position:relative;"><img src="img/trofeos/${file}" alt="" style="max-height:${s}px;max-width:100%;object-fit:contain;filter:drop-shadow(0 4px 12px rgba(250,204,21,.35));" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><span style="display:none;">${generico}</span></span>`;
+  // El trofeo dorado se muestra YA como placeholder mientras la foto carga: antes
+  // quedaba en blanco hasta que llegaba la imagen (se veía "sin trofeo" y lento).
+  // Cuando la foto real carga (onload) se oculta el placeholder; si falla, queda él.
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;position:relative;min-width:${s}px;min-height:${s}px;"><span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">${generico}</span><img src="img/trofeos/${file}" alt="" loading="eager" decoding="async" style="position:relative;max-height:${s}px;max-width:100%;object-fit:contain;filter:drop-shadow(0 4px 12px rgba(250,204,21,.35));" onload="var p=this.previousElementSibling; if(p) p.style.display='none';" onerror="this.style.display='none';"></span>`;
 }
 // Premios individuales — nombre de archivo completo (con extensión).
 function premioImgSlug(nombre){
@@ -270,7 +272,7 @@ function premioRender(nombre, size){
   const s = size || 56;
   const gen = `<div style="width:${s}px;height:${s}px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 35%, #fde68a 0%, #d97706 70%, #7c4a03 100%);border-radius:50%;box-shadow:0 4px 12px rgba(217,119,6,.4);"><i class='bx bxs-medal' style="font-size:${Math.round(s*0.55)}px;color:#fff8dc;"></i></div>`;
   if (!file) return gen;
-  return `<span style="display:inline-flex;align-items:center;justify-content:center;"><img src="img/trofeos/${file}" alt="" style="max-height:${s}px;max-width:100%;object-fit:contain;filter:drop-shadow(0 4px 12px rgba(250,204,21,.35));" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><span style="display:none;">${gen}</span></span>`;
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;position:relative;min-width:${s}px;min-height:${s}px;"><span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">${gen}</span><img src="img/trofeos/${file}" alt="" loading="eager" decoding="async" style="position:relative;max-height:${s}px;max-width:100%;object-fit:contain;filter:drop-shadow(0 4px 12px rgba(250,204,21,.35));" onload="var p=this.previousElementSibling; if(p) p.style.display='none';" onerror="this.style.display='none';"></span>`;
 }
 function todosClubs(){ const out=[]; LIGAS.forEach(L=>L.clubs.forEach(c=>out.push({name:c[0],str:c[1],liga:L.liga,pais:L.pais}))); return out; }
 // ── ASCENSO / DESCENSO ─────────────────────────────────────────────────────────
