@@ -5117,8 +5117,13 @@ function eventoSeleccionRandom(){
         const asi = clamp(Math.round(pj * 0.22 * (1 + fuerza/45) + ri(-1,1)), 0, 6);
         // Quién se lo llevó, y contra quién en la final.
         const otros = PAISES_FUERTES.filter(p => p !== g.pais);
+        // finA = quién ganó el torneo. finB = el subcampeón (el otro de la final).
+        // Si vos llegaste a la final (idx===4) y no saliste campeón, el otro
+        // finalista sos VOS: no se puede inventar un tercer país que jugó "tu" final.
         const finA = campeon ? g.pais : pick(otros);
-        const finB = pick(otros.filter(p => p !== finA)) || 'el otro finalista';
+        const finB = campeon
+          ? (pick(otros.filter(p => p !== finA)) || 'el otro finalista')
+          : (idx === 4 ? g.pais : (pick(otros.filter(p => p !== finA)) || 'el otro finalista'));
         const marcador = pick(['2-1','1-0','3-1','2-0','1-1 (4-2 en penales)','0-0 (5-4 en penales)','3-2']);
         g._selInforme = { torneo:t.tipo, pais:g.pais, ronda:RONDAS[idx], campeon, pj, gol, asi,
           finA, finB, marcador, anio:g.anio };
@@ -5145,7 +5150,9 @@ function eventoSeleccionRandom(){
               ? `${g.pais} llegó a la FINAL y la perdió con ${finA} por ${marcador}.`
               : `${g.pais} quedó eliminado en ${RONDAS[idx].toLowerCase()}.`);
         const tuyo = `Jugaste ${pj} partido${pj===1?'':'s'}, hiciste ${gol} gol${gol===1?'':'es'} y diste ${asi} asistencia${asi===1?'':'s'}.`;
-        const dueno = campeon ? '' : ` Se lo llevó ${finA}, que le ganó a ${finB} ${marcador} en la final.`;
+        // Si perdiste la final, `mio` ya contó que la final fue contra finA: no se
+        // repite. Sólo cuando quedaste eliminado antes se aclara quién dio la vuelta.
+        const dueno = (campeon || idx === 4) ? '' : ` Se lo llevó ${finA}, que le ganó a ${finB} ${marcador} en la final.`;
         return mio + ' ' + tuyo + dueno;
       } },
       { txt: `Priorizar el club — decir no`, ef: g => {
@@ -5641,8 +5648,16 @@ const EVENTOS=[
     { txt:'Salir con los pibes', ef:g=>{ const mal=Math.random()<.6; g.moral+=4; g.nivel+=mal?-2:0; return mal?'Rendiste mal, el DT te marcó.':'Zafaste, pero fue un riesgo.'; } },
     { txt:'Quedarme descansando', ef:g=>{ g.nivel+=1; return 'Profesionalismo puro. Rendís mejor.'; } } ] },
   { t:'Tentación fácil', img:'dinero', d:'Te ofrecen un negocio turbio para ganar plata rápida.', opts:[
-    { txt:'Aceptar (riesgoso)', ef:g=>{ const mal=Math.random()<.5; g.dinero+=mal?0:50000; g.fama+=mal?-15:0; g.moral+=mal?-14:2; return mal?'Se supo todo. Escándalo.':'Salió bien... esta vez.'; } },
+    { txt:'Aceptar (riesgoso)', ef:g=>{ const mal=Math.random()<.5; g.dinero+=mal?0:50000; g.fama+=mal?-15:0; g.moral+=mal?-14:2;
+      // Si se supo, no queda sólo en el diario: la gente tuya se entera y reacciona.
+      if(mal){ g.flags=g.flags||{}; g.flags.escandaloTurbio=true; }
+      return mal?'Se supo todo. Escándalo en todos los diarios. Esto no va a quedar acá.':'Salió bien... esta vez.'; } },
     { txt:'Rechazar y seguir limpio', ef:g=>{ g.moral+=6; return 'Buena decisión. Tu carrera va por buen camino.'; } } ] },
+  // CONSECUENCIA del negocio turbio descubierto: los tuyos te lo dicen en la cara.
+  // Las decisiones tienen costo social, no sólo un titular. Aparece una sola vez.
+  { t:'Los tuyos se enteraron', img:'prensa', reqFlag:'escandaloTurbio', d:'No fue sólo el diario. Tu representante te llama furioso, en tu casa te miran distinto y un amigo de siempre te encaró sin vueltas: "¿En qué andás metido?". Hay que dar la cara.', opts:[
+    { txt:'Pedir perdón y limpiar todo', ef:g=>{ g.flags.escandaloTurbio=false; g.moral+=6; g.fama-=3; g.dinero=Math.max(0,(g.dinero||0)-80000); if(g.familia) g.familia.confianza=clamp((g.familia.confianza!=null?g.familia.confianza:60)-8,0,100); return 'Contrataste abogados, devolviste lo que había que devolver y bajaste la cabeza. Tu gente te lo va a hacer acordar un buen tiempo, pero volvieron a mirarte a los ojos.'; } },
+    { txt:'Negar todo y bancarme el escándalo', ef:g=>{ g.flags.escandaloTurbio=false; g.moral-=10; g.fama-=8; if(g.familia) g.familia.confianza=clamp((g.familia.confianza!=null?g.familia.confianza:60)-20,0,100); if(g.rival) g.rival.relacion=clamp((g.rival.relacion||0)-6,-100,100); return 'Saliste a negar todo por TV. Nadie te creyó. Tu representante te soltó la mano un tiempo y en tu casa se comió el silencio en la mesa.'; } } ] },
   // ══ ASPECTO — decisiones que dejan MARCA VISIBLE permanente en el avatar ════
   { t:'Se te está cayendo el pelo', img:'prensa', minAge:27, noFlag:'implante', d:'Te mirás en el espejo del vestuario y las entradas ya no se disimulan con nada. Los compañeros empezaron con las cargadas.', opts:[
     { txt:'Injerto capilar en Turquía',  ef:g=>{ g.dinero=Math.max(0,(g.dinero||0)-18000); g.flags=g.flags||{}; g.flags.implante=true; avMutar({implante:true, calvicie:-3}); return 'Volviste de Estambul con la cabeza vendada y el pelo nuevo. En dos meses no te reconocía nadie.'; } },
@@ -8500,9 +8515,13 @@ const VIDA_SUCESOS = {
       { txt:'Prefiero envejecer con lo que tengo', ef:(s,g)=>{ s.felicidad=(s.felicidad||50)+8; return 'Cojeás un poco. Pero seguís siendo vos, entero.'; } } ] }
   ],
   familia: [
-    { t:'Se agranda la familia', d:'Tu pareja te dice que viene un hijo en camino.', req:g=>!!(g.familia&&g.familia.pareja), opts:[
-      { txt:'Salir corriendo a comprar la cuna', ef:(s,g)=>{ (g.familia.hijos=g.familia.hijos||[]).push(nacePersona()); s.felicidad=(s.felicidad||50)+18; s.familia=(s.familia||50)+22; s.soledad=(s.soledad||40)-25; return 'Nació. Te temblaban las manos más que antes de un penal. Nada de lo que ganaste se le parece.'; } },
-      { txt:'Tomarlo con miedo y hacerte el fuerte', ef:(s,g)=>{ (g.familia.hijos=g.familia.hijos||[]).push(nacePersona()); s.felicidad=(s.felicidad||50)+9; s.familia=(s.familia||50)+14; return 'Tardaste en caer. Cuando lo tuviste en brazos entendiste que no había con qué compararlo.'; } } ] },
+    { t:'Se agranda la familia', d:'Tu pareja te dice que viene un hijo en camino.',
+      // Solo si hay pareja, no hay ya un embarazo en curso y todavía no llegaste al
+      // tope de hijos: así no se superpone con un nacimiento ya anunciado ni salta
+      // teniendo la casa llena.
+      req:g=>!!(g.familia&&g.familia.pareja) && !(g.familia.embarazada) && (g.familia.hijos||[]).length < 3, opts:[
+      { txt:'Salir corriendo a comprar la cuna', ef:(s,g)=>{ (g.familia.hijos=g.familia.hijos||[]).push(nacePersona()); g._momentoVisual='bebe'; g._pedirNombreHijo=true; s.felicidad=(s.felicidad||50)+18; s.familia=(s.familia||50)+22; s.soledad=(s.soledad||40)-25; return 'Meses después nació. Te temblaban las manos más que antes de un penal. Nada de lo que ganaste se le parece.'; } },
+      { txt:'Tomarlo con miedo y hacerte el fuerte', ef:(s,g)=>{ (g.familia.hijos=g.familia.hijos||[]).push(nacePersona()); g._momentoVisual='bebe'; g._pedirNombreHijo=true; s.felicidad=(s.felicidad||50)+9; s.familia=(s.familia||50)+14; return 'Tardaste en caer. Cuando lo tuviste en brazos entendiste que no había con qué compararlo.'; } } ] },
     { t:'Te querés casar', edadMax:66, d:'Después de años, alguien te propone dar el paso. O lo proponés vos.', req:g=>!(g.familia&&g.familia.casado), opts:[
       { txt:'Casarme', ef:(s,g)=>{ g.familia = g.familia||{}; g.familia.casado = true; g.familia.pareja = g.familia.pareja || nombreParejaNuevo(); s.felicidad=(s.felicidad||50)+16; s.familia=(s.familia||50)+20; s.soledad=(s.soledad||40)-22; return 'Fiesta chica, la gente que importa. Por una vez, ninguna cámara.'; } },
       { txt:'Todavía no', ef:(s,g)=>{ s.soledad=(s.soledad||40)+10; s.felicidad=(s.felicidad||50)-4; return 'Lo dejaste para más adelante. "Más adelante" es una palabra peligrosa.'; } } ] },
@@ -9029,6 +9048,10 @@ SUCESOS_JUGADOR.exclub = [
 // con los hijos dentro de la misma categoria 'familia'.
 function sujetoDe(ev){
   const t = ((ev.t||'') + ' ' + (ev.d||'')).toLowerCase();
+  // Un embarazo / hijo EN CAMINO es cosa de la PAREJA, no de un hijo que ya existe.
+  // Sin esto, "se agranda la familia" (que dice "un hijo en camino") se clasificaba
+  // como 'hijo' y saltaba al tocar a un hijo ya nacido — mezcla que rompía todo.
+  if (/embaraz|en camino|se agranda|viene un (hijo|beb|nen)|va a ser padre|va a ser madre|panza|esperando un/.test(t)) return 'pareja';
   if (/nieto|nieta/.test(t)) return 'nieto';
   if (/hijo|hija|beb[eé]|pibe tuyo/.test(t)) return 'hijo';
   if (/pareja|esposa|mujer|casar|matrimonio|divorci|novia|novio/.test(t)) return 'pareja';
@@ -11242,7 +11265,11 @@ function vjHotspotsClub(){
     out.push({ x:520, tipo:'obj', obj:'ropero', escala:1.5, lbl:'Ropero — cambiarte', accion:'ropero', icono:'bx-closet' });
     out.push({ x:588, tipo:'obj', obj:'espejo', escala:1.4, lbl:'Espejo — cambiar tu look', accion:'look', icono:'bx-cut' });
     // La cuna aparece cuando hay un bebé de verdad en la casa, con el bebé adentro.
-    const _bebe = (fam.hijos||[]).find(h=>(h.edad||0) <= 2);
+    // Mientras el nacimiento no se haya MOSTRADO (G._bebePend), el último hijo no
+    // existe todavía para la escena: si no, lo veías en la cuna antes de que la
+    // pantalla te dijera que nació.
+    const _pend = (G && G._bebePend && (fam.hijos||[]).length) ? fam.hijos[fam.hijos.length-1] : null;
+    const _bebe = (fam.hijos||[]).find(h=>(h.edad||0) <= 2 && h !== _pend);
     if (_bebe)
       out.push({ x:186, tipo:'obj', obj:'cuna', escala:1.4, bebe:_bebe,
         lbl:'Alzar a ' + esc(_bebe.nombre), accion:'suceso', cat:'familia', icono:'bx-heart' });
@@ -14923,17 +14950,48 @@ const RETO_SEGUIR = {
     ['Vuelve sobre aquella vez', d=>'"Me quedé pensando en lo de ' + d + '. No te lo dije en el momento, pero me hizo bien."'],
     ['Te lo agradece a su manera', d=>'"Lo de ' + d + '... no todos lo hubieran hecho. Yo me acuerdo."'],
     ['Lo anda contando por ahí', d=>'"Anduve contando lo de ' + d + '. Se acuerdan todos en el barrio."'],
-    ['Quiere hacerlo de nuevo', d=>'"¿Y si repetimos lo de ' + d + '? Aquella vez estuvo bien."']
+    ['Quiere hacerlo de nuevo', d=>'"¿Y si repetimos lo de ' + d + '? Aquella vez estuvo bien."'],
+    ['Se le nota el orgullo', d=>'"Cada tanto me acuerdo de lo de ' + d + ' y se me dibuja una sonrisa solo."'],
+    ['Te tira un consejo nuevo', d=>'"Ya que estás: no cambies eso que hiciste con lo de ' + d + '. Es lo que te hace bien."'],
+    ['Se abre un poco más', d=>'"Desde lo de ' + d + ' te miro distinto. Estás más grande, más entero."'],
+    ['Te pide otra charla así', d=>'"Vení más seguido. Aquella de ' + d + ' me dejó con ganas de seguir hablando."'],
+    ['Le cambió el humor', d=>'"Anduve de mejor ánimo estos días. Algo tuvo que ver lo de ' + d + ', te digo la verdad."'],
+    ['Lo guarda como recuerdo', d=>'"Guardé eso de ' + d + ' acá adentro. De esas cosas no hay muchas."'],
+    ['Te devuelve la gauchada', d=>'"Cualquier cosa que necesites, contá conmigo. Después de lo de ' + d + ', ni preguntes."'],
+    ['Se ríe de la anécdota', d=>'"¿Te acordás la cara que tenías con lo de ' + d + '? Todavía me río."']
   ],
   mal: [
     ['Todavía le quedó', d=>'"Yo sé que ya pasó. Pero lo de ' + d + ' me quedó dando vueltas."'],
     ['Te lo cobra de costado', d=>'"Ah, ahora aparecés. Después de lo de ' + d + '."'],
     ['Quiere cerrar el tema', d=>'"Lo de ' + d + ' lo hablamos ahora o no lo hablamos nunca más."'],
-    ['Se hace el que no pasó nada', d=>'"Todo bien. Lo de ' + d + ' ya está, ni me acuerdo." Y se acuerda perfecto.']
+    ['Se hace el que no pasó nada', d=>'"Todo bien. Lo de ' + d + ' ya está, ni me acuerdo." Y se acuerda perfecto.'],
+    ['Te lo dice sin vueltas', d=>'"Con lo de ' + d + ' me fallaste. Prefiero decírtelo antes que guardármelo."'],
+    ['Está más distante', d=>'"Contame lo que quieras. Pero desde lo de ' + d + ' te escucho de otra manera."'],
+    ['Te pone a prueba', d=>'"A ver si es en serio el cambio, o vamos a repetir lo de ' + d + '."'],
+    ['Le duele todavía', d=>'"No es que esté enojado. Es que lo de ' + d + ' me dolió, y eso lleva su tiempo."'],
+    ['Te tira la indirecta', d=>'"Menos mal que ahora tenés tiempo. Con lo de ' + d + ' andabas ocupadísimo."'],
+    ['Quiere ver hechos', d=>'"Palabras ya escuché. Después de lo de ' + d + ' quiero ver."'],
+    ['Afloja de a poco', d=>'"Bueno, ya está. Lo de ' + d + ' quedó atrás. Pero que no se repita."'],
+    ['Te lo perdona a medias', d=>'"Te perdono lo de ' + d + '. Olvidarlo es otra cosa."']
   ]
 };
 // La memoria de las charlas vive en la partida; en el potrero, en el borrador.
 function retoMem(){ return G || _draft || null; }
+// Picker sin repetición para los seguimientos: guarda por vínculo+humor los
+// índices ya usados y no vuelve a uno hasta agotar todo el repertorio.
+function pickSeguir(fam, humor, M){
+  const pool = RETO_SEGUIR[humor] || RETO_SEGUIR.bien;
+  const key = fam + ':' + humor;
+  if (!M) return pick(pool);
+  M._seguirVistos = M._seguirVistos || {};
+  let usados = M._seguirVistos[key] || [];
+  if (usados.length >= pool.length) usados = [];   // agotado: se reinicia el ciclo
+  const libres = pool.map((l,i)=>i).filter(i => usados.indexOf(i) < 0);
+  const idx = libres.length ? libres[Math.floor(Math.random()*libres.length)] : Math.floor(Math.random()*pool.length);
+  usados.push(idx);
+  M._seguirVistos[key] = usados;
+  return pool[idx];
+}
 function retoDe(h){
   const fam = retoFamilia(h && h.rol);
   const pool = RETOS[fam] || RETOS.gente;
@@ -14950,7 +15008,10 @@ function retoDe(h){
   // entre ustedes. Cada vez sale distinto y siempre habla de LO SUYO.
   const ult = (M && M._retoUlt && M._retoUlt[fam]) || null;
   const buenas = !ult || ult.bien;
-  const linea = pick(RETO_SEGUIR[buenas ? 'bien' : 'mal']);
+  // Elegir un seguimiento que NO se haya usado hace poco con esta persona: se
+  // recorre todo el repertorio antes de repetir, así hablar 30 veces no devuelve
+  // siempre la misma frase.
+  const linea = pickSeguir(fam, buenas ? 'bien' : 'mal', M);
   const eco = ult ? String(ult.t || ult.txt).replace(/^"|"$/g,'').toLowerCase() : 'la última vez';
   const memoria = (G && G._retoEcos && G._retoEcos[fam]) || [];
   return {
