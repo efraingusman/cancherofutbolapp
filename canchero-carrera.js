@@ -8862,6 +8862,18 @@ function leyendaDisponible(){
   const fama = G.fama || 0;
   const libres = LEYENDAS.filter(L => vistas.indexOf(L.id) < 0 && fama >= L.fama);
   if (!libres.length) return null;
+  // NO en todas las temporadas: un ídolo que aparece siempre deja de ser un evento.
+  // Se decide UNA vez por temporada si esta es de las que te cruzás con uno (~35%).
+  // Si ya hay uno fijado sin resolver, se respeta hasta que lo atiendas.
+  const temp = (G.temporada || 0) + ':' + (G.club || '');
+  if (!G._leyActual){
+    if (G._leyTempKey !== temp){
+      G._leyTempKey = temp;
+      G._leyTempOn = Math.random() < 0.35;
+      try{ save(); }catch(e){}
+    }
+    if (!G._leyTempOn) return null;
+  }
   // Siempre la misma mientras no la resuelvas, para que no cambie al repintar.
   const fijada = G._leyActual && libres.find(L=>L.id===G._leyActual);
   const L = fijada || pick(libres);
@@ -8873,6 +8885,7 @@ function vjLeyendaEncuentro(h){
   if (!L){ vjFlash('Por ahora no hay nadie esperándote.'); return; }
   (G._leyVistas = G._leyVistas || []).push(L.id);
   G._leyActual = null;
+  G._leyTempOn = false;   // ya te cruzaste al ídolo de esta temporada: uno por año
   G._vjSuc = { cat:'leyendas', ev:{ t:L.t, d:L.d, opts:L.opts,
     npc:{ semilla:L.semilla, ropa:L.ropa, edad:L.edad, gen:L.gen, av:L.av,
           nombre: L.apodo ? (L.n + ' · ' + L.apodo) : L.n } }, clave:'ley|'+L.id };
