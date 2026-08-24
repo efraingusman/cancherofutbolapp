@@ -4267,7 +4267,10 @@ function _finTemporada(ctx){
   // de la final podrías perderla y que el resumen te dijera campeón igual.
   if (ctx._titGuard){ titulosGanados.length = 0; ctx._titGuard.forEach(t=>titulosGanados.push(t)); pos = ctx._posGuard; }
   else { ctx._titGuard = titulosGanados.slice(); ctx._posGuard = pos; }
-  if (titulosGanados.length && !ctx._finalHecha && typeof window._lyFinal === 'function'){
+  // Si esta temporada ya se jugó el MOMENTO CLAVE (la última pelota / el penal /
+  // la final por elecciones), ESA fue la definición: no se vuelve a pedir jugarla
+  // al truco. Antes salía "gané" y acto seguido "agarrá las cartas" para lo mismo.
+  if (titulosGanados.length && !ctx._finalHecha && !momento && typeof window._lyFinal === 'function'){
     // El rival de la final sale de TU liga: perder una final de Serie A contra un
     // club chileno no tenía ningún sentido.
     const _mios = todosClubs().filter(c => c.liga === G.liga && c.name !== G.club);
