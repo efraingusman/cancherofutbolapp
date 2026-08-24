@@ -1709,10 +1709,10 @@ function avatarSprite(av, o){
   let alt  = preso ? '#f2a340' : ROPA ? ROPA.alt  : (o.kitAlt  || '#ffffff');
   let tipo = preso ? 'stripes' : ROPA ? (ROPA.tipo||'solid') : (o.kitTipo || 'solid');
   let kitTxt = preso ? '#3d1f04' : ROPA ? _avContraste(ROPA.base) : (o.kitTxt || _avContraste(base));
-  // ARQUERO: cuando está con la camiseta (jugando/presentación), lleva un kit de
-  // portero de alta visibilidad (casi nunca choca con el del equipo) y GUANTES.
+  // ARQUERO: cuando está con la camiseta (jugando/presentación) lleva GUANTES. El
+  // kit de portero (que varía por club) se lo pasa quien lo dibuja vía kitBase/Alt,
+  // así que acá sólo se fuerzan los guantes.
   const esArq = !!o.arquero && !ROPA && !preso;
-  if (esArq){ base = '#12161c'; alt = '#a3e635'; tipo = 'solid'; kitTxt = '#a3e635'; }
   const guantes = (av.acc === 'guantes') || esArq;
   const pantalon = ROPA && ROPA.pantalon ? ROPA.pantalon : null;   // pierna larga
   const sinNumero = !!(ROPA && ROPA.sinNumero);
@@ -2434,6 +2434,26 @@ function kitClub(nombre, paisFallback){
   }
   return kitDe(paisFallback);
 }
+// KIT DE ARQUERO: distinto al del equipo (como en el fútbol real) y propio de cada
+// club — se deriva del kit del club pero con un color de alta visibilidad para que
+// nunca choque con el de los jugadores. Varía club por club, igual que el otro.
+function kitArquero(club, paisFallback){
+  const k = kitClub(club, paisFallback);
+  // Paleta de arquero de alta visibilidad; se elige una según el club (estable).
+  const GK = [['#12161c','#a3e635'],['#0b3d2e','#f5e663'],['#241033','#f472b6'],
+              ['#3a1e08','#fb923c'],['#0e2a3a','#22d3ee'],['#2a0e1a','#ff6b6b'],['#1a1a1a','#e5e7eb']];
+  let h=0; const s=String(club||'x'); for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0;
+  // Se evita elegir un GK que sea casi el mismo color que el kit del equipo.
+  let p = GK[h % GK.length];
+  if (_avMix && _avSim && _avSim(p[0], k.base)) p = GK[(h+3) % GK.length];
+  return { base:p[0], alt:p[1], txt:p[1], tipo:'solid' };
+}
+// ¿Dos colores muy parecidos? (comparación tosca en hex).
+function _avSim(a,b){
+  try { const pa=parseInt(a.slice(1),16), pb=parseInt(b.slice(1),16);
+    const dr=Math.abs((pa>>16)-(pb>>16)), dg=Math.abs(((pa>>8)&255)-((pb>>8)&255)), db=Math.abs((pa&255)-(pb&255));
+    return (dr+dg+db) < 90; } catch(e){ return false; }
+}
 function _hslHex(h,s,l){
   s/=100; l/=100;
   const k=n=>(n+h/30)%12, a=s*Math.min(l,1-l);
@@ -2450,7 +2470,11 @@ function avatarDeG(escala, pose, opts){
   if(!G) return '';
   opts = opts || {};
   // Con la SELECCIÓN, la camiseta del país. En el club, la camiseta REAL DEL CLUB.
-  const k = opts.seleccion ? kitDe(G.pais) : kitClub(G.club, G.clubPais || G.pais);
+  // Si sos arquero (y estás con la camiseta), va el kit de portero de ese equipo.
+  const _esArq = (G.pos === 'POR') && !opts.ropa;
+  const k = _esArq
+    ? (opts.seleccion ? kitArquero(G.pais) : kitArquero(G.club, G.clubPais || G.pais))
+    : (opts.seleccion ? kitDe(G.pais) : kitClub(G.club, G.clubPais || G.pais));
   return avatarSprite(G.avatar, {
     edad: opts.edad != null ? opts.edad : G.edad,
     kitBase:k.base, kitAlt:k.alt, kitTxt:k.txt, kitTipo:k.tipo,
@@ -3132,8 +3156,26 @@ const POTRERO_POOL = [
 // Van ORDENADOS por la edad propia de cada evento: como el pool se baraja, antes
 // podía tocar "a los 14 vinieron los ojeadores" en el paso 0 mientras el cartel
 // decía "11 años". Ahora el cartel, el relato y el avatar usan siempre ev.edad.
+// Texto completo de un evento (título + desc + opciones), para filtrar por rol.
+function _txtEvento(ev){
+  let t = (ev.t||'') + ' ' + (ev.d||'');
+  (ev.opts||[]).forEach(o=>{ t += ' ' + (o.txt||''); });
+  return t.toLowerCase();
+}
+// Un arquero no vive decisiones de definición (patear, tiro libre, definir): sus
+// decisiones son atajar, achicar, jugar con los pies. Se filtran las de campo y se
+// priorizan las de arco.
+function _esArqEv(ev){ return /arquero|atajar|ataj[aá]|atajada|bajo los palos|achicar|arco|guante|penal.*(ataj|volar)|vall(a|ada)/i.test(_txtEvento(ev)); }
+function _esCampoEv(ev){ return /pate[aá]|defin[ií]|tiro libre|amag|gambet|encar[aá]|goleador|hacer el gol|delanter/i.test(_txtEvento(ev)); }
+function _filtrarPorRol(pool, esArq){
+  if (!esArq) return pool;
+  const arqueros = pool.filter(_esArqEv);
+  const neutros  = pool.filter(ev => !_esArqEv(ev) && !_esCampoEv(ev));
+  return arqueros.concat(neutros);
+}
 function potreroEventosDeCarrera(){
-  return shuffle(POTRERO_POOL).slice(0, 4).sort((a,b)=>(a.edad||12)-(b.edad||12));
+  const esArq = !!(_draft && _draft.pos === 'POR');
+  return shuffle(_filtrarPorRol(POTRERO_POOL, esArq)).slice(0, 4).sort((a,b)=>(a.edad||12)-(b.edad||12));
 }
 const POTRERO_EVENTOS = [];  // se llena por carrera con potreroEventosDeCarrera()
 window._carreraPotrero = function(paso){
@@ -3528,7 +3570,7 @@ const JUVENILES_POOL = [
     { txt:'Firmar y agarrar el adelanto', ef:g=>{ g.dinero+=12000; const b=Math.random()<.45; g.flags=g.flags||{}; g.flags.agenteMalo=!b; return b?'Resultó ser serio y te consiguió buenos contactos.':'Te ató 5 años a alguien que solo te quiere vender. Te va a costar zafar.'; } },
     { txt:'Consultarlo con mi familia primero', ef:g=>{ g._juvDisc=(g._juvDisc||0)+1; return 'Tu viejo lo hizo revisar por un abogado del sindicato. Te ahorraste un problema.'; } } ] }
 ];
-function juvenilesDeCarrera(){ return shuffle(JUVENILES_POOL).slice(0,3); }
+function juvenilesDeCarrera(){ return shuffle(_filtrarPorRol(JUVENILES_POOL, esArquero())).slice(0,3); }
 // Edad de retiro: la duración elegida se cuenta desde el DEBUT (17 o 18), no desde 16.
 function edadRetiro(){ return ((G&&G.debutEdad)||16) + ((G&&G.years)||10); }
 // ── SE VIENE EL RETIRO ───────────────────────────────────────────────────────
@@ -6257,6 +6299,8 @@ function eventoRandom(){
       // Condicion libre: algunos eventos solo tienen sentido en cierta situacion
       // (volver al pais no se le puede ofrecer a alguien que ya juega en su pais).
       if (typeof ev.req === 'function' && !ev.req(G)) return false;
+      // Un arquero no recibe eventos de definición de jugador de campo.
+      if (G.pos === 'POR' && _esCampoEv(ev) && !_esArqEv(ev)) return false;
       return true;
     };
     var pool = EVENTOS.map(function(_,i){return i;}).filter(function(i){ return ok(EVENTOS[i]); });
@@ -7843,18 +7887,26 @@ function vjRopa(){
   return { dt:'dt', comentarista:'tv', dirigente:'traje', empresario:'empresario', escuela:'escuela',
            disfrutar: edad >= 66 ? 'jubilado' : 'calle' }[G.vidaRol] || 'calle';
 }
+// ¿El jugador es arquero? (en la carrera; en el potrero sale del borrador).
+function esArquero(){
+  const pos = (G && G.pos) || (_draft && _draft.pos);
+  return pos === 'POR';
+}
 // Kit con el que se dibuja cuando NO lleva ropa de calle (mundos de fútbol).
+// Si es arquero, el kit de portero de su equipo (varía por club, como el otro).
 function vjKit(){
-  if (VJ.mundo === 'potrero') { const k = kitDe(_draft ? _draft.pais : 'Uruguay'); return k; }
+  if (VJ.mundo === 'potrero') { const pais = _draft ? _draft.pais : 'Uruguay'; return esArquero() ? kitArquero('potrero-'+pais, pais) : kitDe(pais); }
   if (!G) return { base:'#3a4550', alt:'#8894a0', txt:'#fff', tipo:'solid' };
-  return kitClub(G.club, G.clubPais || G.pais);
+  return esArquero() ? kitArquero(G.club, G.clubPais || G.pais) : kitClub(G.club, G.clubPais || G.pais);
 }
 function vjSpriteJugador(pose){
   const ropa = vjRopa();
   const av = (G && G.avatar) || (_draft && _draft.avatar) || avatarDefault();
   const k = vjKit();
   const num = (VJ.mundo === 'vida') ? '' : String((G && G.num) || (_draft && _draft.num) || '');
+  // Con la camiseta puesta (sin ropa de calle) y siendo arquero → guantes.
   return avatarSprite(av, { edad:vjEdad(), escala:2.4, pose:pose||'idle', ropa: ropa||undefined,
+    arquero: !ropa && esArquero(),
     kitBase:k.base, kitAlt:k.alt, kitTxt:k.txt, kitTipo:k.tipo, num: ropa?'':num, apellido:'' });
 }
 // Nombre estable para cada personaje del mundo (siempre el mismo por semilla).
