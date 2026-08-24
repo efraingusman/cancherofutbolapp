@@ -33,30 +33,23 @@
   #ly-carga{ position:fixed; inset:0; display:flex; flex-direction:column; align-items:center;
     justify-content:center; gap:14px; background:#0a0c0a; z-index:10; text-align:center; padding:24px; }
   #ly-carga .marca{ font-weight:900; font-size:13px; letter-spacing:5px; color:#baff00; }
-  #ly-carga .tit{ font-weight:900; font-size:34px; line-height:1; text-shadow:0 0 22px rgba(186,255,0,.18); }
+  #ly-carga .tit{ font-weight:900; font-size:34px; line-height:1; }
   #ly-carga .tit span{ color:#baff00; }
   #ly-carga .spin{ font-size:30px; color:#baff00; }
   /* ── ANIMACIÓN DE ENTRADA (corta y vistosa, ~1.1s) ──────────────────────── */
   #ly-carga{ transition:opacity .32s ease, transform .32s ease; }
   #ly-carga.ly-out{ opacity:0; transform:scale(1.04); pointer-events:none; }
-  #ly-carga .ly-glow{ position:absolute; width:340px; height:340px; border-radius:50%;
-    background:radial-gradient(circle, rgba(186,255,0,.16), transparent 62%); filter:blur(6px);
-    animation:lyGlow 1.6s ease-in-out infinite; pointer-events:none; }
   #ly-carga .ly-in{ animation:lyIn .55s cubic-bezier(.2,.9,.3,1) both; }
   #ly-carga .marca.ly-in{ animation-delay:.04s; }
   #ly-carga .tit.ly-in{ animation-delay:.13s; }
   #ly-carga .ly-line.ly-in{ animation-delay:.26s; }
-  #ly-carga .ly-ball.ly-in{ animation-delay:.34s; }
   #ly-carga .ly-line{ width:190px; height:3px; border-radius:3px; background:rgba(255,255,255,.10); overflow:hidden; }
   #ly-carga .ly-line i{ display:block; height:100%; width:0; border-radius:3px; background:#baff00;
     box-shadow:0 0 10px rgba(186,255,0,.7); animation:lyFill 1.05s cubic-bezier(.4,0,.1,1) .28s forwards; }
-  #ly-carga .ly-ball{ font-size:24px; animation:lyBounce .62s ease-in-out infinite; }
   @keyframes lyIn{ from{ opacity:0; transform:translateY(15px) scale(.95); } to{ opacity:1; transform:none; } }
   @keyframes lyFill{ from{ width:0; } to{ width:100%; } }
-  @keyframes lyBounce{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-9px); } }
-  @keyframes lyGlow{ 0%,100%{ opacity:.5; transform:scale(.92); } 50%{ opacity:1; transform:scale(1.06); } }
   @media (prefers-reduced-motion: reduce){
-    #ly-carga .ly-in, #ly-carga .ly-line i, #ly-carga .ly-ball, #ly-carga .ly-glow{ animation:none; }
+    #ly-carga .ly-in, #ly-carga .ly-line i{ animation:none; }
     #ly-carga .ly-line i{ width:100%; }
   }
   #ly-error{ display:none; max-width:340px; font-size:13px; color:#c4ccc0; line-height:1.6; }
@@ -72,11 +65,9 @@
 <body>
 
 <div id="ly-carga" title="Tocá para entrar">
-  <div class="ly-glow"></div>
   <div class="marca ly-in">MODO CARRERA</div>
   <div class="tit ly-in">CANCHERO<br><span>LEYENDA</span></div>
-  <div class="ly-line ly-in"><i></i></div>
-  <div class="ly-ball ly-in" id="ly-spin">⚽</div>
+  <div class="ly-line ly-in" id="ly-spin"><i></i></div>
   <div id="ly-error">
     No se pudo cargar el juego. Probá recargar la página.<br>
     <a href="index.html">Ir a Canchero</a>
@@ -115,8 +106,8 @@
   })();
 </script>
 
-<script src="canchero-truco.js?v=20260820k" charset="utf-8"></script>
-<script src="canchero-carrera.js?v=20260820k" charset="utf-8"></script>
+<script src="canchero-truco.js?v=20260821a" charset="utf-8"></script>
+<script src="canchero-carrera.js?v=20260821a" charset="utf-8"></script>
 <script>
   (function(){
     var carga = document.getElementById('ly-carga');

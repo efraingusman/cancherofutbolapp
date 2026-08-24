@@ -13,6 +13,21 @@ const A = '#baff00';
 const LS = 'canchero_carrera_v2';
 function esc(s){ return window.escH ? window.escH(s) : String(s==null?'':s); }
 function me(){ return window.userData || {}; }
+// Animación reutilizable para los chips de cambio de stat (Nivel +3, Moral −2…):
+// entran con un pop escalonado. Se inyecta una sola vez.
+(function(){
+  try{
+    if (document.getElementById('ly-anim-css')) return;
+    const st = document.createElement('style'); st.id = 'ly-anim-css';
+    st.textContent = '@keyframes lyChipPop{0%{opacity:0;transform:translateY(6px) scale(.8);}60%{transform:translateY(0) scale(1.08);}100%{opacity:1;transform:none;}}'
+      + '.ly-chip{animation:lyChipPop .34s cubic-bezier(.2,1.3,.4,1) both;}'
+      + '.ly-chip:nth-child(2){animation-delay:.05s;}.ly-chip:nth-child(3){animation-delay:.1s;}'
+      + '.ly-chip:nth-child(4){animation-delay:.15s;}.ly-chip:nth-child(5){animation-delay:.2s;}'
+      + '.ly-chip:nth-child(6){animation-delay:.25s;}.ly-chip:nth-child(7){animation-delay:.3s;}'
+      + '@media (prefers-reduced-motion: reduce){.ly-chip{animation:none;}}';
+    (document.head||document.documentElement).appendChild(st);
+  }catch(e){}
+})();
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function rnd(a,b){ return a + Math.random()*(b-a); }
 function ri(a,b){ return Math.floor(rnd(a,b+1)); }
@@ -3317,6 +3332,19 @@ const RIVAL_NOMBRES = ['Ferreyra','Cardozo','Almeida','Sosa','Benítez','Núñez
 // Los que suelen pelear un torneo grande: sirve para decir QUIÉN salió campeón.
 const PAISES_FUERTES = ['Brasil','Argentina','Francia','España','Alemania','Italia','Inglaterra',
   'Portugal','Países Bajos','Uruguay','Bélgica','Croacia','México','Colombia','Marruecos','Japón'];
+// Rivales por CONTINENTE: en la Copa América no pueden aparecer europeos, ni al
+// revés en la Eurocopa. El Mundial y los JJOO sí mezclan a todos.
+const PAISES_CONT = {
+  AMER: ['Brasil','Argentina','Uruguay','México','Colombia','Chile','Perú','Paraguay','Ecuador','Estados Unidos','Venezuela','Bolivia'],
+  EUR:  ['Francia','España','Alemania','Italia','Inglaterra','Portugal','Países Bajos','Bélgica','Croacia','Dinamarca','Suiza','Polonia','Serbia','Escocia']
+};
+function paisesRivales(continente, pais){
+  const base = continente === 'AMER' ? PAISES_CONT.AMER
+             : continente === 'EUR'  ? PAISES_CONT.EUR
+             : PAISES_FUERTES;
+  const out = base.filter(p => p !== pais);
+  return out.length ? out : PAISES_FUERTES.filter(p => p !== pais);
+}
 function crearRival(pais, pos, nivel){
   // Arranca en un club real del mismo país (no en "cantera rival" genérica).
   const locales = todosClubs().filter(c=>c.pais===pais && c.str>=50 && c.str<=72);
@@ -4399,7 +4427,38 @@ function _finTemporada(ctx){
   // ¿Alguna decisión vieja vence esta temporada? Se resuelve acá para que el
   // resumen la muestre junto al resto de lo que pasó en el año.
   const eco = resolverEco();
-  resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,titulos:titulosGanados,premios:premiosAnio,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa,duelo,momento,bal,inv,prensa,eco});
+  // Antes de ver cómo fue, un cartel corto que anuncia la temporada: da expectativa.
+  splashTemporada((G.anio||2026)-1, function(){
+    resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,titulos:titulosGanados,premios:premiosAnio,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa,duelo,momento,bal,inv,prensa,eco});
+  });
+}
+// Cartel de transición entre temporadas: número de año grande que entra con un
+// barrido, el club y la edad. Corto (~1s), se puede tocar para saltarlo. Le da
+// aire y emoción al "pasa un año más" antes de mostrar el resumen.
+function splashTemporada(anio, next){
+  const m = document.getElementById('carrera-modal') || overlay();
+  let saltado = false;
+  const ir = function(){ if(saltado) return; saltado = true; try{ next(); }catch(e){} };
+  m.innerHTML = ''
+    + '<div id="ly-splash" style="position:absolute;inset:0;z-index:5;background:radial-gradient(120% 90% at 50% 40%, #10210c 0%, #05070a 62%);display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;">'
+    +   '<div class="sp-l" style="position:absolute;left:0;right:0;top:calc(50% - 62px);height:2px;background:linear-gradient(90deg,transparent,'+A+',transparent);opacity:.0;"></div>'
+    +   '<div class="sp-marca" style="font-size:11px;font-weight:900;letter-spacing:4px;color:'+A+';opacity:0;">'+esc(String((G.gestion&&G.gestion.club)||G.club||'').toUpperCase())+'</div>'
+    +   '<div class="sp-anio" style="font-family:Outfit,sans-serif;font-weight:900;font-size:80px;line-height:1;color:#fff;letter-spacing:2px;opacity:0;text-shadow:0 0 40px rgba(186,255,0,.25);">'+anio+'</div>'
+    +   '<div class="sp-sub" style="font-size:12.5px;font-weight:800;color:#8d9782;letter-spacing:1px;opacity:0;">Temporada '+((G.temporada||1)-1)+' · '+((G.edad||0)-1)+' años</div>'
+    +   '<div class="sp-l2" style="position:absolute;left:0;right:0;top:calc(50% + 66px);height:2px;background:linear-gradient(90deg,transparent,'+A+',transparent);opacity:0;"></div>'
+    + '</div>'
+    + '<style>'
+    +   '#ly-splash .sp-marca{ animation:spIn .5s ease .05s forwards; }'
+    +   '#ly-splash .sp-anio{ animation:spAnio .6s cubic-bezier(.2,.9,.3,1) .12s forwards; }'
+    +   '#ly-splash .sp-sub{ animation:spIn .5s ease .32s forwards; }'
+    +   '#ly-splash .sp-l,#ly-splash .sp-l2{ animation:spLine .55s ease .1s forwards; }'
+    +   '@keyframes spIn{ from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:none;} }'
+    +   '@keyframes spAnio{ from{opacity:0;transform:scale(.7);letter-spacing:14px;} to{opacity:1;transform:none;letter-spacing:2px;} }'
+    +   '@keyframes spLine{ from{opacity:0;transform:scaleX(.2);} to{opacity:.9;transform:scaleX(1);} }'
+    + '</style>';
+  const sp = document.getElementById('ly-splash');
+  if (sp) sp.addEventListener('click', ir);
+  setTimeout(ir, 1150);
 }
 
 // Vitrina completa agrupada por trofeo (Liga ×4, Champions ×2...). Se usa en el
@@ -5151,8 +5210,9 @@ function eventoSeleccionRandom(){
         const esDelantero = /D|E/.test(String(g.pos||'DC')[0]);
         const gol = clamp(Math.round(pj * (esDelantero ? 0.55 : 0.18) * (1 + fuerza/40) + ri(-1,1)), 0, 9);
         const asi = clamp(Math.round(pj * 0.22 * (1 + fuerza/45) + ri(-1,1)), 0, 6);
-        // Quién se lo llevó, y contra quién en la final.
-        const otros = PAISES_FUERTES.filter(p => p !== g.pais);
+        // Quién se lo llevó, y contra quién en la final — del MISMO continente que
+        // el torneo (Copa América = americanos, Eurocopa = europeos).
+        const otros = paisesRivales(t.continente, g.pais);
         // finA = quién ganó el torneo. finB = el subcampeón (el otro de la final).
         // Si vos llegaste a la final (idx===4) y no saliste campeón, el otro
         // finalista sos VOS: no se puede inventar un tercer país que jugó "tu" final.
@@ -6079,11 +6139,13 @@ function eventoRandom(){
   }catch(e){ return pick(EVENTOS); }
 }
 // Chip de cambio de stat (verde si sube, rojo si baja).
-function deltaChip(lbl, d, money){
+function deltaChip(lbl, d, money, final){
   if(!d) return '';
   const up = d>0; const col = up?'#4ade80':'#ff6b6b';
   const val = money ? (up?'+':'−')+'€'+(Math.abs(d)>=1000?(Math.abs(d)/1000|0)+'k':Math.abs(d)) : (up?'+':'−')+Math.abs(d);
-  return `<span style="display:inline-flex;align-items:center;gap:3px;background:${up?'rgba(74,222,128,.12)':'rgba(255,107,107,.12)'};border:1px solid ${col}55;color:${col};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;"><i class='bx ${up?'bx-up-arrow-alt':'bx-down-arrow-alt'}'></i>${lbl} ${val}</span>`;
+  // Cuando se pasa el valor final, se muestra "a qué número" quedó, resaltado.
+  const fin = (final != null && !money) ? `<b style="color:#fff;font-weight:900;">${Math.round(final)}</b>` : '';
+  return `<span class="ly-chip" style="display:inline-flex;align-items:center;gap:4px;background:${up?'rgba(74,222,128,.12)':'rgba(255,107,107,.12)'};border:1px solid ${col}55;color:${col};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;"><i class='bx ${up?'bx-up-arrow-alt':'bx-down-arrow-alt'}'></i>${lbl} ${val}${fin?' → '+fin:''}</span>`;
 }
 // Elige la POSE con la que el avatar reacciona al resultado de una decisión.
 // Lee el texto del resultado y los deltas: si mejoró festeja, si empeoró se hunde.
@@ -13151,10 +13213,10 @@ window._vjResolver = function(tipo, i){
       if(!d) return '';
       const bueno = b[2] ? d < 0 : d > 0;
       const col = bueno ? '#4ade80' : '#ff6b6b';
-      return `<span style="display:inline-flex;align-items:center;gap:3px;background:${col}18;border:1px solid ${col}55;color:${col};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;"><i class='bx bx-${d>0?'up':'down'}-arrow-alt'></i>${b[0]} ${d>0?'+':''}${d}</span>`;
+      return `<span class="ly-chip" style="display:inline-flex;align-items:center;gap:4px;background:${col}18;border:1px solid ${col}55;color:${col};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;"><i class='bx bx-${d>0?'up':'down'}-arrow-alt'></i>${b[0]} ${d>0?'+':''}${d} → <b style="color:#fff;font-weight:900;">${Math.round(s[b[1]]||0)}</b></span>`;
     }).filter(Boolean).join('');
-    chips += deltaChip('Moral', Math.round((G.moral||0) - moralAntes));
-    chips += deltaChip('Nivel', Math.round((G.nivel||0) - nivelAntes));
+    chips += deltaChip('Moral', Math.round((G.moral||0) - moralAntes), false, G.moral);
+    chips += deltaChip('Nivel', Math.round((G.nivel||0) - nivelAntes), false, G.nivel);
     chips += deltaChip('$', Math.round((G.dinero||0) - dineroAntes), true);
   } else {
     const R0 = VIDA_ROLES[G.vidaRol] || VIDA_ROLES.disfrutar;
@@ -14597,7 +14659,7 @@ let AUTO = { on:false, timer:null, pasos:0 };
 // salen de verdad (a juegos, a la portada, a identidad).
 const AUTO_PROHIBIDO = /(^\s*salir|salir del juego|volver a juegos|volver al inicio|volver a la portada|volver a identidad|ir a canchero|nueva carrera|^\s*cerrar|ranking|idioma:|c[óo]mo se juega|saltar el|^\s*compartir|^\s*ritmo|^\s*atr[áa]s\s*$|logros)/i;
 // Botones que hacen AVANZAR el juego: tienen prioridad sobre las decisiones.
-const AUTO_AVANZA = /(continuar|seguir|jugar temporada|jugar la temporada|ver retiro|empezar|dale|siguiente|entrar|confirmar|aceptar|firmar|volver al bald[íi]o|volver al predio|volver al barrio|ir a la cantera|d[íi]a del debut|el debut|dormir y cerrar)/i;
+const AUTO_AVANZA = /(continuar|seguir|jugar temporada|jugar la temporada|ver retiro|empezar|dale|siguiente|entrar|confirmar|aceptar|firmar|fichar|volver al bald[íi]o|volver al predio|volver al barrio|ir a la cantera|d[íi]a del debut|el debut|dormir y cerrar)/i;
 function autoBotones(){
   const m = document.getElementById('carrera-modal'); if(!m) return [];
   return Array.prototype.slice.call(m.querySelectorAll('button'))
@@ -15254,15 +15316,18 @@ window._vjRetoElegir = function(i){
     if (G._retoUlt[_fam]) G._retoUlt[_fam].bien = i === 0;
   }
   save();
-  const chip = (l,d,inv)=>{ if(!d) return ''; const bueno = inv ? d<0 : d>0; const c = bueno?'#4ade80':'#ff6b6b';
-    return `<span style="display:inline-flex;align-items:center;gap:3px;background:${c}18;border:1px solid ${c}55;color:${c};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;">${l} ${d>0?'+':''}${d}</span>`; };
-  let chips = ['felicidad','familia','salud'].map(k=>chip(k.toUpperCase(), Math.round((s[k]||0)-(antesS[k]||0)))).join('')
-    + chip('SOLEDAD', Math.round((s.soledad||0)-(antesS.soledad||0)), true)
-    + chip('Moral', Math.round((G.moral||0)-antes.moral))
-    + chip('Nivel', Math.round((G.nivel||0)-antes.nivel))
-    + chip('Fama',  Math.round((G.fama||0)-antes.fama));
+  // Chip con animación de entrada y el número al que quedó la barra: se ve subir
+  // o bajar y a cuánto llegó.
+  const chip = (l,d,inv,fin)=>{ if(!d) return ''; const bueno = inv ? d<0 : d>0; const c = bueno?'#4ade80':'#ff6b6b';
+    const fv = (fin!=null) ? ` → <b style="color:#fff;font-weight:900;">${Math.round(fin)}</b>` : '';
+    return `<span class="ly-chip" style="display:inline-flex;align-items:center;gap:4px;background:${c}18;border:1px solid ${c}55;color:${c};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;"><i class='bx bx-${d>0?'up':'down'}-arrow-alt'></i>${l} ${d>0?'+':''}${d}${fv}</span>`; };
+  let chips = ['felicidad','familia','salud'].map(k=>chip(k.toUpperCase(), Math.round((s[k]||0)-(antesS[k]||0)), false, s[k])).join('')
+    + chip('SOLEDAD', Math.round((s.soledad||0)-(antesS.soledad||0)), true, s.soledad)
+    + chip('Moral', Math.round((G.moral||0)-antes.moral), false, G.moral)
+    + chip('Nivel', Math.round((G.nivel||0)-antes.nivel), false, G.nivel)
+    + chip('Fama',  Math.round((G.fama||0)-antes.fama), false, G.fama);
   const dd = Math.round((G.dinero||0)-antes.dinero);
-  if (dd) chips += `<span style="display:inline-flex;align-items:center;gap:3px;background:${dd>0?'#4ade8018':'#ff6b6b18'};border:1px solid ${dd>0?'#4ade8055':'#ff6b6b55'};color:${dd>0?'#4ade80':'#ff6b6b'};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;">${dd>0?'+':''}${eur(Math.abs(dd))}</span>`;
+  if (dd) chips += `<span class="ly-chip" style="display:inline-flex;align-items:center;gap:3px;background:${dd>0?'#4ade8018':'#ff6b6b18'};border:1px solid ${dd>0?'#4ade8055':'#ff6b6b55'};color:${dd>0?'#4ade80':'#ff6b6b'};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;">${dd>0?'+':''}${eur(Math.abs(dd))}</span>`;
   vjPintarRetoRes(h, res, chips);
 };
 // LA FOTO DEL MOMENTO. Lo que decidís deja una imagen, no solo un renglón: se ve
