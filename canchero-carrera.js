@@ -6209,33 +6209,42 @@ const STAT_LOOK = {
   'SALUD':{c:'#22c55e',i:'bx-plus-medical'}, 'FELICIDAD':{c:'#fde047',i:'bx-smile'},
   'FAMILIA':{c:'#f472b6',i:'bx-home-heart'}, 'SOLEDAD':{c:'#60a5fa',i:'bx-user',inv:true}
 };
-// CARTEL CENTRAL: muestra en el medio de la pantalla, grande y con color, lo que
-// cambió tras una decisión o una temporada (nivel, moral, fama, dinero, salud…).
-// Rápido y no bloquea: se va solo. Vale en la carrera y en toda la vida.
+// Los cambios se GUARDAN y se muestran cuando volvés de la plaqueta de resultado
+// (al tocar "Volver/Seguir"), no encima de ella. Así no tapan el texto.
+function lyStatPopPend(items){
+  items = (items||[]).filter(it => it && it.delta);
+  window._lyStatPend = items.length ? items : null;
+}
+function lyStatPopFlush(){
+  const items = window._lyStatPend; window._lyStatPend = null;
+  if (items && items.length) setTimeout(()=>lyStatPop(items), 220);
+}
+window._lyStatFlush = lyStatPopFlush;
+// CARTEL de cambios: pastillas CHICAS y con color propio (no un bloque gris),
+// arriba-centro, con ícono, la flecha y a qué número quedó. Rápido y no bloquea.
 function lyStatPop(items){
   items = (items||[]).filter(it => it && it.delta);
   if (!items.length) return;
   const old = document.getElementById('ly-statpop'); if (old) old.remove();
   const host = document.createElement('div');
   host.id = 'ly-statpop';
-  host.style.cssText = 'position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);z-index:100090;display:flex;flex-direction:column;gap:8px;align-items:stretch;pointer-events:none;max-width:88vw;min-width:230px;';
-  // BRILLO detrás: un destello que aparece y se apaga, para que el cartel se note.
-  const glow = '<div class="sp-glow" style="position:absolute;left:50%;top:50%;width:360px;height:360px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle, rgba(186,255,0,.20), transparent 62%);pointer-events:none;z-index:-1;"></div>';
-  host.innerHTML = glow + items.slice(0,6).map((it,idx)=>{
+  host.style.cssText = 'position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 120px);transform:translateX(-50%);z-index:100090;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;pointer-events:none;max-width:92vw;';
+  host.innerHTML = items.slice(0,7).map((it,idx)=>{
     const L = STAT_LOOK[it.label] || { c:'#cfd8c6', i:'bx-chevrons-up' };
     const up = L.inv ? it.delta < 0 : it.delta > 0;
-    const ac = up ? '#4ade80' : '#ff6b6b';
     const arrow = it.delta > 0 ? 'bx-up-arrow-alt' : 'bx-down-arrow-alt';
     const val = it.money ? ((it.delta>0?'+':'−')+eur(Math.abs(it.delta))) : ((it.delta>0?'+':'')+it.delta);
-    return `<div class="sp-row" style="--d:${(idx*0.06).toFixed(2)}s;display:flex;align-items:center;gap:11px;background:rgba(8,10,7,.9);border:1.5px solid ${L.c}55;border-left:5px solid ${L.c};border-radius:14px;padding:11px 16px;">
-      <i class='bx ${L.i}' style="font-size:24px;color:${L.c};"></i>
-      <span style="flex:1;font-size:13px;font-weight:900;letter-spacing:.6px;color:#fff;">${it.label}</span>
-      <span style="font-size:18px;font-weight:900;color:${ac};display:inline-flex;align-items:center;gap:2px;"><i class='bx ${arrow}'></i>${val}</span>
-      ${(it.final!=null && !it.money) ? `<span style="font-size:19px;font-weight:900;color:${L.c};min-width:34px;text-align:right;">${Math.round(it.final)}</span>` : ''}
+    // Pastilla chica: fondo tintado del color del stat, ícono y borde a juego.
+    return `<div class="sp-row" style="--d:${(idx*0.05).toFixed(2)}s;display:inline-flex;align-items:center;gap:5px;background:${L.c}22;border:1.5px solid ${L.c}88;border-radius:11px;padding:5px 10px;box-shadow:0 4px 14px rgba(0,0,0,.4);">
+      <i class='bx ${L.i}' style="font-size:15px;color:${L.c};"></i>
+      <span style="font-size:10px;font-weight:900;letter-spacing:.4px;color:#e9efe2;">${it.label}</span>
+      <i class='bx ${arrow}' style="font-size:13px;color:${up?'#4ade80':'#ff6b6b'};"></i>
+      <span style="font-size:12px;font-weight:900;color:${up?'#4ade80':'#ff6b6b'};">${val}</span>
+      ${(it.final!=null && !it.money) ? `<span style="font-size:13px;font-weight:900;color:#fff;">${Math.round(it.final)}</span>` : ''}
     </div>`;
   }).join('');
   document.body.appendChild(host);
-  setTimeout(()=>{ host.classList.add('out'); setTimeout(()=>{ try{host.remove();}catch(e){} }, 340); }, 1250);
+  setTimeout(()=>{ host.classList.add('out'); setTimeout(()=>{ try{host.remove();}catch(e){} }, 340); }, 1500);
 }
 // Elige la POSE con la que el avatar reacciona al resultado de una decisión.
 // Lee el texto del resultado y los deltas: si mejoró festeja, si empeoró se hunde.
@@ -8624,10 +8633,29 @@ function vjFondoCancha(W,H){
   };
   dibBandeja(topT+6, 6);            // bandeja alta
   dibBandeja(topT+64, 7);           // bandeja baja (popular)
+  // BANDERAS/telones grandes colgados en la tribuna, con los colores del club,
+  // ondeando despacio. Le dan identidad y movimiento a la hinchada.
+  [[Math.round(W*0.10), kit[0]||'#5a468c'], [Math.round(W*0.52), kit[1]||'#c9a227'], [Math.round(W*0.86), '#e8eef5']].forEach((b,bi)=>{
+    const bx=b[0], by=topT+10, bw=54, bh=40;
+    o += `<g style="transform-box:fill-box;transform-origin:${bx+bw/2}px ${by}px;">`
+      + `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="${b[1]}" opacity=".82"/>`
+      + `<rect x="${bx}" y="${by}" width="${bw}" height="6" fill="${_avShade(b[1],-30)}"/>`
+      + `<animateTransform attributeName="transform" type="skewX" values="0;${bi%2?6:-6};0;${bi%2?-4:4};0" dur="${(4+bi).toFixed(1)}s" repeatCount="indefinite" additive="sum"/></g>`;
+  });
+  // Banderitas de mano ondeando en el borde de la popular.
+  for(let i=0;i<Math.ceil(W/70);i++){ const fx=24+i*70, fy=pisoY-26, fc=(i%2)?(kit[0]||'#5a468c'):(kit[1]||'#c9a227');
+    o += `<g style="transform-box:fill-box;transform-origin:${fx}px ${fy+10}px;"><rect x="${fx}" y="${fy}" width="1.5" height="16" fill="#2a2c38"/>`
+      + `<polygon points="${fx+1.5},${fy} ${fx+12},${fy+3} ${fx+1.5},${fy+7}" fill="${fc}"/>`
+      + `<animateTransform attributeName="transform" type="rotate" values="-8 ${fx} ${fy+10};8 ${fx} ${fy+10};-8 ${fx} ${fy+10}" dur="${(1.6+(i%3)*0.4).toFixed(1)}s" repeatCount="indefinite"/></g>`;
+  }
   // Baranda / valla publicitaria LED al frente de la tribuna.
   M(0, pisoY-18, W, 14, '#0a0d16');
   for(let i=0;i<W;i+=7) M(i, pisoY-16, 5, 10, ['#22d3ee','#facc15','#34d399','#f472b6'][(i/7|0)%4]);
   M(0, pisoY-4, W, 4, '#05070a');
+  // VALLA/reja perimetral que rodea la cancha, entre la valla LED y el césped.
+  M(0, pisoY-2, W, 2, '#3a3e46');
+  for(let i=0;i<W;i+=10) M(i, pisoY, 1.5, 12, 'rgba(200,210,220,.22)');   // barrotes
+  M(0, pisoY+11, W, 1.5, 'rgba(200,210,220,.28)');                        // travesaño
   // Torres de luz con su HAZ que baja a la cancha.
   [Math.round(W*0.16), Math.round(W*0.84)].forEach(tx=>{
     M(tx-4, 4, 8, topT-2, '#2a2c38');                 // mástil
@@ -13421,7 +13449,7 @@ window._vjResolver = function(tipo, i){
       R1.barras.forEach(b=> pop.push({ label:(b[0]||'').toUpperCase(), delta:Math.round((s[b[1]]||0)-(antes[b[1]]||0)), final:s[b[1]] }));
     }
     pop.push({ label:'DINERO', delta:Math.round((G.dinero||0)-dineroAntes), money:true });
-    lyStatPop(pop);
+    lyStatPopPend(pop);
   } catch(e){}
 
   const pose = _poseReaccion(res, { nivel:puente.nivel, moral:Math.round((s.felicidad||50)-(antes.felicidad||50)), fama:0, dinero:Math.round((G.dinero||0)-dineroAntes) });
@@ -13444,7 +13472,7 @@ window._vjResolver = function(tipo, i){
       <div style="font-size:15px;color:#fff;font-weight:700;line-height:1.6;margin-bottom:14px;">${esc(res)}</div>
       ${chips?`<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:18px;">${chips}</div>`:'<div style="margin-bottom:18px;"></div>'}
       ${G._pedirNombreHijo ? vjElegirNombreHTML() : `
-      <button onclick="${(G && G._elegirPareja) ? 'window._vjElegirPareja()' : (volverJuv ? "window._juvenilesMundo()" : volver)}" style="background:linear-gradient(135deg,${_avShade(color,-70)},${color});color:#05070a;border:none;border-radius:13px;padding:14px 30px;font-family:Outfit,sans-serif;font-weight:900;font-size:14.5px;cursor:pointer;">VOLVER <i class='bx bx-right-arrow-alt'></i></button>`}
+      <button onclick="window._lyStatFlush();${(G && G._elegirPareja) ? 'window._vjElegirPareja()' : (volverJuv ? "window._juvenilesMundo()" : volver)}" style="background:linear-gradient(135deg,${_avShade(color,-70)},${color});color:#05070a;border:none;border-radius:13px;padding:14px 30px;font-family:Outfit,sans-serif;font-weight:900;font-size:14.5px;cursor:pointer;">VOLVER <i class='bx bx-right-arrow-alt'></i></button>`}
     </div>
   </div>`;
 };
@@ -15524,6 +15552,7 @@ window._vjRetoSalir = function(){
   if (VJ.mundo === 'vida') window._vidaJugable();
   else if (VJ.mundo === 'club') window._clubMundo(VJ.escena);
   else { lyChrome(true); mundoRender(); }
+  lyStatPopFlush();   // recién ahora, al volver, se muestran los cambios
 };
 window._vjRetoElegir = function(i){
   const h = VJ._retoCon, R = VJ._reto; if(!h || !R) return;
@@ -15587,7 +15616,7 @@ window._vjRetoElegir = function(i){
   const dd = Math.round((G.dinero||0)-antes.dinero);
   if (dd) chips += `<span class="ly-chip" style="display:inline-flex;align-items:center;gap:3px;background:${dd>0?'#4ade8018':'#ff6b6b18'};border:1px solid ${dd>0?'#4ade8055':'#ff6b6b55'};color:${dd>0?'#4ade80':'#ff6b6b'};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;">${dd>0?'+':''}${eur(Math.abs(dd))}</span>`;
   // Cartel central de cambios, también en las charlas/decisiones de la vida.
-  try { lyStatPop([
+  try { lyStatPopPend([
     { label:'FELICIDAD', delta:Math.round((s.felicidad||0)-(antesS.felicidad||0)), final:s.felicidad },
     { label:'FAMILIA', delta:Math.round((s.familia||0)-(antesS.familia||0)), final:s.familia },
     { label:'SALUD', delta:Math.round((s.salud||0)-(antesS.salud||0)), final:s.salud },
