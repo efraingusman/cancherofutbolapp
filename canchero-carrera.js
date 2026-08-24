@@ -545,8 +545,12 @@ function lyChrome(on){
   LY_JUGANDO = !!on;
   const x = document.getElementById('carrera-exit');
   const a = document.getElementById('carrera-anio');
+  const s = document.getElementById('carrera-sim');
   if (x) x.style.display = on ? 'flex' : 'none';
   if (a) a.style.display = on ? 'flex' : 'none';
+  // El botón de simular sólo se ve jugando y mientras el automático NO corra.
+  const autoOn = !!document.getElementById('carrera-auto');
+  if (s) s.style.display = (on && !autoOn) ? 'flex' : 'none';
 }
 function montarSalida(){
   if (document.getElementById('carrera-exit')){ lyChrome(LY_JUGANDO); return; }
@@ -568,6 +572,17 @@ function montarSalida(){
   b.innerHTML = "<i class='bx bx-log-out' style=\"font-size:14px;\"></i>SALIR";
   b.onclick = function(){ window._lyConfirmarSalida(); };
   document.body.appendChild(b);
+  // SIMULAR: disponible desde CUALQUIER etapa (también el potrero), no solo desde
+  // el hub. Va debajo del SALIR y desaparece mientras el automático corre (ahí el
+  // cartel de abajo lo apaga).
+  if (!document.getElementById('carrera-sim')){
+    const s = document.createElement('button');
+    s.id = 'carrera-sim'; s.type = 'button'; s.title = 'Simular automáticamente';
+    s.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + '+(_topOff+34)+'px);right:14px;height:26px;padding:0 10px;border-radius:13px;background:rgba(167,139,250,.14);backdrop-filter:blur(6px);border:1px solid #a78bfa55;color:#c4b5fd;font-size:10px;font-weight:900;letter-spacing:.6px;line-height:1;display:flex;align-items:center;gap:5px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);';
+    s.innerHTML = "<i class='bx bx-fast-forward' style=\"font-size:13px;\"></i>SIMULAR";
+    s.onclick = function(){ try { window._lyAuto(true); } catch(e){} };
+    document.body.appendChild(s);
+  }
   // Cartel del AÑO: visible durante todo el juego, pero no antes de empezarlo.
   lyChrome(LY_JUGANDO);   // el año y la edad ya están en la barra de arriba
   // Traductor: a partir de acá cada pantalla se traduce sola al idioma elegido.
@@ -3827,12 +3842,12 @@ window._carreraDebut = function(){
     <!-- PRESENTACIÓN OFICIAL: una sola escena, el jugador sosteniendo su camiseta
          en el estadio. Antes había un muñeco con el brazo tieso al costado y una
          camiseta suelta flotando al lado, sin relación entre las dos cosas. -->
-    <div style="display:flex;justify-content:center;margin-bottom:16px;">
-      <div style="position:relative;display:inline-block;">
-        ${avatarBox(avatarDeG(3.6, 'posando', { edad:G.edad }), '16px 22px 12px', 'estadio')}
-        <div style="position:absolute;left:50%;bottom:8px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;background:rgba(8,10,7,.82);border:1px solid #2a3222;border-radius:20px;padding:3px 10px;white-space:nowrap;">
-          ${clubBadge(G.club,16)}<span style="font-size:10px;font-weight:900;color:#fff;letter-spacing:.5px;">${esc(G.club).toUpperCase()}</span>
-        </div>
+    <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:16px;">
+      ${avatarBox(avatarDeG(3.6, 'posando', { edad:G.edad }), '16px 22px 12px', 'estadio')}
+      <!-- El escudo va en su propia fila centrada, debajo del jugador: antes iba
+           absoluto sobre el recuadro y quedaba corrido. -->
+      <div style="display:inline-flex;align-items:center;justify-content:center;gap:6px;background:rgba(8,10,7,.82);border:1px solid #2a3222;border-radius:20px;padding:4px 12px;white-space:nowrap;margin-top:-14px;position:relative;z-index:2;">
+        ${clubBadge(G.club,18)}<span style="font-size:11px;font-weight:900;color:#fff;letter-spacing:.5px;">${esc(G.club).toUpperCase()}</span>
       </div>
     </div>
     <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:${A};margin-bottom:8px;">${temprano?'DEBUT PRECOZ':'DEBUT EN PRIMERA'}</div>
@@ -3950,6 +3965,9 @@ window._juvenilesVolver = function(paso){
 };
 window._clubMundo = function(escena){
   if(!G){ G = load(); if(!G){ window._carreraStart(); return; } }
+  // Un DT NO juega la temporada como jugador: si por cualquier camino se lo manda
+  // al mundo del jugador (con su "JUGAR LA TEMPORADA"), se lo devuelve a su banco.
+  if (G.dtSolo || G.vidaRol === 'dt'){ window._dtHub(); return; }
   mundoAbrir('club', escena || 'vestuario');
 };
 // "Continuar" desde la portada: retoma la etapa donde quedó la partida.
@@ -7947,12 +7965,13 @@ function escCielo(W, pisoY, hora, altoAstro){
   let o = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="${P.alto}"/><stop offset="100%" stop-color="${P.bajo}"/></linearGradient></defs>
     <rect width="${W}" height="${pisoY}" fill="url(#${id})"/>`;
-  // Estrellas: chicas, tenues y siempre en el mismo lugar.
+  // Estrellas: chicas, tenues, en su lugar y TITILANDO suave (cada una a su ritmo).
   for (let i=0;i<P.estrellas;i++){
     const x = Math.round(escRnd(sem, i) * W);
     const y = Math.round(escRnd(sem, i+700) * pisoY * 0.62);
     const op = (0.25 + escRnd(sem, i+1400) * 0.55).toFixed(2);
-    o += `<rect x="${x}" y="${y}" width="1.5" height="1.5" fill="#e8eefc" opacity="${op}"/>`;
+    const dur = (2.2 + escRnd(sem, i+2100) * 3).toFixed(1);
+    o += `<rect x="${x}" y="${y}" width="1.5" height="1.5" fill="#e8eefc" opacity="${op}"><animate attributeName="opacity" values="${op};${(op*0.35).toFixed(2)};${op}" dur="${dur}s" repeatCount="indefinite"/></rect>`;
   }
   // El sol o la luna, con su halo.
   if (P.astro){
@@ -7966,16 +7985,20 @@ function escCielo(W, pisoY, hora, altoAstro){
       o += `<circle cx="${ax + P.astroR*0.42}" cy="${ay - P.astroR*0.32}" r="${P.astroR*0.82}" fill="${P.bajo}" opacity=".85"/>`;
     }
   }
-  // Nubes: tres bloques por nube, a distinta altura y opacidad.
+  // Nubes: tres bloques por nube, a distinta altura y opacidad, DERIVANDO despacio
+  // de un lado a otro (cada una con su ritmo) para que el cielo se sienta vivo.
   for (let i=0;i<P.nubes;i++){
     const cx = Math.round(escRnd(sem, i+30) * W);
     const cy = Math.round(pisoY * (0.10 + escRnd(sem, i+60) * 0.34));
     const cw = Math.round(46 + escRnd(sem, i+90) * 64);
     const ch = Math.round(9 + escRnd(sem, i+120) * 7);
     const op = (P.nubeOp * (0.6 + escRnd(sem, i+150) * 0.6)).toFixed(2);
-    o += `<rect x="${cx}" y="${cy}" width="${cw}" height="${ch}" rx="${ch/2}" fill="${P.nubeC}" opacity="${op}"/>`;
-    o += `<rect x="${cx + cw*0.22}" y="${cy - ch*0.55}" width="${cw*0.5}" height="${ch}" rx="${ch/2}" fill="${P.nubeC}" opacity="${op}"/>`;
-    o += `<rect x="${cx + cw*0.52}" y="${cy + ch*0.35}" width="${cw*0.42}" height="${ch*0.8}" rx="${ch/2}" fill="${P.nubeC}" opacity="${(op*0.7).toFixed(2)}"/>`;
+    const der = Math.round(18 + escRnd(sem, i+180) * 22);        // cuánto deriva
+    const dur = Math.round(26 + escRnd(sem, i+210) * 26);        // a qué velocidad
+    let nube = `<rect x="${cx}" y="${cy}" width="${cw}" height="${ch}" rx="${ch/2}" fill="${P.nubeC}" opacity="${op}"/>`;
+    nube += `<rect x="${cx + cw*0.22}" y="${cy - ch*0.55}" width="${cw*0.5}" height="${ch}" rx="${ch/2}" fill="${P.nubeC}" opacity="${op}"/>`;
+    nube += `<rect x="${cx + cw*0.52}" y="${cy + ch*0.35}" width="${cw*0.42}" height="${ch*0.8}" rx="${ch/2}" fill="${P.nubeC}" opacity="${(op*0.7).toFixed(2)}"/>`;
+    o += `<g>${nube}<animateTransform attributeName="transform" type="translate" values="0 0; ${der} 0; 0 0" dur="${dur}s" repeatCount="indefinite" additive="sum"/></g>`;
   }
   return o;
 }
@@ -8465,9 +8488,37 @@ function vjFondoPredio(W,H){
 function vjFondoCancha(W,H){
   const pisoY = Math.round(H*0.62); let o='';
   const M=(x,y,w,h,c)=>{ o+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`; };
-  o += `<defs><linearGradient id="vjca" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b1330"/><stop offset="1" stop-color="#0a0716"/></linearGradient></defs>`;
+  const ep = (typeof epoca === 'function') ? epoca() : 0;
+  // ── DESPUÉS DE 2060: la cancha ya no es la de siempre. En la ERA ORBITAL se
+  // juega en el espacio (planeta al fondo, tribunas LED, líneas de neón); en la
+  // ERA ROBOT/HOLO, un estadio futurista con pantallas y luces frías.
+  if (ep >= 4){
+    o += `<defs><radialGradient id="vjco" cx="50%" cy="18%" r="90%"><stop offset="0" stop-color="#0b1030"/><stop offset="1" stop-color="#02030a"/></radialGradient></defs>`;
+    M(0,0,W,pisoY,'url(#vjco)');
+    o += escCielo(W, pisoY, 'nocturno');
+    // Un planeta enorme asomando en el horizonte.
+    o += `<circle cx="${Math.round(W*0.76)}" cy="${pisoY-60}" r="88" fill="#2a3a6e" opacity=".9"/>`;
+    o += `<circle cx="${Math.round(W*0.76)}" cy="${pisoY-60}" r="88" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity=".4"/>`;
+    o += `<ellipse cx="${Math.round(W*0.76)}" cy="${pisoY-60}" rx="120" ry="20" fill="none" stroke="#a78bfa" stroke-width="3" opacity=".35" transform="rotate(-18 ${Math.round(W*0.76)} ${pisoY-60})"/>`;
+    // Tribunas LED flotantes a los costados.
+    for(let s=0;s<2;s++){ const bx = s?W-70:10; M(bx,pisoY-110,60,96,'#0a1226');
+      for(let f=0;f<8;f++) for(let i=0;i<60;i+=8) M(bx+i, pisoY-104+f*12, 6, 8, ['#22d3ee','#a78bfa','#f472b6','#34d399'][(i+f)%4]); }
+    // Cancha holográfica: piso oscuro con líneas de neón.
+    M(0,pisoY,W,H-pisoY,'#06101a');
+    for(let i=0;i<W;i+=64) M(i,pisoY,32,H-pisoY,'#0a1826');
+    M(0,pisoY+4,W,2,'#22d3ee');
+    M(Math.round(W/2)-1,pisoY+4,2,H-pisoY,'rgba(34,211,238,.7)');
+    o += `<ellipse cx="${Math.round(W/2)}" cy="${pisoY+Math.round((H-pisoY)*0.62)}" rx="96" ry="26" fill="none" stroke="rgba(167,139,250,.7)" stroke-width="2"/>`;
+    M(30,pisoY-46,3,48,'#22d3ee'); M(30,pisoY-46,96,3,'#22d3ee'); M(123,pisoY-46,3,48,'#22d3ee');
+    o += escCapasAdelante(W, pisoY, H, { hora:'nocturno', suelo:'pasto' });
+    return o;
+  }
+  o += `<defs><linearGradient id="vjca" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${ep>=3?'#0c1430':'#1b1330'}"/><stop offset="1" stop-color="#0a0716"/></linearGradient></defs>`;
   M(0,0,W,pisoY,'url(#vjca)');
   o += escCielo(W, pisoY, 'nocturno');
+  // En la ERA HOLO/ROBOT, una pantalla LED gigante sobre la tribuna.
+  if (ep >= 3){ M(Math.round(W*0.36),12,Math.round(W*0.28),26,'#0a1830');
+    for(let i=0;i<Math.round(W*0.28);i+=6) M(Math.round(W*0.36)+i,15,4,20,['#22d3ee','#a78bfa','#34d399'][(i/6|0)%3]); }
   // tribuna llena
   M(0,pisoY-120,W,120,'#191436');
   for(let f=0;f<9;f++) for(let i=0;i<W;i+=9){
@@ -13574,7 +13625,10 @@ window._legadoJugar = function(i){
   const legado = {
     padre: padre.apellido, club: padre.club, titulos: padre.titulos||0,
     nivelMax: Math.round(padre.nivel||60), vitrina: (padre.vitrina||[]).map(v=>v.nombre).slice(0,8),
-    anio: (padre.vidaEdad && padre.anio) ? (padre.anio + Math.max(0, padre.vidaEdad - (padre.edad||36))) : (padre.anio || 2026),
+    // El nieto arranca en el AÑO QUE SIGUE la vida del abuelo, no vuelve a 2026:
+    // se toma el último año del abuelo y se le suma al menos una generación (~22
+    // años) para que el heredero empiece su potrero en su propia época.
+    anio: Math.round((padre.anio || 2026) + Math.max(22, (padre.vidaEdad || 70) - (padre.edad || 36))),
     rival: padre.rival ? padre.rival.nombre : null,
     idolo: padre._idoloNombre || null,
     gen: (previo.gen || 1) + 1,
@@ -13603,13 +13657,17 @@ window._legadoJugar = function(i){
   try { localStorage.removeItem(LS); } catch(e){}
   G = null;
   // La apariencia y el nombre YA ESTAN: sale de la familia, no se vuelve a crear.
-  // Se hereda el avatar del ancestro con variaciones propias y el genero del chico.
-  const avHered = Object.assign({}, padre.avatar || avatarDefault(), {
-    gen: genDe(h),
-    barba: genDe(h) === 'f' ? 0 : 0,
-    canas: 0, calvicie: 0, cicatriz: 0, tatus: 0, bling: 0, lentes: false, preso: false,
-    pelo: genDe(h) === 'f' ? 'largo' : pick(['corto','rapado','tupe','colita','largo'])
-  });
+  // Si el nieto YA tenía cara propia (la que se le vio de chico en la casa), se
+  // respeta esa — así el heredero se ve igual al nieto que corresponde, no uno
+  // nuevo. Sólo si no la tiene se deriva del abuelo.
+  const avHered = h.av
+    ? Object.assign({}, h.av, { canas:0, calvicie:0, cicatriz:0, tatus:0, bling:0, lentes:false, preso:false })
+    : Object.assign({}, padre.avatar || avatarDefault(), {
+        gen: genDe(h),
+        barba: genDe(h) === 'f' ? 0 : 0,
+        canas: 0, calvicie: 0, cicatriz: 0, tatus: 0, bling: 0, lentes: false, preso: false,
+        pelo: genDe(h) === 'f' ? 'largo' : pick(['corto','rapado','tupe','colita','largo'])
+      });
   _draft = { years:15, apellido: padre.apellido, num: padre.num || 10, pie:'Derecha',
     pais: legado.paisNac || padre.pais,
     pos: padre.pos || 'DC', filtro:'', avatar: avHered, nombreHijo: h.nombre, nombre: h.nombre,
@@ -13622,8 +13680,18 @@ window._legadoJugar = function(i){
   const m = document.getElementById('carrera-modal') || overlay();
   m.innerHTML = `
   <div style="max-width:520px;margin:0 auto;padding:44px 20px 40px;text-align:center;">
-    <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:${A};margin-bottom:10px;">GENERACIÓN 2</div>
+    <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:${A};margin-bottom:10px;">GENERACIÓN ${legado.gen||2}</div>
     <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;margin-bottom:12px;">${esc(h.nombre)} ${esc(padre.apellido||'')}</div>
+    <!-- EL MOMENTO: el abuelo (vivo) le entrega la posta al nieto. Los dos juntos,
+         en el potrero, cerrando una historia y abriendo la otra. -->
+    ${legado.vivo && legado.avAncestro ? `
+    <div style="display:flex;justify-content:center;margin-bottom:12px;">
+      ${avatarBox(`<div style="display:flex;align-items:flex-end;gap:4px;line-height:0;">
+        <div style="line-height:0;">${avatarSprite(legado.avAncestro,{ edad:Math.min(84,legado.edadAncestro||72), escala:2.4, pose:'orgullo', ropa:'jubilado', num:'', apellido:'' })}</div>
+        <div style="line-height:0;">${avatarSprite(avHered,{ edad:14, escala:2.4, pose:'idle', num:String(_draft.num||10), apellido:'' })}</div>
+      </div>`, '12px 18px', 'potrero')}
+    </div>
+    <div style="font-size:13px;color:#f9d77e;font-weight:800;line-height:1.6;margin-bottom:14px;max-width:400px;margin-left:auto;margin-right:auto;">Tu ${esc(legado.parentesco)} te puso la primera pelota en los pies y te dijo: "Ahora es tuya. Hacela más grande de lo que la hice yo."</div>` : ''}
     <div style="font-size:13.5px;color:#c4ccc0;line-height:1.65;margin-bottom:8px;">Creciste escuchando lo que hizo tu viejo: ${legado.titulos} título${legado.titulos===1?'':'s'}, nivel ${legado.nivelMax}, ${legado.vitrina.length?('la vitrina llena de cosas como ' + esc(legado.vitrina[0])):'una carrera entera'}.</div>
     <div style="font-size:13.5px;color:#c4ccc0;line-height:1.65;margin-bottom:18px;">Te van a comparar con tu ${esc(legado.parentesco)} toda la vida. Para que dejen de hacerlo tenés que ser mejor que él: pasar de nivel ${legado.techoNivel} y de ${legado.techoTitulos} título${legado.techoTitulos===1?'':'s'}.</div>
     ${_draft._eligePais ? `
@@ -14772,6 +14840,10 @@ window._lyAuto = function(encender){
 // Cartelito flotante: siempre se ve si está en automático, y se apaga desde ahí.
 function autoIndicador(){
   let d = document.getElementById('carrera-auto');
+  // El botón flotante de SIMULAR se esconde mientras corre el automático y vuelve
+  // cuando se apaga (si se sigue jugando).
+  const sim = document.getElementById('carrera-sim');
+  if (sim) sim.style.display = (AUTO.on || !LY_JUGANDO) ? 'none' : 'flex';
   if (!AUTO.on){ if(d) d.remove(); return; }
   if (!d){
     d = document.createElement('div');
