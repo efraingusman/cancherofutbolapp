@@ -138,21 +138,17 @@ function resolverFlor(quienCanta){
   T.envido.cantado = true;          // con flor no hay envido
   T.envido.resuelto = true;
   const mia = T.florYo, suya = T.florEl;
-  // En la final, la flor también hace gol para quien la gana.
   if (mia && suya){
     // Contraflor: se lleva 6 el que tenga mas; empate, el mano.
     const ganaYo = mia > suya || (mia === suya && T.mano === 0);
     log('CONTRAFLOR: ' + mia + ' contra ' + suya + '.');
     sumar(ganaYo ? 0 : 1, 6, ganaYo ? 'Ganaste la contraflor' : 'La contraflor fue de la máquina');
-    desafioGol(ganaYo ? 0 : 1);
   } else if (mia){
     log('Cantás FLOR: ' + mia + '.');
     sumar(0, 3, 'Tu flor');
-    desafioGol(0);
   } else if (suya){
     log('La máquina canta FLOR: ' + suya + '.');
     sumar(1, 3, 'La flor de la máquina');
-    desafioGol(1);
   }
 }
 function log(txt){ T.log.push(txt); if (T.log.length > 7) T.log.shift(); }
@@ -431,9 +427,6 @@ function resolverEnvido(querido, puntos){
   // Empate: gana el mano.
   const gana = T.tantoYo > T.tantoEl ? 0 : T.tantoEl > T.tantoYo ? 1 : T.mano;
   sumar(gana, puntos, gana === 0 ? 'Ganaste el envido' : 'El envido fue para la máquina');
-  // En la final, el envido también vale: cuenta como gol para quien lo gana. Antes
-  // solo las manos hacían gol y por eso "siempre ganaba el que hacía truco".
-  desafioGol(gana);
   trasEnvido();
   render();
 }

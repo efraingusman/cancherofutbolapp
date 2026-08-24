@@ -25,11 +25,17 @@ function me(){ return window.userData || {}; }
       + '.ly-chip:nth-child(4){animation-delay:.15s;}.ly-chip:nth-child(5){animation-delay:.2s;}'
       + '.ly-chip:nth-child(6){animation-delay:.25s;}.ly-chip:nth-child(7){animation-delay:.3s;}'
       // Cartel central de cambios de stat (nivel, moral, fama, dinero…)
-      + '#ly-statpop{transition:opacity .32s ease;}#ly-statpop.out{opacity:0;}'
-      + '#ly-statpop .sp-row{animation:spRowIn .4s cubic-bezier(.2,1.4,.4,1) both;animation-delay:var(--d,0s);}'
-      + '@keyframes spRowIn{0%{opacity:0;transform:translateX(-16px) scale(.9);}60%{transform:translateX(0) scale(1.06);}100%{opacity:1;transform:none;}}'
-      + '@keyframes spGlow{0%,100%{box-shadow:0 8px 26px rgba(0,0,0,.5);}50%{box-shadow:0 8px 34px rgba(255,255,255,.12);}}'
-      + '@media (prefers-reduced-motion: reduce){.ly-chip,#ly-statpop .sp-row{animation:none;}}';
+      + '#ly-statpop{transition:opacity .32s ease;animation:spHostIn .3s ease both;}#ly-statpop.out{opacity:0;}'
+      + '#ly-statpop .sp-row{animation:spRowIn .42s cubic-bezier(.2,1.5,.4,1) both;animation-delay:var(--d,0s);position:relative;overflow:hidden;}'
+      + '#ly-statpop .sp-row::after{content:"";position:absolute;top:0;left:-60%;width:45%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.35),transparent);transform:skewX(-18deg);animation:spShine 1.1s ease both;animation-delay:calc(var(--d,0s) + .12s);}'
+      + '#ly-statpop .sp-glow{animation:spGlowBurst 1.15s ease both;}'
+      + '@keyframes spHostIn{0%{transform:translate(-50%,-50%) scale(.86);}100%{transform:translate(-50%,-50%) scale(1);}}'
+      + '@keyframes spRowIn{0%{opacity:0;transform:translateX(-16px) scale(.9);}60%{transform:translateX(0) scale(1.07);}100%{opacity:1;transform:none;}}'
+      + '@keyframes spShine{0%{left:-60%;}100%{left:130%;}}'
+      + '@keyframes spGlowBurst{0%{opacity:0;transform:translate(-50%,-50%) scale(.5);}35%{opacity:1;}100%{opacity:0;transform:translate(-50%,-50%) scale(1.25);}}'
+      // Barra del legado a punto de superar el récord: late.
+      + '.lg-pulse{animation:lgPulse 1.1s ease-in-out infinite;}@keyframes lgPulse{0%,100%{filter:brightness(1);opacity:1;}50%{filter:brightness(1.5);opacity:.8;}}'
+      + '@media (prefers-reduced-motion: reduce){.ly-chip,#ly-statpop,#ly-statpop .sp-row,#ly-statpop .sp-row::after,#ly-statpop .sp-glow,.lg-pulse{animation:none;}}';
     (document.head||document.documentElement).appendChild(st);
   }catch(e){}
 })();
@@ -4003,9 +4009,8 @@ window._carreraHub = function(){
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
       <button onclick="window._clubMundo()" style="background:rgba(255,255,255,.06);border:none;color:#aaa;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button>
       <div style="flex:1;font-family:Outfit,sans-serif;font-weight:900;font-size:18px;color:#fff;">Tu carrera</div>
-      <!-- Mirar la vida correr sola. Va arriba y chico: es una opción, no el
-           botón principal, y antes ocupaba media pantalla abajo de todo. -->
-      <button onclick="window._lyAuto(true)" style="flex:0 0 auto;background:rgba(167,139,250,.1);color:#c4b5fd;border:1px solid rgba(167,139,250,.35);border-radius:10px;padding:7px 11px;font-weight:800;font-size:11px;cursor:pointer;white-space:nowrap;"><i class='bx bx-fast-forward'></i> Simular vida</button>
+      <!-- El botón de simular ahora es el flotante (arriba a la derecha), único
+           para todo el juego: acá ya no va otro para no duplicarlo. -->
     </div>
     <div style="display:grid;grid-template-columns:1fr;gap:16px;">
       <!-- Cabecera del jugador -->
@@ -6213,8 +6218,10 @@ function lyStatPop(items){
   const old = document.getElementById('ly-statpop'); if (old) old.remove();
   const host = document.createElement('div');
   host.id = 'ly-statpop';
-  host.style.cssText = 'position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);z-index:100090;display:flex;flex-direction:column;gap:8px;align-items:stretch;pointer-events:none;max-width:88vw;';
-  host.innerHTML = items.slice(0,6).map((it,idx)=>{
+  host.style.cssText = 'position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);z-index:100090;display:flex;flex-direction:column;gap:8px;align-items:stretch;pointer-events:none;max-width:88vw;min-width:230px;';
+  // BRILLO detrás: un destello que aparece y se apaga, para que el cartel se note.
+  const glow = '<div class="sp-glow" style="position:absolute;left:50%;top:50%;width:360px;height:360px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle, rgba(186,255,0,.20), transparent 62%);pointer-events:none;z-index:-1;"></div>';
+  host.innerHTML = glow + items.slice(0,6).map((it,idx)=>{
     const L = STAT_LOOK[it.label] || { c:'#cfd8c6', i:'bx-chevrons-up' };
     const up = L.inv ? it.delta < 0 : it.delta > 0;
     const ac = up ? '#4ade80' : '#ff6b6b';
@@ -9840,7 +9847,6 @@ window._dtHub = function(){
       <div style="margin-top:12px;display:flex;align-items:center;gap:8px;">
         <div style="flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,.09);overflow:hidden;"><div style="height:100%;width:${clamp(Math.round(((nro-1)/Math.max(1,total))*100),0,100)}%;background:${col};"></div></div>
         <span style="font-size:10.5px;font-weight:900;color:${col};white-space:nowrap;">TEMPORADA ${Math.min(nro,total)}/${total}</span>
-        <button onclick="window._lyAuto(true)" style="flex:0 0 auto;background:rgba(167,139,250,.1);color:#c4b5fd;border:1px solid rgba(167,139,250,.35);border-radius:9px;padding:5px 9px;font-weight:800;font-size:10px;cursor:pointer;white-space:nowrap;"><i class='bx bx-fast-forward'></i> Simular</button>
       </div>
     </div>
 
@@ -11770,13 +11776,25 @@ function vjAtmosfera(W, H, pisoPct){
         <stop offset="100%" stop-color="#000" stop-opacity="0"/>
       </linearGradient>
       <radialGradient id="atmVineta" cx="50%" cy="52%" r="72%">
-        <stop offset="55%" stop-color="#000" stop-opacity="0"/>
-        <stop offset="100%" stop-color="#000" stop-opacity=".55"/>
+        <stop offset="52%" stop-color="#000" stop-opacity="0"/>
+        <stop offset="100%" stop-color="#000" stop-opacity=".58"/>
       </radialGradient>
+      <!-- Luz clave desde arriba-izquierda: le da volumen y sensación 3D. -->
+      <radialGradient id="atmKey" cx="24%" cy="6%" r="86%">
+        <stop offset="0%" stop-color="#fff" stop-opacity=".10"/>
+        <stop offset="60%" stop-color="#fff" stop-opacity="0"/>
+      </radialGradient>
+      <!-- Brillo del piso (reflejo) pegado al horizonte: piso pulido, no plano. -->
+      <linearGradient id="atmGloss" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#cfe0ff" stop-opacity=".16"/>
+        <stop offset="100%" stop-color="#cfe0ff" stop-opacity="0"/>
+      </linearGradient>
     </defs>
     <rect x="0" y="${Math.round(pisoY*0.45)}" width="${W}" height="${pisoY - Math.round(pisoY*0.45)}" fill="url(#atmNiebla)"/>
     <rect width="${W}" height="${pisoY}" fill="url(#atmLuz)"/>
+    <rect width="${W}" height="${pisoY}" fill="url(#atmKey)"/>
     <rect x="0" y="${pisoY}" width="${W}" height="${Math.round((H-pisoY)*0.7)}" fill="url(#atmPiso)"/>
+    <rect x="0" y="${pisoY+1}" width="${W}" height="${Math.round((H-pisoY)*0.34)}" fill="url(#atmGloss)"/>
     <rect width="${W}" height="${H}" fill="url(#atmVineta)"/>`;
 }
 // El auto no entra al living. Lo que es de afuera (autos, yate, avion) va del otro
@@ -13600,36 +13618,39 @@ function legadoChipHTML(){
   const metaN = E.techoN + 1, metaT = Math.max(1, E.techoT);
   const pN = clamp(Math.round((E.nivel / Math.max(1, metaN)) * 100), 0, 100);
   const pT = clamp(Math.round((E.tit / metaT) * 100), 0, 100);
-  const barra = (lbl, val, meta, pct) => `
-    <div style="flex:1;min-width:0;">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:4px;">
-        <span style="font-size:8.5px;font-weight:900;letter-spacing:1.2px;color:#8b9480;">${lbl}</span>
+  // Cada meta como una barra apilada (no lado a lado): en la barra angosta del
+  // encabezado, dos barras juntas se salían del bloque. Apiladas y con overflow
+  // controlado, siempre entran. Se resalta la que ya está a punto de lograrse.
+  const barra = (lbl, val, meta, pct) => {
+    const cerca = pct >= 100 || (meta - val) <= (lbl==='NIVEL' ? 2 : 1);
+    return `<div style="min-width:0;margin-top:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:3px;">
+        <span style="font-size:8px;font-weight:900;letter-spacing:1.2px;color:#8b9480;">${lbl}${cerca?' <span style="color:'+col+';">¡AL BORDE!</span>':''}</span>
         <span style="font-size:11px;font-weight:900;color:${col};white-space:nowrap;">${val}<span style="color:#6b7362;font-size:9.5px;">/${meta}</span></span>
       </div>
-      <div style="height:4px;border-radius:2px;background:rgba(255,255,255,.09);overflow:hidden;">
-        <div style="height:100%;width:${pct}%;background:${col};border-radius:2px;"></div>
+      <div style="height:5px;border-radius:3px;background:rgba(255,255,255,.09);overflow:hidden;">
+        <div class="${cerca?'lg-pulse':''}" style="height:100%;width:${pct}%;background:${col};border-radius:3px;"></div>
       </div>
     </div>`;
+  };
   if (E.superado){
-    return `<div style="background:${bg};border:1px solid ${col}88;border-radius:14px;padding:11px 13px;">
+    return `<div style="background:${bg};border:1px solid ${col}88;border-radius:14px;padding:11px 13px;overflow:hidden;">
       <div style="display:flex;align-items:center;gap:7px;">
-        <i class='bx bx-crown' style="font-size:17px;color:${col};flex-shrink:0;"></i>
+        <i class='bx bxs-crown' style="font-size:18px;color:${col};flex-shrink:0;"></i>
         <div style="min-width:0;">
           <div style="font-size:8.5px;font-weight:900;letter-spacing:1.4px;color:${col};">GENERACIÓN ${E.gen}</div>
-          <div style="font-size:12.5px;font-weight:900;color:#fff;line-height:1.3;margin-top:2px;">Superaste a ${esc(E.quien)}. El apellido ya es tuyo.</div>
+          <div style="font-size:12px;font-weight:900;color:#fff;line-height:1.3;margin-top:2px;overflow-wrap:anywhere;">Superaste a ${esc(E.quien)}. El apellido ya es tuyo.</div>
         </div>
       </div>
     </div>`;
   }
-  return `<div style="background:${bg};border:1px solid ${col}55;border-radius:14px;padding:11px 13px;">
-    <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px;">
+  return `<div style="background:${bg};border:1px solid ${col}55;border-radius:14px;padding:10px 13px;overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:7px;">
       <i class='bx bx-medal' style="font-size:16px;color:${col};flex-shrink:0;"></i>
-      <div style="font-size:11.5px;font-weight:900;color:#e6ecdf;line-height:1.3;">Superar a <span style="color:${col};">${esc(E.quien)}</span></div>
+      <div style="font-size:11px;font-weight:900;color:#e6ecdf;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">Superar a <span style="color:${col};">${esc(E.quien)}</span></div>
     </div>
-    <div style="display:flex;gap:14px;">
-      ${barra('NIVEL', E.nivel, metaN, pN)}
-      ${barra('TÍTULOS', E.tit, metaT, pT)}
-    </div>
+    ${barra('NIVEL', E.nivel, metaN, pN)}
+    ${barra('TÍTULOS', E.tit, metaT, pT)}
   </div>`;
 }
 // Se chequea al cerrar cada temporada: si superaste al ancestro, se avisa UNA vez.
@@ -13642,8 +13663,29 @@ function legadoChequear(){
     G.legado.techoTitulos = E.tit;
     G.legado.techoNombre = G.apellido;
     save();
-    try { vjFlash('SUPERASTE A TU ' + String(E.parentesco).toUpperCase() + '. A partir de acá el apellido es tuyo.'); } catch(e){}
+    try { legadoCelebrar(E); } catch(e){ try { vjFlash('SUPERASTE A TU ' + String(E.parentesco).toUpperCase() + '.'); } catch(e2){} }
   }
+}
+// Celebración GRANDE al superar al ancestro: corona, destello y el nombre. Es el
+// momento cumbre del legado; antes era un cartelito de una línea que pasaba
+// desapercibido.
+function legadoCelebrar(E){
+  const old = document.getElementById('ly-legado-cel'); if (old) old.remove();
+  const d = document.createElement('div');
+  d.id = 'ly-legado-cel';
+  d.style.cssText = 'position:fixed;inset:0;z-index:100095;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 90% at 50% 45%, rgba(186,255,0,.14), rgba(3,5,3,.82) 60%);pointer-events:none;';
+  d.innerHTML = `<div style="text-align:center;animation:spHostIn .4s ease both;">
+    <div style="font-size:64px;line-height:1;color:${A};text-shadow:0 0 30px rgba(186,255,0,.6);animation:lgPulse 1s ease-in-out infinite;"><i class='bx bxs-crown'></i></div>
+    <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:${A};margin-top:12px;">GENERACIÓN ${E.gen}</div>
+    <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:26px;color:#fff;line-height:1.2;margin-top:6px;max-width:340px;padding:0 20px;overflow-wrap:anywhere;">Superaste a ${esc(E.quien)}</div>
+    <div style="font-size:13.5px;color:#d7e0cc;margin-top:8px;">El apellido ya no es de él. Es tuyo.</div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;">
+      <span class="sp-row" style="--d:.1s;background:rgba(8,10,7,.9);border:1.5px solid ${A}66;border-left:5px solid ${A};border-radius:12px;padding:8px 14px;font-weight:900;color:#fff;">NIVEL <b style="color:${A};">${E.nivel}</b></span>
+      <span class="sp-row" style="--d:.2s;background:rgba(8,10,7,.9);border:1.5px solid #facc1566;border-left:5px solid #facc15;border-radius:12px;padding:8px 14px;font-weight:900;color:#fff;">TÍTULOS <b style="color:#facc15;">${E.tit}</b></span>
+    </div>
+  </div>`;
+  document.body.appendChild(d);
+  setTimeout(()=>{ d.style.transition='opacity .4s'; d.style.opacity='0'; setTimeout(()=>{ try{d.remove();}catch(e){} }, 420); }, 2600);
 }
 
 // ── EL LEGADO: empezar de nuevo, siendo tu hijo ──────────────────────────────
