@@ -8600,18 +8600,44 @@ function vjFondoCancha(W,H){
   // En la ERA HOLO/ROBOT, una pantalla LED gigante sobre la tribuna.
   if (ep >= 3){ M(Math.round(W*0.36),12,Math.round(W*0.28),26,'#0a1830');
     for(let i=0;i<Math.round(W*0.28);i+=6) M(Math.round(W*0.36)+i,15,4,20,['#22d3ee','#a78bfa','#34d399'][(i/6|0)%3]); }
-  // tribuna llena
-  M(0,pisoY-120,W,120,'#191436');
-  for(let f=0;f<9;f++) for(let i=0;i<W;i+=9){
-    const c = ((i*7+f*13)%5);
-    M(i, pisoY-118+f*13, 6, 8, ['#3a2f66','#4a3d7d','#2d2450','#55468c','#241d44'][c]);
-  }
-  M(0,pisoY-24,W,6,'#0d0a1c');
-  // focos
-  for(let i=0;i<5;i++){ M(70+i*((W-140)/4),8,26,7,'#fff8dc'); M(80+i*((W-140)/4),15,6,26,'#3a3450'); }
+  // ── TRIBUNA en DOS BANDEJAS con techo, hinchada con los colores del club y
+  // torres de luz con su haz. Antes era una sola franja de cuadraditos plana.
+  const kit = (typeof kitOf === 'function' && G) ? kitOf(G.pais || 'Uruguay') : ['#3a2f66','#4a3d7d'];
+  const hincha = [kit[0]||'#5a468c', kit[1]||'#c9a227', '#e8eef5', '#2d2450', '#55468c'];
+  const topT = pisoY - 128;
+  // Estructura de fondo (hormigón) de las dos bandejas.
+  M(0, topT, W, 128, '#14112a');
+  M(0, topT+58, W, 5, '#241d44');                    // separación entre bandejas
+  // Techo con voladizo y tensores.
+  M(0, topT-10, W, 12, '#0c0a1a');
+  M(0, topT-10, W, 3, '#2a2450');
+  for(let i=0;i<W;i+=90) M(i, topT-10, 4, 66, 'rgba(20,17,42,.9)');   // pilares/tensores
+  // Hinchada: dos bandejas de puntitos con los colores del club, titilando.
+  const dibBandeja = (y0, filas)=>{
+    for(let f=0; f<filas; f++) for(let i=0; i<W; i+=8){
+      const idx = (i*7 + f*13) % hincha.length;
+      const yy = y0 + f*8;
+      const tw = (2.4 + ((i+f)%5)).toFixed(1);
+      o += `<rect x="${i}" y="${yy}" width="5" height="6" fill="${hincha[idx]}" opacity="${(0.72+((i*3+f*5)%20)/100).toFixed(2)}">`
+        + `<animate attributeName="opacity" values="1;.5;1" dur="${tw}s" repeatCount="indefinite"/></rect>`;
+    }
+  };
+  dibBandeja(topT+6, 6);            // bandeja alta
+  dibBandeja(topT+64, 7);           // bandeja baja (popular)
+  // Baranda / valla publicitaria LED al frente de la tribuna.
+  M(0, pisoY-18, W, 14, '#0a0d16');
+  for(let i=0;i<W;i+=7) M(i, pisoY-16, 5, 10, ['#22d3ee','#facc15','#34d399','#f472b6'][(i/7|0)%4]);
+  M(0, pisoY-4, W, 4, '#05070a');
+  // Torres de luz con su HAZ que baja a la cancha.
+  [Math.round(W*0.16), Math.round(W*0.84)].forEach(tx=>{
+    M(tx-4, 4, 8, topT-2, '#2a2c38');                 // mástil
+    M(tx-22, 2, 44, 12, '#12141c');                   // panel de focos
+    for(let r=0;r<3;r++) for(let c=0;c<5;c++) M(tx-19+c*8, 3+r*4, 6, 3, '#fff8dc');
+    o += `<polygon points="${tx-22},14 ${tx+22},14 ${tx+80},${pisoY} ${tx-80},${pisoY}" fill="#fff6d8" opacity=".05"/>`;
+  });
   // Humo de bengala sobre la popular.
-  o += `<ellipse cx="${Math.round(W*0.3)}" cy="${pisoY-96}" rx="120" ry="34" fill="#ff6b3d" opacity=".08"/>`;
-  o += `<ellipse cx="${Math.round(W*0.72)}" cy="${pisoY-84}" rx="150" ry="30" fill="#e8eef5" opacity=".06"/>`;
+  o += `<ellipse cx="${Math.round(W*0.3)}" cy="${pisoY-70}" rx="120" ry="30" fill="#ff6b3d" opacity=".07"/>`;
+  o += `<ellipse cx="${Math.round(W*0.72)}" cy="${pisoY-60}" rx="150" ry="26" fill="#e8eef5" opacity=".05"/>`;
   // Cesped con franjas, lineas y area chica.
   M(0,pisoY,W,H-pisoY,'#1e6b2c');
   for(let i=0;i<W;i+=64) M(i,pisoY,32,H-pisoY,'#238032');
