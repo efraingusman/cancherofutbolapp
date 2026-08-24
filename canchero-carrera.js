@@ -4164,10 +4164,15 @@ function familiaTick(){
     G._momentoVisual = 'bebe';
     return;
   }
-  if (edad >= 21 && edad <= 41 && (fam.hijos||[]).length < 3 &&
-      Math.random() < (fam.casado ? 0.30 : 0.14)){
-    fam.embarazada = true;
-    G._avisoEmbarazo = true;
+  // UN solo hijo, y llega entre los 25 y los 30 del jugador: así el legado cierra
+  // (el hijo tiene la edad justa para que después venga un nieto, y no aparecen
+  // cinco hijos desordenados). Si a los 30 todavía no llegó, se fuerza para que la
+  // línea de sangre no se corte.
+  if ((fam.hijos||[]).length === 0 && edad >= 25 && edad <= 30){
+    if (edad >= 29 || Math.random() < (fam.casado ? 0.55 : 0.30)){
+      fam.embarazada = true;
+      G._avisoEmbarazo = true;
+    }
   }
 }
 // "Estoy embarazada". Te lo dice ella, con la cara que elegiste.
@@ -5820,7 +5825,7 @@ const EVENTOS=[
   { t:'Casamiento en puerta', img:'familia', minAge:22, d:'Tu pareja quiere casarse esta temporada. Coincide con un momento clave del equipo.', opts:[
     { txt:'Casarme, la familia primero', ef:g=>{ g.moral+=12; g.nivel-=1; return 'Feliz y equilibrado. Rendís tranquilo.'; } },
     { txt:'Posponer por el fútbol', ef:g=>{ g.moral-=6; g.nivel+=1; return 'Enfocado, pero hay tensión en casa.'; } } ] },
-  { t:'Nace tu hijo', img:'familia', minAge:23, d:'Vas a ser padre. Las noches de poco sueño se vienen.', opts:[
+  { t:'Nace tu hijo', img:'familia', minAge:25, maxAge:30, req:g=>!!(g.familia&&g.familia.pareja)&&(g.familia.hijos||[]).length<1, d:'Vas a ser padre. Las noches de poco sueño se vienen.', opts:[
     { txt:'Vivirlo a pleno', ef:g=>{ g.moral+=14; return 'La motivación más grande. Jugás con el alma.'; } },
     { txt:'Contratar ayuda y descansar', ef:g=>{ g.dinero-=15000; g.nivel+=1; return 'Descansás bien y rendís. Cuesta plata.'; } } ] },
   // Solo aparece si estas jugando FUERA de tu pais: si no, no hay a donde volver.
@@ -8616,7 +8621,7 @@ const VIDA_SUCESOS = {
       // Solo si hay pareja, no hay ya un embarazo en curso y todavía no llegaste al
       // tope de hijos: así no se superpone con un nacimiento ya anunciado ni salta
       // teniendo la casa llena.
-      req:g=>!!(g.familia&&g.familia.pareja) && !(g.familia.embarazada) && (g.familia.hijos||[]).length < 3, opts:[
+      req:g=>!!(g.familia&&g.familia.pareja) && !(g.familia.embarazada) && (g.familia.hijos||[]).length < 1, opts:[
       { txt:'Salir corriendo a comprar la cuna', ef:(s,g)=>{ (g.familia.hijos=g.familia.hijos||[]).push(nacePersona()); g._momentoVisual='bebe'; g._pedirNombreHijo=true; s.felicidad=(s.felicidad||50)+18; s.familia=(s.familia||50)+22; s.soledad=(s.soledad||40)-25; return 'Meses después nació. Te temblaban las manos más que antes de un penal. Nada de lo que ganaste se le parece.'; } },
       { txt:'Tomarlo con miedo y hacerte el fuerte', ef:(s,g)=>{ (g.familia.hijos=g.familia.hijos||[]).push(nacePersona()); g._momentoVisual='bebe'; g._pedirNombreHijo=true; s.felicidad=(s.felicidad||50)+9; s.familia=(s.familia||50)+14; return 'Tardaste en caer. Cuando lo tuviste en brazos entendiste que no había con qué compararlo.'; } } ] },
     { t:'Te querés casar', edadMax:66, d:'Después de años, alguien te propone dar el paso. O lo proponés vos.', req:g=>!(g.familia&&g.familia.casado), opts:[
@@ -8629,7 +8634,10 @@ const VIDA_SUCESOS = {
     // hijo se calcula desde tu edad de ahora menos la que tenias cuando nacio.
     { t:'Vas a ser abuelo', req:g=>{
         const fam = g.familia||{}; const yo = g.vidaEdad || g.edad || 0;
-        if (yo < 50) return false;
+        // UN solo nieto, y entre los 50 y los 60 del abuelo (edad justa para el
+        // legado). Si ya hay un nieto, no vuelve a aparecer.
+        if (yo < 50 || yo > 62) return false;
+        if ((fam.nietos||[]).length >= 1) return false;
         return (fam.hijos||[]).some(h => (h.edad != null ? h.edad : (yo - (h.nacioConPadreDe||30))) >= 22);
       }, opts:[
       { txt:'Estar ahí para lo que necesiten', ef:(s,g)=>{
@@ -9033,7 +9041,7 @@ const SUCESOS_JUGADOR = {
       { txt:'Jugármela', ef:(s,g)=>{ g.familia=g.familia||{}; g.familia.pareja=nombreParejaNuevo(); s.felicidad+=14; s.soledad-=18; return "Empezaron a salir. Por primera vez en años pensás en algo que no es fútbol."; } },
       { txt:'Ahora no, estoy en otra', ef:(s,g)=>{ s.soledad+=10; s.felicidad-=4; return "Dijiste que no había tiempo. Es la excusa de siempre."; } } ],
       d:'Alguien te viene rondando hace rato y hoy se anima a decírtelo.' },
-    { t:'Nace tu primer hijo en plena temporada', edadMin:20, req:g=>!!(g.familia&&g.familia.pareja), opts:[
+    { t:'Nace tu primer hijo en plena temporada', edadMin:25, req:g=>!!(g.familia&&g.familia.pareja) && (g.familia.hijos||[]).length < 1, opts:[
       { txt:'Pedir permiso y estar en el parto', ef:(s,g)=>{ (g.familia.hijos=g.familia.hijos||[]).push(nacePersona()); s.felicidad+=20; s.familia+=24; s.soledad-=20; g.moral=clamp((g.moral||60)+8,0,100); g._momentoVisual='bebe'; g._pedirNombreHijo=true; return 'Te perdiste un partido y estuviste ahí. Después metiste gol y señalaste a la tribuna. Nadie te lo discutió.'; } },
       { txt:'Jugar igual, es un partido clave', ef:(s,g)=>{ (g.familia.hijos=g.familia.hijos||[]).push(nacePersona()); s.felicidad+=6; s.familia-=12; g.nivel=clamp((g.nivel||60)+1,30,99); g._momentoVisual='bebe'; g._pedirNombreHijo=true; return 'Jugaste. Ganaron. Llegaste a la clínica a las dos de la mañana y te lo vas a reprochar mucho tiempo.'; } } ],
       d:'Tu pareja rompió bolsa y hay partido decisivo en 36 horas.' },
@@ -14324,41 +14332,51 @@ window._verAncestros = function(){
     ${filas}
   </div>`;
 };
-// Muestra el resumen final del ancestro SIN perder la partida en curso.
+// Muestra el resumen del ancestro como FICHA DE SOLO LECTURA. Antes se cambiaba
+// la partida global (G = ancestro) y se llamaba a retiro(): si algo re-dibujaba o
+// guardaba, quedabas "jugando como el abuelo" sin poder volver. Ahora se arma una
+// tarjeta con los datos guardados y NO se toca la partida en curso.
 window._verAncestro = function(idx){
   const AN = ancestros(); const a = AN[idx]; if(!a || !a.partida) return;
-  const actual = G;
-  // De dónde veníamos, para volver EXACTAMENTE ahí. Antes el botón te mandaba
-  // siempre a la ficha del jugador: si estabas dirigiendo o caminando tu casa,
-  // quedabas tirado en otra pantalla sin forma de volver.
-  const _volverA = (actual && actual.vidaRol && VJ && VJ.mundo === 'vida') ? 'vida'
-                 : (VJ && VJ.mundo === 'club') ? 'mundo' : 'hub';
-  const _escena = (VJ && VJ.escena) || 'casa';
-  window._volverDeAncestro = function(){
-    G = actual;
-    if (_volverA === 'vida'){ window._vidaJugable(); return; }
-    if (_volverA === 'mundo'){ window._clubMundo(_escena); return; }
-    window._carreraHub();
-  };
-  // La partida del ancestro se muestra como FICHA, no como su despedida: si el
-  // homenaje no estaba visto, retiro() abría esa escena y el botón de volver
-  // nunca llegaba a dibujarse.
-  G = Object.assign({}, a.partida, { _homenajeVisto:true, segundaVida: a.partida.segundaVida || { rol:'—' } });
-  try { retiro(); } catch(e){ G = actual; window._carreraHub(); return; }
-  setTimeout(function(){
-    const m = document.getElementById('carrera-modal'); if(!m) return;
-    // Todo lo que se ve es del ancestro y no se puede tocar: es historia, no una
-    // partida en curso. Se apagan sus botones y queda uno solo, el de volver.
-    Array.prototype.forEach.call(m.querySelectorAll('button'), function(x){
-      x.onclick = null; x.setAttribute('onclick',''); x.style.opacity = '.45'; x.style.pointerEvents = 'none';
-    });
-    const cont = m.firstElementChild || m;
-    const b = document.createElement('button');
-    b.style.cssText = 'position:sticky;bottom:10px;width:100%;margin-top:14px;background:linear-gradient(135deg,#16a34a,'+A+');color:#000;border:none;border-radius:13px;padding:14px;font-weight:900;font-size:14px;cursor:pointer;z-index:5;';
-    b.textContent = 'Volver a lo mío';
-    b.onclick = function(){ window._volverDeAncestro(); };
-    cont.appendChild(b);
-  }, 40);
+  const p = a.partida;
+  const clubes = [];
+  (p.timeline||[]).forEach(t=>{ if (t.club && clubes.indexOf(t.club) < 0) clubes.push(t.club); });
+  const vit = {};
+  (p.vitrina||[]).forEach(v=>{ vit[v.nombre] = (vit[v.nombre]||0) + 1; });
+  const vitArr = Object.keys(vit);
+  const cell = (l,v,c)=>`<div style="flex:1;background:#0d100d;border:1px solid #1c1c1c;border-radius:12px;padding:11px 4px;text-align:center;">
+      <div style="font-size:20px;font-weight:900;color:${c||'#fff'};line-height:1;">${esc(v)}</div>
+      <div style="font-size:8.5px;color:#666;font-weight:800;letter-spacing:1px;margin-top:5px;">${l}</div></div>`;
+  const m = document.getElementById('carrera-modal') || overlay();
+  m.innerHTML = `
+  <div style="max-width:520px;margin:0 auto;padding:20px 16px calc(28px + env(safe-area-inset-bottom));">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <button onclick="window._verAncestros()" style="background:rgba(255,255,255,.06);border:none;color:#aaa;width:32px;height:32px;border-radius:50%;font-size:17px;cursor:pointer;"><i class='bx bx-arrow-back'></i></button>
+      <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:18px;color:#fff;">Tu ${esc(a.parentesco||'ancestro')}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;background:radial-gradient(120% 90% at 50% 0%, rgba(186,255,0,.10), rgba(10,12,10,0) 65%);border:1px solid #2a3222;border-radius:18px;padding:16px;margin-bottom:14px;">
+      <div style="line-height:0;flex-shrink:0;">${avatarSprite(p.avatar||avatarDefault(),{edad:Math.min(72,(p.vidaEdad||p.edad||42)),escala:2.2,pose:(p.titulos||0)>=3?'orgullo':'idle',num:'',apellido:''})}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:Outfit,sans-serif;font-weight:900;font-size:22px;color:#fff;line-height:1.1;">${esc(p.apellido||a.apellido||'—')}</div>
+        <div style="font-size:11.5px;color:#9aa294;font-weight:700;margin-top:3px;">${esc(p.pos||'')} · terminó en ${a.anioFin||'—'}</div>
+        ${(p._legadoSuperado||(p.legado&&(p.legado.gen||1)>1))?`<div style="font-size:10px;font-weight:900;color:${A};margin-top:4px;">GENERACIÓN ${p.legado?(p.legado.gen||1):1}</div>`:''}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      ${cell('NIVEL MÁX', Math.round(p.nivelMax||p.nivel||0), A)}
+      ${cell('TÍTULOS', p.titulos||0, '#facc15')}
+      ${cell('GOLES', (p.tot&&p.tot.g)||0, '#4fc3f7')}
+      ${cell('ASIST.', (p.tot&&p.tot.a)||0, '#a78bfa')}
+    </div>
+    ${vitArr.length?`<div style="font-size:9px;font-weight:900;letter-spacing:1.6px;color:#facc15;margin-bottom:9px;">SU VITRINA</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:9px;margin-bottom:16px;">
+        ${vitArr.map(n=>`<div style="text-align:center;"><div style="height:44px;display:flex;align-items:flex-end;justify-content:center;">${trofeoRender(n,40)}</div><div style="font-size:8px;color:#c4ccc0;font-weight:700;margin-top:4px;line-height:1.2;">${esc(n)}${vit[n]>1?' ×'+vit[n]:''}</div></div>`).join('')}
+      </div>`:''}
+    ${clubes.length?`<div style="font-size:9px;font-weight:900;letter-spacing:1.6px;color:#7dd3fc;margin-bottom:8px;">DÓNDE JUGÓ</div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px;">
+        ${clubes.slice(0,10).map(c=>`<span style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.04);border:1px solid #242a20;border-radius:9px;padding:4px 9px;font-size:11px;font-weight:800;color:#dfe7d6;">${clubBadge(c,16)}${esc(c)}</span>`).join('')}
+      </div>`:''}
+  </div>`;
 };
 window._carreraResumenFinal = function(){ try{ retiro(); }catch(e){ console.warn('resumen final', e); window._carreraHub(); } };
 // Compat con guardados viejos que usaban el sistema año a año.
