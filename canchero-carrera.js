@@ -8258,6 +8258,17 @@ function vjFondoCasa(W,H){
   // Pileta al fondo si es mansión (se ve por el ventanal)
   if (nv >= 4){ M(vx+10, vy+vh-26, vw-20, 20, '#1b7fa8'); M(vx+14, vy+vh-22, vw-28, 4, '#4fc3f7'); }
 
+  // ── ALFOMBRA + luz cálida en el piso: da calidez y profundidad al living.
+  // Va ANTES que los muebles, para que ellos se apoyen encima.
+  const rugY = pisoY + Math.round((H-pisoY)*0.16);
+  const rugC = nv <= 1 ? '#4a2f22' : nv === 2 ? '#3a2438' : '#2a2440';
+  const rugW = Math.round(W*0.52), rugX = Math.round(W*0.24);
+  o += `<ellipse cx="${rugX+rugW/2}" cy="${pisoY+Math.round((H-pisoY)*0.34)}" rx="${Math.round(rugW*0.6)}" ry="${Math.round((H-pisoY)*0.28)}" fill="${rugC}" opacity=".6"/>`;
+  o += `<ellipse cx="${rugX+rugW/2}" cy="${pisoY+Math.round((H-pisoY)*0.34)}" rx="${Math.round(rugW*0.6)}" ry="${Math.round((H-pisoY)*0.28)}" fill="none" stroke="${_avShade(rugC,26)}" stroke-width="2" opacity=".5"/>`;
+  // Charco de luz cálida (lámpara/ventana) sobre el piso.
+  o += `<defs><radialGradient id="casaLuz${nv}" cx="42%" cy="30%" r="70%"><stop offset="0%" stop-color="#ffdf9e" stop-opacity=".18"/><stop offset="100%" stop-color="#ffdf9e" stop-opacity="0"/></radialGradient></defs>`;
+  o += `<ellipse cx="${Math.round(W*0.4)}" cy="${pisoY+Math.round((H-pisoY)*0.4)}" rx="${Math.round(W*0.42)}" ry="${Math.round((H-pisoY)*0.6)}" fill="url(#casaLuz${nv})"/>`;
+
   // ── MUEBLES: crecen con la casa ──
   if (nv === 0){
     M(210,pisoY-34,90,34,'#4a3a2a'); M(214,pisoY-42,82,10,'#6b5540');       // catre
