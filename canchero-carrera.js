@@ -589,10 +589,10 @@ function montarSalida(){
   if (!document.getElementById('carrera-sim')){
     const s = document.createElement('button');
     s.id = 'carrera-sim'; s.type = 'button'; s.title = 'Simular automáticamente';
-    // CHICO y redondo, sólo el ícono: justo DEBAJO del SALIR, con margen del borde
-    // (no lo toca) y separado del SALIR.
-    s.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + '+(_topOff+44)+'px);right:26px;width:26px;height:26px;padding:0;border-radius:50%;background:rgba(167,139,250,.16);backdrop-filter:blur(6px);border:1px solid #a78bfa55;color:#c4b5fd;line-height:0;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);';
-    s.innerHTML = "<i class='bx bx-fast-forward' style=\"font-size:15px;\"></i>";
+    // Pastilla chica ABAJO Y AL CENTRO (no toca ningún borde). Al tocarla arranca
+    // el automático y en su lugar aparece el cartel "SIMULANDO", en el mismo punto.
+    s.style.cssText = 'position:fixed;z-index:100071;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom, 0px) + 16px);display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:16px;background:rgba(167,139,250,.16);backdrop-filter:blur(8px);border:1px solid #a78bfa66;color:#c4b5fd;font-size:11px;font-weight:900;letter-spacing:.5px;line-height:1;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.5);';
+    s.innerHTML = "<i class='bx bx-fast-forward' style=\"font-size:14px;\"></i>SIMULAR";
     s.onclick = function(){ try { window._lyAuto(true); } catch(e){} };
     document.body.appendChild(s);
   }
@@ -12078,16 +12078,22 @@ function mundoRender(){
 // que pasar. No hace falta caminar ni apuntarle a nada.
 window._vjAccion = function(i){
   const h = (VJ.hotspots || [])[i]; if(!h) return;
+  // La opción viene AL PERSONAJE: se resuelve en el acto, sin que el muñeco tenga
+  // que caminar hasta el otro lado de la escena. Si es una persona, se la trae al
+  // lado del jugador con un pasito rápido y ahí se abre la charla; una cosa
+  // (tele, cama, espejo) se resuelve directo. En la pantalla de diálogo igual se
+  // ve a los dos juntos, así que nunca hace falta que el jugador se cruce la escena.
   if (h.bloqueado || h.accion === 'nada'){ VJ.hot = h; vjInteractuar(); return; }
-  // El personaje CAMINA hasta la persona o la cosa y recien ahi pasa algo. Antes
-  // se disparaba desde donde estuviera parado, que no tenia sentido.
-  // Si volves a tocar la misma opcion mientras camina, se resuelve al toque:
-  // nadie tiene que esperar a que el muneco llegue si no quiere.
-  if (VJ.pendiente === h){ VJ.pendiente = null; VJ.destino = null; VJ.hot = h; vjInteractuar(); return; }
-  VJ.meta = null;
-  VJ.pendiente = h;
-  VJ.pendienteHasta = performance.now() + 2600;   // si tarda demasiado, se resuelve igual
-  VJ.destino = clamp(h.x + (VJ.x <= h.x ? -54 : 54), 40, vjEscena().ancho - 40);
+  if (h.tipo === 'npc'){
+    // Trae al NPC junto al jugador (a un pasito) para que se note que vino él.
+    const destino = clamp(VJ.x + (h.x >= VJ.x ? 40 : -40), 30, vjEscena().ancho - 30);
+    const el = document.getElementById('vj-hs-' + i);
+    if (el){ el.style.transition = 'transform .35s ease'; el.style.transform = 'translateX(-50%) translateX(' + Math.round(destino - h.x) + 'px)'; }
+    VJ.hot = h;
+    setTimeout(()=>{ try { vjInteractuar(); } catch(e){} }, el ? 360 : 0);
+    return;
+  }
+  VJ.hot = h; vjInteractuar();
 };
 window._vjIr = function(escena){
   if(!escena || !vjEscenas()[escena]) return;
