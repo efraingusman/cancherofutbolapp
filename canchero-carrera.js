@@ -4105,19 +4105,27 @@ window._carreraTemporada = function(){
   let baseRank = strengths.indexOf(G.clubStr); if(baseRank<0) baseRank = Math.floor(totalEq/2);
   // Aporte del jugador REDUCIDO: un crack solo NO gana la liga; ayuda pero no decide todo.
   const aporte = clamp((rend-0.3)*2.2 + (G.nivel-G.clubStr)/18, -1.6, 1.6);
-  // Ruido más amplio y con sesgo hacia abajo (rara vez todo sale perfecto).
-  // También podés DESCENDER incluso siendo grande si tenés temporada horrible.
-  let pos = Math.round(baseRank+1 - aporte + rnd(-2.0, 4.5));
+  // MENOS azar: tu nivel y tu aporte pesan más que la suerte, así el resultado se
+  // ENTIENDE (antes el ruido de -2..+4.5 lo decidía casi todo y no se sabía por qué
+  // ganabas o perdías). Igual queda algo de imprevisto, con leve sesgo hacia abajo.
+  const suerte = rnd(-1.4, 2.4);
+  let pos = Math.round(baseRank+1 - aporte + suerte);
   pos = clamp(pos, 1, totalEq);
+  // Se guarda POR QUÉ terminaste ahí, para explicarlo en el resumen.
+  const porque = {
+    clubStr: Math.round(G.clubStr), nivel: Math.round(G.nivel), rend: Math.round(rend*100)/100,
+    esperado: clamp(baseRank+1, 1, totalEq), aporte: Math.round(aporte*10)/10,
+    suerte: Math.round(suerte*10)/10, totalEq, marcado:_marcado
+  };
   // ── MOMENTO CLAVE: si quedaste 2º, hay una última fecha que define el campeonato.
   // Se resuelve con una decisión tuya que puede darte el título o hundirte. Como
   // requiere input del usuario, se pausa acá y la temporada sigue en _finTemporada.
   if (pos === 2 && Math.random() < 0.75) {
-    G._pend = { pj, g, a, dN, rend, totalEq };
+    G._pend = { pj, g, a, dN, rend, totalEq, porque };
     window._carreraMomentoClave();
     return;
   }
-  return _finTemporada({ pj, g, a, dN, rend, pos, totalEq, momento:null });
+  return _finTemporada({ pj, g, a, dN, rend, pos, totalEq, momento:null, porque });
 };
 // ── MOMENTO CLAVE (definición del campeonato) ────────────────────────────────
 const MOMENTOS = [
@@ -4175,7 +4183,7 @@ window._momentoElegir = function(i){
 window._momentoSeguir = function(pos){
   const p = G._pend; const mm = G._momento;
   G._pend = null; G._momento = null;
-  _finTemporada({ pj:p.pj, g:p.g, a:p.a, dN:p.dN, rend:p.rend, pos, totalEq:p.totalEq, momento:{ t:mm.t, exito: pos===1 } });
+  _finTemporada({ pj:p.pj, g:p.g, a:p.a, dN:p.dN, rend:p.rend, pos, totalEq:p.totalEq, momento:{ t:mm.t, exito: pos===1 }, porque:p.porque });
 };
 // ── FIN DE TEMPORADA (títulos, premios, ascensos, valor, timeline, rival) ─────
 // (al cerrar el año se revisa si ya superaste al ancestro del legado)
@@ -4470,7 +4478,7 @@ function _finTemporada(ctx){
   // resumen la muestre junto al resto de lo que pasó en el año.
   const eco = resolverEco();
   const _verResumen = function(){
-    resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,titulos:titulosGanados,premios:premiosAnio,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa,duelo,momento,bal,inv,prensa,eco});
+    resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,titulos:titulosGanados,premios:premiosAnio,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa,duelo,momento,bal,inv,prensa,eco,porque:ctx.porque});
   };
   // El cartel de transición da expectativa a una temporada MÁS... pero NO cuando
   // acabás de salir campeón o de jugar una final: ahí el momento es levantar la
@@ -4555,6 +4563,18 @@ function resumenTemporada(r){
       ${r.interLiteCopa?`<div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#f59e0b;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:20px;padding:5px 12px;"><i class='bx bx-medal'></i> ${esc(r.interLiteCopa)}</div>`:''}
       ${r.move?`<div style="margin-top:12px;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:900;color:${r.move.tipo==='asc'?'#22c55e':'#ef4444'};background:${r.move.tipo==='asc'?'rgba(34,197,94,.12)':'rgba(239,68,68,.12)'};border:1px solid ${r.move.tipo==='asc'?'rgba(34,197,94,.4)':'rgba(239,68,68,.4)'};border-radius:20px;padding:6px 14px;"><i class='bx ${r.move.tipo==='asc'?'bx-up-arrow-alt':'bx-down-arrow-alt'}'></i> ${r.move.tipo==='asc'?'¡ASCENSO! ':'DESCENSO. '}Ahora en <b>${esc(r.move.a)}</b></div>`:''}
     </div>
+    ${r.porque ? (function(P){
+      const dirAporte = P.aporte > 0.4 ? 'empujó al equipo para arriba' : P.aporte < -0.4 ? 'no alcanzó para sostenerlo' : 'no cambió demasiado el rumbo';
+      const rendTxt = P.rend >= 0.6 ? 'un temporadón tuyo' : P.rend >= 0.35 ? 'una temporada correcta tuya' : 'una temporada floja tuya';
+      const azar = P.suerte <= -0.6 ? ' Y el año te acompañó.' : P.suerte >= 1.2 ? ' Y encima se complicó más de la cuenta.' : '';
+      return `<div style="background:rgba(255,255,255,.03);border:1px solid #232a20;border-radius:14px;padding:13px 15px;margin-bottom:12px;">
+        <div style="font-size:9px;font-weight:900;letter-spacing:1.6px;color:#8b9480;margin-bottom:8px;">POR QUÉ TERMINASTE ${posLabel(r.pos)}</div>
+        <div style="font-size:12.5px;color:#c8d0be;line-height:1.7;">
+          Por su <b style="color:#fff;">plantel</b> (fuerza ${P.clubStr}), ${esc(G.club)} peleaba cerca del <b style="color:#fff;">${P.esperado}º</b>.
+          Tu nivel <b style="color:${A};">${P.nivel}</b> y ${rendTxt} (${P.rend} goles+asist. por partido) ${dirAporte}${P.marcado?', pero jugaste poco por estar marcado':''}.${azar}
+        </div>
+      </div>`;
+    })(r.porque) : ''}
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">
       ${st('PJ',r.pj)}${st('GOLES',r.g)}${st('ASIST',r.a)}${st('NIVEL',(r.dN>=0?'+':'')+r.dN)}
     </div>
@@ -4590,6 +4610,7 @@ function resumenTemporada(r){
         <span style="font-weight:900;color:${r.inv.roi>=0?'#4ade80':'#ff6b6b'};">${r.inv.roi>=0?'+':''}${r.inv.roi}% → ${eur(r.inv.ahora)}</span>
       </div>`:''}
       <div style="margin-top:8px;text-align:center;font-size:11px;color:#8a8f96;">Capital: <b style="color:#facc15;font-size:13px;">${eur(G.dinero||0)}</b>${G.flags&&G.flags.enRojo?' <span style="color:#ef4444;font-weight:900;">· EN ROJO</span>':''}</div>
+      ${((G.dinero||0) >= 150000 && (G.bienes||[]).length < 2) ? `<div style="margin-top:9px;background:rgba(186,255,0,.06);border:1px solid rgba(186,255,0,.25);border-radius:10px;padding:8px 11px;font-size:10.5px;color:#c8d0be;line-height:1.55;"><b style="color:${A};">Tenés plata parada.</b> Gastarla en un auto, una casa, un reloj o una fundación te sube la <b style="color:#a78bfa;">fama</b> y la <b style="color:#4ade80;">felicidad</b>, se ve en tu casa y algunas cosas te dan rentas. Cuando te lo ofrezcan, decí que sí.</div>`:''}
     </div>`; })():''}
     ${(r.duelo&&r.duelo.primero)?`<div style="background:linear-gradient(160deg,rgba(239,68,68,.12),rgba(20,22,18,.6));border:1.5px solid rgba(239,68,68,.4);border-radius:14px;padding:14px;margin-bottom:12px;">
       <div style="font-size:10px;font-weight:900;letter-spacing:2px;color:#ef4444;margin-bottom:8px;">⚔️ APARECE TU NÉMESIS</div>
