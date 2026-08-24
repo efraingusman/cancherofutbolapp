@@ -589,9 +589,9 @@ function montarSalida(){
   if (!document.getElementById('carrera-sim')){
     const s = document.createElement('button');
     s.id = 'carrera-sim'; s.type = 'button'; s.title = 'Simular automáticamente';
-    // CHICO y redondo, sólo el ícono: justo DEBAJO del SALIR, alineado a la
-    // derecha. Ocupa mínimo y no tapa nada.
-    s.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + '+(_topOff+34)+'px);right:20px;width:26px;height:26px;padding:0;border-radius:50%;background:rgba(167,139,250,.16);backdrop-filter:blur(6px);border:1px solid #a78bfa55;color:#c4b5fd;line-height:0;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);';
+    // CHICO y redondo, sólo el ícono: justo DEBAJO del SALIR, con margen del borde
+    // (no lo toca) y separado del SALIR.
+    s.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + '+(_topOff+44)+'px);right:26px;width:26px;height:26px;padding:0;border-radius:50%;background:rgba(167,139,250,.16);backdrop-filter:blur(6px);border:1px solid #a78bfa55;color:#c4b5fd;line-height:0;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);';
     s.innerHTML = "<i class='bx bx-fast-forward' style=\"font-size:15px;\"></i>";
     s.onclick = function(){ try { window._lyAuto(true); } catch(e){} };
     document.body.appendChild(s);
@@ -11441,9 +11441,8 @@ function vjHotspotsBase(){
       nombre:esc(n.nombre), rol:'tu ' + palabraNieto(genDe(n)) }));
     // La mesa del truco: partida completa contra la máquina, con envido y todo.
     out.push({ x:392, tipo:'obj', obj:'trabajo', escala:1.1, lbl:'La mesa — jugar al truco', accion:'truco', icono:'bx-joystick' });
-    // Si licenciaste tu imagen, el videojuego existe de verdad y se puede jugar.
-    out.push({ x:512, tipo:'obj', obj:'ropero', escala:1.5, lbl:'Ropero — cambiarte', accion:'ropero', icono:'bx-closet' });
-    out.push({ x:568, tipo:'obj', obj:'espejo', escala:1.4, lbl:'Espejo — cambiar tu look', accion:'look', icono:'bx-cut' });
+    // Una sola opción de personalización (antes ropero + espejo repetían lo mismo).
+    out.push({ x:540, tipo:'obj', obj:'espejo', escala:1.4, lbl:'Cambiar tu look (peinado, barba, tatuajes)', accion:'look', icono:'bx-cut' });
     // La cama va lejos del borde: pegada a la salida uno se pasaba de largo al
     // barrio antes de poder tocarla. Y va SOLO en casa: una cama en el piso de TV
     // o en la vereda no tiene ningun sentido.
@@ -11580,9 +11579,13 @@ function vjHotspotsClub(){
     (fam.hijos||[]).filter(h=>(h.edad||0) > 2).slice(0,3).forEach((h,i)=> out.push({ x:330+i*58, tipo:'npc', semilla:'hijo'+h.nombre, ropa:'calle',
       edad: (h.edad || 5), gen: genDe(h), lbl:'Estar con ' + esc(h.nombre), accion:'suceso', cat:'familia', icono:'bx-child',
       nombre:esc(h.nombre), rol:'tu ' + palabraHijo(genDe(h)) }));
-    out.push({ x:452, tipo:'obj', obj:'tele', lbl:'Ver los goles de la fecha', accion:'descansarCasa', icono:'bx-tv' });
-    out.push({ x:520, tipo:'obj', obj:'ropero', escala:1.5, lbl:'Ropero — cambiarte', accion:'ropero', icono:'bx-closet' });
-    out.push({ x:588, tipo:'obj', obj:'espejo', escala:1.4, lbl:'Espejo — cambiar tu look', accion:'look', icono:'bx-cut' });
+    // Descansar SÓLO aparece cuando hace falta (salud o ánimo bajos): así no es
+    // una opción de relleno que nadie usa, sino algo que el estado te pide.
+    if ((G.moral||60) < 65 || ((personalAsegurar().salud)||80) < 80)
+      out.push({ x:452, tipo:'obj', obj:'tele', lbl:'Descansar en casa — recuperás salud y ánimo', accion:'descansarCasa', icono:'bx-tv' });
+    // Una sola opción de personalización (antes ropero + espejo era lo mismo dos
+    // veces). El espejo lleva a cambiar peinado, barba, tatuajes y ropa.
+    out.push({ x:560, tipo:'obj', obj:'espejo', escala:1.4, lbl:'Cambiar tu look (peinado, barba, tatuajes)', accion:'look', icono:'bx-cut' });
     // La cuna aparece cuando hay un bebé de verdad en la casa, con el bebé adentro.
     // Mientras el nacimiento no se haya MOSTRADO (G._bebePend), el último hijo no
     // existe todavía para la escena: si no, lo veías en la cuna antes de que la
