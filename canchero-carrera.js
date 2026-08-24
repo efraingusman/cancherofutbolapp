@@ -8291,12 +8291,17 @@ function vjFondoCasa(W,H){
     M(230,pisoY-40,120,40,'#3f3f4c'); M(230,pisoY-54,120,16,'#4c4c5c');       // futón
     M(430,pisoY-26,86,26,'#2e2a24');
     M(440,pisoY-64,66,38,'#0a0d12'); M(444,pisoY-60,58,30,'#16304d');         // tele
-    M(W-120,pisoY-30,8,30,'#2d1f10'); M(W-134,pisoY-48,36,20,'#1f6b45');      // plantita
+    // Planta EN MACETA (no un árbol suelto): pot + hojas redondeadas, chica.
+    M(W-126,pisoY-14,20,14,'#a85832'); M(W-128,pisoY-16,24,3,'#c46a3d');
+    M(W-120,pisoY-28,8,14,'#3a2a18');
+    M(W-124,pisoY-34,16,10,'#2e7d46'); M(W-118,pisoY-40,10,9,'#3a9a58'); M(W-128,pisoY-30,8,8,'#2e7d46');
   } else if (nv === 2){
     M(250,pisoY-46,132,46,'#4a2f3d'); M(250,pisoY-62,132,18,'#5c3b4c');       // sofá
     M(244,pisoY-52,10,52,'#3d2632'); M(378,pisoY-52,10,52,'#3d2632');
     M(450,pisoY-30,104,30,'#2e2118'); M(462,pisoY-76,80,46,'#0a0d12'); M(466,pisoY-72,72,38,'#16304d');
-    M(W-130,pisoY-32,8,32,'#2d1f10'); M(W-148,pisoY-54,44,24,'#1f6b45'); M(W-138,pisoY-64,24,12,'#288a58');
+    M(W-138,pisoY-16,26,16,'#a85832'); M(W-140,pisoY-18,30,3,'#c46a3d');           // maceta
+    M(W-128,pisoY-32,8,16,'#3a2a18');
+    M(W-134,pisoY-40,22,12,'#2e7d46'); M(W-126,pisoY-48,14,11,'#3a9a58'); M(W-140,pisoY-34,10,10,'#2e7d46');
   } else {
     M(240,pisoY-54,180,54,'#3d3550'); M(240,pisoY-72,180,20,'#4c4266');       // sofá grande
     M(232,pisoY-62,12,62,'#2e2840'); M(416,pisoY-62,12,62,'#2e2840');
@@ -8305,8 +8310,9 @@ function vjFondoCasa(W,H){
     if (nv >= 4){
       M(Math.round(W/2)-22,10,44,8,'#c9a227');                                // araña
       for(let i=0;i<5;i++) M(Math.round(W/2)-18+i*9, 18, 3, 14, '#f5e6a8');
-      M(W-190,pisoY-30,12,30,'#2d1f10'); M(W-214,pisoY-58,60,30,'#1f6b45');   // planta grande
-      M(W-206,pisoY-72,44,16,'#288a58');
+      M(W-198,pisoY-20,34,20,'#8a4a2a'); M(W-201,pisoY-23,40,4,'#a85832');   // maceta grande
+      M(W-184,pisoY-44,10,24,'#3a2a18');
+      M(W-202,pisoY-56,50,16,'#2e7d46'); M(W-190,pisoY-68,26,15,'#3a9a58'); M(W-208,pisoY-44,16,13,'#2e7d46');
     }
   }
 
@@ -8371,7 +8377,10 @@ function vjFondoCasa(W,H){
   // La puerta: 1.9 veces la altura de una persona en esta escala. El personaje
   // mide ~56 unidades de sprite; a esta escala, ~86px de alto.
   const puertaH = Math.round(H*0.40), puertaW = Math.round(puertaH*0.46);
-  const puertaX = muroX - Math.round(puertaW*0.5) + Math.round(grosor/2);
+  // La puerta va ENTERA sobre la cara interior de la pared: antes se centraba en
+  // el muro y su mitad derecha se metía en la calle, tapando la ventana de un
+  // edificio de enfrente ("la puerta adelante de la ventana").
+  const puertaX = muroX - puertaW - 2;
   const puertaY = pisoY - puertaH;
   M(puertaX-3, puertaY-3, puertaW+6, puertaH+3, _avShade(C.pared,-58));   // marco
   M(puertaX, puertaY, puertaW, puertaH, '#4a3324');
