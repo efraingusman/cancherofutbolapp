@@ -24,7 +24,12 @@ function me(){ return window.userData || {}; }
       + '.ly-chip:nth-child(2){animation-delay:.05s;}.ly-chip:nth-child(3){animation-delay:.1s;}'
       + '.ly-chip:nth-child(4){animation-delay:.15s;}.ly-chip:nth-child(5){animation-delay:.2s;}'
       + '.ly-chip:nth-child(6){animation-delay:.25s;}.ly-chip:nth-child(7){animation-delay:.3s;}'
-      + '@media (prefers-reduced-motion: reduce){.ly-chip{animation:none;}}';
+      // Cartel central de cambios de stat (nivel, moral, fama, dinero…)
+      + '#ly-statpop{transition:opacity .32s ease;}#ly-statpop.out{opacity:0;}'
+      + '#ly-statpop .sp-row{animation:spRowIn .4s cubic-bezier(.2,1.4,.4,1) both;animation-delay:var(--d,0s);}'
+      + '@keyframes spRowIn{0%{opacity:0;transform:translateX(-16px) scale(.9);}60%{transform:translateX(0) scale(1.06);}100%{opacity:1;transform:none;}}'
+      + '@keyframes spGlow{0%,100%{box-shadow:0 8px 26px rgba(0,0,0,.5);}50%{box-shadow:0 8px 34px rgba(255,255,255,.12);}}'
+      + '@media (prefers-reduced-motion: reduce){.ly-chip,#ly-statpop .sp-row{animation:none;}}';
     (document.head||document.documentElement).appendChild(st);
   }catch(e){}
 })();
@@ -3527,6 +3532,9 @@ window._lyFinal = function(cfg){
   if (window._trucoAbrir) modos.push('truco');
   modos.push('simular', 'simular');            // la mitad se juegan solas
   cfg.modo = cfg.modo || pick(modos);
+  // En modo automático la final SIEMPRE se simula: el auto no puede sentarse a
+  // jugar al truco, así que antes se trababa ahí. Simulando, la vida sigue sola.
+  if (AUTO && AUTO.on) cfg.modo = 'simular';
   G._finalPend = cfg;
   const D = {
     truco:  { t:'Se define al truco', d:'Cada mano que ganás es un gol. El partido se define a dos: el que llega primero, se lleva la copa.', b:'AGARRAR LAS CARTAS', ic:'bx-been-here' },
@@ -3593,6 +3601,7 @@ window._lyResultadoFinal = function(gano, titulo, rival, despues){
 window._lyFinalJugar = function(modo){
   const cfg = G && G._finalPend; if(!cfg) return;
   modo = modo || cfg.modo || 'simular';
+  if (AUTO && AUTO.on) modo = 'simular';   // el automático no juega minijuegos
   const cerrar = (gano)=>{
     G._finalPend = null;
     // Si la final la disparó el cierre de temporada, el título lo pone el
@@ -4453,10 +4462,14 @@ function _finTemporada(ctx){
   // ¿Alguna decisión vieja vence esta temporada? Se resuelve acá para que el
   // resumen la muestre junto al resto de lo que pasó en el año.
   const eco = resolverEco();
-  // Antes de ver cómo fue, un cartel corto que anuncia la temporada: da expectativa.
-  splashTemporada((G.anio||2026)-1, function(){
+  const _verResumen = function(){
     resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,titulos:titulosGanados,premios:premiosAnio,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa,duelo,momento,bal,inv,prensa,eco});
-  });
+  };
+  // El cartel de transición da expectativa a una temporada MÁS... pero NO cuando
+  // acabás de salir campeón o de jugar una final: ahí el momento es levantar la
+  // copa, y meter el año en el medio de la decisión y el festejo lo arruina.
+  if (titulosGanados.length || momento || ctx._finalHecha){ _verResumen(); return; }
+  splashTemporada((G.anio||2026)-1, _verResumen);
 }
 // Cartel de transición entre temporadas: número de año grande que entra con un
 // barrido, el club y la edad. Corto (~1s), se puede tocar para saltarlo. Le da
@@ -5697,10 +5710,21 @@ window._setNumero = function(n){
   save(); window._elegirNumero(G._numCtx);
 };
 window._confirmarNumero = function(){
-  const ctx = G._numCtx; G._numCtx = null;
+  const ctx = G._numCtx;
   // Si confirmaste sin elegir, queda el que ya tenias: igual se da por resuelto
   // para no volver a preguntar lo mismo una y otra vez.
   if (ctx === 'seleccion' && !G.numSeleccion) G.numSeleccion = G.num;
+  // NO se puede quedar con un número OCUPADO (venías con el 10 y en tu club nuevo
+  // el 10 ya es de otro): si el elegido no está libre, se toma el primero libre.
+  try {
+    const disp = numerosDisponibles(ctx);
+    const ocup = new Set(disp.ocupados);
+    const actual = (ctx === 'seleccion') ? G.numSeleccion : G.num;
+    if (ocup.has(actual) && disp.libres.length){
+      if (ctx === 'seleccion') G.numSeleccion = disp.libres[0]; else G.num = disp.libres[0];
+    }
+  } catch(e){}
+  G._numCtx = null;
   G._numHecho = G._numHecho || {};
   G._numHecho[(ctx === 'seleccion') ? 'sel' : ('club:' + G.club)] = true;
   const msg = G._msgFichaje; G._msgFichaje = null; save();
@@ -6172,6 +6196,39 @@ function deltaChip(lbl, d, money, final){
   // Cuando se pasa el valor final, se muestra "a qué número" quedó, resaltado.
   const fin = (final != null && !money) ? `<b style="color:#fff;font-weight:900;">${Math.round(final)}</b>` : '';
   return `<span class="ly-chip" style="display:inline-flex;align-items:center;gap:4px;background:${up?'rgba(74,222,128,.12)':'rgba(255,107,107,.12)'};border:1px solid ${col}55;color:${col};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;"><i class='bx ${up?'bx-up-arrow-alt':'bx-down-arrow-alt'}'></i>${lbl} ${val}${fin?' → '+fin:''}</span>`;
+}
+// Color + ícono de cada stat, para el cartel central de cambios.
+const STAT_LOOK = {
+  'NIVEL':{c:'#baff00',i:'bx-trending-up'}, 'MORAL':{c:'#4ade80',i:'bx-happy'},
+  'FAMA':{c:'#a78bfa',i:'bx-star'}, 'DINERO':{c:'#facc15',i:'bx-euro'},
+  'SALUD':{c:'#22c55e',i:'bx-plus-medical'}, 'FELICIDAD':{c:'#fde047',i:'bx-smile'},
+  'FAMILIA':{c:'#f472b6',i:'bx-home-heart'}, 'SOLEDAD':{c:'#60a5fa',i:'bx-user',inv:true}
+};
+// CARTEL CENTRAL: muestra en el medio de la pantalla, grande y con color, lo que
+// cambió tras una decisión o una temporada (nivel, moral, fama, dinero, salud…).
+// Rápido y no bloquea: se va solo. Vale en la carrera y en toda la vida.
+function lyStatPop(items){
+  items = (items||[]).filter(it => it && it.delta);
+  if (!items.length) return;
+  const old = document.getElementById('ly-statpop'); if (old) old.remove();
+  const host = document.createElement('div');
+  host.id = 'ly-statpop';
+  host.style.cssText = 'position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);z-index:100090;display:flex;flex-direction:column;gap:8px;align-items:stretch;pointer-events:none;max-width:88vw;';
+  host.innerHTML = items.slice(0,6).map((it,idx)=>{
+    const L = STAT_LOOK[it.label] || { c:'#cfd8c6', i:'bx-chevrons-up' };
+    const up = L.inv ? it.delta < 0 : it.delta > 0;
+    const ac = up ? '#4ade80' : '#ff6b6b';
+    const arrow = it.delta > 0 ? 'bx-up-arrow-alt' : 'bx-down-arrow-alt';
+    const val = it.money ? ((it.delta>0?'+':'−')+eur(Math.abs(it.delta))) : ((it.delta>0?'+':'')+it.delta);
+    return `<div class="sp-row" style="--d:${(idx*0.06).toFixed(2)}s;display:flex;align-items:center;gap:11px;background:rgba(8,10,7,.9);border:1.5px solid ${L.c}55;border-left:5px solid ${L.c};border-radius:14px;padding:11px 16px;">
+      <i class='bx ${L.i}' style="font-size:24px;color:${L.c};"></i>
+      <span style="flex:1;font-size:13px;font-weight:900;letter-spacing:.6px;color:#fff;">${it.label}</span>
+      <span style="font-size:18px;font-weight:900;color:${ac};display:inline-flex;align-items:center;gap:2px;"><i class='bx ${arrow}'></i>${val}</span>
+      ${(it.final!=null && !it.money) ? `<span style="font-size:19px;font-weight:900;color:${L.c};min-width:34px;text-align:right;">${Math.round(it.final)}</span>` : ''}
+    </div>`;
+  }).join('');
+  document.body.appendChild(host);
+  setTimeout(()=>{ host.classList.add('out'); setTimeout(()=>{ try{host.remove();}catch(e){} }, 340); }, 1250);
 }
 // Elige la POSE con la que el avatar reacciona al resultado de una decisión.
 // Lee el texto del resultado y los deltas: si mejoró festeja, si empeoró se hunde.
@@ -8061,7 +8118,13 @@ function escPolvo(W, pisoY){
     const y = Math.round(pisoY * (0.25 + escRnd(sem, i+2300) * 0.72));
     const s = escRnd(sem, i+2600) < 0.7 ? 1 : 2;
     const op = (0.10 + escRnd(sem, i+2900) * 0.22).toFixed(2);
-    o += `<rect x="${x}" y="${y}" width="${s}" height="${s}" fill="#ffeccb" opacity="${op}"/>`;
+    // Las motas de polvo FLOTAN: suben y se mecen despacio, cada una a su ritmo.
+    const dx = (escRnd(sem, i+3200) * 8 - 4).toFixed(1);
+    const dy = -(4 + escRnd(sem, i+3500) * 8).toFixed(1);
+    const dur = (5 + escRnd(sem, i+3800) * 7).toFixed(1);
+    o += `<rect x="${x}" y="${y}" width="${s}" height="${s}" fill="#ffeccb" opacity="${op}">`
+      + `<animateTransform attributeName="transform" type="translate" values="0 0; ${dx} ${dy}; 0 0" dur="${dur}s" repeatCount="indefinite" additive="sum"/>`
+      + `<animate attributeName="opacity" values="${op};${(op*1.8).toFixed(2)};${op}" dur="${dur}s" repeatCount="indefinite"/></rect>`;
   }
   return o;
 }
@@ -13291,6 +13354,21 @@ window._vjResolver = function(tipo, i){
     }).filter(Boolean).join('') + deltaChip('$', Math.round((G.dinero||0) - dineroAntes), true);
   }
 
+  // CARTEL CENTRAL de los cambios (carrera y vida): grande, con color, se va solo.
+  try {
+    const pop = [];
+    if (enCarrera){
+      PERSONALES.forEach(b=> pop.push({ label:b[0], delta:Math.round((s[b[1]]||0)-(antes[b[1]]||0)), final:s[b[1]] }));
+      pop.push({ label:'MORAL', delta:Math.round((G.moral||0)-moralAntes), final:G.moral });
+      pop.push({ label:'NIVEL', delta:Math.round((G.nivel||0)-nivelAntes), final:G.nivel });
+    } else {
+      const R1 = VIDA_ROLES[G.vidaRol] || VIDA_ROLES.disfrutar;
+      R1.barras.forEach(b=> pop.push({ label:(b[0]||'').toUpperCase(), delta:Math.round((s[b[1]]||0)-(antes[b[1]]||0)), final:s[b[1]] }));
+    }
+    pop.push({ label:'DINERO', delta:Math.round((G.dinero||0)-dineroAntes), money:true });
+    lyStatPop(pop);
+  } catch(e){}
+
   const pose = _poseReaccion(res, { nivel:puente.nivel, moral:Math.round((s.felicidad||50)-(antes.felicidad||50)), fama:0, dinero:Math.round((G.dinero||0)-dineroAntes) });
   const edadR = enCarrera ? (G.edad || 20) : (G.vidaEdad || 40);
   const color = enCarrera ? A : ((VIDA_ROLES[G.vidaRol] || VIDA_ROLES.disfrutar).color);
@@ -14750,6 +14828,14 @@ const AUTO_PROHIBIDO = /(^\s*salir|salir del juego|volver a juegos|volver al ini
 // Botones que hacen AVANZAR el juego: tienen prioridad sobre las decisiones.
 const AUTO_AVANZA = /(continuar|seguir|jugar temporada|jugar la temporada|ver retiro|empezar|dale|siguiente|entrar|confirmar|aceptar|firmar|fichar|volver al bald[íi]o|volver al predio|volver al barrio|ir a la cantera|d[íi]a del debut|el debut|dormir y cerrar)/i;
 function autoBotones(){
+  // Si por lo que sea quedó abierta la mesa de truco (u otro minijuego), el auto
+  // no la juega: busca el botón de SALIR/MAZO/OTRA para cerrarla y seguir la vida.
+  const tr = document.getElementById('truco-modal');
+  if (tr){
+    const escapar = Array.prototype.slice.call(tr.querySelectorAll('button'))
+      .filter(b=>!b.disabled && /mazo|salir|otra|volver|cerrar|listo/i.test((b.textContent||'').trim()));
+    if (escapar.length) return [escapar[0]];
+  }
   const m = document.getElementById('carrera-modal'); if(!m) return [];
   return Array.prototype.slice.call(m.querySelectorAll('button'))
     .filter(b=>{
@@ -14791,7 +14877,7 @@ function autoPasoMundo(){
   if (!obj && (AUTO._actEsc||0) < 2){
     const social = hs.filter(h=>h.tipo === 'npc');
     const activ  = hs.filter(h=>['suceso','entrenarClub','entrenarJuv','patear',
-      'descansarCasa','descansarJuv','truco','charlaClub','charlaPotrero','charlaJuv'].indexOf(h.accion) >= 0);
+      'descansarCasa','descansarJuv','charlaClub','charlaPotrero','charlaJuv'].indexOf(h.accion) >= 0);
     obj = (social.length ? social[(AUTO._gi = (AUTO._gi||0) + 1) % social.length] : null)
        || (activ.length  ? pick(activ) : null);
   }
@@ -15421,6 +15507,17 @@ window._vjRetoElegir = function(i){
     + chip('Fama',  Math.round((G.fama||0)-antes.fama), false, G.fama);
   const dd = Math.round((G.dinero||0)-antes.dinero);
   if (dd) chips += `<span class="ly-chip" style="display:inline-flex;align-items:center;gap:3px;background:${dd>0?'#4ade8018':'#ff6b6b18'};border:1px solid ${dd>0?'#4ade8055':'#ff6b6b55'};color:${dd>0?'#4ade80':'#ff6b6b'};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;">${dd>0?'+':''}${eur(Math.abs(dd))}</span>`;
+  // Cartel central de cambios, también en las charlas/decisiones de la vida.
+  try { lyStatPop([
+    { label:'FELICIDAD', delta:Math.round((s.felicidad||0)-(antesS.felicidad||0)), final:s.felicidad },
+    { label:'FAMILIA', delta:Math.round((s.familia||0)-(antesS.familia||0)), final:s.familia },
+    { label:'SALUD', delta:Math.round((s.salud||0)-(antesS.salud||0)), final:s.salud },
+    { label:'SOLEDAD', delta:Math.round((s.soledad||0)-(antesS.soledad||0)), final:s.soledad },
+    { label:'MORAL', delta:Math.round((G.moral||0)-antes.moral), final:G.moral },
+    { label:'NIVEL', delta:Math.round((G.nivel||0)-antes.nivel), final:G.nivel },
+    { label:'FAMA', delta:Math.round((G.fama||0)-antes.fama), final:G.fama },
+    { label:'DINERO', delta:dd, money:true }
+  ]); } catch(e){}
   vjPintarRetoRes(h, res, chips);
 };
 // LA FOTO DEL MOMENTO. Lo que decidís deja una imagen, no solo un renglón: se ve
