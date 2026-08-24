@@ -1705,10 +1705,15 @@ function avatarSprite(av, o){
   const ROPA = o.ropa ? (AV_ROPAS[o.ropa] || null) : null;
   // Si está preso, el kit se reemplaza por el uniforme naranja
   const preso = !!av.preso;
-  const base = preso ? '#e07b18' : ROPA ? ROPA.base : (o.kitBase || '#1b7a3e');
-  const alt  = preso ? '#f2a340' : ROPA ? ROPA.alt  : (o.kitAlt  || '#ffffff');
-  const tipo = preso ? 'stripes' : ROPA ? (ROPA.tipo||'solid') : (o.kitTipo || 'solid');
-  const kitTxt = preso ? '#3d1f04' : ROPA ? _avContraste(ROPA.base) : (o.kitTxt || _avContraste(base));
+  let base = preso ? '#e07b18' : ROPA ? ROPA.base : (o.kitBase || '#1b7a3e');
+  let alt  = preso ? '#f2a340' : ROPA ? ROPA.alt  : (o.kitAlt  || '#ffffff');
+  let tipo = preso ? 'stripes' : ROPA ? (ROPA.tipo||'solid') : (o.kitTipo || 'solid');
+  let kitTxt = preso ? '#3d1f04' : ROPA ? _avContraste(ROPA.base) : (o.kitTxt || _avContraste(base));
+  // ARQUERO: cuando está con la camiseta (jugando/presentación), lleva un kit de
+  // portero de alta visibilidad (casi nunca choca con el del equipo) y GUANTES.
+  const esArq = !!o.arquero && !ROPA && !preso;
+  if (esArq){ base = '#12161c'; alt = '#a3e635'; tipo = 'solid'; kitTxt = '#a3e635'; }
+  const guantes = (av.acc === 'guantes') || esArq;
   const pantalon = ROPA && ROPA.pantalon ? ROPA.pantalon : null;   // pierna larga
   const sinNumero = !!(ROPA && ROPA.sinNumero);
   const baseS = _avShade(base, -26), baseL = _avShade(base, 20);
@@ -1945,7 +1950,7 @@ function avatarSprite(av, o){
     if (av.acc==='muneq') g += `<rect x="${(b.x*S).toFixed(1)}" y="${((manoY-1.6)*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(1.6*S).toFixed(1)}" fill="#baff00"/>`;
     // Reloj de oro
     if (av.bling >= 2 && b.i===1) g += `<rect x="${(b.x*S).toFixed(1)}" y="${((manoY-2)*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(2*S).toFixed(1)}" fill="#f5d14e"/>`;
-    g += `<rect x="${((b.x + _cod)*S).toFixed(1)}" y="${(manoY*S).toFixed(1)}" width="${(brW*S).toFixed(1)}" height="${(brW*1.1*S).toFixed(1)}" fill="${av.acc==='guantes'?'#f97316':P.c}"/>`;
+    g += `<rect x="${((b.x + _cod)*S).toFixed(1)}" y="${(manoY*S).toFixed(1)}" width="${((guantes?brW*1.25:brW)*S).toFixed(1)}" height="${((guantes?brW*1.35:brW*1.1)*S).toFixed(1)}" fill="${guantes?'#f97316':P.c}"/>${guantes?`<rect x="${((b.x + _cod)*S).toFixed(1)}" y="${(manoY*S).toFixed(1)}" width="${(brW*1.25*S).toFixed(1)}" height="${(1.2*S).toFixed(1)}" fill="#fdba74"/>`:''}`;
     // El grupo EXTERNO es el que anima (la clase existía en el CSS pero no estaba
     // aplicada a ningún elemento, así que los brazos nunca se movían: de ahí la
     // sensación de "imagen firme"). El interno mantiene la rotación fija de la pose.
@@ -2457,6 +2462,10 @@ function avatarDeG(escala, pose, opts){
     medalla: !!opts.medalla,
     aura: opts.aura != null ? opts.aura : ((G.nivel||0) >= 88 || (G.titulos||0) >= 8),
     capitan: !!(G.idolatria && G.idolatria[G.club] >= 55),
+    // Si sos arquero, jugás con kit de portero y guantes (salvo que estés con ropa
+    // de calle/traje, donde no aplica).
+    arquero: (G.pos === 'POR') && !opts.ropa,
+    ropa: opts.ropa,
     escala: escala || 4,
     anim: opts.anim
   });
@@ -4087,7 +4096,23 @@ window._carreraTemporada = function(){
   const g = Math.round(pj*atk*factor);
   const a = Math.round(pj*(atk*0.6+0.1)*factor);
   G.tot.pj+=pj; G.tot.g+=g; G.tot.a+=a;
-  const rend=(g+a)/pj;                        // rendimiento 0..~1.3
+  // ── ARQUERO: no se mide por goles/asistencias sino por atajadas, vallas
+  // invictas y goles recibidos. Su rendimiento sale de eso.
+  const esArquero = G.pos === 'POR';
+  let porStats = null, rend;
+  if (esArquero){
+    const fuerza = clamp((G.nivel*0.6 + G.clubStr*0.4), 40, 99);
+    const vallas   = clamp(Math.round(pj * (0.10 + (fuerza-58)/150) * (0.8+Math.random()*0.5)), 0, pj);
+    const golesRec = clamp(Math.round(pj * (1.55 - (fuerza-58)/70) * (0.8+Math.random()*0.5)), 0, pj*4);
+    const atajadas = clamp(Math.round(pj * (2.2 + (G.nivel-58)/40) * (0.85+Math.random()*0.4)), 0, pj*9);
+    porStats = { vallas, golesRec, atajadas };
+    G.totPor = G.totPor || { vallas:0, golesRec:0, atajadas:0, pj:0 };
+    G.totPor.vallas += vallas; G.totPor.golesRec += golesRec; G.totPor.atajadas += atajadas; G.totPor.pj += pj;
+    // Rendimiento del arquero: muchas vallas y pocos goles recibidos = temporadón.
+    rend = clamp((vallas/pj)*1.6 + (1 - golesRec/(pj*1.6))*0.6, 0, 1.3);
+  } else {
+    rend = (g+a)/pj;                          // rendimiento 0..~1.3
+  }
   // ── Nivel: CURVA por edad (sube joven, se estanca, baja de grande) + rendimiento ──
   let dN;
   if(G.edad<=20) dN=ri(2,5); else if(G.edad<=24) dN=ri(1,4); else if(G.edad<=28) dN=ri(0,2);
@@ -4121,11 +4146,11 @@ window._carreraTemporada = function(){
   // Se resuelve con una decisión tuya que puede darte el título o hundirte. Como
   // requiere input del usuario, se pausa acá y la temporada sigue en _finTemporada.
   if (pos === 2 && Math.random() < 0.75) {
-    G._pend = { pj, g, a, dN, rend, totalEq, porque };
+    G._pend = { pj, g, a, dN, rend, totalEq, porque, porStats };
     window._carreraMomentoClave();
     return;
   }
-  return _finTemporada({ pj, g, a, dN, rend, pos, totalEq, momento:null, porque });
+  return _finTemporada({ pj, g, a, dN, rend, pos, totalEq, momento:null, porque, porStats });
 };
 // ── MOMENTO CLAVE (definición del campeonato) ────────────────────────────────
 const MOMENTOS = [
@@ -4183,7 +4208,7 @@ window._momentoElegir = function(i){
 window._momentoSeguir = function(pos){
   const p = G._pend; const mm = G._momento;
   G._pend = null; G._momento = null;
-  _finTemporada({ pj:p.pj, g:p.g, a:p.a, dN:p.dN, rend:p.rend, pos, totalEq:p.totalEq, momento:{ t:mm.t, exito: pos===1 }, porque:p.porque });
+  _finTemporada({ pj:p.pj, g:p.g, a:p.a, dN:p.dN, rend:p.rend, pos, totalEq:p.totalEq, momento:{ t:mm.t, exito: pos===1 }, porque:p.porque, porStats:p.porStats });
 };
 // ── FIN DE TEMPORADA (títulos, premios, ascensos, valor, timeline, rival) ─────
 // (al cerrar el año se revisa si ya superaste al ancestro del legado)
@@ -4478,7 +4503,7 @@ function _finTemporada(ctx){
   // resumen la muestre junto al resto de lo que pasó en el año.
   const eco = resolverEco();
   const _verResumen = function(){
-    resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,titulos:titulosGanados,premios:premiosAnio,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa,duelo,momento,bal,inv,prensa,eco,porque:ctx.porque});
+    resumenTemporada({pj,g,a,dN,pos,totalEq,titulo,titulos:titulosGanados,premios:premiosAnio,clasif:clasifText,move:G.moveLiga,interCopa,interLiteCopa,duelo,momento,bal,inv,prensa,eco,porque:ctx.porque,porStats:ctx.porStats});
   };
   // El cartel de transición da expectativa a una temporada MÁS... pero NO cuando
   // acabás de salir campeón o de jugar una final: ahí el momento es levantar la
@@ -4565,18 +4590,45 @@ function resumenTemporada(r){
     </div>
     ${r.porque ? (function(P){
       const dirAporte = P.aporte > 0.4 ? 'empujó al equipo para arriba' : P.aporte < -0.4 ? 'no alcanzó para sostenerlo' : 'no cambió demasiado el rumbo';
-      const rendTxt = P.rend >= 0.6 ? 'un temporadón tuyo' : P.rend >= 0.35 ? 'una temporada correcta tuya' : 'una temporada floja tuya';
+      // El arquero se cuenta por atajadas y vallas invictas, no por goles+asist.
+      const rendTxt = r.porStats
+        ? (P.rend >= 0.6 ? ('un temporadón bajo los palos (' + r.porStats.vallas + ' vallas invictas)')
+            : P.rend >= 0.35 ? ('una temporada correcta en el arco (' + r.porStats.vallas + ' vallas invictas)')
+            : ('una temporada floja en el arco (' + r.porStats.golesRec + ' goles recibidos)'))
+        : (P.rend >= 0.6 ? 'un temporadón tuyo' : P.rend >= 0.35 ? 'una temporada correcta tuya' : 'una temporada floja tuya')
+          + ' (' + P.rend + ' goles+asist. por partido)';
       const azar = P.suerte <= -0.6 ? ' Y el año te acompañó.' : P.suerte >= 1.2 ? ' Y encima se complicó más de la cuenta.' : '';
       return `<div style="background:rgba(255,255,255,.03);border:1px solid #232a20;border-radius:14px;padding:13px 15px;margin-bottom:12px;">
         <div style="font-size:9px;font-weight:900;letter-spacing:1.6px;color:#8b9480;margin-bottom:8px;">POR QUÉ TERMINASTE ${posLabel(r.pos)}</div>
         <div style="font-size:12.5px;color:#c8d0be;line-height:1.7;">
           Por su <b style="color:#fff;">plantel</b> (fuerza ${P.clubStr}), ${esc(G.club)} peleaba cerca del <b style="color:#fff;">${P.esperado}º</b>.
-          Tu nivel <b style="color:${A};">${P.nivel}</b> y ${rendTxt} (${P.rend} goles+asist. por partido) ${dirAporte}${P.marcado?', pero jugaste poco por estar marcado':''}.${azar}
+          Tu nivel <b style="color:${A};">${P.nivel}</b> y ${rendTxt} ${dirAporte}${P.marcado?', pero jugaste poco por estar marcado':''}.${azar}
         </div>
       </div>`;
     })(r.porque) : ''}
+    ${(function(){
+      // EFECTO MARIPOSA VISIBLE: lo que arrastrás de decisiones pasadas y te sigue
+      // pesando hoy. Que se vea que lo que elegiste tiene consecuencias reales.
+      const F = G.flags || {}; const arr = [];
+      if (F.marcado) arr.push(['bx-user-x','#ef4444','Pediste salir / no renovaste: el técnico te da pocos minutos.']);
+      if (F.traidor) arr.push(['bx-run','#ef4444','Te fuiste al clásico rival: los hinchas no te lo perdonan.']);
+      if (F.escandaloTurbio) arr.push(['bx-error','#f59e0b','Quedó picando lo del negocio turbio.']);
+      if (F.dopado) arr.push(['bx-capsule','#f59e0b','Lo de las "vitaminas" del club puede explotar cualquier día.']);
+      if (F.ludopata) arr.push(['bx-dice-5','#f59e0b','La app de apuestas te sigue tentando.']);
+      if (F.embargo) arr.push(['bx-lock','#ef4444','Te embargan parte del sueldo por las deudas.']);
+      else if (F.endeudado || F.enRojo) arr.push(['bx-wallet','#f59e0b','Arrastrás deudas: cuidá la plata.']);
+      if (F.barreraIdioma) arr.push(['bx-message-error','#f59e0b','No manejás el idioma del país: te cuesta jugar.']);
+      if (F.sinEstudios) arr.push(['bx-book','#8b9480','Dejaste el estudio: menos red si el fútbol no sale.']);
+      if (!arr.length) return '';
+      return `<div style="background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.22);border-radius:14px;padding:11px 13px;margin-bottom:12px;">
+        <div style="font-size:9px;font-weight:900;letter-spacing:1.6px;color:#f8a4a4;margin-bottom:8px;"><i class='bx bx-been-here'></i> LO QUE ARRASTRÁS DE TUS DECISIONES</div>
+        ${arr.slice(0,4).map(x=>`<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;font-size:11.5px;color:#d7d2c4;line-height:1.45;"><i class='bx ${x[0]}' style="font-size:15px;color:${x[1]};flex-shrink:0;margin-top:1px;"></i><span>${esc(x[2])}</span></div>`).join('')}
+      </div>`;
+    })()}
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">
-      ${st('PJ',r.pj)}${st('GOLES',r.g)}${st('ASIST',r.a)}${st('NIVEL',(r.dN>=0?'+':'')+r.dN)}
+      ${r.porStats
+        ? `${st('PJ',r.pj)}${st('ATAJADAS',r.porStats.atajadas)}${st('VALLA 0',r.porStats.vallas)}${st('G. RECIB.',r.porStats.golesRec)}`
+        : `${st('PJ',r.pj)}${st('GOLES',r.g)}${st('ASIST',r.a)}${st('NIVEL',(r.dN>=0?'+':'')+r.dN)}`}
     </div>
     <!-- VITRINA DE LA TEMPORADA. Antes era una tira horizontal con scroll: los
          trofeos que no entraban quedaban escondidos y los nombres largos se
