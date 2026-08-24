@@ -589,8 +589,10 @@ function montarSalida(){
   if (!document.getElementById('carrera-sim')){
     const s = document.createElement('button');
     s.id = 'carrera-sim'; s.type = 'button'; s.title = 'Simular automáticamente';
-    s.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + '+(_topOff+34)+'px);right:14px;height:26px;padding:0 10px;border-radius:13px;background:rgba(167,139,250,.14);backdrop-filter:blur(6px);border:1px solid #a78bfa55;color:#c4b5fd;font-size:10px;font-weight:900;letter-spacing:.6px;line-height:1;display:flex;align-items:center;gap:5px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);';
-    s.innerHTML = "<i class='bx bx-fast-forward' style=\"font-size:13px;\"></i>SIMULAR";
+    // CHICO y redondo, sólo el ícono: justo DEBAJO del SALIR, alineado a la
+    // derecha. Ocupa mínimo y no tapa nada.
+    s.style.cssText = 'position:fixed;z-index:100070;top:calc(env(safe-area-inset-top, 0px) + '+(_topOff+34)+'px);right:20px;width:26px;height:26px;padding:0;border-radius:50%;background:rgba(167,139,250,.16);backdrop-filter:blur(6px);border:1px solid #a78bfa55;color:#c4b5fd;line-height:0;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);';
+    s.innerHTML = "<i class='bx bx-fast-forward' style=\"font-size:15px;\"></i>";
     s.onclick = function(){ try { window._lyAuto(true); } catch(e){} };
     document.body.appendChild(s);
   }
@@ -11651,14 +11653,21 @@ function vjObjSVG(tipo, escala, extra){
         +R(8,28,74,3,'#2e2038')
         +R(9,31,5,15,'#241a2e')+R(76,31,5,15,'#241a2e')
         +R(8,46,74,2,'rgba(0,0,0,.35)'));
-    case 'tele':   return wrap(60,46,
-        R(6,0,48,34,'#0a0d12')+R(9,3,42,28,'#14361f')                       // marco y cancha
-        +R(9,3,42,2,'#1e5c31')+R(9,16,42,1,'#cfe6d4')                        // linea del medio
-        +R(29,10,1,14,'#cfe6d4')+R(9,10,4,14,'#cfe6d4')+R(47,10,4,14,'#cfe6d4') // arcos
-        +R(18,12,3,4,'#e84a4a')+R(24,20,3,4,'#e84a4a')+R(36,14,3,4,'#f0f0f0') // jugadores
-        +R(30,17,2,2,'#ffffff')                                              // pelota
-        +R(9,27,16,4,'#0a0d12')+R(11,28,12,2,'#f5c542')                      // zocalo de resultado
-        +R(26,34,8,8,'#2a2a2a')+R(14,42,32,4,'#3a3a3a'));
+    case 'tele':   return wrap(66,58,
+        // MUEBLE/rack sobre el que se APOYA la tele (antes la tele quedaba parada
+        // en el piso sobre una patita y parecía tirada en el suelo).
+        R(4,40,58,18,'#3a2a1c')+R(2,38,62,4,'#553f28')                       // rack + tapa
+        +R(10,44,20,10,'#241a12')+R(36,44,20,10,'#241a12')                   // puertitas
+        +R(18,48,4,2,'#8a6b45')+R(44,48,4,2,'#8a6b45')                       // tiradores
+        +R(4,56,6,2,'#1a120b')+R(56,56,6,2,'#1a120b')                        // patas
+        // La tele, apoyada ENCIMA del mueble.
+        +R(9,2,48,34,'#0a0d12')+R(12,5,42,28,'#14361f')                      // marco y cancha
+        +R(12,5,42,2,'#1e5c31')+R(12,18,42,1,'#cfe6d4')                      // línea del medio
+        +R(32,12,1,14,'#cfe6d4')+R(12,12,4,14,'#cfe6d4')+R(50,12,4,14,'#cfe6d4') // arcos
+        +R(21,14,3,4,'#e84a4a')+R(27,22,3,4,'#e84a4a')+R(39,16,3,4,'#f0f0f0') // jugadores
+        +R(33,19,2,2,'#ffffff')                                              // pelota
+        +R(12,29,16,4,'#0a0d12')+R(14,30,12,2,'#f5c542')                     // zócalo de resultado
+        +R(28,36,10,4,'#1a1a1a'));                                            // apoyo de la tele
     case 'kiosco': return wrap(70,52, R(0,8,70,44,'#20303f')+R(0,0,70,10,'#2e4557')+R(8,20,24,20,'#f5a524')+R(38,20,24,20,'#4fc3f7')+R(0,48,70,4,'#16222d'));
     case 'trabajo':return wrap(64,50, R(0,26,64,24,'#2a2118')+R(0,22,64,5,'#443521')+R(8,4,30,20,'#0d1620')+R(11,7,24,14,'#2a6ba8')+R(44,10,14,14,'#d4af37'));
     case 'descanso':return wrap(46,52, R(6,10,34,42,'#2f3a2a')+R(10,14,26,10,'#4a5a40')+R(18,26,10,20,'#8fae74')+R(0,48,46,4,'#1b2117'));
