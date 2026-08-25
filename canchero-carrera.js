@@ -3666,8 +3666,10 @@ window._lyFinalJugar = function(modo){
     // Si la final la disparó el cierre de temporada, el título lo pone el
     // resumen: acá sólo se muestra el resultado, para no contarlo dos veces.
     if (cfg.sinTitulo){
-      setTimeout(()=>{ try { window._lyResultadoFinal(gano, cfg.titulo, cfg.rival,
-        ()=>{ try { (gano ? cfg.onGana : cfg.onPierde)(); } catch(e){} }); } catch(e){} }, 120);
+      // SIN demora: si esperábamos 120ms, al cerrarse el truco se veía por un
+      // instante la pantalla anterior ("agarrá las cartas") antes del resultado.
+      try { window._lyResultadoFinal(gano, cfg.titulo, cfg.rival,
+        ()=>{ try { (gano ? cfg.onGana : cfg.onPierde)(); } catch(e){} }); } catch(e){}
       return;
     }
     // GANAR SUMA EL TITULO. Antes la final se resolvia y el trofeo dependia de
@@ -3681,8 +3683,9 @@ window._lyFinalJugar = function(modo){
       save();
     }
     try { (gano ? cfg.onGana : cfg.onPierde)(); } catch(e){}
-    // Y se dice de que saliste campeon, o que se escapo.
-    setTimeout(()=>{ try { window._lyResultadoFinal(gano, cfg.titulo, cfg.rival); } catch(e){} }, 120);
+    // Y se dice de que saliste campeon, o que se escapo — sin demora, para que al
+    // cerrarse el truco no se vea la pantalla anterior por un instante.
+    try { window._lyResultadoFinal(gano, cfg.titulo, cfg.rival); } catch(e){}
   };
   if (modo === 'simular'){ cerrar(Math.random() < (cfg.chance != null ? cfg.chance : 0.5)); return; }
   if (modo === 'truco' && window._trucoAbrir){
@@ -10908,9 +10911,16 @@ window._dtMercado = function(){
 };
 window._dtMercadoSalir = function(){
   const g = dtMercadoEstado();
+  // Antes, si vendías un titular y no podías reemplazarlo, quedabas TRABADO sin
+  // poder salir. Ahora se puede salir igual: el equipo juega con el hueco y eso se
+  // paga (menos fuerza y vestuario), pero la carrera nunca se clava.
   if (g && g._huecos.length){
-    vjFlash('Primero tapá el hueco: te falta ' + g._huecos.length + ' jugador' + (g._huecos.length===1?'':'es') + '.');
-    return;
+    const n = g._huecos.length;
+    g.str = clamp(Math.round((g.str||58) - n*4), 30, 95);
+    const s = G.vidaStats || {}; s.plantel = clamp((s.plantel||50) - n*6, 0, 100);
+    g._huecos = [];
+    save();
+    try { vjFlash('Te quedaste con ' + n + ' hueco' + (n===1?'':'s') + ' sin cubrir. El equipo lo va a sufrir, pero seguís.'); } catch(e){}
   }
   if (G && G._dtAno) window._dtResumen(); else window._dtHub();
 };
@@ -12203,21 +12213,10 @@ function mundoRender(){
 // que pasar. No hace falta caminar ni apuntarle a nada.
 window._vjAccion = function(i){
   const h = (VJ.hotspots || [])[i]; if(!h) return;
-  // La opción viene AL PERSONAJE: se resuelve en el acto, sin que el muñeco tenga
-  // que caminar hasta el otro lado de la escena. Si es una persona, se la trae al
-  // lado del jugador con un pasito rápido y ahí se abre la charla; una cosa
-  // (tele, cama, espejo) se resuelve directo. En la pantalla de diálogo igual se
-  // ve a los dos juntos, así que nunca hace falta que el jugador se cruce la escena.
-  if (h.bloqueado || h.accion === 'nada'){ VJ.hot = h; vjInteractuar(); return; }
-  if (h.tipo === 'npc'){
-    // Trae al NPC junto al jugador (a un pasito) para que se note que vino él.
-    const destino = clamp(VJ.x + (h.x >= VJ.x ? 40 : -40), 30, vjEscena().ancho - 30);
-    const el = document.getElementById('vj-hs-' + i);
-    if (el){ el.style.transition = 'transform .35s ease'; el.style.transform = 'translateX(-50%) translateX(' + Math.round(destino - h.x) + 'px)'; }
-    VJ.hot = h;
-    setTimeout(()=>{ try { vjInteractuar(); } catch(e){} }, el ? 360 : 0);
-    return;
-  }
+  // La opción se resuelve EN EL ACTO: nunca hace falta que el muñeco camine hasta
+  // el otro lado. La pantalla de diálogo ya muestra a los dos juntos. (Antes se
+  // deslizaba el sprite del NPC con un transform y quedaba flotando / detrás del
+  // jugador si el toque no abría un modal — se sacó ese efecto.)
   VJ.hot = h; vjInteractuar();
 };
 window._vjIr = function(escena){
